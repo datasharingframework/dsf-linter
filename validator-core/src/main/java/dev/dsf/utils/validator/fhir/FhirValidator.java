@@ -1,6 +1,7 @@
 package dev.dsf.utils.validator.fhir;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -13,196 +14,467 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * FhirValidator provides static methods to validate FHIR resources such as
- * ActivityDefinitions and StructureDefinitions by parsing the XML content.
+ * FhirValidator provides static methods to validate and extract relevant values from
+ * FHIR resources such as ActivityDefinition and StructureDefinition.
+ *
  * <p>
- * It checks if a given message name (or profile) exists as a FHIR ActivityDefinition
- * or StructureDefinition by scanning the corresponding directories in the project.
- * The matching is performed by parsing the XML content and using XPath expressions.
+ * References:
+ * <ul>
+ *   <li>HL7 FHIR Standard: <a href="https://www.hl7.org/fhir/">https://www.hl7.org/fhir/</a></li>
+ *   <li>HL7 FHIR StructureDefinition:
+ *       <a href="https://www.hl7.org/fhir/structuredefinition.html">
+ *           https://www.hl7.org/fhir/structuredefinition.html
+ *       </a>
+ *   </li>
+ * </ul>
  * </p>
  */
-public class FhirValidator {
+public class FhirValidator
+{
     private static final String ACTIVITY_DEFINITION_DIR = "src/main/resources/fhir/ActivityDefinition";
     private static final String STRUCTURE_DEFINITION_DIR = "src/main/resources/fhir/StructureDefinition";
 
     /**
-     * Checks whether an ActivityDefinition exists (by content!) for the given message name.
+     * Checks if an ActivityDefinition resource matching the given message name exists.
+     * <p>
+     * This method searches the {@code ACTIVITY_DEFINITION_DIR} directory under the specified
+     * {@code projectRoot} for any XML file that contains the desired message name within
+     * a recognized FHIR {@code ActivityDefinition} structure.
+     * </p>
      *
-     * @param messageName the message name to check
-     * @param projectRoot the project root directory
-     * @return true if the content of at least one ActivityDefinition file references this message name
+     * @param messageName the message name to search for
+     * @param projectRoot the project root directory (containing the FHIR resources)
+     * @return {@code true} if an ActivityDefinition with the given message name is found;
+     *         {@code false} otherwise
      */
-    public static boolean activityDefinitionExists(String messageName, File projectRoot) {
-        System.out.println("♫ DEBUG: Checking ActivityDefinition for messageName: " + messageName);
-        boolean result = isDefinitionByContent(messageName, projectRoot, ACTIVITY_DEFINITION_DIR, true);
-        System.out.println("♫ DEBUG: ActivityDefinition exists for '" + messageName + "': " + result);
-        return result;
+    public static boolean activityDefinitionExists(String messageName, File projectRoot)
+    {
+        return isDefinitionByContent(messageName, projectRoot, ACTIVITY_DEFINITION_DIR, true);
     }
 
     /**
-     * Checks whether a StructureDefinition exists (by content!) for the given profile value.
+     * Checks if a StructureDefinition resource matching the given profile value exists.
+     * <p>
+     * This method first removes any version suffix (e.g., removing the "|1.0" part),
+     * then searches the {@code STRUCTURE_DEFINITION_DIR} directory under the specified
+     * {@code projectRoot} for any XML file that contains the specified profile value
+     * within a recognized FHIR {@code StructureDefinition} structure.
+     * </p>
      *
-     * @param profileValue the profile value to check
-     * @param projectRoot  the project root directory
-     * @return true if the content of at least one StructureDefinition file references this profile
+     * @param profileValue the canonical or profile reference string (which may contain a version suffix)
+     * @param projectRoot  the project root directory (containing the FHIR resources)
+     * @return {@code true} if a StructureDefinition with the given profile value is found;
+     *         {@code false} otherwise
      */
-    public static boolean structureDefinitionExists(String profileValue, File projectRoot) {
-        System.out.println("❁ DEBUG: Checking StructureDefinition for profileValue: " + profileValue);
-        boolean result = isDefinitionByContent(profileValue, projectRoot, STRUCTURE_DEFINITION_DIR, false);
-        System.out.println("❁ DEBUG: StructureDefinition exists for '" + profileValue + "': " + result);
-        return result;
+    public static boolean structureDefinitionExists(String profileValue, File projectRoot)
+    {
+        String baseProfile = removeVersionSuffix(profileValue);
+        return isDefinitionByContent(baseProfile, projectRoot, STRUCTURE_DEFINITION_DIR, false);
     }
 
-
     /**
-     * Searches for a definition (ActivityDefinition or StructureDefinition) by parsing the XML content of Dateien in the given directory.
+     * A helper method that checks either ActivityDefinition or StructureDefinition files
+     * to see if they contain the specified value.
+     * <p>
+     * This method traverses all .xml files in the given {@code definitionDir} (under {@code projectRoot}).
+     * If it is checking for an ActivityDefinition, it will look for the presence of the specified value
+     * in an ActivityDefinition context; otherwise, it looks in a StructureDefinition context.
+     * </p>
      *
-     * @param value               the string to search for (e.g. messageName or profile value)
+     * @param value               the value to search for (e.g., messageName, profileValue)
      * @param projectRoot         the project root directory
-     * @param definitionDir       the relative directory (ActivityDefinition or StructureDefinition)
-     * @param isActivityDefinition if true, search in ActivityDefinition files, sonst in StructureDefinition
-     * @return true if a matching definition is found, false otherwise
+     * @param definitionDir       relative directory path (ActivityDefinition or StructureDefinition)
+     * @param isActivityDefinition indicates whether we are searching for ActivityDefinition files
+     * @return {@code true} if a file is found containing the specified value; {@code false} otherwise
      */
-    private static boolean isDefinitionByContent(String value, File projectRoot, String definitionDir, boolean isActivityDefinition) {
+    private static boolean isDefinitionByContent(String value,
+                                                 File projectRoot,
+                                                 String definitionDir,
+                                                 boolean isActivityDefinition)
+    {
         File dir = new File(projectRoot, definitionDir);
-        //System.out.println("♫ DEBUG: Searching in directory: " + dir.getAbsolutePath());
-        if (!dir.exists() || !dir.isDirectory()) {
-            //System.out.println("♫ DEBUG: Directory " + dir.getAbsolutePath() + " does not exist or is not a directory.");
+        if (!dir.exists() || !dir.isDirectory())
+        {
             return false;
         }
 
-        try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            boolean found = paths
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    //.peek(p -> System.out.println("DEBUG: Checking file: " + p))
-                    .anyMatch(p -> {
-                        boolean contains = fileContainsValue(p, value, isActivityDefinition);
-                        //System.out.println("♫ DEBUG: File " + p.getFileName() + " contains value '" + value + "': " + contains);
-                        return contains;
-                    });
-            //System.out.println("♫ DEBUG: isDefinitionByContent for value '" + value + "' returned: " + found);
-            return found;
-        } catch (Exception e) {
-            //System.err.println("♫ DEBUG: Exception in isDefinitionByContent: " + e.getMessage());
-            e.printStackTrace();
+                    .collect(Collectors.toList());
+
+            return xmlFiles.stream().anyMatch(p -> fileContainsValue(p, value, isActivityDefinition));
+        }
+        catch (Exception e)
+        {
             return false;
         }
     }
 
     /**
-     * Parses the XML content of a single file and checks if it references the given value.
+     * Determines if a particular XML file (either an ActivityDefinition or a StructureDefinition)
+     * contains the specified value.
+     * <p>
+     * Depending on whether {@code isDefinition} is {@code true} (ActivityDefinition) or {@code false}
+     * (StructureDefinition), this method loads the file, verifies that its root element matches the
+     * expected resource type, and then delegates the actual search to either
+     * {@link #activityDefinitionContainsMessageName(Document, String)} or
+     * {@link #structureDefinitionContainsValue(Document, String)}.
+     * </p>
      *
-     * @param filePath      the path to the XML file
-     * @param value         the value to search for
-     * @param isDefinition  if true, perform ActivityDefinition check; if false, StructureDefinition check
-     * @return true if the file's content references the given value, false otherwise
+     * @param filePath       the path to the XML file
+     * @param value          the string value to look for
+     * @param isDefinition   {@code true} if searching in an ActivityDefinition, {@code false} if searching in a StructureDefinition
+     * @return {@code true} if the file contains the specified value, {@code false} otherwise
      */
-    private static boolean fileContainsValue(Path filePath, String value, boolean isDefinition) {
-        try {
-            //System.out.println("♫ DEBUG: Parsing file: " + filePath.toString());
+    private static boolean fileContainsValue(Path filePath, String value, boolean isDefinition)
+    {
+        try
+        {
             Document doc = parseXml(filePath);
-            if (doc == null) {
-                //System.out.println("♫ DEBUG: Document is null for file: " + filePath.toString());
-                return false;
-            }
+            if (doc == null) return false;
 
             String rootName = doc.getDocumentElement().getLocalName();
-            //System.out.println("♫ DEBUG: Root element of file " + filePath.getFileName() + ": " + rootName);
-            if (isDefinition && !"ActivityDefinition".equals(rootName)) {
-                //System.out.println("♫ DEBUG: Skipping file " + filePath.getFileName() + " because it is not an ActivityDefinition.");
-                return false;
-            }
-            if (!isDefinition && !"StructureDefinition".equals(rootName)) {
-                //System.out.println("♫ DEBUG: Skipping file " + filePath.getFileName() + " because it is not a StructureDefinition.");
-                return false;
-            }
+            if (isDefinition && !"ActivityDefinition".equals(rootName)) return false;
+            if (!isDefinition && !"StructureDefinition".equals(rootName)) return false;
 
-            if (isDefinition) {
-                boolean result = activityDefinitionContainsMessageName(doc, value);
-                //System.out.println("♫ DEBUG: activityDefinitionContainsMessageName for '" + value + "' in file " + filePath.getFileName() + ": " + result);
-                return result;
-            } else {
-                boolean result = structureDefinitionContainsValue(doc, value);
-                //System.out.println("♫ DEBUG: structureDefinitionContainsValue for '" + value + "' in file " + filePath.getFileName() + ": " + result);
-                return result;
-            }
-        } catch (Exception ex) {
-            //System.err.println("♫ DEBUG: Error parsing file " + filePath + ": " + ex.getMessage());
-            ex.printStackTrace();
+            // Use the existing method to search either the ActivityDefinition or the StructureDefinition:
+            if (isDefinition)
+                return activityDefinitionContainsMessageName(doc, value);
+            else
+                return structureDefinitionContainsValue(doc, value);
+        }
+        catch (Exception ex)
+        {
             return false;
         }
     }
 
     /**
-     * Parses the XML file into a DOM Document.
+     * Parses an XML file at the given {@code filePath} into a {@link Document} object.
+     * <p>
+     * This method is namespace-aware and uses a {@link DocumentBuilder} to load and parse
+     * the XML content. If an error occurs (e.g., file not found, parse error), it throws an exception.
+     * </p>
      *
      * @param filePath the path to the XML file
-     * @return the parsed Document
-     * @throws Exception if parsing fails
+     * @return a {@link Document} representing the parsed XML, or {@code null} if an error occurs
+     * @throws Exception if there is an I/O or parsing error
      */
-    private static Document parseXml(Path filePath) throws Exception {
-        //System.out.println("♫ DEBUG: Parsing XML file: " + filePath.toString());
-        try (FileInputStream fis = new FileInputStream(filePath.toFile())) {
+    private static Document parseXml(Path filePath) throws Exception
+    {
+        try (FileInputStream fis = new FileInputStream(filePath.toFile()))
+        {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
             DocumentBuilder db = dbf.newDocumentBuilder();
-            Document doc = db.parse(fis);
-            //System.out.println("♫ DEBUG: Successfully parsed XML file: " + filePath.getFileName());
-            return doc;
+            return db.parse(fis);
         }
     }
 
     /**
-     * Checks if an ActivityDefinition has an extension with url="message-name" that matches the given value.
+     * Extract all message values from all StructureDefinition XML files.
+     * <p>
+     * Specifically, it searches for elements:
+     * <pre>{@code
+     *   <element id="Task.input:message-name.value[x]">
+     *       <fixedString value="someMessageValue" />
+     *   </element>
+     * }</pre>
+     * and collects the <code>value</code> attributes of any such <code>fixedString</code>.
+     * </p>
      *
-     * @param doc         the parsed XML Document
+     * @param projectRoot the project root directory
+     * @return a {@link Set} of all distinct messageName values found (e.g., {"pong", "ping", ...})
+     */
+    public static Set<String> getAllMessageValuesFromStructureDefinitions(File projectRoot)
+    {
+        Set<String> messageValues = new HashSet<>();
+
+        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
+        if (!dir.exists() || !dir.isDirectory())
+            return messageValues;
+
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .collect(Collectors.toList());
+
+            for (Path xml : xmlFiles)
+            {
+                Document doc = parseXml(xml);
+                if (doc != null)
+                {
+                    // XPath: find all <element id="Task.input:message-name.value[x]">
+                    // then <fixedString value="XYZ"/>
+                    String xpathExpr = "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
+                            "/*[local-name()='fixedString']/@value";
+
+                    NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                            .compile(xpathExpr)
+                            .evaluate(doc, XPathConstants.NODESET);
+
+                    for (int i = 0; i < nodes.getLength(); i++)
+                    {
+                        String val = nodes.item(i).getTextContent();
+                        if (val != null && !val.isBlank())
+                        {
+                            messageValues.add(val.trim());
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // handle/log exception if needed
+        }
+        return messageValues;
+    }
+
+    /**
+     * Checks if any ActivityDefinition in the project contains an extension with the given message name.
+     * <p>
+     * This method walks through all XML files under the ACTIVITY_DEFINITION_DIR, parses files that represent an ActivityDefinition,
+     * extracts all <extension url="message-name">/<valueString> elements (by retrieving their "value" attribute),
+     * collects these message names, and finally checks if the provided message is among them.
+     *
+     * @param message     The message name to search for.
+     * @param projectRoot The root folder of the project.
+     * @return {@code true} if the message exists in at least one ActivityDefinition, {@code false} otherwise.
+     */
+    public static boolean activityDefinitionHasMessageName(String message, File projectRoot) {
+        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+
+        // List to collect all message names found in the ActivityDefinition files.
+        List<String> foundMessageNames = new ArrayList<>();
+        try (Stream<Path> paths = Files.walk(dir.toPath())) {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .collect(Collectors.toList());
+
+            for (Path xml : xmlFiles) {
+                Document doc = parseXml(xml);
+                if (doc == null) {
+                    continue;
+                }
+
+                // Must be an ActivityDefinition
+                String rootName = doc.getDocumentElement().getLocalName();
+                if (!"ActivityDefinition".equals(rootName)) {
+                    continue;
+                }
+
+                // Check if there's an <extension url="message-name"><valueString value="message"/>
+                String xpathExpr = "//*[local-name()='extension' and @url='message-name']" +
+                        "/*[local-name()='valueString' and @value='" + message + "']";
+                NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                        .compile(xpathExpr)
+                        .evaluate(doc, XPathConstants.NODESET);
+
+                if (nodes != null && nodes.getLength() > 0) {
+                    for (int i = 0; i < nodes.getLength(); i++) {
+                        Node node = nodes.item(i);
+                        if (node.getAttributes() != null) {
+                            Node valueAttr = node.getAttributes().getNamedItem("value");
+                            if (valueAttr != null) {
+                                foundMessageNames.add(valueAttr.getNodeValue());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        // Return true if the provided message exists in the collected message names.
+        return foundMessageNames.contains(message);
+    }
+
+    /**
+     * Checks if the given {@link Document}, presumed to be an ActivityDefinition,
+     * contains the specified message name in an "extension" element with
+     * {@code url="message-name"}.
+     *
+     * @param doc         the XML {@link Document} of the ActivityDefinition
      * @param messageName the message name to search for
-     * @return true if the messageName is found, false otherwise
-     * @throws XPathExpressionException if XPath evaluation fails
+     * @return {@code true} if found, {@code false} otherwise
+     * @throws XPathExpressionException if the XPath evaluation fails
      */
     private static boolean activityDefinitionContainsMessageName(Document doc, String messageName)
-            throws XPathExpressionException {
-        String xpathExpr = "//*[local-name()='extension' and @url='message-name']/*[local-name()='valueString' and @value='" + messageName + "']";
-        //System.out.println("♫ DEBUG: Evaluating XPath for ActivityDefinition: " + xpathExpr);
-        boolean exists = evaluateXPathExists(doc, xpathExpr);
-        //System.out.println("♫ DEBUG: XPath evaluation result for ActivityDefinition: " + exists);
-        return exists;
+            throws XPathExpressionException
+    {
+        // Minimal fallback check
+        String xpathExpr = "//*[local-name()='extension' and @url='message-name']" +
+                "/*[(local-name()='valueString' or local-name()='fixedString') and @value='" + messageName + "']";
+        return evaluateXPathExists(doc, xpathExpr);
     }
 
     /**
-     * Checks if a StructureDefinition contains a fixedString or valueString element with the given value.
+     * Checks whether the given {@link Document}, presumed to be a StructureDefinition,
+     * contains the specified string value in a URL element or a fixed/value string element.
      *
-     * @param doc the parsed XML Document
-     * @param val the value to search for
-     * @return true if the value is found, false otherwise
-     * @throws XPathExpressionException if XPath evaluation fails
+     * @param doc the XML {@link Document} of the StructureDefinition
+     * @param val the string value to search for
+     * @return {@code true} if found, {@code false} otherwise
+     * @throws XPathExpressionException if the XPath evaluation fails
      */
     private static boolean structureDefinitionContainsValue(Document doc, String val)
-            throws XPathExpressionException {
-        String xpathExpr = "//*[local-name()='fixedString' or local-name()='valueString'][@value='" + val + "']";
-        //System.out.println("♫ DEBUG: Evaluating XPath for StructureDefinition: " + xpathExpr);
-        boolean exists = evaluateXPathExists(doc, xpathExpr);
-        //System.out.println("♫ DEBUG: XPath evaluation result for StructureDefinition: " + exists);
-        return exists;
+            throws XPathExpressionException
+    {
+        // Minimal fallback check
+        String xpathExpr = "//*[local-name()='url'][@value='" + val + "'] | " +
+                "//*[local-name()='fixedString' or local-name()='valueString'][@value='" + val + "']";
+        return evaluateXPathExists(doc, xpathExpr);
     }
 
     /**
-     * Evaluates the given XPath expression on the Document and returns true if at least one node is found.
+     * Evaluates the provided XPath expression on the given {@link Document} and checks
+     * whether any nodes match.
      *
-     * @param doc       the XML Document
-     * @param xpathExpr the XPath expression to evaluate
-     * @return true if the expression matches one or more nodes, false otherwise
-     * @throws XPathExpressionException if XPath evaluation fails
+     * @param doc       the {@link Document} to evaluate against
+     * @param xpathExpr the XPath expression to execute
+     * @return {@code true} if the XPath finds one or more nodes, {@code false} otherwise
+     * @throws XPathExpressionException if the XPath expression is invalid or the evaluation fails
      */
-    private static boolean evaluateXPathExists(Document doc, String xpathExpr) throws XPathExpressionException {
+    private static boolean evaluateXPathExists(Document doc, String xpathExpr) throws XPathExpressionException
+    {
         XPathExpression expr = XPathFactory.newInstance().newXPath().compile(xpathExpr);
         NodeList nodes = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
-        int count = (nodes != null ? nodes.getLength() : 0);
-        //System.out.println("♫ DEBUG: XPath found " + count + " nodes for expression: " + xpathExpr);
-        return (count > 0);
+        return (nodes != null && nodes.getLength() > 0);
     }
+
+    /**
+     * Removes the version suffix (e.g., "|1.0") from a given string if present.
+     * <p>
+     * This is commonly used to normalize canonical references that might include
+     * a version specifier. For example, "http://example.org|1.0" becomes "http://example.org".
+     * </p>
+     *
+     * @param value the string from which to remove the suffix
+     * @return the string without the "|..." part, or the original string if no pipe was found
+     */
+    private static String removeVersionSuffix(String value)
+    {
+        if (value == null) return null;
+        int pipeIndex = value.indexOf("|");
+        return (pipeIndex != -1) ? value.substring(0, pipeIndex) : value;
+    }
+
+    /**
+     * Checks if any StructureDefinition file under the given project root contains a fixedCanonical
+     * element (ignoring any version suffix) that matches the given canonicalValue.
+     * <p>
+     * This method removes the version suffix from the input canonicalValue and then iterates through
+     * all XML files under the STRUCTURE_DEFINITION_DIR. For each file, it extracts the fixedCanonical
+     * element value (again removing any version suffix) and compares it with the processed input.
+     *
+     * @param canonicalValue The canonical value to search for, which may include a version suffix.
+     * @param projectRoot    The root folder of the project.
+     * @return {@code true} if a matching fixedCanonical is found in any file, {@code false} otherwise.
+     */
+    public static boolean structureDefinitionHasFixedCanonical(String canonicalValue, File projectRoot) {
+        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+
+        // Remove version suffix from the input value
+        String searchValue = removeVersionSuffix(canonicalValue);
+
+        try (Stream<Path> paths = Files.walk(dir.toPath())) {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .collect(Collectors.toList());
+
+            for (Path p : xmlFiles) {
+                Document doc = parseXml(p);
+                if (doc == null) {
+                    continue;
+                }
+
+                // Use XPath to locate the <fixedCanonical> element under the <element id='Task.instantiatesCanonical'>
+                String xpathExpr = "//*[local-name()='element' and @id='Task.instantiatesCanonical']" +
+                        "/*[local-name()='fixedCanonical']";
+                NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                        .compile(xpathExpr)
+                        .evaluate(doc, XPathConstants.NODESET);
+                if (nodes != null && nodes.getLength() > 0) {
+                    for (int i = 0; i < nodes.getLength(); i++) {
+                        Node node = nodes.item(i);
+                        String xmlValue = null;
+                        if (node.getAttributes() != null) {
+                            Node valueAttr = node.getAttributes().getNamedItem("value");
+                            if (valueAttr != null) {
+                                xmlValue = valueAttr.getNodeValue();
+                            }
+                        }
+                        if (xmlValue != null) {
+                            // Remove version suffix from the XML value and compare
+                            String processedXmlValue = removeVersionSuffix(xmlValue);
+                            if (processedXmlValue.equals(searchValue)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
+    }
+
+    private static boolean activityDefinitionContainsInstantiatesCanonical(Document doc, String canonicalValue)
+            throws XPathExpressionException {
+
+        String searchValue = removeVersionSuffix(canonicalValue);
+
+        String xpathExpr = "/*[local-name()='ActivityDefinition']/*[local-name()='url' and @value='" + searchValue + "']";
+        return evaluateXPathExists(doc, xpathExpr);
+    }
+
+    private static boolean fileContainsInstantiatesCanonical(Path filePath, String canonicalValue) {
+        try {
+            Document doc = parseXml(filePath);
+            if (doc == null) return false;
+            String rootName = doc.getDocumentElement().getLocalName();
+            if (!"ActivityDefinition".equals(rootName)) return false;
+            return activityDefinitionContainsInstantiatesCanonical(doc, canonicalValue);
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    public static boolean activityDefinitionExistsForInstantiatesCanonical(String canonicalValue, File projectRoot) {
+        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+        try (Stream<Path> paths = Files.walk(dir.toPath())) {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .collect(Collectors.toList());
+            return xmlFiles.stream().anyMatch(p -> fileContainsInstantiatesCanonical(p, canonicalValue));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+
 }

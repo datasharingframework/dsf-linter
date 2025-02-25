@@ -2,31 +2,51 @@ package dev.dsf.utils.validator.item;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
-
 import java.io.File;
 
 /**
- * Validation item indicating that the implementation class exists but does NOT implement JavaDelegate.
+ * Validation item indicating that the implementation class for a service task does not implement the JavaDelegate interface.
  * Corresponds to {@link ValidationType#BPMN_SERVICE_TASK_IMPLEMENTATION_CLASS_NOT_IMPLEMENTING_JAVA_DELEGATE}.
  */
 public class BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem extends BpmnElementValidationItem
 {
+    private final String description;
     private final String className;
 
     /**
-     * Constructs a new validation item when a Service Task implementation class
-     * does not implement JavaDelegate.
+     * Constructs a new validation item for a service task where the implementation class does not implement JavaDelegate.
      *
-     * @param elementId the ID of the BPMN element (Service Task)
+     * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
-     * @param className the class name that was found but does not implement JavaDelegate
+     * @param className the implementation class name that does not implement JavaDelegate
      */
-    public BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
-            String elementId, File bpmnFile, String processId, String className)
+    public BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(String elementId, File bpmnFile, String processId, String className)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.className = className;
+        this.description = "Service task implementation class does not implement JavaDelegate: " + className;
+    }
+
+    /**
+     * Constructs a new validation item with a custom description.
+     *
+     * @param elementId   the BPMN element ID
+     * @param bpmnFile    the BPMN file being validated
+     * @param processId   the process definition ID or key
+     * @param className   the implementation class name that does not implement JavaDelegate
+     * @param description the custom validation description
+     */
+    public BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(String elementId, File bpmnFile, String processId, String className, String description)
+    {
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
+        this.className = className;
+        this.description = description;
+    }
+
+    public String getDescription()
+    {
+        return description;
     }
 
     public String getClassName()
@@ -34,7 +54,7 @@ public class BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValida
         return className;
     }
 
-    @Override
+@Override
     public String toString()
     {
         return String.format(

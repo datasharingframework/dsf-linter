@@ -5,13 +5,15 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that an Error Boundary Event is missing the error code variable.
+ * Validation item indicating that the error code variable in an Error Boundary Event is empty.
  * Corresponds to {@link ValidationType#BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY}.
  */
 public class BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem extends BpmnElementValidationItem
 {
+    private final String description;
+
     /**
-     * Constructs a new validation item for an Error Boundary Event missing an error code variable.
+     * Constructs a new validation item for an Error Boundary Event with an empty error code variable.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
@@ -20,5 +22,25 @@ public class BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem extends 
     public BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        this.description = "Error code variable is empty in Error Boundary Event";
+    }
+
+    /**
+     * Constructs a new validation item with a custom description.
+     *
+     * @param elementId   the BPMN element ID
+     * @param bpmnFile    the BPMN file being validated
+     * @param processId   the process definition ID or key
+     * @param description the custom validation description
+     */
+    public BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    {
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        this.description = description;
+    }
+
+    public String getDescription()
+    {
+        return description;
     }
 }

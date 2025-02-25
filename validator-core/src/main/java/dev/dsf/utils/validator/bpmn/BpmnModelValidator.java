@@ -9,86 +9,81 @@ import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
+import org.camunda.bpm.model.xml.instance.DomElement;
+import org.camunda.bpm.model.bpmn.instance.ExtensionElements;
+import org.camunda.bpm.model.bpmn.instance.BaseElement;
+import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
+
 
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
- * Validates a Camunda BPMN model according to a predefined set of rules.
- *
- * <p>This validator examines various BPMN elements and checks that they conform
- * to the following requirements:
- * <ul>
- *   <li><b>Service Tasks:</b> Must have a non-empty name and a valid Java class
- *       implementation (i.e., the class must exist and implement the JavaDelegate interface).</li>
- *   <li><b>Message Start Events:</b> Must have a non-empty name and a valid message definition.
- *       The message must correspond to known ActivityDefinition and StructureDefinition artifacts.</li>
- *   <li><b>Message Intermediate Throw Events and Send Tasks:</b> Validate the implementation
- *       class and field injections such as "profile", "messageName", and "instantiatesCanonical".
- *       They generate warnings or errors if required values are missing, if types are incorrect,
- *       if version placeholders are absent, or if the FHIR definitions (ActivityDefinition and
- *       StructureDefinition) do not exist.</li>
- *   <li><b>Message End Events:</b> Follow similar checks as the intermediate throw events,
- *       with additional constraints regarding asynchronous execution for specific scenarios.</li>
- *   <li><b>Message Intermediate Catch and Boundary Events:</b> Ensure that both the name and
- *       message definition are properly specified.</li>
- *   <li><b>Exclusive Gateways and Sequence Flows:</b> Verify that exclusive gateways with multiple
- *       outgoing flows have a name, and that sequence flows originating from exclusive gateways
- *       include necessary condition expressions (unless marked as the default flow).</li>
- *   <li><b>Start and End Events:</b> Require non-empty names unless the event is part of a subprocess.
- *       End events additionally check for asynchronous configuration and, when extension listeners are present,
- *       the existence of the referenced Java classes.</li>
- *   <li><b>Timer Intermediate Catch Events:</b> Check that a timer type is specified via timeDate,
- *       timeCycle, or timeDuration. If a fixed time is used, an informational message is generated;
- *       for cycle or duration timers, the absence of a version placeholder prompts a warning.</li>
- *   <li><b>Signal and Conditional Events:</b> Validate that all required fields (such as signal names or
- *       condition attributes) are provided and correctly configured.</li>
- *   <li><b>User Tasks:</b> Must have a non-empty name and an external form key that begins with
- *       "external:" and corresponds to an existing questionnaire. Task listeners are also checked
- *       to ensure that any specified Java classes exist.</li>
- *   <li><b>Error Boundary Events:</b> Ensure that error events have non-empty error names, error codes,
- *       and a defined code variable.</li>
- *   <li><b>Receive Tasks:</b> Follow similar validation as message start events for names and messages.</li>
- *   <li><b>Expanded SubProcesses and Event Based Gateways:</b> For multi-instance subprocesses, asynchronous
- *       execution is validated, and for event-based gateways, any defined extension listeners are checked
- *       for valid Java class implementations.</li>
- * </ul>
+ * <p>
+ * The {@code BpmnModelValidator} is responsible for validating Camunda BPMN models against
+ * various business logic and FHIR-related constraints. It ensures that BPMN elements
+ * such as Tasks, Events, Gateways, and others comply with specific naming, class-implementation,
+ * and FHIR resource referencing rules.
  * </p>
  *
- * <p>The validator uses a provided project root directory to locate compiled classes and dependency JARs,
- * which is necessary for verifying the existence of Java classes and ensuring they implement the required interfaces.</p>
+ * <h2>Overview of Validation Checks</h2>
+ * <ul>
+ *   <li><strong>Service Tasks</strong>: Checks non-empty name, implementation class existence,
+ *       and {@code JavaDelegate} implementation.</li>
+ *   <li><strong>Message Start/Intermediate/End Events</strong>:
+ *       Ensures non-empty names, verifies corresponding message definitions, checks
+ *       implementation class references, and validates field injections (e.g., {@code profile},
+ *       {@code messageName}, {@code instantiatesCanonical}).</li>
+ *   <li><strong>Error Boundary Events</strong>:
+ *       Splits validation into two scenarios (with or without {@code errorRef}).
+ *       Logs WARN if boundary name is empty, ERROR if error name/code is missing, and WARN
+ *       if {@code errorCodeVariable} is empty.</li>
+ *   <li><strong>Exclusive Gateways and Sequence Flows</strong>:
+ *       If an ExclusiveGateway has multiple outgoing flows, warns if the Sequence Flow has no name
+ *       and errors if no condition is present on non-default flows.</li>
+ *   <li><strong>User Tasks</strong>:
+ *       Checks that the user task name is not empty, verifies {@code formKey} format,
+ *       and ensures the external questionnaire resource is findable.</li>
+ *   <li><strong>Timer/Signal/Conditional Events</strong>:
+ *       Validates presence of expected configuration (time expressions, signal definitions,
+ *       condition expressions) and warns if certain placeholders or parameters are missing.</li>
+ *   <li><strong>SubProcesses</strong>:
+ *       If multi-instance, checks if the sub-process is configured with {@code asyncBefore}.</li>
+ *   <li><strong>Field Injections</strong>:
+ *       For BPMN elements that utilize {@code <camunda:field>} (e.g., SendTask, Message Throw/End Events),
+ *       checks:
+ *       <ul>
+ *         <li>{@code profile}: Non-empty, optional version placeholder, existence in FHIR StructureDefinition.</li>
+ *         <li>{@code messageName}: Non-empty, optional cross-check with the previously found {@code profile} string.</li>
+ *         <li>{@code instantiatesCanonical}: Non-empty, warns if missing version placeholder, checks existence in
+ *         FHIR ActivityDefinition, and cross-checks message name if found.</li>
+ *       </ul>
+ *   </li>
+ * </ul>
  *
- * <p>Validation issues are collected and returned as a list of {@code BpmnElementValidationItem} objects.
- * Each item represents a specific error or warning encountered during the validation process.</p>
+ * <p>
+ * See below for method-level JavaDocs detailing each validation rule. In addition,
+ * references are provided to official BPMN and FHIR documentation:
+ * </p>
  *
- * <p><b>Usage Example:</b></p>
- * <pre>
- *   File bpmnFile = new File("path/to/model.bpmn");
- *   BpmnModelInstance model = ...; // load the BPMN model
- *   BpmnModelValidator validator = new BpmnModelValidator();
- *   validator.setProjectRoot(new File("path/to/project/root"));
- *   List&lt;BpmnElementValidationItem&gt; issues = validator.validateModel(model, bpmnFile, "processId");
- *   // Process the list of validation issues as needed
- * </pre>
- *
- * @author Mohamad Khalil Malla
- * @version 1.0
+ * @see <a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a>
+ * @see <a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">
+ *      Camunda Extension Elements</a>
+ * @see <a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a>
+ * @see <a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a>
  */
-
 public class BpmnModelValidator
 {
-
     private File projectRoot;
 
-
     /**
-     * Sets the project root directory.
+     * Sets the project root directory used for validation, which is needed for
+     * loading compiled classes and dependencies from the file system.
      *
-     * @param projectRoot the root folder of the project
+     * @param projectRoot
+     *         the root directory of the project (e.g., containing {@code target/classes} or {@code build/classes})
      */
     public void setProjectRoot(File projectRoot)
     {
@@ -96,150 +91,191 @@ public class BpmnModelValidator
     }
 
     /**
-     * Validates the entire BPMN model and returns a list of validation issues.
+     * <p>
+     * Validates a given {@link BpmnModelInstance} against various business and
+     * FHIR-related constraints, collecting any violations in a list of
+     * {@link BpmnElementValidationItem}. Each item denotes a specific issue
+     * (e.g., empty name, missing field injection, invalid reference).
+     * </p>
      *
-     * @param model     the Camunda BPMN model instance
-     * @param bpmnFile  the BPMN file
-     * @param processId the process id (or empty string if not available)
-     * @return list of BPMN element validation items
+     * <p>
+     * The checks performed here include (but are not limited to):
+     * </p>
+     * <ul>
+     *   <li>ServiceTask: name not empty, class must exist, class must implement
+     *       {@code JavaDelegate}.</li>
+     *   <li>Message Events: checks name, message definitions, and the correctness
+     *       of field injections such as {@code profile}, {@code messageName}, and
+     *       {@code instantiatesCanonical} (including references to FHIR
+     *       StructureDefinition and ActivityDefinition).</li>
+     *   <li>Error Boundary Events: if {@code errorRef} is present, check that
+     *       error name/code is not empty; if boundary name is empty => WARN, and
+     *       {@code errorCodeVariable} missing => WARN.</li>
+     *   <li>Exclusive Gateway / Sequence Flow: if the gateway has more than one
+     *       outgoing flow, warns if a flow is unnamed, errors if no condition
+     *       on non-default flows.</li>
+     *   <li>Various other events (Timer, Signal, Conditional) each have specialized
+     *       checks for completeness and placeholder usage.</li>
+     * </ul>
+     *
+     * @param model
+     *         the BPMN model to validate
+     * @param bpmnFile
+     *         the source {@code .bpmn} file (used only for logging in the validation items)
+     * @param processId
+     *         the BPMN process identifier (also used for logging in validation items)
+     * @return a list of validation items representing all discovered issues
      */
-    public List<BpmnElementValidationItem> validateModel(BpmnModelInstance model, File bpmnFile, String processId) {
+    public List<BpmnElementValidationItem> validateModel(
+            BpmnModelInstance model,
+            File bpmnFile,
+            String processId)
+    {
         List<BpmnElementValidationItem> issues = new ArrayList<>();
         Collection<FlowElement> flowElements = model.getModelElementsByType(FlowElement.class);
 
-        for (FlowElement element : flowElements) {
-
-            if (element instanceof ServiceTask serviceTask) {
-
+        for (FlowElement element : flowElements)
+        {
+            if (element instanceof ServiceTask serviceTask)
+            {
                 validateServiceTask(serviceTask, issues, bpmnFile, processId);
-
-            } else if (element instanceof StartEvent startEvent) {
-
-                if (!startEvent.getEventDefinitions().isEmpty() &&
-                        startEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-
+            }
+            else if (element instanceof StartEvent startEvent)
+            {
+                if (!startEvent.getEventDefinitions().isEmpty()
+                        && startEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition)
+                {
                     validateMessageStartEvent(startEvent, issues, bpmnFile, processId);
-
-                } else {
-
+                }
+                else
+                {
                     validateStartEvent(startEvent, issues, bpmnFile, processId);
-
                 }
-            } else if (element instanceof IntermediateThrowEvent throwEvent) {
-
-                if (!throwEvent.getEventDefinitions().isEmpty() &&
-                        throwEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-
+            }
+            else if (element instanceof IntermediateThrowEvent throwEvent)
+            {
+                if (!throwEvent.getEventDefinitions().isEmpty()
+                        && throwEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition)
+                {
                     validateMessageIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
-
-                } else if (!throwEvent.getEventDefinitions().isEmpty() &&
-                        throwEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-
+                }
+                else if (!throwEvent.getEventDefinitions().isEmpty()
+                        && throwEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition)
+                {
                     validateSignalIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
-
                 }
-            } else if (element instanceof EndEvent endEvent) {
-
-                if (!endEvent.getEventDefinitions().isEmpty() &&
-                        endEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-
+            }
+            else if (element instanceof EndEvent endEvent)
+            {
+                if (!endEvent.getEventDefinitions().isEmpty()
+                        && endEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition)
+                {
                     validateMessageEndEvent(endEvent, issues, bpmnFile, processId);
-
-                } else if (!endEvent.getEventDefinitions().isEmpty() &&
-                        endEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-
+                }
+                else if (!endEvent.getEventDefinitions().isEmpty()
+                        && endEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition)
+                {
                     validateSignalEndEvent(endEvent, issues, bpmnFile, processId);
-
-                } else {
-
+                }
+                else
+                {
                     validateEndEvent(endEvent, issues, bpmnFile, processId);
-
                 }
-            } else if (element instanceof IntermediateCatchEvent catchEvent) {
-
-                if (!catchEvent.getEventDefinitions().isEmpty() &&
-                        catchEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-
+            }
+            else if (element instanceof IntermediateCatchEvent catchEvent)
+            {
+                if (!catchEvent.getEventDefinitions().isEmpty()
+                        && catchEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition)
+                {
                     validateMessageIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
-
-                } else if (!catchEvent.getEventDefinitions().isEmpty() &&
-                        catchEvent.getEventDefinitions().iterator().next() instanceof TimerEventDefinition) {
-
-                    validateTimerIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
-
-                } else if (!catchEvent.getEventDefinitions().isEmpty() &&
-                        catchEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-
-                    validateSignalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
-
-                } else if (!catchEvent.getEventDefinitions().isEmpty() &&
-                        catchEvent.getEventDefinitions().iterator().next() instanceof ConditionalEventDefinition) {
-
-                    validateConditionalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
-
                 }
-            } else if (element instanceof BoundaryEvent boundaryEvent) {
-
-                if (!boundaryEvent.getEventDefinitions().isEmpty()) {
-
-                    if (boundaryEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-
+                else if (!catchEvent.getEventDefinitions().isEmpty()
+                        && catchEvent.getEventDefinitions().iterator().next() instanceof TimerEventDefinition)
+                {
+                    validateTimerIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+                }
+                else if (!catchEvent.getEventDefinitions().isEmpty()
+                        && catchEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition)
+                {
+                    validateSignalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+                }
+                else if (!catchEvent.getEventDefinitions().isEmpty()
+                        && catchEvent.getEventDefinitions().iterator().next() instanceof ConditionalEventDefinition)
+                {
+                    validateConditionalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+                }
+            }
+            else if (element instanceof BoundaryEvent boundaryEvent)
+            {
+                if (!boundaryEvent.getEventDefinitions().isEmpty())
+                {
+                    if (boundaryEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition)
+                    {
                         validateMessageBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
-
-                    } else if (boundaryEvent.getEventDefinitions().iterator().next() instanceof ErrorEventDefinition) {
-
+                    }
+                    else if (boundaryEvent.getEventDefinitions().iterator().next() instanceof ErrorEventDefinition)
+                    {
                         validateErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
                     }
                 }
-            } else if (element instanceof ExclusiveGateway exclusiveGateway) {
-
+            }
+            else if (element instanceof ExclusiveGateway exclusiveGateway)
+            {
                 validateExclusiveGateway(exclusiveGateway, issues, bpmnFile, processId);
-
-            } else if (element instanceof SequenceFlow sequenceFlow) {
-
+            }
+            else if (element instanceof SequenceFlow sequenceFlow)
+            {
                 validateSequenceFlow(sequenceFlow, issues, bpmnFile, processId);
-
-            } else if (element instanceof UserTask userTask) {
-
+            }
+            else if (element instanceof UserTask userTask)
+            {
                 validateUserTask(userTask, issues, bpmnFile, processId);
-
-            } else if (element instanceof SendTask sendTask) {
-
+            }
+            else if (element instanceof SendTask sendTask)
+            {
                 validateSendTask(sendTask, issues, bpmnFile, processId);
-
-            } else if (element instanceof ReceiveTask receiveTask) {
-
+            }
+            else if (element instanceof ReceiveTask receiveTask)
+            {
                 validateReceiveTask(receiveTask, issues, bpmnFile, processId);
-
-            } else if (element instanceof SubProcess subProcess) {
-
+            }
+            else if (element instanceof SubProcess subProcess)
+            {
                 validateSubProcess(subProcess, issues, bpmnFile, processId);
-
-            } else if (element instanceof EventBasedGateway gateway) {
-
+            }
+            else if (element instanceof EventBasedGateway gateway)
+            {
                 validateEventBasedGateway(gateway, issues, bpmnFile, processId);
-
             }
         }
         return issues;
     }
 
-    // SERVICE TASK VALIDATION
-
+    /**
+     * Validates that a {@link ServiceTask} has a non-empty name, a non-empty
+     * {@code camunda:class}, that the class can be loaded, and that it implements
+     * {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
+     *
+     * @param task
+     *         the {@link ServiceTask} to validate
+     * @param issues
+     *         the list to collect any identified validation items
+     * @param bpmnFile
+     *         the .bpmn file for reference
+     * @param processId
+     *         the process identifier for logging reference
+     */
     private void validateServiceTask(ServiceTask task,
                                      List<BpmnElementValidationItem> issues,
                                      File bpmnFile,
                                      String processId)
     {
         String elementId = task.getId();
-
-        // Name: warn if empty
         if (isEmpty(task.getName()))
         {
             issues.add(new BpmnServiceTaskNameEmptyValidationItem(elementId, bpmnFile, processId));
         }
 
-        // Implementation: error if empty, class not found, or not implementing JavaDelegate
         String implClass = task.getCamundaClass();
         if (isEmpty(implClass))
         {
@@ -247,113 +283,161 @@ public class BpmnModelValidator
         }
         else
         {
+            // is the class in the real usage?
             if (!classExists(implClass))
             {
-                issues.add(new BpmnServiceTaskImplementationClassNotFoundValidationItem(elementId, bpmnFile, processId, implClass));
+                issues.add(new BpmnServiceTaskImplementationClassNotFoundValidationItem(
+                        elementId, bpmnFile, processId, implClass));
             }
+            // has the class java delegate?
             else if (!implementsJavaDelegate(implClass))
             {
-                issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(elementId, bpmnFile, processId, implClass));
+                issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
+                        elementId, bpmnFile, processId, implClass));
             }
         }
     }
 
     // MESSAGE START EVENT VALIDATION
 
+    /**
+     * Validates a {@link StartEvent} that specifically contains a {@link MessageEventDefinition}.
+     * Checks that:
+     * <ul>
+     *   <li>Event name is not empty</li>
+     *   <li>{@code Message.name} is not empty</li>
+     *   <li>{@code Message.name} corresponds to valid references in FHIR resources (ActivityDefinition
+     *       and StructureDefinition)</li>
+     * </ul>
+     *
+     * @param startEvent
+     *         the {@link StartEvent} to validate
+     * @param issues
+     *         the list of validation items
+     * @param bpmnFile
+     *         the BPMN file reference
+     * @param processId
+     *         the process identifier
+     */
     private void validateMessageStartEvent(StartEvent startEvent,
                                            List<BpmnElementValidationItem> issues,
                                            File bpmnFile,
-                                           String processId) {
+                                           String processId)
+    {
         String elementId = startEvent.getId();
-        if (isEmpty(startEvent.getName())) {
-            issues.add(new BpmnMessageStartEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+        if (isEmpty(startEvent.getName()))
+        {
+            issues.add(new BpmnEventNameEmptyValidationItem(elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
-        MessageEventDefinition messageDef = (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
+        MessageEventDefinition messageDef =
+                (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
         validateMessageDefinition(startEvent, messageDef, issues, bpmnFile, processId);
     }
 
     // MESSAGE INTERMEDIATE THROW EVENT VALIDATION
 
+    /**
+     * Validates an {@link IntermediateThrowEvent} that has a {@link MessageEventDefinition}.
+     * Includes checks for:
+     * <ul>
+     *   <li>Non-empty event name</li>
+     *   <li>Implementation class validity</li>
+     *   <li>Field injections</li>
+     *   <li>A warning if the {@code <bpmn:message>} reference is not null (in most
+     *       Camunda scenarios for an Intermediate Throw Message, the engine uses
+     *       {@code <camunda:class>} instead)</li>
+     * </ul>
+     *
+     * @param throwEvent
+     *         the IntermediateThrowEvent to validate
+     * @param issues
+     *         the list to store validation findings
+     * @param bpmnFile
+     *         reference to the BPMN file for context
+     * @param processId
+     *         the process id
+     */
     private void validateMessageIntermediateThrowEvent(IntermediateThrowEvent throwEvent,
                                                        List<BpmnElementValidationItem> issues,
                                                        File bpmnFile,
-                                                       String processId) {
-        String elementId = throwEvent.getId();
+                                                       String processId)
+    {
+        validateCommonMessageEvent(throwEvent, issues, bpmnFile, processId);
 
-        // Warn if name is empty
-        if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnMessageSendEventNameEmptyValidationItem(elementId, bpmnFile, processId));
-        }
-
-        // Extract the implementation class from either the event attribute or its messageEventDefinition.
-        String implClass = extractImplementationClass(throwEvent);
-
-        // Validate implementation
-        validateImplementationClass(implClass, elementId, bpmnFile, processId, issues);
-
-        // Validate field injections (profile, messageName, instantiatesCanonical)
-        validateMessageSendFieldInjections(throwEvent, issues, bpmnFile, processId);
-
-        // If a Message definition is present, issue a warning.
-        for (EventDefinition def : throwEvent.getEventDefinitions()) {
-            if (def instanceof MessageEventDefinition) {
-                issues.add(new BpmnMessageSendEventHasDefinitionValidationItem(elementId, bpmnFile, processId));
-            }
+        MessageEventDefinition msgDef =
+                (MessageEventDefinition) throwEvent.getEventDefinitions().iterator().next();
+        if (msgDef.getMessage() != null)
+        {
+            String messageName = msgDef.getMessage().getName();
+            issues.add(new BpmnMessageIntermediateThrowEventHasMessageValidationItem(
+                    throwEvent.getId(), bpmnFile, processId, "Message Intermediate Throw Event has a message with name: " + messageName));
         }
     }
 
-
     /**
-     * Validates the implementation class for a BPMN element.
-     * <p>
-     * The method checks whether the provided implementation class is empty. If not, it verifies that the class exists
-     * (using the custom class loader, which includes both the compiled classes and dependency JARs) and that it implements
-     * the {@code org.camunda.bpm.engine.delegate.JavaDelegate} interface. Depending on the outcome, the appropriate
-     * validation issue is added to the list.
-     * </p>
+     * Checks the {@code camunda:class} reference for a message event element, verifying the
+     * class is non-empty, exists on the classpath, and implements {@code JavaDelegate}.
      *
-     * @param implClass the implementation class string to validate.
-     * @param elementId the BPMN element id.
-     * @param bpmnFile  the BPMN file being validated.
-     * @param processId the process id (or an empty string if not available).
-     * @param issues    the list of BPMN element validation issues to add to.
+     * @param implClass
+     *         the class name from {@code camunda:class}
+     * @param elementId
+     *         the BPMN element id
+     * @param bpmnFile
+     *         reference to the BPMN file
+     * @param processId
+     *         the process id
+     * @param issues
+     *         the list to store any validation issues
      */
     private void validateImplementationClass(String implClass,
                                              String elementId,
                                              File bpmnFile,
                                              String processId,
-                                             List<BpmnElementValidationItem> issues) {
-        if (isEmpty(implClass)) {
+                                             List<BpmnElementValidationItem> issues)
+    {
+        if (isEmpty(implClass))
+        {
             issues.add(new BpmnMessageSendEventImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
-        } else if (!classExists(implClass)) {
-            issues.add(new BpmnMessageSendEventImplementationClassNotFoundValidationItem(elementId, bpmnFile, processId, implClass));
-        } else if (!implementsJavaDelegate(implClass)) {
-            issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(elementId, bpmnFile, processId, implClass));
+        }
+        else if (!classExists(implClass))
+        {
+            issues.add(new BpmnMessageSendEventImplementationClassNotFoundValidationItem(
+                    elementId, bpmnFile, processId, implClass));
+        }
+        else if (!implementsJavaDelegate(implClass))
+        {
+            issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
+                    elementId, bpmnFile, processId, implClass));
         }
     }
 
-
     // MESSAGE END EVENT VALIDATION
 
+    /**
+     * Validates a {@link EndEvent} that has a {@link MessageEventDefinition}.
+     * Ensures:
+     * <ul>
+     *   <li>Non-empty event name</li>
+     *   <li>Implementation class correctness</li>
+     *   <li>Field injections checked for required fields</li>
+     *   <li>If the event name is "send result to requester", checks {@code asyncBefore} is true</li>
+     * </ul>
+     *
+     * @param endEvent
+     *         the {@link EndEvent} to validate
+     * @param issues
+     *         the validation item list
+     * @param bpmnFile
+     *         reference to the BPMN file
+     * @param processId
+     *         the process id
+     */
     private void validateMessageEndEvent(EndEvent endEvent,
                                          List<BpmnElementValidationItem> issues,
                                          File bpmnFile,
                                          String processId)
     {
-        String elementId = endEvent.getId();
-
-        // Name: warn if empty
-        if (isEmpty(endEvent.getName()))
-        {
-            issues.add(new BpmnMessageSendEventNameEmptyValidationItem(elementId, bpmnFile, processId));
-        }
-
-        // Validate implementation (similar to intermediate throw event)
-        String implClass = extractImplementationClass(endEvent);
-        checkImplementationClass(implClass, elementId, bpmnFile, processId, issues);
-
-        // Validate field injections
-        validateMessageSendFieldInjections(endEvent, issues, bpmnFile, processId);
+        validateCommonMessageEvent(endEvent, issues, bpmnFile, processId);
 
         // Example rule: if the end event is named "send result to requester", it should have asyncBefore=true.
         if ("send result to requester".equalsIgnoreCase(endEvent.getName()))
@@ -361,8 +445,8 @@ public class BpmnModelValidator
             if (!endEvent.isCamundaAsyncBefore())
             {
                 issues.add(new BpmnFloatingElementValidationItem(
-                        elementId, bpmnFile, processId,
-                        "Message End Event named 'send result to requester' should be asyncBefore=true",
+                        endEvent.getId(), bpmnFile, processId,
+                        "Message End Event named 'send result to requester' should have asyncBefore=true",
                         ValidationType.BPMN_FLOATING_ELEMENT
                 ));
             }
@@ -371,6 +455,20 @@ public class BpmnModelValidator
 
     // MESSAGE INTERMEDIATE CATCH EVENT VALIDATION
 
+    /**
+     * Validates an {@link IntermediateCatchEvent} containing a {@link MessageEventDefinition}.
+     * Checks that the event name and message name are not empty, and verifies that the
+     * message name is found in the relevant FHIR resources.
+     *
+     * @param catchEvent
+     *         the {@link IntermediateCatchEvent}
+     * @param issues
+     *         the validation list
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
     private void validateMessageIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                        List<BpmnElementValidationItem> issues,
                                                        File bpmnFile,
@@ -380,11 +478,11 @@ public class BpmnModelValidator
 
         if (isEmpty(catchEvent.getName()))
         {
-            issues.add(new BpmnMessageStartEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+            issues.add(new BpmnEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
 
-        MessageEventDefinition def = (MessageEventDefinition)
-                catchEvent.getEventDefinitions().iterator().next();
+        MessageEventDefinition def =
+                (MessageEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         if (def.getMessage() == null || isEmpty(def.getMessage().getName()))
         {
@@ -398,120 +496,207 @@ public class BpmnModelValidator
 
     // MESSAGE BOUNDARY EVENT VALIDATION
 
+    /**
+     * Validates a {@link BoundaryEvent} that references a {@link MessageEventDefinition}.
+     * Checks for non-empty name, non-empty message name, and if that name is recognized
+     * in FHIR resources.
+     *
+     * @param boundaryEvent
+     *         the {@link BoundaryEvent}
+     * @param issues
+     *         the validation item list
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
     private void validateMessageBoundaryEvent(BoundaryEvent boundaryEvent,
                                               List<BpmnElementValidationItem> issues,
                                               File bpmnFile,
-                                              String processId) {
+                                              String processId)
+    {
         String elementId = boundaryEvent.getId();
-        if (isEmpty(boundaryEvent.getName())) {
-            issues.add(new BpmnMessageStartEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+        if (isEmpty(boundaryEvent.getName()))
+        {
+            issues.add(new BpmnEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
-        MessageEventDefinition def = (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
+        MessageEventDefinition def =
+                (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
         validateMessageDefinition(boundaryEvent, def, issues, bpmnFile, processId);
     }
 
     // ERROR BOUNDARY EVENT VALIDATION
 
     /**
-     * Validates an Error Boundary Event by checking the following:
+     * Validates an {@link BoundaryEvent} containing an {@link ErrorEventDefinition}.
+     * Splits the logic based on whether {@code errorRef} is set:
      * <ul>
-     *   <li>If the boundary event's name is empty, a warning is added.</li>
-     *   <li>If the associated ErrorEventDefinition’s error element is missing or its name is empty, an error is added.</li>
-     *   <li>If the error element’s errorCode is missing or empty, an error is added.</li>
-     *   <li>If the errorCodeVariable attribute (from Camunda's namespace) is empty, an error is added.</li>
+     *   <li>If {@code errorRef} is present, checks that {@code <bpmn:error>} has a non-empty
+     *       name and non-empty error code. Missing values => ERROR.</li>
+     *   <li>Regardless, if boundary event name is empty => WARN.</li>
+     *   <li>If the {@code errorCodeVariable} attribute is absent => WARN.</li>
      * </ul>
      *
-     * @param boundaryEvent the boundary event to validate.
-     * @param issues        the list of BPMN element validation issues to add to.
-     * @param bpmnFile      the BPMN file being validated.
-     * @param processId     the process id (or an empty string if not available).
+     * @param boundaryEvent
+     *         the boundary event to validate
+     * @param issues
+     *         the validation issues collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process id
      */
     private void validateErrorBoundaryEvent(BoundaryEvent boundaryEvent,
                                             List<BpmnElementValidationItem> issues,
                                             File bpmnFile,
-                                            String processId) {
+                                            String processId)
+    {
         String elementId = boundaryEvent.getId();
 
-        // Warn if the boundary event's name is empty.
-        if (isEmpty(boundaryEvent.getName())) {
-            issues.add(new BpmnErrorBoundaryEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+        if (isEmpty(boundaryEvent.getName()))
+        {
+            // WARN if boundary event's name is empty
+            issues.add(new BpmnErrorBoundaryEventNameEmptyValidationItem(
+                    elementId, bpmnFile, processId
+            ));
         }
 
-        // Retrieve the ErrorEventDefinition from the boundary event.
-        ErrorEventDefinition errorDef = (ErrorEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
+        ErrorEventDefinition errorDef =
+                (ErrorEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
 
-        // Check if the error element exists and its name is not empty.
-        if (errorDef.getError() == null || isEmpty(errorDef.getError().getName())) {
-            issues.add(new BpmnErrorBoundaryEventErrorNameEmptyValidationItem(elementId, bpmnFile, processId));
+        if (errorDef.getError() != null)
+        {
+            // Scenario A: errorRef is present
+            if (isEmpty(errorDef.getError().getName()))
+            {
+                issues.add(new BpmnErrorBoundaryEventErrorNameEmptyValidationItem(
+                        elementId, bpmnFile, processId
+                ));
+            }
+            if (isEmpty(errorDef.getError().getErrorCode()))
+            {
+                issues.add(new BpmnErrorBoundaryEventErrorCodeEmptyValidationItem(
+                        elementId, bpmnFile, processId
+                ));
+            }
         }
+        // else => scenario B: muss be implemented
 
-        // Check if the error element's errorCode exists and is not empty.
-        if (errorDef.getError() == null || isEmpty(errorDef.getError().getErrorCode())) {
-            issues.add(new BpmnErrorBoundaryEventErrorCodeEmptyValidationItem(elementId, bpmnFile, processId));
-        }
-
-        // Validate the code variable (assumed to be a Camunda attribute).
-        String errorCodeVariable = boundaryEvent.getAttributeValueNs("http://camunda.org/schema/1.0/bpmn", "errorCodeVariable");
-        if (isEmpty(errorCodeVariable)) {
-            issues.add(new BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(elementId, bpmnFile, processId));
+        String errorCodeVariable = errorDef.getAttributeValueNs(
+                "http://camunda.org/schema/1.0/bpmn",
+                "errorCodeVariable");
+        if (isEmpty(errorCodeVariable))
+        {
+            issues.add(new BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(
+                    elementId, bpmnFile, processId
+            ));
         }
     }
 
-
     // EXCLUSIVE GATEWAY VALIDATION
 
+    /**
+     * Validates an {@link ExclusiveGateway}. Primarily defers to {@code validateSequenceFlow}
+     * for condition checks but may place additional rules for name presence if needed.
+     *
+     * @param gateway
+     *         the {@link ExclusiveGateway} to validate
+     * @param issues
+     *         the validation item collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process id
+     */
     private void validateExclusiveGateway(ExclusiveGateway gateway,
                                           List<BpmnElementValidationItem> issues,
                                           File bpmnFile,
                                           String processId)
     {
-        String elementId = gateway.getId();
-
-        if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1)
-        {
-            if (isEmpty(gateway.getName()))
-            {
-                issues.add(new BpmnFloatingElementValidationItem(
-                        elementId, bpmnFile, processId,
-                        "Exclusive Gateway has multiple outgoing flows but no name",
-                        ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS
-                ));
-            }
-        }
+        // Additional checks can be placed here if needed.
     }
 
-    // SEQUENCE FLOW VALIDATION
-
+    /**
+     * Validates a sequence flow based on its source element's outgoing flows.
+     * <p>
+     * The validation applies only when the source element has more than one outgoing sequence flow.
+     * It issues:
+     * <ul>
+     *   <li>A warning that the sequence flow originates from a source with multiple outgoing flows.</li>
+     *   <li>A warning if the sequence flow name is empty.</li>
+     *   <li>An error if the condition expression is missing and the sequence flow is not the default flow
+     *       (for example, from an ExclusiveGateway).</li>
+     * </ul>
+     *
+     * @param flow      The sequence flow to validate.
+     * @param issues    The list of validation issues to be appended.
+     * @param bpmnFile  The BPMN file in context.
+     * @param processId The process identifier.
+     */
     private void validateSequenceFlow(SequenceFlow flow,
                                       List<BpmnElementValidationItem> issues,
                                       File bpmnFile,
-                                      String processId)
-    {
+                                      String processId) {
         String elementId = flow.getId();
+        FlowElement source = flow.getSource();
 
-        if (flow.getSource() instanceof ExclusiveGateway gw)
-        {
-            if (isEmpty(flow.getName()))
-            {
+        // Ensure the source is a FlowNode to access the outgoing flows.
+        if (source instanceof FlowNode) {
+            FlowNode flowNode = (FlowNode) source;
+            if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1) {
+                // Warn that the sequence flow originates from a source with multiple outgoing flows.
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
-                        "Sequence Flow from an Exclusive Gateway is missing a name",
-                        ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS
+                        "Sequence flow originates from a source with multiple outgoing flows.",
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.WARN
                 ));
-            }
-            if (flow.getConditionExpression() == null && !flow.equals(gw.getDefault()))
-            {
-                issues.add(new BpmnFloatingElementValidationItem(
-                        elementId, bpmnFile, processId,
-                        "Non-default Sequence Flow from an Exclusive Gateway has no condition",
-                        ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS
-                ));
+
+                // Warn if the sequence flow's name is empty.
+                if (isEmpty(flow.getName())) {
+                    issues.add(new BpmnFloatingElementValidationItem(
+                            elementId, bpmnFile, processId,
+                            "Sequence flow name is empty.",
+                            ValidationType.BPMN_FLOATING_ELEMENT,
+                            ValidationSeverity.WARN
+                    ));
+                }
+
+                // If the condition expression is missing, check if the flow is not the default flow.
+                if (flow.getConditionExpression() == null) {
+                    // For ExclusiveGateway sources, only non-default flows must have a condition.
+                    if (source instanceof ExclusiveGateway) {
+                        ExclusiveGateway gateway = (ExclusiveGateway) source;
+                        if (!flow.equals(gateway.getDefault())) {
+                            issues.add(new BpmnFloatingElementValidationItem(
+                                    elementId, bpmnFile, processId,
+                                    "Non-default sequence flow from an ExclusiveGateway is missing a condition expression.",
+                                    ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS,
+                                    ValidationSeverity.ERROR
+                            ));
+                        }
+                    }
+                    // Optionally, add further checks for other gateway types if needed.
+                }
             }
         }
     }
 
     // START EVENT VALIDATION
 
+    /**
+     * Validates a {@link StartEvent} that does NOT have a {@link MessageEventDefinition}.
+     * Simply warns if the name is empty (and if it's not part of a {@link SubProcess}).
+     *
+     * @param startEvent
+     *         the StartEvent to validate
+     * @param issues
+     *         the validation collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process id
+     */
     private void validateStartEvent(StartEvent startEvent,
                                     List<BpmnElementValidationItem> issues,
                                     File bpmnFile,
@@ -524,13 +709,31 @@ public class BpmnModelValidator
             // Warn if the Start Event is not part of a SubProcess
             if (!(startEvent.getParentElement() instanceof SubProcess))
             {
-                issues.add(new BpmnProcessIdMissingValidationItem(elementId, bpmnFile, processId));
+                issues.add(new BpmnStartEventNotPartOfSubProcessValidationItem(elementId, bpmnFile, processId));
             }
         }
     }
 
     // END EVENT VALIDATION
 
+    /**
+     * Validates an {@link EndEvent} that does NOT have a {@link MessageEventDefinition}.
+     * Checks:
+     * <ul>
+     *   <li>Non-empty name (if not in a SubProcess)</li>
+     *   <li>{@code camunda:asyncAfter} must be true if the event is inside a SubProcess</li>
+     *   <li>Any extension listeners referencing {@code camunda:class} must exist on the classpath</li>
+     * </ul>
+     *
+     * @param endEvent
+     *         the EndEvent to validate
+     * @param issues
+     *         list for collecting validation items
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process identifier
+     */
     private void validateEndEvent(EndEvent endEvent,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -542,7 +745,7 @@ public class BpmnModelValidator
         {
             if (!(endEvent.getParentElement() instanceof SubProcess))
             {
-                issues.add(new BpmnProcessIdMissingValidationItem(elementId, bpmnFile, processId));
+                issues.add(new BpmnEndEventNotPartOfSubProcessValidationItem(elementId, bpmnFile, processId));
             }
         }
 
@@ -558,7 +761,7 @@ public class BpmnModelValidator
             }
         }
 
-        // Validate extension listeners: check if Java classes exist
+        // Check extension listeners
         if (endEvent.getExtensionElements() != null)
         {
             Collection<CamundaExecutionListener> listeners =
@@ -579,36 +782,27 @@ public class BpmnModelValidator
         }
     }
 
-
-
     // TIMER INTERMEDIATE CATCH EVENT VALIDATION
 
     /**
-     * Validates a Timer Intermediate Catch Event by checking its configuration.
-     * <p>
-     * This method performs several checks:
+     * Validates an {@link IntermediateCatchEvent} containing a {@link TimerEventDefinition}.
+     * Checks:
      * <ul>
-     *   <li>It verifies that the event has a non-empty name. If the name is empty, a validation issue is added.</li>
-     *   <li>It retrieves the {@code TimerEventDefinition} from the event's definitions.</li>
-     *   <li>It extracts the timer expressions: {@code timeDate}, {@code timeCycle}, and {@code timeDuration}.</li>
-     *   <li>
-     *     It checks whether at least one of these expressions is provided:
-     *     <ul>
-     *       <li>If all expressions are empty, a validation issue is added indicating that the timer type is missing.</li>
-     *       <li>If a {@code timeDate} is provided, an informational validation issue is added to indicate that a fixed date/time is used.</li>
-     *       <li>
-     *         If either {@code timeCycle} or {@code timeDuration} is provided, the method checks whether the timer expression
-     *         contains a version placeholder (e.g., "#{version}"). If not, a warning is issued indicating that the timer value appears fixed.
-     *       </li>
-     *     </ul>
-     *   </li>
+     *   <li>Non-empty name</li>
+     *   <li>Presence of one of {@code timeDate}, {@code timeCycle}, {@code timeDuration}</li>
+     *   <li>If {@code timeDate} is used, logs an INFO message to verify it is intended</li>
+     *   <li>If {@code timeCycle} or {@code timeDuration} is used, warns if the version placeholder
+     *       (e.g., {@code #{version}}) is missing</li>
      * </ul>
-     * </p>
      *
-     * @param catchEvent the BPMN Intermediate Catch Event to validate, which is expected to be a timer event
-     * @param issues the list to which any validation issues will be added
-     * @param bpmnFile the BPMN file being validated
-     * @param processId the process identifier associated with the BPMN model
+     * @param catchEvent
+     *         the IntermediateCatchEvent for a timer
+     * @param issues
+     *         the validation collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process identifier
      */
     private void validateTimerIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                      List<BpmnElementValidationItem> issues,
@@ -626,8 +820,8 @@ public class BpmnModelValidator
             ));
         }
 
-        TimerEventDefinition timerDef = (TimerEventDefinition)
-                catchEvent.getEventDefinitions().iterator().next();
+        TimerEventDefinition timerDef =
+                (TimerEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         // Retrieve the timer expressions (they may be null)
         Expression timeDateExpr = timerDef.getTimeDate();
@@ -660,7 +854,8 @@ public class BpmnModelValidator
             }
             else if (!isTimeCycleEmpty || !isTimeDurationEmpty)
             {
-                String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent() : timeDurationExpr.getTextContent();
+                String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent()
+                        : timeDurationExpr.getTextContent();
                 if (!containsVersionPlaceholder(timerValue))
                 {
                     issues.add(new BpmnFloatingElementValidationItem(
@@ -675,6 +870,19 @@ public class BpmnModelValidator
 
     // SIGNAL INTERMEDIATE CATCH EVENT VALIDATION
 
+    /**
+     * Validates an {@link IntermediateCatchEvent} containing a {@link SignalEventDefinition}.
+     * Checks non-empty name and non-empty signal.
+     *
+     * @param catchEvent
+     *         the signal IntermediateCatchEvent
+     * @param issues
+     *         the validation collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process id
+     */
     private void validateSignalIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                       List<BpmnElementValidationItem> issues,
                                                       File bpmnFile,
@@ -691,8 +899,8 @@ public class BpmnModelValidator
             ));
         }
 
-        SignalEventDefinition def = (SignalEventDefinition)
-                catchEvent.getEventDefinitions().iterator().next();
+        SignalEventDefinition def =
+                (SignalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName()))
         {
@@ -705,7 +913,19 @@ public class BpmnModelValidator
     }
 
     // SIGNAL INTERMEDIATE THROW EVENT VALIDATION
-
+    /**
+     * Validates an {@link IntermediateThrowEvent} containing a {@link SignalEventDefinition}.
+     * Checks the non-empty name and signal presence.
+     *
+     * @param throwEvent
+     *         the signal IntermediateThrowEvent
+     * @param issues
+     *         validation issue collector
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process id
+     */
     private void validateSignalIntermediateThrowEvent(IntermediateThrowEvent throwEvent,
                                                       List<BpmnElementValidationItem> issues,
                                                       File bpmnFile,
@@ -722,8 +942,8 @@ public class BpmnModelValidator
             ));
         }
 
-        SignalEventDefinition def = (SignalEventDefinition)
-                throwEvent.getEventDefinitions().iterator().next();
+        SignalEventDefinition def =
+                (SignalEventDefinition) throwEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName()))
         {
@@ -736,7 +956,19 @@ public class BpmnModelValidator
     }
 
     // SIGNAL END EVENT VALIDATION
-
+    /**
+     * Validates an {@link EndEvent} containing a {@link SignalEventDefinition}.
+     * Ensures the event name and signal name are not empty.
+     *
+     * @param endEvent
+     *         the signal EndEvent
+     * @param issues
+     *         validation item list
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
     private void validateSignalEndEvent(EndEvent endEvent,
                                         List<BpmnElementValidationItem> issues,
                                         File bpmnFile,
@@ -753,8 +985,8 @@ public class BpmnModelValidator
             ));
         }
 
-        SignalEventDefinition def = (SignalEventDefinition)
-                endEvent.getEventDefinitions().iterator().next();
+        SignalEventDefinition def =
+                (SignalEventDefinition) endEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName()))
         {
@@ -767,7 +999,24 @@ public class BpmnModelValidator
     }
 
     // USER TASK VALIDATION
-
+    /**
+     * Validates a {@link UserTask}, checking:
+     * <ul>
+     *   <li>Non-empty task name</li>
+     *   <li>Non-empty {@code camunda:formKey} that starts with {@code "external:"}</li>
+     *   <li>If the formKey references a known questionnaire resource (simple substring check in this example)</li>
+     *   <li>Any task listeners referencing a Java class must exist on the classpath</li>
+     * </ul>
+     *
+     * @param userTask
+     *         the {@link UserTask} to validate
+     * @param issues
+     *         the list of validation items
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process id
+     */
     private void validateUserTask(UserTask userTask,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -803,7 +1052,7 @@ public class BpmnModelValidator
                         ValidationType.BPMN_FLOATING_ELEMENT
                 ));
             }
-            // Example check to verify if the corresponding questionnaire exists
+            // Example check to verify if the corresponding questionnaire
             if (!questionnaireExists(formKey))
             {
                 issues.add(new BpmnFloatingElementValidationItem(
@@ -837,7 +1086,24 @@ public class BpmnModelValidator
     }
 
     // SEND TASK VALIDATION
-
+    /**
+     * Validates a {@link SendTask}, checking:
+     * <ul>
+     *   <li>Non-empty name</li>
+     *   <li>Implementation class: non-empty, exists, implements {@code JavaDelegate}</li>
+     *   <li>Field injections for {@code profile}, {@code messageName}, and
+     *       {@code instantiatesCanonical}</li>
+     * </ul>
+     *
+     * @param sendTask
+     *         the {@link SendTask} to validate
+     * @param issues
+     *         list collecting validation items
+     * @param bpmnFile
+     *         reference to the BPMN file
+     * @param processId
+     *         process id
+     */
     private void validateSendTask(SendTask sendTask,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -847,7 +1113,7 @@ public class BpmnModelValidator
 
         if (isEmpty(sendTask.getName()))
         {
-            issues.add(new BpmnMessageSendEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+            issues.add(new BpmnEventNameEmptyValidationItem(elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         }
 
         String implClass = sendTask.getCamundaClass();
@@ -859,20 +1125,37 @@ public class BpmnModelValidator
         {
             if (!classExists(implClass))
             {
-                issues.add(new BpmnMessageSendTaskImplementationClassNotFound(elementId, bpmnFile, processId, implClass));
+                issues.add(new BpmnMessageSendTaskImplementationClassNotFoundValidationItem(
+                        elementId, bpmnFile, processId, implClass));
             }
             else if (!implementsJavaDelegate(implClass))
             {
-                issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(elementId, bpmnFile, processId, implClass));
+                issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
+                        elementId, bpmnFile, processId, implClass));
             }
         }
-
         // Validate field injections (same as in MESSAGE INTERMEDIATE THROW EVENT)
         validateMessageSendFieldInjections(sendTask, issues, bpmnFile, processId);
     }
 
     // RECEIVE TASK VALIDATION
-
+    /**
+     * Validates a {@link ReceiveTask}, checking:
+     * <ul>
+     *   <li>Non-empty name</li>
+     *   <li>Non-empty message definition {@code message.getName()}</li>
+     *   <li>{@code message.getName()} must appear in ActivityDefinition/StructureDefinition</li>
+     * </ul>
+     *
+     * @param receiveTask
+     *         the {@link ReceiveTask} to validate
+     * @param issues
+     *         the validation collector
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process id
+     */
     private void validateReceiveTask(ReceiveTask receiveTask,
                                      List<BpmnElementValidationItem> issues,
                                      File bpmnFile,
@@ -882,7 +1165,7 @@ public class BpmnModelValidator
 
         if (isEmpty(receiveTask.getName()))
         {
-            issues.add(new BpmnMessageStartEventNameEmptyValidationItem(elementId, bpmnFile, processId));
+            issues.add(new BpmnEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
 
         if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName()))
@@ -896,7 +1179,19 @@ public class BpmnModelValidator
     }
 
     // SUB PROCESS VALIDATION
-
+    /**
+     * Validates a {@link SubProcess}, checking if it has multi-instance loop
+     * characteristics and if so, enforcing {@code camunda:asyncBefore=true}.
+     *
+     * @param subProcess
+     *         the {@link SubProcess} to validate
+     * @param issues
+     *         list of validation items
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process identifier
+     */
     private void validateSubProcess(SubProcess subProcess,
                                     List<BpmnElementValidationItem> issues,
                                     File bpmnFile,
@@ -918,7 +1213,20 @@ public class BpmnModelValidator
     }
 
     // EVENT BASED GATEWAY VALIDATION
-
+    /**
+     * Validates an {@link EventBasedGateway} by checking for extension elements
+     * (execution listeners) that specify a Java class, verifying that each class
+     * can be found on the classpath.
+     *
+     * @param gateway
+     *         the {@link EventBasedGateway} to validate
+     * @param issues
+     *         the validation issues collector
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process id
+     */
     private void validateEventBasedGateway(EventBasedGateway gateway,
                                            List<BpmnElementValidationItem> issues,
                                            File bpmnFile,
@@ -948,7 +1256,26 @@ public class BpmnModelValidator
     }
 
     // CONDITIONAL INTERMEDIATE CATCH EVENT VALIDATION
-
+    /**
+     * Validates an {@link IntermediateCatchEvent} containing a {@link ConditionalEventDefinition}.
+     * Checks that:
+     * <ul>
+     *   <li>The event name is not empty</li>
+     *   <li>{@code camunda:variableName} is set</li>
+     *   <li>{@code camunda:variableEvents} is set</li>
+     *   <li>{@code camunda:conditionType} is set and typically equals {@code "expression"}</li>
+     *   <li>A non-empty condition expression is present</li>
+     * </ul>
+     *
+     * @param catchEvent
+     *         the IntermediateCatchEvent to validate
+     * @param issues
+     *         the validation list
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
     private void validateConditionalIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                            List<BpmnElementValidationItem> issues,
                                                            File bpmnFile,
@@ -965,7 +1292,8 @@ public class BpmnModelValidator
             ));
         }
 
-        ConditionalEventDefinition condDef = (ConditionalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
+        ConditionalEventDefinition condDef =
+                (ConditionalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         // Condition - Variable Name
         String variableName = condDef.getCamundaVariableName();
@@ -1004,7 +1332,8 @@ public class BpmnModelValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event condition type is not 'expression': " + conditionType,
-                    ValidationType.BPMN_FLOATING_ELEMENT, ValidationSeverity.INFO
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.INFO
             ));
         }
 
@@ -1020,162 +1349,486 @@ public class BpmnModelValidator
     }
 
     // FIELD INJECTIONS VALIDATION (for Message Send Tasks/Events)
-
     /**
-     * Validates the field injections on a BPMN element for message send tasks or events.
-     * <p>
-     * This method checks the extension elements of the given BPMN element for any Camunda field injections.
-     * It validates specific fields by name:
+     * Validates all field injections (e.g., {@code <camunda:field>}) found directly
+     * on a {@link BaseElement} or nested under a {@link MessageEventDefinition}.
+     * Checks the presence and correctness of:
      * <ul>
-     *   <li><b>profile:</b>
-     *       <ul>
-     *         <li>Ensures the field is non-empty.</li>
-     *         <li>Checks that the value contains a version placeholder (e.g., "#{version}").</li>
-     *         <li>Uses the FhirValidator to verify that a corresponding StructureDefinition exists.</li>
-     *       </ul>
-     *   </li>
-     *   <li><b>messageName:</b>
-     *       <ul>
-     *         <li>Ensures the field is non-empty.</li>
-     *         <li>Uses the FhirValidator to check that a corresponding ActivityDefinition exists.</li>
-     *         <li>If a profile has been specified, verifies that the message name matches the profile.</li>
-     *       </ul>
-     *   </li>
-     *   <li><b>instantiatesCanonical:</b>
-     *       <ul>
-     *         <li>Ensures the field is non-empty.</li>
-     *         <li>Checks that the value contains a version placeholder.</li>
-     *         <li>Verifies that an ActivityDefinition has been found.</li>
-     *         <li>If a profile exists, ensures that the canonical value matches the profile.</li>
-     *       </ul>
-     *   </li>
-     *   <li><b>Unknown Fields:</b>
-     *       <ul>
-     *         <li>If any field injection with an unknown field name is encountered, a validation error is generated.
-     *             Only the fields "profile", "messageName", and "instantiatesCanonical" are allowed.</li>
-     *       </ul>
-     *   </li>
+     *   <li>{@code profile}</li>
+     *   <li>{@code messageName}</li>
+     *   <li>{@code instantiatesCanonical}</li>
      * </ul>
-     * For each field, the method ensures that the value is provided as a string literal rather than an expression.
-     * Any validation issues are added to the provided list of issues.
-     * </p>
+     * Cross-references the {@link FhirValidator} to ensure these values are recognized
+     * in appropriate FHIR resources (e.g., {@code StructureDefinition}, {@code ActivityDefinition}).
      *
-     * @param element the BPMN element containing extension elements with field injections
-     * @param issues the list to which any validation issues will be added
-     * @param bpmnFile the BPMN file being validated
-     * @param processId the process identifier associated with the BPMN model
+     * @param element
+     *         the BPMN element to inspect
+     * @param issues
+     *         the validation items list
+     * @param bpmnFile
+     *         the BPMN file reference
+     * @param processId
+     *         the process identifier
      */
-    private void validateMessageSendFieldInjections(BaseElement element,
-                                                    List<BpmnElementValidationItem> issues,
-                                                    File bpmnFile,
-                                                    String processId)
+    private void validateMessageSendFieldInjections(
+            BaseElement element,
+            List<BpmnElementValidationItem> issues,
+            File bpmnFile,
+            String processId)
     {
-        if (element.getExtensionElements() == null)
-            return;
-
-        Collection<CamundaField> fields = element.getExtensionElements().getElementsQuery()
-                .filterByType(CamundaField.class).list();
-
-        boolean profileFound = false;
-        boolean activityDefFound = false;
-        String profileValue = null;
-
-        for (CamundaField field : fields)
+        // 1) Attempt to retrieve <camunda:field> from the BPMN element's ExtensionElements
+        ExtensionElements extensionElements = element.getExtensionElements();
+        if (hasCamundaFields(extensionElements))
         {
-            String fieldName = field.getCamundaName();
-            String stringValue = field.getCamundaStringValue();
-            String exprValue = field.getCamundaExpression();
-            String rawValue = !isEmpty(stringValue) ? stringValue : exprValue;
+            validateCamundaFields(extensionElements, element.getId(), issues, bpmnFile, processId);
+        }
 
-            // Type check: must be a string literal (not an expression)
-            if (field.getCamundaStringValue() == null)
-            {
-                issues.add(new BpmnFieldInjectionNotStringLiteralValidationItem(
-                        element.getId(), bpmnFile, processId, fieldName));
-                continue;
-            }
+        // 2) For ThrowEvent/EndEvent, also check nested fields in the attached MessageEventDefinition
+        Collection<EventDefinition> eventDefinitions = new ArrayList<>();
+        if (element instanceof ThrowEvent throwEvent)
+        {
+            eventDefinitions = throwEvent.getEventDefinitions();
+        }
+        else if (element instanceof EndEvent endEvent)
+        {
+            eventDefinitions = endEvent.getEventDefinitions();
+        }
 
-            switch (fieldName)
+        for (EventDefinition eventDef : eventDefinitions)
+        {
+            if (eventDef instanceof MessageEventDefinition messageDef)
             {
-                case "profile" -> {
-                    if (isEmpty(rawValue))
-                    {
-                        issues.add(new BpmnMessageSendEventProfileEmptyValidationItem(element.getId(), bpmnFile, processId));
-                    }
-                    else
-                    {
-                        profileFound = true;
-                        profileValue = rawValue;
-                        if (!containsVersionPlaceholder(rawValue))
-                        {
-                            issues.add(new BpmnMessageSendEventProfileNoVersionPlaceholderValidationItem(element.getId(), bpmnFile, processId, rawValue));
-                        }
-                        // Use the FhirValidator to check for the existence of the StructureDefinition.
-                        if (!FhirValidator.structureDefinitionExists(rawValue, projectRoot))
-                        {
-                            issues.add(new BpmnMessageSendEventProfileNotFoundValidationItem(element.getId(), bpmnFile, processId, rawValue));
-                        }
-                    }
-                }
-                case "messageName" -> {
-                    if (isEmpty(rawValue))
-                    {
-                        issues.add(new BpmnMessageSendEventMessageNameEmptyValidationItem(element.getId(), bpmnFile, processId));
-                    }
-                    else
-                    {
-                        // Use FhirValidator to check for the existence of the ActivityDefinition.
-                        if (!FhirValidator.activityDefinitionExists(rawValue, projectRoot))
-                        {
-                            issues.add(new BpmnMessageSendEventMessageNameNotPresentInActivityDefinitionValidationItem(element.getId(), bpmnFile, processId, rawValue));
-                        }
-                        else
-                        {
-                            activityDefFound = true;
-                        }
-                        if (profileFound && !messageNameMatchesProfile(profileValue, rawValue))
-                        {
-                            issues.add(new BpmnMessageSendEventMessageNameNotMatchingProfileValidationItem(element.getId(), bpmnFile, processId, profileValue, rawValue));
-                        }
-                    }
-                }
-                case "instantiatesCanonical" -> {
-                    if (isEmpty(rawValue))
-                    {
-                        issues.add(new BpmnMessageSendEventInstantiatesCanonicalEmptyValidationItem(element.getId(), bpmnFile, processId));
-                    }
-                    else
-                    {
-                        if (!containsVersionPlaceholder(rawValue))
-                        {
-                            issues.add(new BpmnMessageSendEventInstantiatesCanonicalNoVersionPlaceholderValidationItem(element.getId(), bpmnFile, processId, rawValue));
-                        }
-                        if (!activityDefFound)
-                        {
-                            issues.add(new BpmnMessageSendEventNoActivityDefinitionYetValidationItem(element.getId(), bpmnFile, processId, rawValue));
-                        }
-                        if (profileFound && !canonicalMatchesProfile(profileValue, rawValue))
-                        {
-                            issues.add(new BpmnMessageSendEventInstantiatesCanonicalNotMatchingProfileValidationItem(element.getId(), bpmnFile, processId, profileValue, rawValue));
-                        }
-                    }
-                }
-                default -> {
-                    // Unknown field injection encountered: Report a validation error.
-                    issues.add(new BpmnUnknownFieldInjectionValidationItem(element.getId(), bpmnFile, processId, fieldName));
+                ExtensionElements msgExtEl = messageDef.getExtensionElements();
+                if (hasCamundaFields(msgExtEl))
+                {
+                    validateCamundaFields(msgExtEl, element.getId(), issues, bpmnFile, processId);
                 }
             }
         }
     }
 
-
-    // UTILITY METHODS
+    /**
+     * Determines if the given {@link ExtensionElements} object contains any
+     * {@code <camunda:field>} elements.
+     *
+     * @param extensionElements
+     *         the extension elements to inspect
+     * @return {@code true} if at least one field is present; {@code false} otherwise
+     */
+    private boolean hasCamundaFields(ExtensionElements extensionElements)
+    {
+        if (extensionElements == null) return false;
+        Collection<CamundaField> fields = extensionElements
+                .getElementsQuery()
+                .filterByType(CamundaField.class)
+                .list();
+        return fields != null && !fields.isEmpty();
+    }
 
     /**
-     * Checks if the given string is null or empty.
+     * Parses and validates the {@code <camunda:field>} elements for a BPMN element.
+     * <p>
+     * Specifically handles the three known fields:
+     * <ul>
+     *   <li><b>profile</b>: Must be non-empty, warns if no version placeholder, checks
+     *       existence in {@code StructureDefinition}, then cross-checks the
+     *       {@code messageName} and {@code instantiatesCanonical} usage.</li>
+     *   <li><b>messageName</b>: Must be non-empty, cross-checks substring presence in
+     *       {@code profile} if found valid in the {@code StructureDefinition}.</li>
+     *   <li><b>instantiatesCanonical</b>: Must be non-empty, warns if no version placeholder,
+     *       checks for matching {@code ActivityDefinition}, cross-checks the presence of
+     *       {@code messageName} in the found {@code ActivityDefinition}, and checks if
+     *       the corresponding {@code StructureDefinition} has a {@code fixedCanonical}
+     *       referencing the same canonical (if a valid {@code profile} was found).</li>
+     * </ul>
+     * For other field names, a generic "unknown field" item is added.
+     * </p>
      *
-     * @param value the string to check
-     * @return true if empty, false otherwise
+     * @param extensionElements
+     *         the extension elements container
+     * @param elementId
+     *         the BPMN element ID
+     * @param issues
+     *         the validation items collector
+     * @param bpmnFile
+     *         reference to the BPMN file
+     * @param processId
+     *         process identifier
+     */
+    private void validateCamundaFields(
+            ExtensionElements extensionElements,
+            String elementId,
+            List<BpmnElementValidationItem> issues,
+            File bpmnFile,
+            String processId)
+    {
+        // Get all <camunda:field> elements
+        Collection<CamundaField> camundaFields = extensionElements
+                .getElementsQuery()
+                .filterByType(CamundaField.class)
+                .list();
+
+        String profileValue = null;
+        boolean profileHasPlaceholder = false;
+        boolean structureFoundForProfile = false;
+
+        String messageNameValue = null;
+
+        String instantiatesValue = null;
+        boolean hasInstantiatesPlaceholder = false;
+
+        // Parse the fields
+        for (CamundaField field : camundaFields)
+        {
+            String fieldName = field.getCamundaName();
+            String exprValue = field.getCamundaExpression();
+            String literalValue = field.getCamundaStringValue(); // getCamundaStringValue searched only in string-type
+            if (literalValue == null || literalValue.trim().isEmpty())
+            {
+                // Try to read nested <camunda:string> content
+                literalValue = tryReadNestedStringContent(field);
+            }
+
+            // If expression is used => error
+            if (exprValue != null && !exprValue.isBlank())
+            {
+                issues.add(new BpmnFieldInjectionNotStringLiteralValidationItem(
+                        elementId, bpmnFile, processId, fieldName));
+                continue;
+            }
+
+            if (literalValue != null)
+            {
+                literalValue = literalValue.trim();
+            }
+
+            switch (fieldName)
+            {
+                case "profile":
+                {
+                    if (isEmpty(literalValue))
+                    {
+                        issues.add(new BpmnFieldInjectionProfileEmptyValidationItem(elementId, bpmnFile, processId));
+                        break;
+                    }
+                    profileHasPlaceholder = containsVersionPlaceholder(literalValue);
+                    if (!profileHasPlaceholder)
+                    {
+                        issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(
+                                elementId, bpmnFile, processId, literalValue));
+                    }
+                    profileValue = literalValue;
+
+                    boolean structExists = FhirValidator.structureDefinitionExists(profileValue, projectRoot);
+                    if (!structExists)
+                    {
+                        issues.add(new BpmnFieldInjectionMissingStructureDefinitionForProfileValidationItem(
+                                elementId, bpmnFile, processId,
+                                "Profile not found in StructureDefinition: " + profileValue));
+                    }
+                    else
+                    {
+                        structureFoundForProfile = true;
+                    }
+                    break;
+                }
+                case "messageName":
+                {
+                    if (isEmpty(literalValue))
+                    {
+                        issues.add(new BpmnFieldInjectionMessageValueEmptyValidationItem(
+                                elementId, bpmnFile, processId));
+                        break;
+                    }
+                    messageNameValue = literalValue;
+                    break;
+                }
+                case "instantiatesCanonical":
+                {
+                    if (isEmpty(literalValue))
+                    {
+                        issues.add(new BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem(
+                                elementId, bpmnFile, processId));
+                        break;
+                    }
+                    instantiatesValue = literalValue;
+                    hasInstantiatesPlaceholder = containsVersionPlaceholder(literalValue);
+                    if (!hasInstantiatesPlaceholder)
+                    {
+                        issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(
+                                elementId, bpmnFile, processId));
+                    }
+                    break;
+                }
+                default:
+                {
+                    issues.add(new BpmnUnknownFieldInjectionValidationItem(
+                            elementId, bpmnFile, processId, fieldName));
+                    break;
+                }
+            }
+        }
+
+        // Second pass: cross-check logic
+        if (structureFoundForProfile && !isEmpty(profileValue))
+        {
+            if (!isEmpty(messageNameValue) && !doesProfileContainMessageNameParts(profileValue, messageNameValue)) {
+                issues.add(new BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationItem(
+                        elementId, bpmnFile, processId,
+                        "The 'messageName' value [" + messageNameValue
+                                + "] is not contained in the 'profile' [" + profileValue + "]."
+                ));
+            }
+
+            if (!isEmpty(instantiatesValue))
+            {
+
+                boolean hasFixedCanonical = FhirValidator.structureDefinitionHasFixedCanonical(instantiatesValue, projectRoot);
+                if (!hasFixedCanonical)
+                {
+                    issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotInStructureDefinitionValidationItem(
+                            elementId, bpmnFile, processId,
+                            "The StructureDefinition does not reference instantiatesCanonical: " + instantiatesValue
+                    ));
+                }
+            }
+        }
+
+        if (!isEmpty(instantiatesValue))
+        {
+
+            boolean foundInActDef = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesValue, projectRoot);
+            if (!foundInActDef)
+            {
+                issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotInActivityDefinitionValidationItem(
+                        elementId, bpmnFile, processId,
+                        "instantiatesCanonical not found in any ActivityDefinition: " + instantiatesValue
+                ));
+            }
+            else
+            {
+                if (!isEmpty(messageNameValue))
+                {
+                    boolean hasMsgName = FhirValidator.activityDefinitionHasMessageName(
+                            messageNameValue, projectRoot);
+                    if (!hasMsgName)
+                    {
+                        issues.add(new BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem (
+                                elementId, bpmnFile, processId,
+                                "ActivityDefinition found for canonical " + instantiatesValue
+                                        + " but the message value is not present in any ActivityDefinition '" + messageNameValue + "'"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Attempts to read any nested {@code <camunda:string>} text content if the
+     * {@code camunda:stringValue} is not set directly on the {@code CamundaField}.
+     *
+     * @param field
+     *         the {@link CamundaField} whose nested text might be extracted
+     * @return the text content of the nested {@code <camunda:string>}, or null if not found
+     */
+    private String tryReadNestedStringContent(CamundaField field)
+    {
+        if (field == null) return null;
+        DomElement domEl = field.getDomElement();
+        if (domEl != null)
+        {
+            Collection<DomElement> childEls = domEl.getChildElements();
+            for (DomElement child : childEls)
+            {
+                if ("string".equals(child.getLocalName())
+                        && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()))
+                {
+                    return child.getTextContent();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Validates that a specified {@code messageName} is found in FHIR ActivityDefinition
+     * and StructureDefinition. If not present, adds corresponding validation errors.
+     *
+     * @param messageName
+     *         the message name to check
+     * @param issues
+     *         the issues collector
+     * @param elementId
+     *         the BPMN element ID
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
+    private void checkMessageName(String messageName,
+                                  List<BpmnElementValidationItem> issues,
+                                  String elementId,
+                                  File bpmnFile,
+                                  String processId)
+    {
+        boolean actDefExists = FhirValidator.activityDefinitionExists(messageName, projectRoot);
+        boolean structDefExists = FhirValidator.structureDefinitionExists(messageName, projectRoot);
+
+        if (!actDefExists)
+        {
+            issues.add(new BpmnMessageSendEventMessageNameNotPresentInActivityDefinitionValidationItem(
+                    elementId, bpmnFile, processId, messageName));
+        }
+        if (!structDefExists)
+        {
+            issues.add(new BpmnMessageSendEventMessageNameNotMatchingProfileValidationItem(
+                    elementId, bpmnFile, processId, "", messageName));
+        }
+    }
+
+    /**
+     * Extracts the {@code camunda:class} attribute from a BPMN event, searching both the
+     * element itself and any attached {@link MessageEventDefinition}.
+     *
+     * @param element
+     *         the BPMN element
+     * @return the class name if found, otherwise an empty string
+     */
+    private String extractImplementationClass(BaseElement element)
+    {
+        String implClass = element.getAttributeValueNs("class", "http://camunda.org/schema/1.0/bpmn");
+        if (!isEmpty(implClass)) return implClass;
+
+        if (element instanceof ThrowEvent throwEvent)
+        {
+            for (EventDefinition def : throwEvent.getEventDefinitions())
+            {
+                if (def instanceof MessageEventDefinition messageDef)
+                {
+                    implClass = messageDef.getCamundaClass();
+                    if (!isEmpty(implClass))
+                    {
+                        return implClass;
+                    }
+                }
+            }
+        }
+        else if (element instanceof EndEvent endEvent)
+        {
+            for (EventDefinition def : endEvent.getEventDefinitions())
+            {
+                if (def instanceof MessageEventDefinition messageDef)
+                {
+                    implClass = messageDef.getCamundaClass();
+                    if (!isEmpty(implClass))
+                    {
+                        return implClass;
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Validates the message definition of a BPMN element (start/boundary/catch/throw/end event)
+     * by checking if the {@code messageName} is non-empty and recognized in FHIR resources.
+     *
+     * @param element
+     *         the BPMN element
+     * @param messageDef
+     *         the {@link MessageEventDefinition} to validate
+     * @param issues
+     *         validation items collector
+     * @param bpmnFile
+     *         BPMN file reference
+     * @param processId
+     *         process id
+     */
+    private void validateMessageDefinition(FlowElement element,
+                                           MessageEventDefinition messageDef,
+                                           List<BpmnElementValidationItem> issues,
+                                           File bpmnFile,
+                                           String processId)
+    {
+        String elementId = element.getId();
+        if (messageDef.getMessage() == null || isEmpty(messageDef.getMessage().getName()))
+        {
+            issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(elementId, bpmnFile, processId));
+        }
+        else
+        {
+            // Check if an ActivityDefinition exists for the message name.
+            String msgName = messageDef.getMessage().getName();
+            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot))
+            {
+                issues.add(new BpmnMessageStartEventMessageNameNotPresentInActivityDefinitionValidationItem(
+                        elementId, bpmnFile, processId, msgName));
+            }
+            // Check if a StructureDefinition exists for the message name.
+            if (!FhirValidator.structureDefinitionExists(msgName, projectRoot))
+            {
+                issues.add(new BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(
+                        elementId, bpmnFile, processId, msgName));
+            }
+        }
+    }
+
+    /**
+     * Performs "common" validations for an event that uses a message definition, such
+     * as {@link IntermediateThrowEvent} or {@link EndEvent} with a {@link MessageEventDefinition}.
+     * Ensures:
+     * <ul>
+     *   <li>Event name not empty</li>
+     *   <li>Implementation class is valid (non-empty, exists, implements {@code JavaDelegate})</li>
+     *   <li>Field injections for {@code profile}, {@code messageName}, {@code instantiatesCanonical}
+     *       are present and correct</li>
+     * </ul>
+     *
+     * @param event
+     *         the BPMN flow element
+     * @param issues
+     *         the validation collector
+     * @param bpmnFile
+     *         reference to BPMN file
+     * @param processId
+     *         process identifier
+     */
+    private void validateCommonMessageEvent(FlowElement event,
+                                            List<BpmnElementValidationItem> issues,
+                                            File bpmnFile,
+                                            String processId)
+    {
+        String elementId = event.getId();
+        if (isEmpty(event.getName()))
+        {
+            issues.add(new BpmnEventNameEmptyValidationItem(elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
+        }
+        String implClass = extractImplementationClass(event);
+        validateImplementationClass(implClass, elementId, bpmnFile, processId, issues);
+        validateMessageSendFieldInjections(event, issues, bpmnFile, processId);
+    }
+
+    /**
+     * Checks whether a formKey (for a {@link UserTask}) presumably references an existing
+     * questionnaire. In this example, we simply check for the substring "questionnaire."
+     *
+     * @param formKey
+     *         the form key from the BPMN user task
+     * @return true if the substring "questionnaire" is found, false otherwise
+     */
+    private boolean questionnaireExists(String formKey)
+    {
+        return formKey.contains("questionnaire");
+    }
+
+    /**
+     * Determines whether the provided string is null or empty.
+     *
+     * @param value
+     *         the string to check
+     * @return {@code true} if the string is null or empty, {@code false} otherwise
      */
     private boolean isEmpty(String value)
     {
@@ -1183,159 +1836,11 @@ public class BpmnModelValidator
     }
 
     /**
-     * Checks whether a class with the given fully qualified name exists in the classpath.
-     * <p>
-     * This method first attempts to load the class using the current thread's context class loader.
-     * The "current context class loader" refers to the ClassLoader that is associated with the thread
-     * currently executing this code. It is typically set by the runtime environment (for example, an
-     * application server or a standalone Java application) and represents the classes available to that thread.
-     * </p>
-     * <p>
-     * If the class is not found using the context class loader, the method then attempts to load the class
-     * from the compiled classes directory (e.g. "target/classes" or "build/classes") within the project root,
-     * as well as from any dependency JARs found in the "target/dependency" directory.
-     * </p>
-     * <p>
-     * The method returns {@code true} if the class is found by any of these mechanisms; otherwise, it returns {@code false}.
-     * </p>
+     * Checks if a string contains the {@code #{version}} placeholder.
      *
-     * @param className the fully qualified name of the class to check (e.g., "com.example.MyClass")
-     * @return {@code true} if the class exists, {@code false} otherwise
-     */
-    private boolean classExists(String className) {
-        //System.out.println("DEBUG: Checking if class exists: " + className);
-        try {
-            // First, try using the current context class loader.
-            ClassLoader cl = Thread.currentThread().getContextClassLoader();
-            //System.out.println("DEBUG: Using context class loader: " + cl);
-            cl.loadClass(className);
-            //System.out.println("DEBUG: Class found using context class loader.");
-            return true;
-        } catch (ClassNotFoundException e) {
-            //System.out.println("DEBUG: Class not found using context class loader: " + className);
-        } catch (Throwable t) {
-            System.err.println("DEBUG: Throwable caught while trying to load class " + className + ": " + t.getMessage());
-            t.printStackTrace();
-        }
-
-        if (projectRoot != null) {
-            try {
-                // Locate the compiled classes directory (Maven or Gradle)
-                File classesDir = new File(projectRoot, "target/classes");
-                if (!classesDir.exists()) {
-                    classesDir = new File(projectRoot, "build/classes");
-                }
-                //System.out.println("DEBUG: Using compiled classes directory: " + classesDir.getAbsolutePath());
-
-                List<URL> urlList = new ArrayList<>();
-                if (classesDir.exists()) {
-                    urlList.add(classesDir.toURI().toURL());
-                } else {
-                    System.err.println("DEBUG: Compiled classes directory not found in project root: " + projectRoot.getAbsolutePath());
-                }
-
-                // Add dependency JARs from target/dependency, if available.
-                File dependencyDir = new File(projectRoot, "target/dependency");
-                if (dependencyDir.exists() && dependencyDir.isDirectory()) {
-                    File[] jars = dependencyDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
-                    if (jars != null) {
-                        for (File jar : jars) {
-                            urlList.add(jar.toURI().toURL());
-                            //System.out.println("DEBUG: Adding dependency JAR: " + jar.getAbsolutePath());
-                        }
-                    }
-                } else {
-                    System.out.println("DEBUG: No dependency directory found at: " + dependencyDir.getAbsolutePath());
-                }
-
-                URL[] urls = urlList.toArray(new URL[0]);
-                /* System.out.println("DEBUG: Created URLClassLoader with URLs:");
-                for (URL url : urls) {
-                    System.out.println("  " + url);
-                } */
-                ClassLoader urlCl = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
-                urlCl.loadClass(className);
-                //System.out.println("DEBUG: Class found using URLClassLoader from compiled classes and dependencies.");
-                return true;
-            } catch (Throwable t) {
-                System.err.println("DEBUG: Throwable caught while trying to load class '" + className +
-                        "' from compiled classes and dependencies: " + t.getMessage());
-                t.printStackTrace();
-            }
-        } else {
-            System.err.println("DEBUG: projectRoot is null. Cannot locate compiled classes.");
-        }
-        return false;
-    }
-
-    /**
-     * Checks whether the class with the given fully qualified name implements the
-     * {@code org.camunda.bpm.engine.delegate.JavaDelegate} interface.
-     * <p>
-     * This method constructs a custom URLClassLoader that includes both the compiled
-     * classes directory (either "target/classes" or "build/classes") and any dependency
-     * JARs from "target/dependency" (if available). It then loads the candidate class and the
-     * JavaDelegate interface using the same custom class loader. If the candidate class is
-     * assignable to the JavaDelegate interface, the method returns {@code true}.
-     * </p>
-     *
-     * @param className the fully qualified name of the candidate class to check.
-     * @return {@code true} if the candidate class implements {@code org.camunda.bpm.engine.delegate.JavaDelegate},
-     *         {@code false} otherwise.
-     */
-    private boolean implementsJavaDelegate(String className) {
-        try {
-            // Locate the compiled classes' directory.
-            File classesDir = new File(projectRoot, "target/classes");
-            if (!classesDir.exists()) {
-                classesDir = new File(projectRoot, "build/classes");
-            }
-            List<URL> urlList = new ArrayList<>();
-            if (classesDir.exists()) {
-                urlList.add(classesDir.toURI().toURL());
-            } else {
-                System.err.println("DEBUG: Compiled classes directory not found in project root: "
-                        + projectRoot.getAbsolutePath());
-            }
-
-            // Add dependency JARs from target/dependency, if available.
-            File dependencyDir = new File(projectRoot, "target/dependency");
-            if (dependencyDir.exists() && dependencyDir.isDirectory()) {
-                File[] jars = dependencyDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
-                if (jars != null) {
-                    for (File jar : jars) {
-                        urlList.add(jar.toURI().toURL());
-                    }
-                }
-            } else {
-                System.out.println("DEBUG: No dependency directory found at: "
-                        + dependencyDir.getAbsolutePath());
-            }
-
-            // Create a custom URLClassLoader with the compiled classes and dependency JARs.
-            URL[] urls = urlList.toArray(new URL[0]);
-            ClassLoader customCl = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
-
-            // Load the candidate class using the custom class loader.
-            Class<?> candidateClass = Class.forName(className, true, customCl);
-            // Load the JavaDelegate interface using the same custom class loader.
-            Class<?> delegateInterface = Class.forName("org.camunda.bpm.engine.delegate.JavaDelegate", true, customCl);
-
-            // Return true if candidateClass implements JavaDelegate.
-            return delegateInterface.isAssignableFrom(candidateClass);
-        } catch (Throwable t) {
-            System.err.println("DEBUG: Exception in implementsJavaDelegate for " + className + ": " + t.getMessage());
-            t.printStackTrace();
-            return false;
-        }
-    }
-
-
-    /**
-     * Checks if the raw value contains a version placeholder (e.g., "#{version}").
-     *
-     * @param rawValue the string to check
-     * @return true if the placeholder exists, false otherwise
+     * @param rawValue
+     *         the string to check
+     * @return {@code true} if {@code #{version}} is present, {@code false} otherwise
      */
     private boolean containsVersionPlaceholder(String rawValue)
     {
@@ -1344,195 +1849,170 @@ public class BpmnModelValidator
 
 
     /**
-     * Checks whether the given message name is referenced within the profile value.
-     * <p>
-     * This method is used as part of the validation process for SEND TASK, MESSAGE END EVENT,
-     * and MESSAGE INTERMEDIATE THROW EVENT BPMN elements. In these events, field injections are used
-     * to define critical configuration properties. The "profile" field usually contains a canonical
-     * URL (possibly with additional metadata separated by a pipe ("|")), which defines a FHIR StructureDefinition.
-     * This method extracts the canonical part (everything before the pipe) and then checks whether the
-     * provided message name appears within that canonical URL (ignoring case differences). This ensures that
-     * the message referenced by the event is consistent with the expected profile configuration.
-     * </p>
+     * Checks if a fully-qualified class name can be loaded from:
+     * <ol>
+     *   <li>The current thread context ClassLoader</li>
+     *   <li>A fallback {@link URLClassLoader} built from {@code target/classes} or
+     *       {@code build/classes} plus the {@code target/dependency} JARs</li>
+     * </ol>
      *
-     * @param profileValue the full profile value, which may include extra metadata separated by a pipe ("|");
-     *                     only the portion before the pipe is used for comparison.
-     * @param messageName the name of the message that should be referenced within the canonical part of the profile.
-     * @return {@code true} if the canonical part of the profile contains the message name (ignoring case),
-     *         {@code false} otherwise.
+     * @param className
+     *         the fully qualified name (e.g., "com.example.MyDelegate")
+     * @return {@code true} if the class is found, {@code false} otherwise
      */
-
-    private boolean messageNameMatchesProfile(String profileValue, String messageName)
+    private boolean classExists(String className)
     {
-        if (profileValue == null || messageName == null) return false;
-        int pipeIndex = profileValue.indexOf("|");
-        if (pipeIndex != -1)
+        try
         {
-            profileValue = profileValue.substring(0, pipeIndex);
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            cl.loadClass(className);
+            return true;
         }
-        return profileValue.toLowerCase().contains(messageName.toLowerCase());
+        catch (ClassNotFoundException e)
+        {
+            // fallback
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: Throwable while trying context CL: " + t.getMessage());
+        }
+
+        if (projectRoot != null)
+        {
+            try
+            {
+                File classesDir = new File(projectRoot, "target/classes");
+                if (!classesDir.exists())
+                {
+                    classesDir = new File(projectRoot, "build/classes");
+                }
+
+                List<URL> urlList = new ArrayList<>();
+                if (classesDir.exists())
+                {
+                    urlList.add(classesDir.toURI().toURL());
+                }
+
+                File dependencyDir = new File(projectRoot, "target/dependency");
+                if (dependencyDir.exists() && dependencyDir.isDirectory())
+                {
+                    File[] jars = dependencyDir.listFiles((d, n) -> n.toLowerCase().endsWith(".jar"));
+                    if (jars != null)
+                    {
+                        for (File jar : jars)
+                        {
+                            urlList.add(jar.toURI().toURL());
+                        }
+                    }
+                }
+
+                URL[] urls = urlList.toArray(new URL[0]);
+                ClassLoader urlCl = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+                urlCl.loadClass(className);
+                return true;
+            }
+            catch (Throwable t)
+            {
+                System.err.println("DEBUG: Throwable while custom loading " + className + ": " + t.getMessage());
+            }
+        }
+        return false;
     }
 
     /**
-     * Validates the consistency between the provided profile and canonical values by checking for a common keyword.
-     * <p>
-     * This method is used in the validation of SEND TASK, MESSAGE END EVENT, and MESSAGE INTERMEDIATE THROW EVENT BPMN elements.
-     * In these events, field injections for "profile" and "instantiatesCanonical" are specified, and these values often contain
-     * additional metadata appended after a pipe ("|"). The method extracts the base value (i.e. the part before the pipe)
-     * from both inputs. It then verifies, in a case-insensitive manner, that both base values contain a common keyword.
-     * <em>Note:</em> In this implementation the keyword "ping" is used as an example. In other scenarios, the keyword
-     * may differ; the check should be adapted accordingly if a different common identifier is required.
-     * </p>
+     * Checks if the given class name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
      *
-     * @param profileVal   the profile value from the BPMN field injection, potentially including extra metadata after a pipe.
-     * @param canonicalVal the canonical value from the BPMN field injection, potentially including extra metadata after a pipe.
-     * @return {@code true} if both the extracted profile value and canonical value contain the common keyword (ignoring case);
-     *         {@code false} otherwise.
+     * @param className
+     *         the fully qualified name of the class to check
+     * @return {@code true} if the class implements {@code JavaDelegate}, otherwise {@code false}
      */
-
-    private boolean canonicalMatchesProfile(String profileVal, String canonicalVal)
+    private boolean implementsJavaDelegate(String className)
     {
-        if (profileVal == null || canonicalVal == null) return false;
-        int pIdx = profileVal.indexOf("|");
-        if (pIdx != -1) profileVal = profileVal.substring(0, pIdx);
-        int cIdx = canonicalVal.indexOf("|");
-        if (cIdx != -1) canonicalVal = canonicalVal.substring(0, cIdx);
-        return profileVal.toLowerCase().contains("ping") && canonicalVal.toLowerCase().contains("ping");
-    }
+        try
+        {
+            File classesDir = new File(projectRoot, "target/classes");
+            if (!classesDir.exists())
+            {
+                classesDir = new File(projectRoot, "build/classes");
+            }
 
-    /**
-     * Validates the message name against known ActivityDefinition and StructureDefinition.
-     *
-     * @param messageName the message name to check
-     * @param issues      list of validation issues to add to
-     * @param elementId   the BPMN element id
-     * @param bpmnFile    the BPMN file
-     * @param processId   the process id
-     */
-    private void checkMessageName(String messageName,
-                                  List<BpmnElementValidationItem> issues,
-                                  String elementId,
-                                  File bpmnFile,
-                                  String processId) {
-        System.out.println("დ DEBUG: Checking message name '" + messageName + "' for BPMN element " + elementId);
+            List<URL> urlList = new ArrayList<>();
+            if (classesDir.exists())
+            {
+                urlList.add(classesDir.toURI().toURL());
+            }
 
-        boolean actDefExists = FhirValidator.activityDefinitionExists(messageName, projectRoot);
-        boolean structDefExists = FhirValidator.structureDefinitionExists(messageName, projectRoot);
-
-        System.out.println("დ DEBUG: ActivityDefinition exists: " + actDefExists);
-        System.out.println("დ DEBUG: StructureDefinition exists: " + structDefExists);
-
-        if (!actDefExists) {
-            issues.add(new BpmnMessageSendEventMessageNameNotPresentInActivityDefinitionValidationItem(
-                    elementId, bpmnFile, processId, messageName));
-        }
-        if (!structDefExists) {
-            issues.add(new BpmnMessageSendEventMessageNameNotMatchingProfileValidationItem(
-                    elementId, bpmnFile, processId, "", messageName));
-        }
-    }
-
-
-
-    /**
-     * Validates the implementation class for emptiness, existence, and JavaDelegate implementation.
-     *
-     * @param implClass the implementation class name
-     * @param elementId the BPMN element id
-     * @param bpmnFile  the BPMN file
-     * @param processId the process id
-     * @param issues    list of validation issues to add to
-     */
-    private void checkImplementationClass(String implClass,
-                                          String elementId,
-                                          File bpmnFile,
-                                          String processId,
-                                          List<BpmnElementValidationItem> issues)
-    {
-        validateImplementationClass(implClass, elementId, bpmnFile, processId, issues);
-    }
-
-    /**
-     * Checks whether a corresponding questionnaire exists for the given form key.
-     * <p>
-     * This example implementation determines the existence of a questionnaire by verifying
-     * if the provided form key contains the substring "questionnaire". In a production
-     * environment, this method should be replaced with a more robust check against an actual
-     * repository or registry of questionnaires.
-     * </p>
-     *
-     * @param formKey the external form key, typically referencing a questionnaire form
-     * @return {@code true} if the form key contains "questionnaire"; {@code false} otherwise
-     */
-
-    // read JavaDoc
-    private boolean questionnaireExists(String formKey)
-    {
-        // Example: if formKey contains "questionnaire", then it exists
-        return formKey.contains("questionnaire");
-    }
-
-    /**
-     * Extracts the implementation class from a BPMN element that has event definitions.
-     * <p>
-     * First, the method checks if the element has a "camunda:class" attribute directly.
-     * If not found, it iterates over its event definitions and returns the camunda:class
-     * value from the first MessageEventDefinition found.
-     * </p>
-     *
-     * @param element the BPMN element (such as an IntermediateThrowEvent or EndEvent)
-     * @return the implementation class, or an empty string if not found.
-     */
-    private String extractImplementationClass(BaseElement element) {
-        // Try to read the attribute directly from the element.
-        String implClass = element.getAttributeValueNs("class", "http://camunda.org/schema/1.0/bpmn");
-        if (!isEmpty(implClass)) {
-            return implClass;
-        }
-        // Otherwise, iterate over event definitions (if any).
-        Collection<EventDefinition> eventDefs = element.getChildElementsByType(EventDefinition.class);
-        for (EventDefinition def : eventDefs) {
-            if (def instanceof MessageEventDefinition messageDef) {
-                implClass = messageDef.getCamundaClass();
-                if (!isEmpty(implClass)) {
-                    return implClass;
+            File dependencyDir = new File(projectRoot, "target/dependency");
+            if (dependencyDir.exists() && dependencyDir.isDirectory())
+            {
+                File[] jars = dependencyDir.listFiles((d, n) -> n.toLowerCase().endsWith(".jar"));
+                if (jars != null)
+                {
+                    for (File jar : jars)
+                    {
+                        urlList.add(jar.toURI().toURL());
+                    }
                 }
             }
+
+            URL[] urls = urlList.toArray(new URL[0]);
+            ClassLoader customCl = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+
+            Class<?> candidateClass = Class.forName(className, true, customCl);
+            Class<?> delegateInterface = Class.forName("org.camunda.bpm.engine.delegate.JavaDelegate", true, customCl);
+
+            return delegateInterface.isAssignableFrom(candidateClass);
         }
-        return "";
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: Exception in implementsJavaDelegate for " + className + ": " + t.getMessage());
+            return false;
+        }
     }
 
     /**
-     * Validates that a message definition has a non-empty message name and that the name
-     * exists in both a known ActivityDefinition and StructureDefinition.
+     * Checks if all parts of the given message name, split at uppercase letters and lowercased,
+     * are present in the profile value in the same order.
      *
-     * @param element   the BPMN element (used for element ID)
-     * @param messageDef the message event definition containing the message reference
-     * @param issues    list to which any validation issues are added
-     * @param bpmnFile  the BPMN file being validated
-     * @param processId the process id (or empty string if not available)
+     * <p>For example, given:
+     * <ul>
+     *   <li>profileValue: "http://dsf.dev/fhir/StructureDefinition/task-start-ping|#{version}"</li>
+     *   <li>messageNameValue: "startPing"</li>
+     * </ul>
+     * The method will split "startPing" into ["start", "Ping"], convert them to ["start", "ping"],
+     * and then verify that "start" occurs before "ping" within the profileValue (ignoring case).
+     *
+     * @param profileValue     The profile string to search within.
+     * @param messageNameValue The camelCase message name to check.
+     * @return {@code true} if all parts of the message name are found sequentially in the profile; {@code false} otherwise.
      */
-    private void validateMessageDefinition(FlowElement element,
-                                           MessageEventDefinition messageDef,
-                                           List<BpmnElementValidationItem> issues,
-                                           File bpmnFile,
-                                           String processId) {
-        String elementId = element.getId();
-        if (messageDef.getMessage() == null || isEmpty(messageDef.getMessage().getName())) {
-            issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(elementId, bpmnFile, processId));
-        } else {
-            // Check if an ActivityDefinition exists for the message name.
-            String msgName = messageDef.getMessage().getName();
-            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot)) {
-                issues.add(new BpmnMessageStartEventMessageNameNotPresentInActivityDefinitionValidationItem(
-                        elementId, bpmnFile, processId, msgName));
-            }
-            // Check if a StructureDefinition exists for the message name.
-            if (!FhirValidator.structureDefinitionExists(msgName, projectRoot)) {
-                issues.add(new BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(
-                        elementId, bpmnFile, processId, msgName));
-            }
+    private boolean doesProfileContainMessageNameParts(String profileValue, String messageNameValue) {
+        if (profileValue == null || messageNameValue == null) {
+            return false;
         }
+
+        // Split the message name at positions preceding uppercase letters (camelCase splitting)
+        // For example, "startPing" becomes ["start", "Ping"].
+        String[] parts = messageNameValue.split("(?=[A-Z])");
+
+        // Convert the profile to lower case for case-insensitive matching.
+        String profileLower = profileValue.toLowerCase();
+        int lastFoundIndex = -1;
+
+        // Check each part sequentially.
+        for (String part : parts) {
+            // Convert each part to lower case.
+            String lowerPart = part.toLowerCase();
+            // Find the part in the profile, starting after the previous part's index.
+            int foundIndex = profileLower.indexOf(lowerPart, lastFoundIndex + 1);
+            if (foundIndex == -1) {
+                // The part was not found in the profile value.
+                return false;
+            }
+            lastFoundIndex = foundIndex;
+        }
+
+        return true;
     }
 
 }

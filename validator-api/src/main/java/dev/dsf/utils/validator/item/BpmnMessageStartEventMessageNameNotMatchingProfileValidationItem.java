@@ -1,43 +1,54 @@
 package dev.dsf.utils.validator.item;
 
 import dev.dsf.utils.validator.ValidationSeverity;
+import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
-import dev.dsf.utils.validator.ValidationType;
-
 /**
- * Indicates that a messageName in a Message Start Event does not match
- * the required profile or structure definition.
+ * Validation item indicating that the message name in a message start event does not match the profile.
  * Corresponds to {@link ValidationType#BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_NOT_MATCHING_PROFILE}.
  */
-public class BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem
-        extends BpmnElementValidationItem
+public class BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem extends BpmnElementValidationItem
 {
+    private final String description;
     private final String messageName;
 
     /**
-     * Constructs a new validation item indicating that a messageName does not match
-     * the required profile or structure definition.
+     * Constructs a new validation item for a message start event where the message name does not match the profile.
      *
-     * @param elementId   the BPMN element ID (Start Event)
+     * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated
-     * @param processId   the process definition or key, if available
-     * @param messageName the name that failed to match the profile
+     * @param processId   the process definition ID or key
+     * @param messageName the message name that does not match the profile
      */
-    public BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(
-            String elementId,
-            File bpmnFile,
-            String processId,
-            String messageName)
+    public BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(String elementId, File bpmnFile, String processId, String messageName)
     {
-        // Use ERROR, WARN, or INFO as desired; here we set ERROR arbitrarily
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.messageName = messageName;
+        this.description = "Message start event message name '" + messageName + "' does not match the profile";
     }
 
     /**
-     * @return the message name that did not match the profile
+     * Constructs a new validation item with a custom description.
+     *
+     * @param elementId   the BPMN element ID
+     * @param bpmnFile    the BPMN file being validated
+     * @param processId   the process definition ID or key
+     * @param messageName the message name that does not match the profile
+     * @param description the custom validation description
      */
+    public BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(String elementId, File bpmnFile, String processId, String messageName, String description)
+    {
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
+        this.messageName = messageName;
+        this.description = description;
+    }
+
+    public String getDescription()
+    {
+        return description;
+    }
+
     public String getMessageName()
     {
         return messageName;

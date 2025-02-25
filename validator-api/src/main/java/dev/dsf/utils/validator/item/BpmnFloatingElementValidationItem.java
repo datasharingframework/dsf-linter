@@ -8,21 +8,21 @@ import java.io.File;
 /**
  * A generic validation item typically used when no specific validation type
  * exists. For example, "floating" or ambiguous BPMN elements, or a generic warning.
+ * Corresponds to {@link ValidationType#BPMN_FLOATING_ELEMENT}.
  */
 public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
 {
     private final String description;
     private final ValidationType validationTypeOverride;
-    //private final ValidationSeverity severityOverride;
 
     /**
      * Constructs a generic floating-element validation item with a custom message,
-     * a known ValidationType, and default severity of ERROR (can be overridden).
+     * a known ValidationType, and default severity of WARN.
      *
-     * @param elementId            the BPMN element ID
-     * @param bpmnFile             the BPMN file being validated
-     * @param processId            the process definition ID or key
-     * @param description          a descriptive message about the floating/ambiguous element
+     * @param elementId             the BPMN element ID
+     * @param bpmnFile              the BPMN file being validated
+     * @param processId             the process definition ID or key
+     * @param description           a descriptive message about the floating/ambiguous element
      * @param validationTypeOverride the validation type to assign
      */
     public BpmnFloatingElementValidationItem(
@@ -35,11 +35,17 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
         this.description = description;
         this.validationTypeOverride = validationTypeOverride;
-        //this.severityOverride = null; // no specific override
     }
 
     /**
      * Overloaded constructor that also allows specifying a custom severity.
+     *
+     * @param elementId             the BPMN element ID
+     * @param bpmnFile              the BPMN file being validated
+     * @param processId             the process definition ID or key
+     * @param description           a descriptive message about the floating/ambiguous element
+     * @param validationTypeOverride the validation type to assign
+     * @param severityOverride      the custom severity to use
      */
     public BpmnFloatingElementValidationItem(
             String elementId,
@@ -52,7 +58,6 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
         super(severityOverride, elementId, bpmnFile, processId);
         this.description = description;
         this.validationTypeOverride = validationTypeOverride;
-        //this.severityOverride = severityOverride;
     }
 
     /**
@@ -63,9 +68,24 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
         return description;
     }
 
-    /*@Override
-    public ValidationSeverity getSeverity()
+
+    /**
+     * Overrides the default toString() method to include the description and other relevant details.
+     *
+     * @return a string representation of this validation item including elementId, processId, file, description,
+     *         validation type, and severity.
+     */
+    /*
+    @Override
+    public String toString()
     {
-        return severityOverride != null ? severityOverride : super.getSeverity();
-    }*/
+        return "BpmnFloatingElementValidationItem{" +
+                "elementId='" + getElementId() + '\'' +
+                ", processId='" + getProcessId() + '\'' +
+                ", file=" + getBpmnFile() +
+                ", description='" + description + '\'' +
+                ", validationTypeOverride=" + validationTypeOverride +
+                ", severity=" + getSeverity() +
+                '}';
+    } */
 }

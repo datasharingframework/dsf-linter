@@ -5,24 +5,24 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that the service task name is empty.
- * Corresponds to {@link ValidationType#BPMN_SERVICE_TASK_NAME_EMPTY}.
+ * Validation item indicating that a start event is not part of a subprocess.
+ * Corresponds to {@link ValidationType#BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS}.
  */
-public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidationItem
+public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElementValidationItem
 {
     private final String description;
 
     /**
-     * Constructs a new validation item for a service task with an empty name.
+     * Constructs a new validation item for a start event that is not part of a subprocess.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
      */
-    public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
+    public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Service task name is empty";
+        this.description = "Start event is not part of a subprocess";
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidatio
      * @param processId   the process definition ID or key
      * @param description the custom validation description
      */
-    public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
         this.description = description;

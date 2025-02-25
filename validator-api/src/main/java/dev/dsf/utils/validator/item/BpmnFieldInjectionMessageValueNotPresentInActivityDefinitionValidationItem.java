@@ -5,24 +5,24 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that the implementation class in a message send event is empty.
- * Corresponds to {@link ValidationType#BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_EMPTY}.
+ * Validation item indicating that the message value in a field injection is not present in any ActivityDefinition.
+ * Corresponds to {@link ValidationType#BPMN_FIELD_INJECTION_MESSAGE_VALUE_NOT_PRESENT_IN_ACTIVITY_DEFINITION}.
  */
-public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends BpmnElementValidationItem
+public class BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem extends BpmnElementValidationItem
 {
     private final String description;
 
     /**
-     * Constructs a new validation item for a message send event with an empty implementation class.
+     * Constructs a new validation item for a field injection error where the message value is not present in any ActivityDefinition.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId)
+    public BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message send event implementation class is empty";
+        this.description = "The message value is not present in any ActivityDefinition";
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends 
      * @param processId   the process definition ID or key
      * @param description the custom validation description
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    public BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.description = description;

@@ -5,24 +5,24 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that the implementation class in a message send event is empty.
- * Corresponds to {@link ValidationType#BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_EMPTY}.
+ * Validation item indicating that the message value in a field injection is empty.
+ * Corresponds to {@link ValidationType#BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY}.
  */
-public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends BpmnElementValidationItem
+public class BpmnFieldInjectionMessageValueEmptyValidationItem extends BpmnElementValidationItem
 {
     private final String description;
 
     /**
-     * Constructs a new validation item for a message send event with an empty implementation class.
+     * Constructs a new validation item for an empty message value in a field injection.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId)
+    public BpmnFieldInjectionMessageValueEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message send event implementation class is empty";
+        this.description = "Message value in field injection is empty";
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends 
      * @param processId   the process definition ID or key
      * @param description the custom validation description
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    public BpmnFieldInjectionMessageValueEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.description = description;

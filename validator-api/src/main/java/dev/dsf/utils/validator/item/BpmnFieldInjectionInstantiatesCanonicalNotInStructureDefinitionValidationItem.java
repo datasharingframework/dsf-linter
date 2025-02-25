@@ -5,24 +5,24 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that the implementation class in a message send event is empty.
- * Corresponds to {@link ValidationType#BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_EMPTY}.
+ * Validation item indicating that the instantiatesCanonical field injection is not found in any StructureDefinition.
+ * Corresponds to {@link ValidationType#BPMN_FIELD_INJECTION_INSTANTIATES_CANONICAL_NOT_IN_STRUCTURE_DEFINITION}.
  */
-public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends BpmnElementValidationItem
+public class BpmnFieldInjectionInstantiatesCanonicalNotInStructureDefinitionValidationItem extends BpmnElementValidationItem
 {
     private final String description;
 
     /**
-     * Constructs a new validation item for a message send event with an empty implementation class.
+     * Constructs a new validation item for an instantiatesCanonical field injection that is not found in any StructureDefinition.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId)
+    public BpmnFieldInjectionInstantiatesCanonicalNotInStructureDefinitionValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message send event implementation class is empty";
+        this.description = "instantiatesCanonical field injection is not found in any StructureDefinition";
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends 
      * @param processId   the process definition ID or key
      * @param description the custom validation description
      */
-    public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    public BpmnFieldInjectionInstantiatesCanonicalNotInStructureDefinitionValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.description = description;

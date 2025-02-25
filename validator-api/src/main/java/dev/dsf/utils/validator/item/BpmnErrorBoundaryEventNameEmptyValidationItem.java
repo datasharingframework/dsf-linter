@@ -1,16 +1,17 @@
 package dev.dsf.utils.validator.item;
 
 import dev.dsf.utils.validator.ValidationSeverity;
+import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
-import dev.dsf.utils.validator.ValidationType;
-
 /**
- * Validation item indicating that an Error Boundary Event has an empty name.
+ * Validation item indicating that the error boundary event's name is empty.
  * Corresponds to {@link ValidationType#BPMN_ERROR_BOUNDARY_EVENT_NAME_EMPTY}.
  */
 public class BpmnErrorBoundaryEventNameEmptyValidationItem extends BpmnElementValidationItem
 {
+    private final String description;
+
     /**
      * Constructs a new validation item for an Error Boundary Event with an empty name.
      *
@@ -21,5 +22,25 @@ public class BpmnErrorBoundaryEventNameEmptyValidationItem extends BpmnElementVa
     public BpmnErrorBoundaryEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        this.description = "Error Boundary Event name is empty";
+    }
+
+    /**
+     * Constructs a new validation item with a custom description.
+     *
+     * @param elementId   the BPMN element ID
+     * @param bpmnFile    the BPMN file being validated
+     * @param processId   the process definition ID or key
+     * @param description the custom validation description
+     */
+    public BpmnErrorBoundaryEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
+    {
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        this.description = description;
+    }
+
+    public String getDescription()
+    {
+        return description;
     }
 }

@@ -2,9 +2,7 @@ package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
-import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
-import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,40 +12,31 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
-public class Main {
+public class LocalMain {
     public static void main(String[] args) {
-        // Prompt the user to enter the remote repository URL via the console
+
         Scanner scanner = new Scanner(System.in);
-        System.out.print("Please enter the remote repository URL: ");
-        String remoteRepoUrl = scanner.nextLine();
+        System.out.print("Please enter the local project path: ");
+        String projectPath = scanner.nextLine();
 
-        // Extract the repository name (substring after the last '/')
-        String repositoryName = remoteRepoUrl.substring(remoteRepoUrl.lastIndexOf('/') + 1);
-
-        // Create the local directory where the repository will be cloned (using the system temporary directory)
-        File cloneDir = new File(System.getProperty("java.io.tmpdir"), repositoryName);
-
-        // Clone the repository if it is not already present
-        RepositoryManager repoManager = new RepositoryManager();
-        try {
-            cloneDir = repoManager.getRepository(remoteRepoUrl, cloneDir);
-        } catch (GitAPIException e) {
-            System.err.println("❌ ERROR: Failed to clone repository: " + e.getMessage());
-            e.printStackTrace();
+        File projectDir = new File(projectPath);
+        if (!projectDir.exists() || !projectDir.isDirectory()) {
+            System.err.println("❌ ERROR: The provided path does not exist or is not a directory: "
+                    + projectDir.getAbsolutePath());
             return;
         }
 
         // Locate Maven executable
         String mavenCmd = MavenUtil.locateMavenExecutable();
         if (mavenCmd == null) {
-            // Maven executable not found – message already printed in MavenUtil
+            // Error message already printed in MavenUtil
             return;
         }
 
-        // Build the project using Maven (clean, compile, and copy dependencies)
+        // Build the project with Maven (clean, compile, and copy dependencies)
         MavenBuilder mavenBuilder = new MavenBuilder();
         try {
-            if (!mavenBuilder.buildProject(cloneDir, mavenCmd)) {
+            if (!mavenBuilder.buildProject(projectDir, mavenCmd)) {
                 return;
             }
         } catch (IOException | InterruptedException e) {
@@ -56,8 +45,8 @@ public class Main {
             return;
         }
 
-        // BPMN files are expected in the 'src/main/resources/bpe' directory within the cloned repository.
-        File bpmnDirFile = new File(cloneDir, "src/main/resources/bpe");
+        // BPMN files should be located in the 'src/main/resources/bpe' directory within the project.
+        File bpmnDirFile = new File(projectDir, "src/main/resources/bpe");
         if (!bpmnDirFile.exists() || !bpmnDirFile.isDirectory()) {
             System.err.println("❌ ERROR: BPMN directory does not exist: " + bpmnDirFile.getAbsolutePath());
             return;
@@ -81,8 +70,8 @@ public class Main {
             System.out.println("\n🔍 Validating BPMN file: " + bpmnPath.getFileName());
             ValidationOutput output = bpmnValidator.validateBpmnFile(bpmnPath);
             output.printResults();
-            System.out.println("✅ Finished validation for: " + bpmnPath.getFileName());
+            System.out.println("✅ Validation completed for: " + bpmnPath.getFileName());
         }
-        System.out.println("\n✅ All BPMN files validated successfully!");
+        System.out.println("\n✅ All BPMN files successfully validated!");
     }
 }
