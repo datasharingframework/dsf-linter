@@ -1,4 +1,6 @@
+/*
 package dev.dsf.utils.validator.bpmn;
+
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
@@ -19,7 +21,7 @@ import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.*;
-
+/*
 /**
  * <p>
  * The {@code BpmnModelValidator} is responsible for validating Camunda BPMN models against
@@ -74,7 +76,8 @@ import java.util.*;
  * @see <a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a>
  * @see <a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a>
  */
-public class BpmnModelValidator
+/*
+public class BpmnModelValidatorOldVersion
 {
     private File projectRoot;
 
@@ -85,6 +88,7 @@ public class BpmnModelValidator
      * @param projectRoot
      *         the root directory of the project (e.g., containing {@code target/classes} or {@code build/classes})
      */
+/*
     public void setProjectRoot(File projectRoot)
     {
         this.projectRoot = projectRoot;
@@ -126,6 +130,8 @@ public class BpmnModelValidator
      *         the BPMN process identifier (also used for logging in validation items)
      * @return a list of validation items representing all discovered issues
      */
+
+/*
     public List<BpmnElementValidationItem> validateModel(
             BpmnModelInstance model,
             File bpmnFile,
@@ -265,6 +271,7 @@ public class BpmnModelValidator
      * @param processId
      *         the process identifier for logging reference
      */
+/*
     private void validateServiceTask(ServiceTask task,
                                      List<BpmnElementValidationItem> issues,
                                      File bpmnFile,
@@ -277,7 +284,11 @@ public class BpmnModelValidator
         }
 
         String implClass = task.getCamundaClass();
-        if (isEmpty(implClass))
+        if (implClass == null)
+        {
+            issues.add(new BpmnServiceTaskImplementationNotExistValidationItem(elementId, bpmnFile, processId));
+        }
+        else if (implClass.trim().isEmpty())
         {
             issues.add(new BpmnServiceTaskImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
         }
@@ -319,6 +330,7 @@ public class BpmnModelValidator
      * @param processId
      *         the process identifier
      */
+/*
     private void validateMessageStartEvent(StartEvent startEvent,
                                            List<BpmnElementValidationItem> issues,
                                            File bpmnFile,
@@ -357,6 +369,7 @@ public class BpmnModelValidator
      * @param processId
      *         the process id
      */
+/*
     private void validateMessageIntermediateThrowEvent(IntermediateThrowEvent throwEvent,
                                                        List<BpmnElementValidationItem> issues,
                                                        File bpmnFile,
@@ -389,6 +402,7 @@ public class BpmnModelValidator
      * @param issues
      *         the list to store any validation issues
      */
+/*
     private void validateImplementationClass(String implClass,
                                              String elementId,
                                              File bpmnFile,
@@ -432,6 +446,7 @@ public class BpmnModelValidator
      * @param processId
      *         the process id
      */
+/*
     private void validateMessageEndEvent(EndEvent endEvent,
                                          List<BpmnElementValidationItem> issues,
                                          File bpmnFile,
@@ -440,6 +455,7 @@ public class BpmnModelValidator
         validateCommonMessageEvent(endEvent, issues, bpmnFile, processId);
 
         // Example rule: if the end event is named "send result to requester", it should have asyncBefore=true.
+        /*
         if ("send result to requester".equalsIgnoreCase(endEvent.getName()))
         {
             if (!endEvent.isCamundaAsyncBefore())
@@ -450,8 +466,10 @@ public class BpmnModelValidator
                         ValidationType.BPMN_FLOATING_ELEMENT
                 ));
             }
-        }
+        } */
+/*
     }
+    /*
 
     // MESSAGE INTERMEDIATE CATCH EVENT VALIDATION
 
@@ -469,6 +487,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateMessageIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                        List<BpmnElementValidationItem> issues,
                                                        File bpmnFile,
@@ -478,7 +497,7 @@ public class BpmnModelValidator
 
         if (isEmpty(catchEvent.getName()))
         {
-            issues.add(new BpmnEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
+            issues.add(new BpmnMessageIntermediateCatchEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
 
         MessageEventDefinition def =
@@ -510,6 +529,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateMessageBoundaryEvent(BoundaryEvent boundaryEvent,
                                               List<BpmnElementValidationItem> issues,
                                               File bpmnFile,
@@ -518,7 +538,7 @@ public class BpmnModelValidator
         String elementId = boundaryEvent.getId();
         if (isEmpty(boundaryEvent.getName()))
         {
-            issues.add(new BpmnEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
+            issues.add(new BpmnMessageBoundaryEventNameEmptyValidationItem (elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
         MessageEventDefinition def =
                 (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
@@ -546,6 +566,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateErrorBoundaryEvent(BoundaryEvent boundaryEvent,
                                             List<BpmnElementValidationItem> issues,
                                             File bpmnFile,
@@ -608,14 +629,30 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateExclusiveGateway(ExclusiveGateway gateway,
                                           List<BpmnElementValidationItem> issues,
                                           File bpmnFile,
                                           String processId)
     {
-        // Additional checks can be placed here if needed.
+        String elementId = gateway.getId();
+
+        if (isEmpty(gateway.getName()))
+        {
+            if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1)
+            {
+                issues.add(new BpmnFloatingElementValidationItem(
+                        elementId, bpmnFile, processId,
+                        "Exclusive Gateway has multiple outgoing flows but name is empty.",
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.WARN
+                ));
+            }
+        }
+
     }
 
+    // SEQUENCE FLOW VALIDATION
     /**
      * Validates a sequence flow based on its source element's outgoing flows.
      * <p>
@@ -633,6 +670,7 @@ public class BpmnModelValidator
      * @param bpmnFile  The BPMN file in context.
      * @param processId The process identifier.
      */
+/*
     private void validateSequenceFlow(SequenceFlow flow,
                                       List<BpmnElementValidationItem> issues,
                                       File bpmnFile,
@@ -697,6 +735,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateStartEvent(StartEvent startEvent,
                                     List<BpmnElementValidationItem> issues,
                                     File bpmnFile,
@@ -734,6 +773,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateEndEvent(EndEvent endEvent,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -804,6 +844,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateTimerIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                      List<BpmnElementValidationItem> issues,
                                                      File bpmnFile,
@@ -883,6 +924,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateSignalIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                       List<BpmnElementValidationItem> issues,
                                                       File bpmnFile,
@@ -926,6 +968,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateSignalIntermediateThrowEvent(IntermediateThrowEvent throwEvent,
                                                       List<BpmnElementValidationItem> issues,
                                                       File bpmnFile,
@@ -969,6 +1012,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateSignalEndEvent(EndEvent endEvent,
                                         List<BpmnElementValidationItem> issues,
                                         File bpmnFile,
@@ -1017,6 +1061,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateUserTask(UserTask userTask,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -1104,6 +1149,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateSendTask(SendTask sendTask,
                                   List<BpmnElementValidationItem> issues,
                                   File bpmnFile,
@@ -1156,6 +1202,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateReceiveTask(ReceiveTask receiveTask,
                                      List<BpmnElementValidationItem> issues,
                                      File bpmnFile,
@@ -1192,6 +1239,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateSubProcess(SubProcess subProcess,
                                     List<BpmnElementValidationItem> issues,
                                     File bpmnFile,
@@ -1227,6 +1275,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateEventBasedGateway(EventBasedGateway gateway,
                                            List<BpmnElementValidationItem> issues,
                                            File bpmnFile,
@@ -1276,6 +1325,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateConditionalIntermediateCatchEvent(IntermediateCatchEvent catchEvent,
                                                            List<BpmnElementValidationItem> issues,
                                                            File bpmnFile,
@@ -1370,6 +1420,7 @@ public class BpmnModelValidator
      * @param processId
      *         the process identifier
      */
+/*
     private void validateMessageSendFieldInjections(
             BaseElement element,
             List<BpmnElementValidationItem> issues,
@@ -1415,6 +1466,7 @@ public class BpmnModelValidator
      *         the extension elements to inspect
      * @return {@code true} if at least one field is present; {@code false} otherwise
      */
+/*
     private boolean hasCamundaFields(ExtensionElements extensionElements)
     {
         if (extensionElements == null) return false;
@@ -1455,7 +1507,8 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
-    private void validateCamundaFields(
+/*
+    public void validateCamundaFields(
             ExtensionElements extensionElements,
             String elementId,
             List<BpmnElementValidationItem> issues,
@@ -1632,6 +1685,7 @@ public class BpmnModelValidator
      *         the {@link CamundaField} whose nested text might be extracted
      * @return the text content of the nested {@code <camunda:string>}, or null if not found
      */
+/*
     private String tryReadNestedStringContent(CamundaField field)
     {
         if (field == null) return null;
@@ -1666,6 +1720,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void checkMessageName(String messageName,
                                   List<BpmnElementValidationItem> issues,
                                   String elementId,
@@ -1695,6 +1750,7 @@ public class BpmnModelValidator
      *         the BPMN element
      * @return the class name if found, otherwise an empty string
      */
+/*
     private String extractImplementationClass(BaseElement element)
     {
         String implClass = element.getAttributeValueNs("class", "http://camunda.org/schema/1.0/bpmn");
@@ -1746,6 +1802,7 @@ public class BpmnModelValidator
      * @param processId
      *         process id
      */
+/*
     private void validateMessageDefinition(FlowElement element,
                                            MessageEventDefinition messageDef,
                                            List<BpmnElementValidationItem> issues,
@@ -1795,6 +1852,7 @@ public class BpmnModelValidator
      * @param processId
      *         process identifier
      */
+/*
     private void validateCommonMessageEvent(FlowElement event,
                                             List<BpmnElementValidationItem> issues,
                                             File bpmnFile,
@@ -1818,6 +1876,7 @@ public class BpmnModelValidator
      *         the form key from the BPMN user task
      * @return true if the substring "questionnaire" is found, false otherwise
      */
+/*
     private boolean questionnaireExists(String formKey)
     {
         return formKey.contains("questionnaire");
@@ -1830,6 +1889,7 @@ public class BpmnModelValidator
      *         the string to check
      * @return {@code true} if the string is null or empty, {@code false} otherwise
      */
+/*
     private boolean isEmpty(String value)
     {
         return (value == null || value.trim().isEmpty());
@@ -1842,6 +1902,7 @@ public class BpmnModelValidator
      *         the string to check
      * @return {@code true} if {@code #{version}} is present, {@code false} otherwise
      */
+/*
     private boolean containsVersionPlaceholder(String rawValue)
     {
         return (rawValue != null && rawValue.contains("#{version}"));
@@ -1860,6 +1921,7 @@ public class BpmnModelValidator
      *         the fully qualified name (e.g., "com.example.MyDelegate")
      * @return {@code true} if the class is found, {@code false} otherwise
      */
+/*
     private boolean classExists(String className)
     {
         try
@@ -1926,6 +1988,7 @@ public class BpmnModelValidator
      *         the fully qualified name of the class to check
      * @return {@code true} if the class implements {@code JavaDelegate}, otherwise {@code false}
      */
+/*
     private boolean implementsJavaDelegate(String className)
     {
         try
@@ -1986,6 +2049,7 @@ public class BpmnModelValidator
      * @param messageNameValue The camelCase message name to check.
      * @return {@code true} if all parts of the message name are found sequentially in the profile; {@code false} otherwise.
      */
+/*
     private boolean doesProfileContainMessageNameParts(String profileValue, String messageNameValue) {
         if (profileValue == null || messageNameValue == null) {
             return false;
@@ -2014,5 +2078,6 @@ public class BpmnModelValidator
 
         return true;
     }
-
 }
+
+ */
