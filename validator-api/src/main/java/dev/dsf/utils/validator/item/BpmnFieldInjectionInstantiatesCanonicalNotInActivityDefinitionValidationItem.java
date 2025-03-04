@@ -39,6 +39,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalNotInActivityDefinitionValid
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

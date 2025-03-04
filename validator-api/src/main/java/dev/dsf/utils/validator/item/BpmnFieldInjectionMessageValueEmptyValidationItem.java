@@ -39,6 +39,7 @@ public class BpmnFieldInjectionMessageValueEmptyValidationItem extends BpmnEleme
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

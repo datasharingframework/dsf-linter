@@ -39,6 +39,7 @@ public class BpmnErrorBoundaryEventNameEmptyValidationItem extends BpmnElementVa
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

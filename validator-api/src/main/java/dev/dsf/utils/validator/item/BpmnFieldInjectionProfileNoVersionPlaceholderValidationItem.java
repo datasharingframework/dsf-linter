@@ -44,6 +44,7 @@ public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

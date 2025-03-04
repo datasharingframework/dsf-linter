@@ -39,6 +39,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

@@ -44,6 +44,7 @@ public class BpmnMessageSendEventMessageNameNotPresentInActivityDefinitionValida
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

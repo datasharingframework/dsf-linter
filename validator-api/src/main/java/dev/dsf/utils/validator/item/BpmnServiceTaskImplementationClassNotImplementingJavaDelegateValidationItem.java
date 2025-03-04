@@ -44,6 +44,7 @@ public class BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValida
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;
@@ -54,7 +55,7 @@ public class BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValida
         return className;
     }
 
-@Override
+    @Override
     public String toString()
     {
         return String.format(

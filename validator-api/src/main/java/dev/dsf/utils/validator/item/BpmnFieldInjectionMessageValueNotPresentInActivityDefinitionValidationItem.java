@@ -39,6 +39,7 @@ public class BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidat
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

@@ -63,6 +63,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
     /**
      * @return the human-readable description or reason for this floating-element validation
      */
+    @Override
     public String getDescription()
     {
         return description;
@@ -75,7 +76,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
      * @return a string representation of this validation item including elementId, processId, file, description,
      *         validation type, and severity.
      */
-    /*
+
     @Override
     public String toString()
     {
@@ -87,5 +88,5 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
                 ", validationTypeOverride=" + validationTypeOverride +
                 ", severity=" + getSeverity() +
                 '}';
-    } */
+    }
 }

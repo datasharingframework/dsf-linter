@@ -44,6 +44,7 @@ public class BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem ex
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

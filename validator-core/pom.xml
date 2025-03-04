@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project
+        xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                        http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
+
+    <!-- Parent coordinates if needed -->
     <parent>
         <groupId>dev.dsf.utils.validator</groupId>
         <artifactId>dsf-validator</artifactId>
@@ -12,33 +17,84 @@
     <artifactId>validator-core</artifactId>
 
     <properties>
+        <!-- Java 21 compilation -->
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Byte Buddy version (check for a version that at least somewhat supports Java 21) -->
+        <bytebuddy.version>1.15.8</bytebuddy.version>
     </properties>
 
     <dependencies>
+        <!-- If needed for your project -->
         <dependency>
             <groupId>dev.dsf.utils.validator</groupId>
             <artifactId>validator-api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+
+        <!-- Camunda model API -->
         <dependency>
             <groupId>org.camunda.bpm.model</groupId>
             <artifactId>camunda-bpmn-model</artifactId>
             <version>7.22.0</version>
         </dependency>
+
+        <!-- JUnit Jupiter -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.11.3</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- jGit, if needed -->
         <dependency>
             <groupId>org.eclipse.jgit</groupId>
             <artifactId>org.eclipse.jgit</artifactId>
             <version>5.13.0.202109080827-r</version>
         </dependency>
+
+        <!-- Mockito + Byte Buddy.
+             We use mockito-inline to allow final class mocking and inline instrumentation. -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>5.2.0</version> <!-- or whichever is latest -->
+            <scope>test</scope>
+        </dependency>
+
+        <!-- If you'd like to ensure an up-to-date Byte Buddy on your classpath for Java 21 support,
+             you can add them explicitly. This may or may not be required depending on mockito-inline version. -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>${bytebuddy.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy-agent</artifactId>
+            <version>${bytebuddy.version}</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Surefire plugin to run your tests, also you can set Byte Buddy experimental property here -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M9</version>
+                <configuration>
+                    <!-- If Byte Buddy complains about Java 21 not supported, set this property: -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

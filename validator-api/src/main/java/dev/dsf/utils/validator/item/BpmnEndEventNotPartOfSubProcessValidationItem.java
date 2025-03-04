@@ -39,6 +39,7 @@ public class BpmnEndEventNotPartOfSubProcessValidationItem extends BpmnElementVa
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

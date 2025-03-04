@@ -44,6 +44,7 @@ public class BpmnMessageSendTaskImplementationClassNotFoundValidationItem extend
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

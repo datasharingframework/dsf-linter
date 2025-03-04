@@ -39,6 +39,7 @@ public class BpmnMessageSendTaskImplementationClassEmptyValidationItem extends B
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

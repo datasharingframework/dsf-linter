@@ -39,6 +39,7 @@ public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnEle
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

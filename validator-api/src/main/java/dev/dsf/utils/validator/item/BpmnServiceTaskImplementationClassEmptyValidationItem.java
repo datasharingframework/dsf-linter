@@ -39,6 +39,7 @@ public class BpmnServiceTaskImplementationClassEmptyValidationItem extends BpmnE
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

@@ -24,6 +24,8 @@ public abstract class BpmnElementValidationItem extends BpmnValidationItem{
         return processId;
     }
 
+    public abstract String getDescription();
+
     @Override
     public String toString()
     {

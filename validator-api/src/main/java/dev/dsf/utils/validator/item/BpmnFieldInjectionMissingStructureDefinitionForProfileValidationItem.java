@@ -39,6 +39,7 @@ public class BpmnFieldInjectionMissingStructureDefinitionForProfileValidationIte
         this.description = description;
     }
 
+    @Override
     public String getDescription()
     {
         return description;

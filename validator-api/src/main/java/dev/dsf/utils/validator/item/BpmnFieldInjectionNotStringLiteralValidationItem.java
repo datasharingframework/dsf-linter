@@ -38,6 +38,11 @@ public class BpmnFieldInjectionNotStringLiteralValidationItem extends BpmnElemen
     }
 
     @Override
+    public String getDescription() {
+        return "";
+    }
+
+    @Override
     public String toString()
     {
         return String.format("%s, fieldName=%s", super.toString(), fieldName);
