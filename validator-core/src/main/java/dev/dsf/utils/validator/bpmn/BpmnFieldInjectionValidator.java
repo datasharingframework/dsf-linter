@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.fhir.FhirValidator;
 import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
+import org.slf4j.Logger;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.List;
  */
 public class BpmnFieldInjectionValidator
 {
+
     /**
      * Validates all field injections (e.g., {@code <camunda:field>}) found directly
      * on a {@link BaseElement} or nested under a {@link MessageEventDefinition}.
@@ -106,8 +108,7 @@ public class BpmnFieldInjectionValidator
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
             String processId,
-            File projectRoot)
-    {
+            File projectRoot) {
         Collection<CamundaField> camundaFields = extensionElements
                 .getElementsQuery()
                 .filterByType(CamundaField.class)
@@ -118,21 +119,18 @@ public class BpmnFieldInjectionValidator
         String messageNameValue = null;
         String instantiatesValue = null;
 
-        for (CamundaField field : camundaFields)
-        {
+        for (CamundaField field : camundaFields) {
             String fieldName = field.getCamundaName();
             String exprValue = field.getCamundaExpression();
             String literalValue = field.getCamundaStringValue();
 
-            if (BpmnValidationUtils.isEmpty(literalValue))
-            {
+            if (BpmnValidationUtils.isEmpty(literalValue)) {
                 // Attempt to read nested <camunda:string> if needed
                 literalValue = BpmnValidationUtils.tryReadNestedStringContent(field);
             }
 
             // If an expression is found, record an error/warning
-            if (!BpmnValidationUtils.isEmpty(exprValue))
-            {
+            if (!BpmnValidationUtils.isEmpty(exprValue)) {
                 issues.add(new BpmnFieldInjectionNotStringLiteralValidationItem(
                         elementId, bpmnFile, processId, fieldName));
                 continue;
@@ -140,39 +138,30 @@ public class BpmnFieldInjectionValidator
 
             if (literalValue != null) literalValue = literalValue.trim();
 
-            switch (fieldName)
-            {
-                case "profile":
-                {
+            switch (fieldName) {
+                case "profile": {
                     BpmnValidationUtils.checkProfileField(elementId, bpmnFile, processId, issues, literalValue, projectRoot);
                     profileValue = literalValue;
-                    if (!BpmnValidationUtils.isEmpty(literalValue) && FhirValidator.structureDefinitionExists(literalValue, projectRoot))
-                    {
+                    if (!BpmnValidationUtils.isEmpty(literalValue) && FhirValidator.structureDefinitionExists(literalValue, projectRoot)) {
                         structureFoundForProfile = true;
                     }
                     break;
                 }
-                case "messageName":
-                {
-                    if (BpmnValidationUtils.isEmpty(literalValue))
-                    {
+                case "messageName": {
+                    if (BpmnValidationUtils.isEmpty(literalValue)) {
                         issues.add(new BpmnFieldInjectionMessageValueEmptyValidationItem(
                                 elementId, bpmnFile, processId));
-                    }
-                    else
-                    {
+                    } else {
                         messageNameValue = literalValue;
                     }
                     break;
                 }
-                case "instantiatesCanonical":
-                {
+                case "instantiatesCanonical": {
                     BpmnValidationUtils.checkInstantiatesCanonicalField(elementId, literalValue, bpmnFile, processId, issues, projectRoot);
                     instantiatesValue = literalValue;
                     break;
                 }
-                default:
-                {
+                default: {
                     issues.add(new BpmnUnknownFieldInjectionValidationItem(
                             elementId, bpmnFile, processId, fieldName));
                     break;
@@ -181,52 +170,88 @@ public class BpmnFieldInjectionValidator
         }
 
         // Cross-check logic
-        if (structureFoundForProfile && !BpmnValidationUtils.isEmpty(profileValue))
-        {
-            if (!BpmnValidationUtils.isEmpty(messageNameValue)
-                    && !BpmnValidationUtils.doesProfileContainMessageNameParts(profileValue, messageNameValue))
-            {
-                issues.add(new BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationItem(
-                        elementId, bpmnFile, processId,
-                        "The 'messageName' value [" + messageNameValue
-                                + "] is not contained in the 'profile' [" + profileValue + "]."
-                ));
+        if (structureFoundForProfile && !BpmnValidationUtils.isEmpty(profileValue)) {
+            // 1) find the actual structure definition file
+            File structureFile = FhirValidator.findStructureDefinitionFile(profileValue, projectRoot);
+            if (structureFile == null) {
+                // "Profile not found in StructureDefinition" is likely already reported above
+                return;
             }
-            if (!BpmnValidationUtils.isEmpty(instantiatesValue))
-            {
-                boolean hasFixedCanonical = FhirValidator.structureDefinitionHasFixedCanonical(instantiatesValue, projectRoot);
-                if (!hasFixedCanonical)
+            // 2) parse it
+            try {
+                // parseXml is private in FhirValidator, so let's re-use it or adapt as needed:
+                // We'll do a small inline parse here for brevity.
+                var doc = BpmnValidationUtils.parseXml(structureFile);
+                // 3) If BPMN had instantiatesCanonical, check if the file has a non-empty <fixedCanonical>
+                if (!BpmnValidationUtils.isEmpty(instantiatesValue)) {
+                    String fixedCanonical = FhirValidator.getTaskInstantiatesCanonicalValue(doc);
+                    if (fixedCanonical == null)
+                    {
+                        // => "does not exist"
+                        issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotPresentInStructureDefinitionValidationItem(
+                                elementId,
+                                bpmnFile,
+                                processId,
+                                "StructureDefinition [" + structureFile.getName() + "] is present, but <fixedCanonical> under Task.instantiatesCanonical is completely missing."
+                        ));
+                    }
+                    else if (fixedCanonical.isBlank())
+                    {
+                        // => "is empty"
+                        issues.add(new BpmnFieldInjectionInstantiatesCanonicalFoundInStructureButEmptyValidationItem (
+                                elementId,
+                                bpmnFile,
+                                processId,
+                                "StructureDefinition [" + structureFile.getName() + "] does contain <fixedCanonical>, but the 'value' is empty."
+                        ));
+                    }
+                }
+                // 4) If BPMN had messageName, check if the file has a non-empty <fixedString>
+
+                String fixedString = FhirValidator.getTaskMessageNameFixedStringValue(doc);
+                if (fixedString == null)
                 {
-                    issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotInStructureDefinitionValidationItem(
-                            elementId, bpmnFile, processId,
-                            "The StructureDefinition does not reference instantiatesCanonical: " + instantiatesValue
+                    // => "does not exist"
+                    issues.add(new BpmnFieldInjectionMessageValueNotPresentInStructureDefinitionValidationItem(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "StructureDefinition [" + structureFile.getName() + "] does not have <fixedString> under Task.input:message-name.value[x]."
                     ));
                 }
-            }
-        }
-
-        if (!BpmnValidationUtils.isEmpty(instantiatesValue))
-        {
-            boolean foundInActDef = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesValue, projectRoot);
-            if (!foundInActDef)
-            {
-                issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotInActivityDefinitionValidationItem(
-                        elementId, bpmnFile, processId,
-                        "instantiatesCanonical not found in any ActivityDefinition: " + instantiatesValue
-                ));
-            }
-            else
-            {
-                if (!BpmnValidationUtils.isEmpty(messageNameValue))
+                else if (fixedString.isBlank())
                 {
-                    boolean hasMsgName = FhirValidator.activityDefinitionHasMessageName(messageNameValue, projectRoot);
-                    if (!hasMsgName)
-                    {
-                        issues.add(new BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem (
-                                elementId, bpmnFile, processId,
-                                "ActivityDefinition found for canonical " + instantiatesValue
-                                        + " but the message value is not present in any ActivityDefinition '" + messageNameValue + "'"
-                        ));
+                    // => "is empty"
+                    issues.add(new BpmnFieldInjectionMessageValueFoundInStructureButEmptyValidationItem (
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "StructureDefinition [" + structureFile.getName() + "] does have <fixedString>, but the 'value' is empty."
+                    ));
+                }
+
+
+            } catch (Exception ignored) {
+
+            }
+
+            if (!BpmnValidationUtils.isEmpty(instantiatesValue)) {
+                boolean foundInActDef = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesValue, projectRoot);
+                if (!foundInActDef) {
+                    issues.add(new BpmnFieldInjectionInstantiatesCanonicalNotInActivityDefinitionValidationItem(
+                            elementId, bpmnFile, processId,
+                            "instantiatesCanonical not found in any ActivityDefinition: " + instantiatesValue
+                    ));
+                } else {
+                    if (!BpmnValidationUtils.isEmpty(messageNameValue)) {
+                        boolean hasMsgName = FhirValidator.activityDefinitionHasMessageName(messageNameValue, projectRoot);
+                        if (!hasMsgName) {
+                            issues.add(new BpmnFieldInjectionMessageValueNotPresentInActivityDefinitionValidationItem(
+                                    elementId, bpmnFile, processId,
+                                    "ActivityDefinition found for canonical " + instantiatesValue
+                                            + " but the message value is not present in any ActivityDefinition '" + messageNameValue + "'"
+                            ));
+                        }
                     }
                 }
             }

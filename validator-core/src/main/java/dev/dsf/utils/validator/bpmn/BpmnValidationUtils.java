@@ -10,7 +10,10 @@ import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
+import java.io.FileInputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Collection;
@@ -607,6 +610,18 @@ public class BpmnValidationUtils
                 issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId));
             }
+        }
+    }
+
+    // BpmnValidationUtils.java (near the bottom)
+    public static org.w3c.dom.Document parseXml(File xmlFile) throws Exception
+    {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        try (FileInputStream fis = new FileInputStream(xmlFile))
+        {
+            return db.parse(fis);
         }
     }
 

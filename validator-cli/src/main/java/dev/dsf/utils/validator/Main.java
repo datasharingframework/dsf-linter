@@ -32,7 +32,7 @@ public class Main {
         try {
             cloneDir = repoManager.getRepository(remoteRepoUrl, cloneDir);
         } catch (GitAPIException e) {
-            System.err.println("❌ ERROR: Failed to clone repository: " + e.getMessage());
+            System.err.println("ERROR: Failed to clone repository: " + e.getMessage());
             e.printStackTrace();
             return;
         }
@@ -51,7 +51,7 @@ public class Main {
                 return;
             }
         } catch (IOException | InterruptedException e) {
-            System.err.println("❌ ERROR: Exception during Maven build: " + e.getMessage());
+            System.err.println("ERROR: Exception during Maven build: " + e.getMessage());
             e.printStackTrace();
             return;
         }
@@ -59,7 +59,7 @@ public class Main {
         // BPMN files are expected in the 'src/main/resources/bpe' directory within the cloned repository.
         File bpmnDirFile = new File(cloneDir, "src/main/resources/bpe");
         if (!bpmnDirFile.exists() || !bpmnDirFile.isDirectory()) {
-            System.err.println("❌ ERROR: BPMN directory does not exist: " + bpmnDirFile.getAbsolutePath());
+            System.err.println("ERROR: BPMN directory does not exist: " + bpmnDirFile.getAbsolutePath());
             return;
         }
 
@@ -71,18 +71,18 @@ public class Main {
                 : new ArrayList<>();
 
         if (bpmnPaths.isEmpty()) {
-            System.err.println("❌ ERROR: No BPMN files found in the directory: " + bpmnDirFile.getAbsolutePath());
+            System.err.println("ERROR: No BPMN files found in the directory: " + bpmnDirFile.getAbsolutePath());
             return;
         }
 
         // Validate BPMN files
         BPMNValidator bpmnValidator = new BPMNValidator();
         for (Path bpmnPath : bpmnPaths) {
-            System.out.println("\n🔍 Validating BPMN file: " + bpmnPath.getFileName());
+            System.out.println("\nValidating BPMN file: " + bpmnPath.getFileName());
             ValidationOutput output = bpmnValidator.validateBpmnFile(bpmnPath);
             output.printResults();
-            System.out.println("✅ Finished validation for: " + bpmnPath.getFileName());
+            System.out.println("Finished validation for: " + bpmnPath.getFileName());
         }
-        System.out.println("\n✅ All BPMN files validated successfully!");
+        System.out.println("\nAll BPMN files validated successfully!");
     }
 }

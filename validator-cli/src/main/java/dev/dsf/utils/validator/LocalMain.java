@@ -21,7 +21,7 @@ public class LocalMain {
 
         File projectDir = new File(projectPath);
         if (!projectDir.exists() || !projectDir.isDirectory()) {
-            System.err.println("❌ ERROR: The provided path does not exist or is not a directory: "
+            System.err.println("ERROR: The provided path does not exist or is not a directory: "
                     + projectDir.getAbsolutePath());
             return;
         }
@@ -40,7 +40,7 @@ public class LocalMain {
                 return;
             }
         } catch (IOException | InterruptedException e) {
-            System.err.println("❌ ERROR: Exception during Maven build: " + e.getMessage());
+            System.err.println("ERROR: Exception during Maven build: " + e.getMessage());
             e.printStackTrace();
             return;
         }
@@ -48,11 +48,11 @@ public class LocalMain {
         // BPMN files should be located in the 'src/main/resources/bpe' directory within the project.
         File bpmnDirFile = new File(projectDir, "src/main/resources/bpe");
         if (!bpmnDirFile.exists() || !bpmnDirFile.isDirectory()) {
-            System.err.println("❌ ERROR: BPMN directory does not exist: " + bpmnDirFile.getAbsolutePath());
+            System.err.println("ERROR: BPMN directory does not exist: " + bpmnDirFile.getAbsolutePath());
             return;
         }
 
-        System.out.println("🔍 Searching for BPMN files in: " + bpmnDirFile.getAbsolutePath());
+        System.out.println("Searching for BPMN files in: " + bpmnDirFile.getAbsolutePath());
 
         File[] fileArray = bpmnDirFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".bpmn"));
         List<Path> bpmnPaths = fileArray != null
@@ -60,18 +60,18 @@ public class LocalMain {
                 : new ArrayList<>();
 
         if (bpmnPaths.isEmpty()) {
-            System.err.println("❌ ERROR: No BPMN files found in the directory: " + bpmnDirFile.getAbsolutePath());
+            System.err.println("ERROR: No BPMN files found in the directory: " + bpmnDirFile.getAbsolutePath());
             return;
         }
 
         // Validate BPMN files
         BPMNValidator bpmnValidator = new BPMNValidator();
         for (Path bpmnPath : bpmnPaths) {
-            System.out.println("\n🔍 Validating BPMN file: " + bpmnPath.getFileName());
+            System.out.println("\nValidating BPMN file: " + bpmnPath.getFileName());
             ValidationOutput output = bpmnValidator.validateBpmnFile(bpmnPath);
             output.printResults();
-            System.out.println("✅ Validation completed for: " + bpmnPath.getFileName());
+            System.out.println("Validation completed for: " + bpmnPath.getFileName());
         }
-        System.out.println("\n✅ All BPMN files successfully validated!");
+        System.out.println("\nAll BPMN files successfully validated!");
     }
 }

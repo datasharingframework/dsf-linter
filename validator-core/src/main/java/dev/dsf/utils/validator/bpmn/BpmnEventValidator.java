@@ -114,10 +114,10 @@ public class BpmnEventValidator
             String processId)
     {
         String elementId = startEvent.getId();
-        if (BpmnValidationUtils.isEmpty(startEvent.getName()))
+        if (!(startEvent.getParentElement() instanceof SubProcess))
         {
-            // Warn if the Start Event is not part of a SubProcess
-            if (!(startEvent.getParentElement() instanceof SubProcess))
+            // Warn if the Start Event is not part of a SubProcess and hast no name
+            if (BpmnValidationUtils.isEmpty(startEvent.getName()))
             {
                 issues.add(new BpmnStartEventNotPartOfSubProcessValidationItem(elementId, bpmnFile, processId));
             }
@@ -270,9 +270,9 @@ public class BpmnEventValidator
     {
         String elementId = endEvent.getId();
 
-        if (BpmnValidationUtils.isEmpty(endEvent.getName()))
+        if (!(endEvent.getParentElement() instanceof SubProcess))
         {
-            if (!(endEvent.getParentElement() instanceof SubProcess))
+            if (BpmnValidationUtils.isEmpty(endEvent.getName()))
             {
                 issues.add(new BpmnEndEventNotPartOfSubProcessValidationItem(elementId, bpmnFile, processId));
             }

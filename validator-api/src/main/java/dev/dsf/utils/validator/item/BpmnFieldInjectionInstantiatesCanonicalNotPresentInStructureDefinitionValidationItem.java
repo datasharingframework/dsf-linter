@@ -5,24 +5,24 @@ import dev.dsf.utils.validator.ValidationType;
 import java.io.File;
 
 /**
- * Validation item indicating that the message value in a field injection is not present in the profile value.
- * Corresponds to {@link ValidationType#BPMN_FIELD_INJECTION_MESSAGE_VALUE_NOT_PRESENT_IN_PROFILE_VALUE}.
+ * Validation item indicating that the instantiatesCanonical field injection is not found in any StructureDefinition.
+ * Corresponds to {@link ValidationType#BPMN_FIELD_INJECTION_INSTANTIATES_CANONICAL_NOT_PRESENT_IN_STRUCTURE_DEFINITION}.
  */
-public class BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationItem extends BpmnElementValidationItem
+public class BpmnFieldInjectionInstantiatesCanonicalNotPresentInStructureDefinitionValidationItem extends BpmnElementValidationItem
 {
     private final String description;
 
     /**
-     * Constructs a new validation item for a field injection error where the message value is not present in the profile value.
+     * Constructs a new validation item for an instantiatesCanonical field injection that is not found in any StructureDefinition.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
      * @param processId the process definition ID or key
      */
-    public BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationItem(String elementId, File bpmnFile, String processId)
+    public BpmnFieldInjectionInstantiatesCanonicalNotPresentInStructureDefinitionValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "The message value is not present in the profile value";
+        this.description = "instantiatesCanonical field injection is not found in any StructureDefinition";
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationIte
      * @param processId   the process definition ID or key
      * @param description the custom validation description
      */
-    public BpmnFieldInjectionMessageValueNotPresentInProfileValueValidationItem(String elementId, File bpmnFile, String processId, String description)
+    public BpmnFieldInjectionInstantiatesCanonicalNotPresentInStructureDefinitionValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
         super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
         this.description = description;

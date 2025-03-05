@@ -476,5 +476,222 @@ public class FhirValidator
         }
     }
 
+    /**
+     * Finds the first {@code .xml} file under {@link #STRUCTURE_DEFINITION_DIR} that:
+     * <ul>
+     *   <li>Is a FHIR StructureDefinition (root element == "StructureDefinition")</li>
+     *   <li>Has a child <url value="profileValue"/></li>
+     * </ul>
+     *
+     * @param profileValue the profile URL to look for, e.g. "http://dsf.dev/fhir/StructureDefinition/task-pong"
+     * @param projectRoot the root directory of the project
+     * @return the {@code File} if found, or {@code null} if not found
+     */
+    public static File findStructureDefinitionFile(String profileValue, File projectRoot)
+    {
+        // Normalize/strip version if needed
+        String baseProfile = removeVersionSuffix(profileValue);
+
+        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
+        if (!dir.exists() || !dir.isDirectory())
+            return null;
+
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .collect(Collectors.toList());
+
+            for (Path p : xmlFiles)
+            {
+                Document doc = parseXml(p);
+                if (doc == null)
+                    continue;
+
+                // must be a "StructureDefinition"
+                String rootName = doc.getDocumentElement().getLocalName();
+                if (!"StructureDefinition".equals(rootName))
+                    continue;
+
+                // check if there's <url value="baseProfile">
+                if (structureDefinitionHasUrlValue(doc, baseProfile))
+                {
+                    return p.toFile();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // Log if needed
+        }
+        return null;
+    }
+
+    /**
+     * Checks if the provided StructureDefinition {@link Document} has {@code <url value="profileValue"/>}.
+     */
+    private static boolean structureDefinitionHasUrlValue(Document doc, String profileValue)
+            throws XPathExpressionException
+    {
+        String xpathExpr = "//*[local-name()='url' and @value='" + profileValue + "']";
+        return evaluateXPathExists(doc, xpathExpr);
+    }
+
+    /**
+     * For the given StructureDefinition XML {@link Document}, checks if
+     *
+     * <pre>{@code
+     *   <element id="Task.instantiatesCanonical">
+     *     <path value="Task.instantiatesCanonical" />
+     *     <fixedCanonical value="somethingNonEmpty" />
+     *   </element>
+     * }</pre>
+     *
+     * is present. Returns true if such a `fixedCanonical` is found and is not empty.
+     */
+    public static boolean fileHasTaskInstantiatesCanonicalNonEmpty(Document doc)
+    {
+        if (doc == null)
+            return false;
+
+        try
+        {
+            // find the element by ID
+            String xpathExpr =
+                    "//*[local-name()='element' and @id='Task.instantiatesCanonical']" +
+                            "/*[local-name()='fixedCanonical']";
+
+            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(xpathExpr)
+                    .evaluate(doc, XPathConstants.NODESET);
+
+            if (nodes != null && nodes.getLength() > 0)
+            {
+                for (int i = 0; i < nodes.getLength(); i++)
+                {
+                    Node node = nodes.item(i);
+                    if (node.getAttributes() != null)
+                    {
+                        Node valAttr = node.getAttributes().getNamedItem("value");
+                        if (valAttr != null)
+                        {
+                            String val = valAttr.getNodeValue();
+                            if (val != null && !val.trim().isEmpty())
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // log if needed
+        }
+        return false;
+    }
+    /**
+     * For the given StructureDefinition XML {@link Document}, checks if
+     *
+     * <pre>{@code
+     *  <element id="Task.input:message-name.value[x]">
+     *    <path value="Task.input.value[x]" />
+     *    <fixedString value="somethingNonEmpty" />
+     *  </element>
+     * }</pre>
+     *
+     * is present. Returns true if such a `fixedString` is found and is not empty.
+     */
+    public static boolean fileHasTaskMessageNameNonEmpty(Document doc)
+    {
+        if (doc == null)
+            return false;
+
+        try
+        {
+            String xpathExpr =
+                    "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
+                            "/*[local-name()='fixedString']";
+
+            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(xpathExpr)
+                    .evaluate(doc, XPathConstants.NODESET);
+
+            if (nodes != null && nodes.getLength() > 0)
+            {
+                for (int i = 0; i < nodes.getLength(); i++)
+                {
+                    Node node = nodes.item(i);
+                    if (node.getAttributes() != null)
+                    {
+                        Node valAttr = node.getAttributes().getNamedItem("value");
+                        if (valAttr != null)
+                        {
+                            String val = valAttr.getNodeValue();
+                            if (val != null && !val.trim().isEmpty())
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // log if needed
+        }
+        return false;
+    }
+
+    public static String getTaskInstantiatesCanonicalValue(Document doc) {
+        if (doc == null)
+            return null;
+        try {
+            String xpathExpr =
+                    "//*[local-name()='element' and @id='Task.instantiatesCanonical']" +
+                            "/*[local-name()='fixedCanonical']";
+            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(xpathExpr)
+                    .evaluate(doc, XPathConstants.NODESET);
+            return extractValueFromFirstNode(nodes);
+        } catch (Exception ignored) {
+
+        }
+        return null;
+    }
+
+
+    public static String getTaskMessageNameFixedStringValue(Document doc) {
+        if (doc == null)
+            return null;
+        try {
+            String xpathExpr =
+                    "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
+                            "/*[local-name()='fixedString']";
+            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(xpathExpr)
+                    .evaluate(doc, XPathConstants.NODESET);
+            return extractValueFromFirstNode(nodes);
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static String extractValueFromFirstNode(NodeList nodes) {
+        if (nodes == null || nodes.getLength() == 0)
+            return null;
+        Node node = nodes.item(0);
+        if (node != null && node.getAttributes() != null) {
+            Node valAttr = node.getAttributes().getNamedItem("value");
+            if (valAttr != null) {
+                return valAttr.getNodeValue();
+            }
+        }
+        return null;
+    }
+
 
 }

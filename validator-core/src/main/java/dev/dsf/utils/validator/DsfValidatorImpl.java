@@ -55,14 +55,14 @@ public class DsfValidatorImpl implements DsfValidator {
 
         // 1) Check if the file exists
         if (!Files.exists(path)) {
-            System.err.println("❌ Error: The file does not exist: " + path);
+            System.err.println("Error: The file does not exist: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
         }
 
         // 2) Check if the file is readable (via isFileReadable) - can be mocked in tests
         if (!isFileReadable(path)) {
-            System.err.println("❌ Error: The file is not readable: " + path);
+            System.err.println("Error: The file is not readable: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
         }
@@ -72,7 +72,7 @@ public class DsfValidatorImpl implements DsfValidator {
         try {
             model = Bpmn.readModelFromFile(path.toFile());
         } catch (Exception e) {
-            System.err.println("❌ Error reading BPMN file: " + e.getMessage());
+            System.err.println("Error reading BPMN file: " + e.getMessage());
             e.printStackTrace();
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
