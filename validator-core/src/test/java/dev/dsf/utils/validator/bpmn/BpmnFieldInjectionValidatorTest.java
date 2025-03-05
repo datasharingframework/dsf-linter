@@ -1,0 +1,259 @@
+package dev.dsf.utils.validator.bpmn;
+
+import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.item.BpmnFieldInjectionMessageValueEmptyValidationItem;
+import dev.dsf.utils.validator.item.BpmnFieldInjectionNotStringLiteralValidationItem;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.camunda.bpm.model.bpmn.instance.EndEvent;
+import org.camunda.bpm.model.bpmn.instance.ExtensionElements;
+import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
+import org.camunda.bpm.model.bpmn.instance.ServiceTask;
+import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
+import org.camunda.bpm.model.bpmn.instance.camunda.CamundaString;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * <p>
+ * This test class exercises the {@link BpmnFieldInjectionValidator} utility methods to validate
+ * {@code <camunda:field>} elements in BPMN elements. It tests both scenarios where the fields
+ * are provided as valid string literals and scenarios where validation errors should be reported.
+ * </p>
+ *
+ * <p>
+ * References:
+ * <ul>
+ *   <li><a href="https://junit.org/junit5/docs/current/user-guide/">JUnit 5 Documentation</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/model-api/bpmn-model-api/">
+ *       Camunda BPMN Model API</a></li>
+ *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
+ * </ul>
+ * </p>
+ */
+public class BpmnFieldInjectionValidatorTest
+{
+    /**
+     * A sample BPMN file reference (not actually used to load from disk here).
+     * In a real scenario, this might point to a file containing the BPMN.
+     */
+    private static File bpmnFile;
+
+    /**
+     * A sample project root reference (used in validation to locate FHIR resources).
+     * In a real scenario, this could point to your project directory.
+     */
+    private static File projectRoot;
+
+    /**
+     * Setup method to initialize {@code bpmnFile} and {@code projectRoot}
+     * before any tests are run.
+     */
+    @BeforeAll
+    static void init()
+    {
+        bpmnFile = Paths.get("dummy-process.bpmn").toFile();
+        projectRoot = Paths.get("dummy-project-root").toFile();
+    }
+
+    /**
+     * Tests that when no {@code <camunda:field>} elements exist, there are no validation issues.
+     */
+    @Test
+    @DisplayName("Test no camunda:field elements => no issues")
+    void testNoFieldsNoIssues()
+    {
+        // Build a minimal BPMN model
+        BpmnModelInstance model = Bpmn
+                .createProcess("testProcess")
+                .startEvent()
+                .serviceTask("serviceTask")
+                .endEvent()
+                .done();
+
+        // Retrieve the ServiceTask as the BaseElement
+        ServiceTask serviceTask = model.getModelElementById("serviceTask");
+
+        List<BpmnElementValidationItem> issues = new ArrayList<>();
+        BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
+                serviceTask, issues, bpmnFile, "testProcess", projectRoot
+        );
+
+        assertTrue(issues.isEmpty(), "Expected no validation issues when no fields are present");
+    }
+
+    /**
+     * Tests that providing a non-string-literal (e.g., an expression) triggers a validation issue.
+     */
+    @Test
+    @DisplayName("Test camunda:field with expression => triggers NotStringLiteral issue")
+    void testFieldWithExpressionTriggersError()
+    {
+        // Build a BPMN model with a ServiceTask that has a <camunda:field name="profile" camunda:expression="..."/>
+        BpmnModelInstance model = Bpmn
+                .createProcess("testProcessExpressions")
+                .startEvent()
+                .serviceTask("serviceTaskWithExpr")
+                .endEvent()
+                .done();
+
+        // Manually add an extension element with a CamundaField using an expression
+        ServiceTask serviceTask = model.getModelElementById("serviceTaskWithExpr");
+
+        // 1) Create <bpmn:extensionElements> node (older approach)
+        ExtensionElements extensionElements = model.newInstance(ExtensionElements.class);
+        // For older Camunda versions, manually attach it:
+        serviceTask.addChildElement(extensionElements);
+
+        // 2) Create the field, set expression, and add to extensionElements
+        CamundaField field = model.newInstance(CamundaField.class);
+        field.setCamundaName("profile");
+        field.setCamundaExpression("${someExpression}");
+        extensionElements.addChildElement(field);
+
+        // Now validate
+        List<BpmnElementValidationItem> issues = new ArrayList<>();
+        BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
+                serviceTask, issues, bpmnFile, "testProcessExpressions", projectRoot
+        );
+
+        // We expect exactly 1 issue => BpmnFieldInjectionNotStringLiteralValidationItem
+        assertEquals(1, issues.size(), "Expected exactly one validation issue for an expression-based field");
+        assertInstanceOf(BpmnFieldInjectionNotStringLiteralValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralValidationItem");
+    }
+
+    /**
+     * Tests that providing a valid string literal (via {@code camunda:string}) does not trigger
+     * the NotStringLiteral validation item, but may trigger other checks if the name is "messageName"
+     * and the value is empty.
+     */
+    @Test
+    @DisplayName("Test camunda:field with literal => no NotStringLiteral issue, but may trigger others if empty")
+    void testFieldWithLiteral()
+    {
+        // Build a BPMN model with a ServiceTask that has a <camunda:field name="messageName"><camunda:string></camunda:string></camunda:field>
+        BpmnModelInstance model = Bpmn
+                .createProcess("testProcessLiteral")
+                .startEvent()
+                .serviceTask("serviceTaskWithLiteral")
+                .endEvent()
+                .done();
+
+        // Retrieve the ServiceTask
+        ServiceTask serviceTask = model.getModelElementById("serviceTaskWithLiteral");
+
+        // 1) Create <bpmn:extensionElements> node
+        ExtensionElements extensionElements = model.newInstance(ExtensionElements.class);
+        serviceTask.addChildElement(extensionElements);
+
+        // 2) Create the field with name="messageName" but with an empty literal
+        CamundaField field = model.newInstance(CamundaField.class);
+        field.setCamundaName("messageName");
+
+        // Use <camunda:string> as a nested element
+        CamundaString stringElement = model.newInstance(CamundaString.class);
+        // leaving it empty => triggers BpmnFieldInjectionMessageValueEmptyValidationItem
+        field.addChildElement(stringElement);
+
+        extensionElements.addChildElement(field);
+
+        // Validate
+        List<BpmnElementValidationItem> issues = new ArrayList<>();
+        BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
+                serviceTask, issues, bpmnFile, "testProcessLiteral", projectRoot
+        );
+
+        // We expect 1 issue => because messageName was empty
+        assertEquals(1, issues.size(), "Expected exactly one validation issue for empty messageName");
+        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
+    }
+
+    /**
+     * Tests that an unknown field name (not "profile", "messageName", or "instantiatesCanonical")
+     * triggers an appropriate unknown field injection validation item.
+     */
+    @Test
+    @DisplayName("Test unknown field name => triggers an unknown field injection issue")
+    void testUnknownFieldName()
+    {
+        // Build a BPMN model with a ServiceTask that has a <camunda:field name="someUnknownName" camunda:stringValue="test"/>
+        BpmnModelInstance model = Bpmn
+                .createProcess("testProcessUnknown")
+                .startEvent()
+                .serviceTask("serviceTaskUnknownField")
+                .endEvent()
+                .done();
+
+        ServiceTask serviceTask = model.getModelElementById("serviceTaskUnknownField");
+
+        // 1) Create <bpmn:extensionElements> node
+        ExtensionElements extensionElements = model.newInstance(ExtensionElements.class);
+        serviceTask.addChildElement(extensionElements);
+
+        // 2) Create field with unknown name
+        CamundaField field = model.newInstance(CamundaField.class);
+        field.setCamundaName("someUnknownName");
+        field.setCamundaStringValue("test");
+        extensionElements.addChildElement(field);
+
+        // Validate
+        List<BpmnElementValidationItem> issues = new ArrayList<>();
+        BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
+                serviceTask, issues, bpmnFile, "testProcessUnknown", projectRoot
+        );
+
+        assertEquals(1, issues.size(), "Expected exactly one validation issue for unknown field name");
+        // We expect a BpmnUnknownFieldInjectionValidationItem, if present in your codebase.
+    }
+
+    /**
+     * Tests that an {@code EndEvent} with a nested {@code MessageEventDefinition} containing
+     * {@code <camunda:field>} elements also triggers validation.
+     */
+    @Test
+    @DisplayName("Test EndEvent with MessageEventDefinition => fields get validated")
+    void testEndEventMessageFields()
+    {
+        // Build a BPMN model that ends with a MessageEventDefinition
+        BpmnModelInstance model = Bpmn
+                .createProcess("testProcessEndEvent")
+                .startEvent()
+                .endEvent("theEndEvent")
+                .messageEventDefinition("msgDef")
+                .done();
+
+        // Retrieve the EndEvent
+        EndEvent endEvent = model.getModelElementById("theEndEvent");
+
+        // Also retrieve the MessageEventDefinition by its ID
+        MessageEventDefinition messageDef = model.getModelElementById("msgDef");
+
+        // 1) Create <bpmn:extensionElements> node
+        ExtensionElements extensionElements = model.newInstance(ExtensionElements.class);
+        messageDef.addChildElement(extensionElements);
+
+        // 2) Add a field with an empty literal for messageName
+        CamundaField field = model.newInstance(CamundaField.class);
+        field.setCamundaName("messageName");
+        field.setCamundaStringValue(""); // empty => triggers validation item
+        extensionElements.addChildElement(field);
+
+        // Now validate
+        List<BpmnElementValidationItem> issues = new ArrayList<>();
+        BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
+                endEvent, issues, bpmnFile, "testProcessEndEvent", projectRoot
+        );
+
+        assertEquals(1, issues.size(),
+                "Expected one issue due to empty messageName in nested MessageEventDefinition");
+        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
+    }
+}

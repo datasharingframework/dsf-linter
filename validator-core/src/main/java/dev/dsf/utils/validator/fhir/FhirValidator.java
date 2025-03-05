@@ -538,114 +538,20 @@ public class FhirValidator
         return evaluateXPathExists(doc, xpathExpr);
     }
 
+
+
     /**
-     * For the given StructureDefinition XML {@link Document}, checks if
+     * Retrieves the canonical value for the "Task.instantiatesCanonical" element from the given XML Document.
+     * <p>
+     * This method uses an XPath expression to locate an element with a local name "element" and an attribute
+     * "id" equal to "Task.instantiatesCanonical". It then selects its child element with the local name "fixedCanonical"
+     * and extracts the value of its "value" attribute.
+     * </p>
      *
-     * <pre>{@code
-     *   <element id="Task.instantiatesCanonical">
-     *     <path value="Task.instantiatesCanonical" />
-     *     <fixedCanonical value="somethingNonEmpty" />
-     *   </element>
-     * }</pre>
-     *
-     * is present. Returns true if such a `fixedCanonical` is found and is not empty.
+     * @param doc the XML Document to be searched; may be {@code null}
+     * @return the value of the "value" attribute from the first "fixedCanonical" node found, or {@code null}
+     *         if the document is {@code null}, the node is not found, or an error occurs during evaluation
      */
-    public static boolean fileHasTaskInstantiatesCanonicalNonEmpty(Document doc)
-    {
-        if (doc == null)
-            return false;
-
-        try
-        {
-            // find the element by ID
-            String xpathExpr =
-                    "//*[local-name()='element' and @id='Task.instantiatesCanonical']" +
-                            "/*[local-name()='fixedCanonical']";
-
-            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile(xpathExpr)
-                    .evaluate(doc, XPathConstants.NODESET);
-
-            if (nodes != null && nodes.getLength() > 0)
-            {
-                for (int i = 0; i < nodes.getLength(); i++)
-                {
-                    Node node = nodes.item(i);
-                    if (node.getAttributes() != null)
-                    {
-                        Node valAttr = node.getAttributes().getNamedItem("value");
-                        if (valAttr != null)
-                        {
-                            String val = valAttr.getNodeValue();
-                            if (val != null && !val.trim().isEmpty())
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            // log if needed
-        }
-        return false;
-    }
-    /**
-     * For the given StructureDefinition XML {@link Document}, checks if
-     *
-     * <pre>{@code
-     *  <element id="Task.input:message-name.value[x]">
-     *    <path value="Task.input.value[x]" />
-     *    <fixedString value="somethingNonEmpty" />
-     *  </element>
-     * }</pre>
-     *
-     * is present. Returns true if such a `fixedString` is found and is not empty.
-     */
-    public static boolean fileHasTaskMessageNameNonEmpty(Document doc)
-    {
-        if (doc == null)
-            return false;
-
-        try
-        {
-            String xpathExpr =
-                    "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
-                            "/*[local-name()='fixedString']";
-
-            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile(xpathExpr)
-                    .evaluate(doc, XPathConstants.NODESET);
-
-            if (nodes != null && nodes.getLength() > 0)
-            {
-                for (int i = 0; i < nodes.getLength(); i++)
-                {
-                    Node node = nodes.item(i);
-                    if (node.getAttributes() != null)
-                    {
-                        Node valAttr = node.getAttributes().getNamedItem("value");
-                        if (valAttr != null)
-                        {
-                            String val = valAttr.getNodeValue();
-                            if (val != null && !val.trim().isEmpty())
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            // log if needed
-        }
-        return false;
-    }
-
     public static String getTaskInstantiatesCanonicalValue(Document doc) {
         if (doc == null)
             return null;
@@ -663,7 +569,18 @@ public class FhirValidator
         return null;
     }
 
-
+    /**
+     * Retrieves the fixed string value for the task message name from the given XML Document.
+     * <p>
+     * This method searches for an element whose local name is "element" and has an attribute
+     * "id" with the value "Task.input:message-name.value[x]". It then looks for a child element
+     * with the local name "fixedString" and extracts its "value" attribute.
+     * </p>
+     *
+     * @param doc the XML Document to search in; may be {@code null}
+     * @return the value of the "value" attribute from the first "fixedString" node found, or {@code null}
+     *         if the document is {@code null} or if any errors occur during evaluation
+     */
     public static String getTaskMessageNameFixedStringValue(Document doc) {
         if (doc == null)
             return null;
@@ -680,6 +597,20 @@ public class FhirValidator
         return null;
     }
 
+
+    /**
+     * Extracts the value of the "value" attribute from the first node in the provided NodeList.
+     * <p>
+     * If the provided NodeList is null or empty, this method returns {@code null}.
+     * Otherwise, it retrieves the first node and, if the node and its attributes are not null,
+     * attempts to extract the "value" attribute. If the attribute exists, its value is returned;
+     * otherwise, {@code null} is returned.
+     * </p>
+     *
+     * @param nodes the NodeList from which to extract the attribute value
+     * @return the value of the "value" attribute from the first node, or {@code null} if the NodeList is
+     *         null, empty, or the attribute is not present
+     */
     private static String extractValueFromFirstNode(NodeList nodes) {
         if (nodes == null || nodes.getLength() == 0)
             return null;
@@ -692,6 +623,5 @@ public class FhirValidator
         }
         return null;
     }
-
 
 }

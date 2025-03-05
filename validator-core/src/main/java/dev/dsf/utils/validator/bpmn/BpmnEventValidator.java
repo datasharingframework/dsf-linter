@@ -1,8 +1,10 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.fhir.FhirValidator;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
@@ -71,34 +73,43 @@ public class BpmnEventValidator
             StartEvent startEvent,
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = startEvent.getId();
-        if (BpmnValidationUtils.isEmpty(startEvent.getName()))
-        {
+        if (BpmnValidationUtils.isEmpty(startEvent.getName())) {
             issues.add(new BpmnEventNameEmptyValidationItem(elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
 
         MessageEventDefinition messageDef =
                 (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
 
-        if (messageDef.getMessage() == null || BpmnValidationUtils.isEmpty(messageDef.getMessage().getName()))
-        {
+        if (messageDef.getMessage() == null || BpmnValidationUtils.isEmpty(messageDef.getMessage().getName())) {
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(elementId, bpmnFile, processId));
-        }
-        else
-        {
+        } else {
             // Check references in FHIR resources
             String msgName = messageDef.getMessage().getName();
-            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot))
-            {
-                issues.add(new BpmnMessageStartEventMessageNameNotPresentInActivityDefinitionValidationItem(
-                        elementId, bpmnFile, processId, msgName));
+            boolean found = false;
+            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot)) {
+                issues.add(new FhirActivityDefinitionValidationItem(
+                        ValidationSeverity.WARN,
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        msgName,
+                        "No ActivityDefinition found for messageName: " + msgName
+                ));
+            } else {
+                found = true;
             }
-            if (!FhirValidator.structureDefinitionExists(msgName, projectRoot))
-            {
-                issues.add(new BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(
-                        elementId, bpmnFile, processId, msgName));
+            if (found) {
+                if (!FhirValidator.structureDefinitionExists(msgName, projectRoot)) {
+                    issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            msgName,
+                            "No StructureDefinition found for messageName: " + msgName
+                    ));
+                }
             }
         }
     }
@@ -500,37 +511,46 @@ public class BpmnEventValidator
             BoundaryEvent boundaryEvent,
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = boundaryEvent.getId();
-        if (BpmnValidationUtils.isEmpty(boundaryEvent.getName()))
-        {
-            issues.add(new BpmnMessageBoundaryEventNameEmptyValidationItem (
+        if (BpmnValidationUtils.isEmpty(boundaryEvent.getName())) {
+            issues.add(new BpmnMessageBoundaryEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         }
         MessageEventDefinition def =
                 (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
 
-        if (def.getMessage() == null || BpmnValidationUtils.isEmpty(def.getMessage().getName()))
-        {
+        if (def.getMessage() == null || BpmnValidationUtils.isEmpty(def.getMessage().getName())) {
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(elementId, bpmnFile, processId));
-        }
-        else
-        {
+        } else {
             String msgName = def.getMessage().getName();
-            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot))
-            {
-                issues.add(new BpmnMessageStartEventMessageNameNotPresentInActivityDefinitionValidationItem(
-                        elementId, bpmnFile, processId, msgName));
+            boolean found = false;
+            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot)) {
+                issues.add(new FhirActivityDefinitionValidationItem(
+                        ValidationSeverity.WARN,
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        msgName,
+                        "No ActivityDefinition found for messageName: " + msgName
+                ));
+            } else {
+                found = true;
             }
-            if (!FhirValidator.structureDefinitionExists(msgName, projectRoot))
-            {
-                issues.add(new BpmnMessageStartEventMessageNameNotMatchingProfileValidationItem(
-                        elementId, bpmnFile, processId, msgName));
+            if (found) {
+                if (!FhirValidator.structureDefinitionExists(msgName, projectRoot)) {
+                    issues.add(new FhirStructureDefinitionValidationItem(
+                            ValidationSeverity.ERROR,
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            msgName,
+                            "No StructureDefinition found for messageName: " + msgName
+                    ));
+                }
             }
         }
     }
-
     /**
      * Validates an {@link BoundaryEvent} containing an {@link ErrorEventDefinition}.
      * Splits logic based on whether {@code errorRef} is set.

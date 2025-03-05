@@ -26,9 +26,9 @@ public class RepositoryManager {
                     .setURI(remoteRepoUrl)
                     .setDirectory(cloneDir)
                     .call();
-            System.out.println("✅ Repository cloned to: " + cloneDir.getAbsolutePath());
+            System.out.println("Repository cloned to: " + cloneDir.getAbsolutePath());
         } else {
-            System.out.println("🔍 Repository already cloned at: " + cloneDir.getAbsolutePath());
+            System.out.println("Repository already cloned at: " + cloneDir.getAbsolutePath());
         }
         return cloneDir;
     }

@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.bpmn;
+package dev.dsf.utils.validator.util;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
@@ -270,13 +270,24 @@ public class BpmnValidationUtils
     {
         if (!FhirValidator.activityDefinitionExists(messageName, projectRoot))
         {
-            issues.add(new BpmnMessageSendEventMessageNameNotPresentInActivityDefinitionValidationItem(
-                    elementId, bpmnFile, processId, messageName));
+            issues.add(new FhirActivityDefinitionValidationItem(
+                    ValidationSeverity.ERROR,
+                    elementId,
+                    bpmnFile,
+                    processId,
+                    messageName,
+                    "No ActivityDefinition found for messageName: " + messageName
+            ));
         }
         if (!FhirValidator.structureDefinitionExists(messageName, projectRoot))
         {
-            issues.add(new BpmnMessageSendEventMessageNameNotMatchingProfileValidationItem(
-                    elementId, bpmnFile, processId, "", messageName));
+            issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                    elementId,
+                    bpmnFile,
+                    processId,
+                    messageName,
+                    "StructureDefinition [" + messageName + "] not found."
+            ));
         }
     }
 
@@ -579,16 +590,19 @@ public class BpmnValidationUtils
             }
             if (!FhirValidator.structureDefinitionExists(literalValue, projectRoot))
             {
-                issues.add(new BpmnFieldInjectionMissingStructureDefinitionForProfileValidationItem(
-                        elementId, bpmnFile, processId,
-                        "Profile not found in StructureDefinition: " + literalValue));
+                issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        literalValue,
+                        "StructureDefinition for the profile [" + literalValue + "] not found "
+                ));
             }
         }
     }
 
     /**
-     * Checks the "instantiatesCanonical" field for emptiness, version placeholder presence,
-     * and references in ActivityDefinition.
+     * Checks the "instantiatesCanonical" field for emptiness, version placeholder presence.
      */
     public static void checkInstantiatesCanonicalField(
             String elementId,

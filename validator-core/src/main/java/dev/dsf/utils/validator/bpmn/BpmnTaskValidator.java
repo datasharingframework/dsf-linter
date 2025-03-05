@@ -13,6 +13,7 @@ import dev.dsf.utils.validator.item.BpmnServiceTaskNameEmptyValidationItem;
 import dev.dsf.utils.validator.item.BpmnFloatingElementValidationItem;
 import dev.dsf.utils.validator.item.BpmnMessageStartEventMessageNameEmptyValidationItem;
 import dev.dsf.utils.validator.ValidationType;
+import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;

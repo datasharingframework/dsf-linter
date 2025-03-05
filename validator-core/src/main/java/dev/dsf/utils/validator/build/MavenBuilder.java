@@ -21,7 +21,7 @@ public class MavenBuilder {
      * @throws InterruptedException if the process is interrupted.
      */
     public boolean buildProject(File projectDir, String mavenCmd) throws IOException, InterruptedException {
-        System.out.println("🔍 Building project with Maven (clean, compile, and copy dependencies)...");
+        System.out.println("Building project with Maven (clean, compile, and copy dependencies)...");
         ProcessBuilder pb = new ProcessBuilder(mavenCmd, "clean", "compile", "dependency:copy-dependencies");
         pb.directory(projectDir);
         pb.redirectErrorStream(true);
@@ -34,15 +34,15 @@ public class MavenBuilder {
         }
         if (!process.waitFor(5, TimeUnit.MINUTES)) {
             process.destroy();
-            System.err.println("❌ ERROR: Maven build timed out.");
+            System.err.println("ERROR: Maven build timed out.");
             return false;
         }
         int exitCode = process.exitValue();
         if (exitCode != 0) {
-            System.err.println("❌ ERROR: Maven build failed with exit code " + exitCode);
+            System.err.println("ERROR: Maven build failed with exit code " + exitCode);
             return false;
         } else {
-            System.out.println("✅ Maven build succeeded");
+            System.out.println("Maven build succeeded");
             return true;
         }
     }

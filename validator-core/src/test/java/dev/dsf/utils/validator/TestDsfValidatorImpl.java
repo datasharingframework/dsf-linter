@@ -70,8 +70,7 @@ class TestDsfValidatorImpl {
 
             assertFalse(Files.exists(nonExistentFile), "File should not exist.");
             assertEquals(1, issues.size(), "There should be exactly one issue.");
-            assertTrue(issues.get(0) instanceof UnparsableBpmnFileValidationItem,
-                    "Expected issue to be UnparsableBpmnFileValidationItem.");
+            assertInstanceOf(UnparsableBpmnFileValidationItem.class, issues.getFirst(), "Expected issue to be UnparsableBpmnFileValidationItem.");
         }
 
         /**
@@ -97,8 +96,7 @@ class TestDsfValidatorImpl {
             List<AbstractValidationItem> issues = output.getValidationItems();
 
             assertEquals(1, issues.size(), "There should be exactly one issue (UnparsableBpmnFileValidationItem).");
-            assertTrue(issues.get(0) instanceof UnparsableBpmnFileValidationItem,
-                    "Expected UnparsableBpmnFileValidationItem because the file is 'not readable'.");
+            assertInstanceOf(UnparsableBpmnFileValidationItem.class, issues.getFirst(), "Expected UnparsableBpmnFileValidationItem because the file is 'not readable'.");
         }
     }
 
@@ -128,8 +126,7 @@ class TestDsfValidatorImpl {
             List<AbstractValidationItem> issues = output.getValidationItems();
 
             assertEquals(1, issues.size(), "There should be exactly one validation issue for invalid BPMN content.");
-            assertTrue(issues.get(0) instanceof UnparsableBpmnFileValidationItem,
-                    "Expected the issue to be an UnparsableBpmnFileValidationItem.");
+            assertInstanceOf(UnparsableBpmnFileValidationItem.class, issues.getFirst(), "Expected the issue to be an UnparsableBpmnFileValidationItem.");
         }
 
         /**

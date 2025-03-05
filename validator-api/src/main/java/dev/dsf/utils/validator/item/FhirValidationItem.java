@@ -7,4 +7,6 @@ public abstract class FhirValidationItem extends AbstractValidationItem {
     public FhirValidationItem(ValidationSeverity severity) {
         super(severity);
     }
+
+    public abstract String getDescription();
 }
