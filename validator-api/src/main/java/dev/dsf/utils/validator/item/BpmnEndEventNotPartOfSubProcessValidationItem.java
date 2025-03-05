@@ -22,7 +22,7 @@ public class BpmnEndEventNotPartOfSubProcessValidationItem extends BpmnElementVa
     public BpmnEndEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
         super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "End event is not part of a subprocess";
+        this.description = "End event is not part of a subprocess and name is empty";
     }
 
     /**

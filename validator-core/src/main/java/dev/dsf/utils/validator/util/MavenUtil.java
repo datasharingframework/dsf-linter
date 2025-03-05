@@ -26,7 +26,7 @@ public class MavenUtil {
             mavenCmd = mavenHome + File.separator + "bin" + File.separator + "mvn.cmd";
             File mavenFile = new File(mavenCmd);
             if (!mavenFile.exists()) {
-                System.err.println("❌ ERROR: Maven executable not found at: " + mavenFile.getAbsolutePath());
+                System.err.println("ERROR: Maven executable not found at: " + mavenFile.getAbsolutePath());
                 System.err.println("Please check if MAVEN_HOME is set correctly.");
                 return null;
             }
@@ -36,21 +36,21 @@ public class MavenUtil {
                 Process pWhere = pbWhere.start();
                 if (!pWhere.waitFor(10, TimeUnit.SECONDS)) {
                     pWhere.destroy();
-                    System.err.println("❌ ERROR: Timeout while trying to locate Maven.");
+                    System.err.println("ERROR: Timeout while trying to locate Maven.");
                     return null;
                 }
                 BufferedReader whereReader = new BufferedReader(new InputStreamReader(pWhere.getInputStream()));
                 String foundPath = whereReader.readLine();
                 if (pWhere.exitValue() == 0 && foundPath != null && !foundPath.isEmpty()) {
                     mavenCmd = foundPath;
-                    System.out.println("🔍 Found Maven executable at: " + mavenCmd);
+                    System.out.println("Found Maven executable at: " + mavenCmd);
                 } else {
-                    System.err.println("❌ ERROR: MAVEN_HOME is not set and Maven was not found using 'where'.");
+                    System.err.println("ERROR: MAVEN_HOME is not set and Maven was not found using 'where'.");
                     System.err.println("Please set MAVEN_HOME or ensure Maven is in the system PATH.");
                     return null;
                 }
             } catch (Exception ex) {
-                System.err.println("❌ ERROR: Exception while trying to locate Maven: " + ex.getMessage());
+                System.err.println("ERROR: Exception while trying to locate Maven: " + ex.getMessage());
                 ex.printStackTrace();
                 return null;
             }

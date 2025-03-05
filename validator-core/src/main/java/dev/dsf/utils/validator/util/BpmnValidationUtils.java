@@ -51,12 +51,28 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if a string contains the {@code #{version}} placeholder.
+     * Checks if the given string contains a version placeholder in the format ${someWord} or #{someWord}.
+     * A valid placeholder must have at least one character between the curly braces.
+     *
+     * @param rawValue the string to check
+     * @return true if a valid placeholder is found, otherwise false
      */
-    public static boolean containsVersionPlaceholder(String rawValue)
-    {
-        return (rawValue != null && rawValue.contains("#{version}"));
+    private static boolean containsPlaceholder(String rawValue) {
+        if (rawValue == null || rawValue.isEmpty()) {
+            return false;
+        }
+        // Regex explanation:
+        // (\\$|#)      : Matches either a '$' or '#' character.
+        // "\\{"        : Matches the literal '{'.
+        // "[^\\}]+":   : Ensures that at least one character (that is not '}') is present.
+        // "\\}"        : Matches the literal '}'.
+        // ".*" before and after allows the placeholder to appear anywhere in the string.
+        return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
     }
+
+
+
+
 
     /**
      * Attempts to read any nested {@code <camunda:string>} text content if the
@@ -350,7 +366,8 @@ public class BpmnValidationUtils
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
                             "Task listener class not found: " + implClass,
-                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND
+                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
+                            ValidationSeverity.ERROR
                     ));
                 }
             }
@@ -398,11 +415,11 @@ public class BpmnValidationUtils
             {
                 String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent()
                         : timeDurationExpr.getTextContent();
-                if (!containsVersionPlaceholder(timerValue))
+                if (!containsPlaceholder(timerValue))
                 {
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
-                            "Timer value appears fixed (no version placeholder found)",
+                            "Timer value appears fixed (no placeholder found)",
                             ValidationType.BPMN_FLOATING_ELEMENT
                     ));
                 }
@@ -466,59 +483,86 @@ public class BpmnValidationUtils
 
     /**
      * Validates a {@link ConditionalEventDefinition} for an IntermediateCatchEvent.
-     * Checks:
+     *
+     * <p>This method performs the following validations:
      * <ul>
-     *   <li>{@code camunda:variableName} is not empty</li>
-     *   <li>{@code camunda:variableEvents} is not empty</li>
-     *   <li>{@code camunda:conditionType} is 'expression' (INFO if not)</li>
-     *   <li>Condition expression is not empty</li>
+     *     <li>Warn if the event name is empty.</li>
+     *     <li>Error if the conditional event variable name is empty.</li>
+     *     <li>Error if the conditional event variableEvents attribute is empty.</li>
+     *     <li>Error if the conditional event condition type is empty (unless a condition expression is provided),
+     *         and info if it is not 'expression'.</li>
+     *     <li>Error if the conditional event expression is empty when condition type is 'expression'.</li>
      * </ul>
+     *
+     * @param catchEvent the Conditional Intermediate Catch Event to validate
+     * @param issues the list to which validation issues will be added
+     * @param bpmnFile the BPMN file associated with the event
+     * @param processId the process id to which the event belongs
      */
     public static void checkConditionalEvent(
             IntermediateCatchEvent catchEvent,
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
+
         String elementId = catchEvent.getId();
+
+        // Check event name - warn if empty
+        String eventName = catchEvent.getName();
+        if (isEmpty(eventName)) {
+            issues.add(new BpmnFloatingElementValidationItem(
+                    elementId, bpmnFile, processId,
+                    "Conditional Intermediate Catch Event name is empty",
+                    ValidationType.BPMN_FLOATING_ELEMENT
+            ));
+        }
+
+        // Get the conditional event definition (assuming the first event definition is of type ConditionalEventDefinition)
         ConditionalEventDefinition condDef =
                 (ConditionalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
+        // Check conditional event variable name - error if empty
         String variableName = condDef.getCamundaVariableName();
-        if (isEmpty(variableName))
-        {
+        if (isEmpty(variableName)) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variable name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
 
+        // Check variableEvents attribute - error if empty
         String variableEvents = condDef.getAttributeValueNs(
                 "http://camunda.org/schema/1.0/bpmn",
                 "variableEvents");
-        if (isEmpty(variableEvents))
-        {
+        if (isEmpty(variableEvents)) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variableEvents is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
 
+        // Check conditionType attribute
         String conditionType = condDef.getAttributeValueNs(
                 "http://camunda.org/schema/1.0/bpmn",
                 "conditionType");
-        if (isEmpty(conditionType))
-        {
-            issues.add(new BpmnFloatingElementValidationItem(
-                    elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event condition type is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
-            ));
-        }
-        else if (!"expression".equalsIgnoreCase(conditionType))
-        {
+
+        // If conditionType is empty, but a condition expression is defined, assume "expression"
+        if (isEmpty(conditionType)) {
+            if (condDef.getCondition() != null && !isEmpty(condDef.getCondition().getRawTextContent())) {
+                conditionType = "expression";
+            } else {
+                issues.add(new BpmnFloatingElementValidationItem(
+                        elementId, bpmnFile, processId,
+                        "Conditional Intermediate Catch Event condition type is empty",
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.ERROR
+                ));
+            }
+        } else if (!"expression".equalsIgnoreCase(conditionType)) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event condition type is not 'expression': " + conditionType,
@@ -527,15 +571,19 @@ public class BpmnValidationUtils
             ));
         }
 
-        if (condDef.getCondition() == null || isEmpty(condDef.getCondition().getRawTextContent()))
-        {
-            issues.add(new BpmnFloatingElementValidationItem(
-                    elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event expression is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
-            ));
+        // Check condition expression only if condition type is 'expression'
+        if ("expression".equalsIgnoreCase(conditionType)) {
+            if (condDef.getCondition() == null || isEmpty(condDef.getCondition().getRawTextContent())) {
+                issues.add(new BpmnFloatingElementValidationItem(
+                        elementId, bpmnFile, processId,
+                        "Conditional Intermediate Catch Event expression is empty",
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.ERROR
+                ));
+            }
         }
     }
+
 
     /**
      * Checks whether all parts of a camelCase message name are found (in order) within
@@ -583,7 +631,7 @@ public class BpmnValidationUtils
         }
         else
         {
-            if (!containsVersionPlaceholder(literalValue))
+            if (!containsPlaceholder(literalValue))
             {
                 issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId, literalValue));
@@ -619,7 +667,7 @@ public class BpmnValidationUtils
         }
         else
         {
-            if (!containsVersionPlaceholder(literalValue))
+            if (!containsPlaceholder(literalValue))
             {
                 issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId));

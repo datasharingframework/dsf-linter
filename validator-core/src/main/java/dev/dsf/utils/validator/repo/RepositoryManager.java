@@ -21,7 +21,7 @@ public class RepositoryManager {
      */
     public File getRepository(String remoteRepoUrl, File cloneDir) throws GitAPIException {
         if (!cloneDir.exists() || cloneDir.list().length == 0) {
-            System.out.println("🔍 Cloning repository from: " + remoteRepoUrl);
+            System.out.println("Cloning repository from: " + remoteRepoUrl);
             Git.cloneRepository()
                     .setURI(remoteRepoUrl)
                     .setDirectory(cloneDir)

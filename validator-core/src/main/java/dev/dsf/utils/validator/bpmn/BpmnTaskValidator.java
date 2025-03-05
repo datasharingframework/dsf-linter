@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.BpmnEventNameEmptyValidationItem;
 import dev.dsf.utils.validator.item.BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem;
@@ -138,7 +139,8 @@ public class BpmnTaskValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task formKey is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
         else
@@ -148,7 +150,8 @@ public class BpmnTaskValidator
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "User Task formKey is not an external form: " + formKey,
-                        ValidationType.BPMN_FLOATING_ELEMENT
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.ERROR
                 ));
             }
             // Example check to verify if the corresponding questionnaire
@@ -157,7 +160,8 @@ public class BpmnTaskValidator
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "User Task questionnaire not found for formKey: " + formKey,
-                        ValidationType.BPMN_FLOATING_ELEMENT
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.ERROR
                 ));
             }
         }
