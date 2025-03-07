@@ -9,6 +9,7 @@ import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
 import org.camunda.bpm.model.xml.instance.DomElement;
+import org.w3c.dom.Document;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,18 +21,30 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ * The {@code BpmnValidationUtils} class contains common static utility methods used across various BPMN validator classes.
  * <p>
- * The {@code BpmnValidationUtils} class contains common static methods used across
- * the various BPMN validator classes. These utility methods handle string checks,
- * class-loading checks, conditional event checks, and cross-references to FHIR
- * resources.
+ * These utility methods support operations such as:
+ * <ul>
+ *   <li>String null or emptiness checks</li>
+ *   <li>Placeholder detection within strings</li>
+ *   <li>Extraction of nested string content from Camunda fields</li>
+ *   <li>Class-loading and existence checks, including verifying if a class implements {@code JavaDelegate}</li>
+ *   <li>Extraction of implementation class values from BPMN elements</li>
+ *   <li>Validation of implementation classes and listener classes</li>
+ *   <li>Cross-checking message names against FHIR resources</li>
+ *   <li>XML parsing of FHIR resource files</li>
+ *   <li>Timer, error boundary, and conditional event validation checks</li>
+ *   <li>Validation of profile and instantiatesCanonical field values against FHIR StructureDefinition and ActivityDefinition</li>
+ *   <li>Checking if a BPMN profile string contains parts of a message name</li>
+ * </ul>
  * </p>
  *
  * <p>
  * References:
  * <ul>
  *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">
+ *       Camunda Extension Elements</a></li>
  *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
  *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
  * </ul>
@@ -40,10 +53,10 @@ import java.util.List;
 public class BpmnValidationUtils
 {
     /**
-     * Checks if the given string is null or empty.
+     * Checks if the given string is null or empty (after trimming).
      *
      * @param value the string to check
-     * @return true if the string is null or empty, false otherwise
+     * @return {@code true} if the string is null or empty; {@code false} otherwise
      */
     public static boolean isEmpty(String value)
     {
@@ -51,11 +64,13 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if the given string contains a version placeholder in the format ${someWord} or #{someWord}.
-     * A valid placeholder must have at least one character between the curly braces.
+     * Checks if the given string contains a version placeholder.
+     * <p>
+     * A valid placeholder is expected to be in the format "${someWord}" or "#{someWord}", with at least one character inside.
+     * </p>
      *
-     * @param rawValue the string to check
-     * @return true if a valid placeholder is found, otherwise false
+     * @param rawValue the string to check for a placeholder
+     * @return {@code true} if the string contains a valid placeholder; {@code false} otherwise
      */
     private static boolean containsPlaceholder(String rawValue) {
         if (rawValue == null || rawValue.isEmpty()) {
@@ -70,13 +85,15 @@ public class BpmnValidationUtils
         return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
     }
 
-
-
-
-
     /**
-     * Attempts to read any nested {@code <camunda:string>} text content if the
-     * {@code camunda:stringValue} is not set directly on the {@code CamundaField}.
+     * Attempts to read any nested {@code <camunda:string>} text content from a {@link CamundaField}.
+     * <p>
+     * If the field does not have a direct string value set via {@code camunda:stringValue},
+     * this method inspects its DOM children for a {@code <camunda:string>} element and returns its text content.
+     * </p>
+     *
+     * @param field the {@link CamundaField} to extract nested string content from
+     * @return the text content from a nested {@code <camunda:string>} element, or {@code null} if not found
      */
     public static String tryReadNestedStringContent(CamundaField field)
     {
@@ -98,10 +115,15 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if a fully-qualified class name can be loaded either from the
-     * context class loader or from a fallback {@link URLClassLoader} built
-     * from {@code target/classes} and/or {@code build/classes} plus
-     * {@code target/dependency} JARs.
+     * Checks if a fully-qualified class name can be loaded from the current context or via a custom class loader.
+     * <p>
+     * This method first attempts to load the class using the context class loader. If that fails,
+     * it falls back to a custom {@link URLClassLoader} that includes the project's classes and dependency JARs.
+     * </p>
+     *
+     * @param className   the fully-qualified name of the class to load
+     * @param projectRoot the project root directory to use for creating the custom class loader
+     * @return {@code true} if the class can be loaded; {@code false} otherwise
      */
     public static boolean classExists(String className, File projectRoot)
     {
@@ -138,8 +160,15 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Creates a {@link URLClassLoader} that includes /target/classes (or /build/classes)
-     * and /target/dependency JARs (if any).
+     * Creates a {@link URLClassLoader} that includes the project's class directories and dependency JARs.
+     * <p>
+     * The method checks for the existence of "/target/classes" or "/build/classes" and adds them to the classpath.
+     * Additionally, if a "/target/dependency" directory exists, all JAR files within it are also added.
+     * </p>
+     *
+     * @param projectRoot the root directory of the project
+     * @return a {@link URLClassLoader} that loads classes from the specified directories and JARs
+     * @throws Exception if an error occurs while constructing the class loader
      */
     private static ClassLoader createProjectClassLoader(File projectRoot)
             throws Exception
@@ -174,7 +203,15 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if the given class name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
+     * Checks if the class with the given name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
+     * <p>
+     * The check is performed by loading both the candidate class and the {@code JavaDelegate} interface using
+     * a custom class loader, then verifying assignability.
+     * </p>
+     *
+     * @param className   the fully-qualified class name to check
+     * @param projectRoot the project root directory used to create the custom class loader
+     * @return {@code true} if the candidate class implements {@code JavaDelegate}; {@code false} otherwise
      */
     public static boolean implementsJavaDelegate(String className, File projectRoot)
     {
@@ -193,8 +230,15 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Extracts the {@code camunda:class} attribute from a BPMN event, searching both
-     * the element itself and any attached {@link MessageEventDefinition}.
+     * Extracts the implementation class specified on a BPMN element.
+     * <p>
+     * The method first checks if the BPMN element has an attribute named "class" in the Camunda namespace.
+     * If not found, and if the element is a {@link ThrowEvent} or {@link EndEvent} with a {@link MessageEventDefinition},
+     * it will check the Camunda class specified within the message event definition.
+     * </p>
+     *
+     * @param element the BPMN {@link BaseElement} from which to extract the implementation class
+     * @return the implementation class as a string, or an empty string if not found
      */
     public static String extractImplementationClass(BaseElement element)
     {
@@ -236,8 +280,18 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Validates the extracted {@code camunda:class}, checking if it is non-empty, exists,
-     * and implements JavaDelegate.
+     * Validates the implementation class extracted from a BPMN element.
+     * <p>
+     * This method checks that the implementation class is non-empty, exists on the classpath,
+     * and implements the {@code JavaDelegate} interface. Appropriate validation issues are added if any of these checks fail.
+     * </p>
+     *
+     * @param implClass   the implementation class as a string
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param issues      the list of {@link BpmnElementValidationItem} to which any validation issues will be added
+     * @param projectRoot the project root directory used for class loading
      */
     public static void validateImplementationClass(
             String implClass,
@@ -264,8 +318,18 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks that the given message name is recognized in FHIR ActivityDefinition and
-     * StructureDefinition, adding appropriate validation items if missing.
+     * Checks if the given message name is recognized in FHIR resources.
+     * <p>
+     * This method verifies that the message name exists in at least one ActivityDefinition and one StructureDefinition.
+     * If not, it adds corresponding validation issues.
+     * </p>
+     *
+     * @param messageName the message name to check
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param projectRoot the project root directory containing FHIR resources
      */
     public static void checkMessageName(
             String messageName,
@@ -299,8 +363,19 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if a BPMN element has any {@link CamundaExecutionListener} referencing a class
+     * Checks if a BPMN element has any {@link CamundaExecutionListener} with an implementation class
      * that cannot be found on the classpath.
+     * <p>
+     * This method inspects the extension elements of the BPMN element for execution listeners and verifies
+     * that each specified class exists.
+     * </p>
+     *
+     * @param element     the BPMN {@link BaseElement} to check
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param projectRoot the project root directory used for class loading
      */
     public static void checkExecutionListenerClasses(
             BaseElement element,
@@ -324,7 +399,8 @@ public class BpmnValidationUtils
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
                             "Execution listener class not found: " + implClass,
-                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND
+                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
+                            ValidationSeverity.ERROR
                     ));
                 }
             }
@@ -332,8 +408,19 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if a BPMN user task has any {@link CamundaTaskListener} referencing a class
+     * Checks if a BPMN user task has any {@link CamundaTaskListener} with an implementation class
      * that cannot be found on the classpath.
+     * <p>
+     * The method inspects the extension elements of the {@link UserTask} for task listeners and verifies
+     * the existence of their specified implementation classes.
+     * </p>
+     *
+     * @param userTask    the {@link UserTask} to check
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the task
+     * @param projectRoot the project root directory used for class loading
      */
     public static void checkTaskListenerClasses(
             UserTask userTask,
@@ -367,6 +454,17 @@ public class BpmnValidationUtils
 
     /**
      * Validates the TimerEventDefinition for an Intermediate Catch Event.
+     * <p>
+     * This method checks the timer expressions (timeDate, timeCycle, timeDuration) in the TimerEventDefinition.
+     * It adds a validation issue if all timer expressions are empty, logs an informational issue if a fixed date/time
+     * is used, or warns if a cycle/duration value appears fixed (i.e. contains no placeholder).
+     * </p>
+     *
+     * @param elementId the identifier of the BPMN element being validated
+     * @param issues    the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param bpmnFile  the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
+     * @param timerDef  the {@link TimerEventDefinition} to validate
      */
     public static void checkTimerDefinition(
             String elementId,
@@ -419,13 +517,20 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Validates a {@link BoundaryEvent} containing an {@link ErrorEventDefinition}.
-     * Splits logic based on whether {@code errorRef} is set:
+     * Validates a {@link BoundaryEvent} that contains an {@link ErrorEventDefinition}.
+     * <p>
+     * The validation is split based on whether an error reference is provided:
      * <ul>
-     *   <li>If {@code errorRef} is present, checks name/code are not empty => ERROR if empty.</li>
-     *   <li>Boundary name empty => WARN.</li>
-     *   <li>{@code errorCodeVariable} missing => WARN.</li>
+     *   <li>If an error reference is present, it checks that both the error name and error code are not empty; errors are raised if they are.</li>
+     *   <li>If the boundary event's name is empty, a warning is added.</li>
+     *   <li>If the {@code errorCodeVariable} attribute is missing, a warning is added.</li>
      * </ul>
+     * </p>
+     *
+     * @param boundaryEvent the {@link BoundaryEvent} to validate
+     * @param issues        the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param bpmnFile      the BPMN file under validation
+     * @param processId     the identifier of the BPMN process containing the event
      */
     public static void checkErrorBoundaryEvent(
             BoundaryEvent boundaryEvent,
@@ -473,22 +578,23 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Validates a {@link ConditionalEventDefinition} for an IntermediateCatchEvent.
-     *
-     * <p>This method performs the following validations:
+     * Validates a {@link ConditionalEventDefinition} for an Intermediate Catch Event.
+     * <p>
+     * This method performs several checks:
      * <ul>
-     *     <li>Warn if the event name is empty.</li>
-     *     <li>Error if the conditional event variable name is empty.</li>
-     *     <li>Error if the conditional event variableEvents attribute is empty.</li>
-     *     <li>Error if the conditional event condition type is empty (unless a condition expression is provided),
-     *         and info if it is not 'expression'.</li>
-     *     <li>Error if the conditional event expression is empty when condition type is 'expression'.</li>
+     *   <li>Warns if the event name is empty.</li>
+     *   <li>Errors if the conditional event variable name is empty.</li>
+     *   <li>Errors if the {@code variableEvents} attribute is empty.</li>
+     *   <li>Errors if the conditional event condition type is empty (unless a condition expression is provided),
+     *       and logs an informational issue if the condition type is not "expression".</li>
+     *   <li>Errors if the condition expression is empty when the condition type is "expression".</li>
      * </ul>
+     * </p>
      *
      * @param catchEvent the Conditional Intermediate Catch Event to validate
-     * @param issues the list to which validation issues will be added
-     * @param bpmnFile the BPMN file associated with the event
-     * @param processId the process id to which the event belongs
+     * @param issues     the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param bpmnFile   the BPMN file associated with the event
+     * @param processId  the BPMN process identifier containing the event
      */
     public static void checkConditionalEvent(
             IntermediateCatchEvent catchEvent,
@@ -575,38 +681,20 @@ public class BpmnValidationUtils
         }
     }
 
-
     /**
-     * Checks whether all parts of a camelCase message name are found (in order) within
-     * a profile string (ignoring case).
-     */
-    public static boolean doesProfileContainMessageNameParts(String profileValue, String messageNameValue)
-    {
-        if (profileValue == null || messageNameValue == null)
-        {
-            return false;
-        }
-
-        String[] parts = messageNameValue.split("(?=[A-Z])");
-        String profileLower = profileValue.toLowerCase();
-        int lastFoundIndex = -1;
-
-        for (String part : parts)
-        {
-            String lowerPart = part.toLowerCase();
-            int foundIndex = profileLower.indexOf(lowerPart, lastFoundIndex + 1);
-            if (foundIndex == -1)
-            {
-                return false;
-            }
-            lastFoundIndex = foundIndex;
-        }
-        return true;
-    }
-
-    /**
-     * Checks the "profile" field for emptiness, version placeholders, and existence
-     * in FHIR StructureDefinition.
+     * Checks the "profile" field value for validity.
+     * <p>
+     * This method verifies that the profile field is not empty, contains a version placeholder,
+     * and corresponds to an existing FHIR StructureDefinition. If any check fails, an appropriate
+     * validation issue is added.
+     * </p>
+     *
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param issues      the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param literalValue the literal value of the profile field from the BPMN element
+     * @param projectRoot the project root directory containing FHIR resources
      */
     public static void checkProfileField(
             String elementId,
@@ -629,19 +717,31 @@ public class BpmnValidationUtils
             }
             if (!FhirValidator.structureDefinitionExists(literalValue, projectRoot))
             {
-                issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.WARN,
                         elementId,
                         bpmnFile,
                         processId,
                         literalValue,
-                        "StructureDefinition for the profile [" + literalValue + "] not found "
+                        "StructureDefinition for the profile : [" + literalValue + "] not found "
                 ));
             }
         }
     }
 
     /**
-     * Checks the "instantiatesCanonical" field for emptiness, version placeholder presence.
+     * Checks the "instantiatesCanonical" field value for validity.
+     * <p>
+     * This method ensures that the instantiatesCanonical field is not empty and contains a version placeholder.
+     * If the field is empty, a validation issue is added. Similarly, if the version placeholder is missing,
+     * a corresponding validation issue is added.
+     * </p>
+     *
+     * @param elementId   the identifier of the BPMN element being validated
+     * @param literalValue the literal value of the instantiatesCanonical field
+     * @param bpmnFile    the BPMN file under validation
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param projectRoot the project root directory containing FHIR resources
      */
     public static void checkInstantiatesCanonicalField(
             String elementId,
@@ -667,6 +767,17 @@ public class BpmnValidationUtils
     }
 
     // BpmnValidationUtils.java (near the bottom)
+    /**
+     * Parses an XML file into a {@link org.w3c.dom.Document}.
+     * <p>
+     * This method creates a namespace-aware {@link DocumentBuilder} and parses the provided XML file.
+     * It returns the resulting {@link Document} or throws an exception if an error occurs.
+     * </p>
+     *
+     * @param xmlFile the XML file to parse
+     * @return the parsed {@link org.w3c.dom.Document}
+     * @throws Exception if an error occurs during parsing
+     */
     public static org.w3c.dom.Document parseXml(File xmlFile) throws Exception
     {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();

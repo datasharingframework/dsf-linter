@@ -11,11 +11,22 @@ import java.io.File;
 import java.util.List;
 
 /**
+ * The {@code BpmnEventValidator} class provides validation logic for various BPMN events,
+ * including StartEvent, EndEvent, IntermediateThrowEvent, IntermediateCatchEvent, and BoundaryEvent.
  * <p>
- * The {@code BpmnEventValidator} class handles validation logic for BPMN events:
- * StartEvent, EndEvent, IntermediateThrowEvent, IntermediateCatchEvent, and BoundaryEvent.
+ * This class verifies that BPMN events meet the required configuration criteria such as:
+ * <ul>
+ *   <li>Non-empty event names</li>
+ *   <li>Correct usage of message references (e.g., MessageEventDefinition) and signal references</li>
+ *   <li>Proper field injections (e.g., for profile, messageName, and instantiatesCanonical)</li>
+ *   <li>Validation of implementation classes and execution listener classes</li>
+ *   <li>Cross-checking references against FHIR resources using {@link FhirValidator}</li>
+ * </ul>
  * </p>
- *
+ * <p>
+ * The validations are tailored according to the BPMN event type. For example, message events are further
+ * validated to ensure that their associated messages have valid references in the FHIR domain.
+ * </p>
  * <p>
  * References:
  * <ul>
@@ -30,18 +41,30 @@ public class BpmnEventValidator
 {
     private final File projectRoot;
 
+    /**
+     * Constructs a new {@code BpmnEventValidator} with the specified project root.
+     *
+     * @param projectRoot the root directory of the project containing FHIR and BPMN resources
+     */
     public BpmnEventValidator(File projectRoot)
     {
         this.projectRoot = projectRoot;
     }
 
-    // ----------------------------------------------------
     // START EVENT VALIDATION
-    // ----------------------------------------------------
 
     /**
-     * Validates a {@link StartEvent}. If it contains a {@link MessageEventDefinition}, the message is validated,
-     * otherwise it checks name presence.
+     * Validates a {@link StartEvent}.
+     * <p>
+     * If the event contains a {@link MessageEventDefinition}, the method delegates to
+     * {@link #validateMessageStartEvent(StartEvent, List, File, String)}; otherwise, it performs
+     * generic start event validation via {@link #validateGenericStartEvent(StartEvent, List, File, String)}.
+     * </p>
+     *
+     * @param startEvent the {@link StartEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     public void validateStartEvent(
             StartEvent startEvent,
@@ -61,13 +84,21 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates a {@link StartEvent} that specifically contains a {@link MessageEventDefinition}.
-     * Checks that:
+     * Validates a {@link StartEvent} that contains a {@link MessageEventDefinition}.
+     * <p>
+     * The validation includes:
      * <ul>
-     *   <li>Event name is not empty</li>
-     *   <li>{@code Message.name} is not empty</li>
-     *   <li>{@code Message.name} corresponds to valid references in FHIR resources</li>
+     *   <li>Ensuring the event name is not empty.</li>
+     *   <li>Checking that the associated message's name is not empty.</li>
+     *   <li>Verifying that the message name corresponds to valid FHIR resources by checking for the existence
+     *       of an ActivityDefinition and a StructureDefinition using {@link FhirValidator}.</li>
      * </ul>
+     * </p>
+     *
+     * @param startEvent the {@link StartEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateMessageStartEvent(
             StartEvent startEvent,
@@ -115,8 +146,15 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates a {@link StartEvent} that does NOT have a {@link MessageEventDefinition}.
-     * Simply warns if the name is empty (and if it's not part of a {@link SubProcess}).
+     * Performs generic validation on a {@link StartEvent} that does not contain a {@link MessageEventDefinition}.
+     * <p>
+     * If the start event is not part of a {@link SubProcess} and its name is empty, a warning is issued.
+     * </p>
+     *
+     * @param startEvent the {@link StartEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateGenericStartEvent(
             StartEvent startEvent,
@@ -135,10 +173,25 @@ public class BpmnEventValidator
         }
     }
 
-    // ----------------------------------------------------
     // INTERMEDIATE THROW EVENT VALIDATION
-    // ----------------------------------------------------
 
+    /**
+     * Validates an {@link IntermediateThrowEvent}.
+     * <p>
+     * This method delegates the validation based on the type of event definition:
+     * <ul>
+     *   <li>If the event definition is a {@link MessageEventDefinition}, it calls
+     *       {@link #validateMessageIntermediateThrowEvent(IntermediateThrowEvent, List, File, String)}.</li>
+     *   <li>If the event definition is a {@link SignalEventDefinition}, it calls
+     *       {@link #validateSignalIntermediateThrowEvent(IntermediateThrowEvent, List, File, String)}.</li>
+     * </ul>
+     * </p>
+     *
+     * @param throwEvent the {@link IntermediateThrowEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
+     */
     public void validateIntermediateThrowEvent(
             IntermediateThrowEvent throwEvent,
             List<BpmnElementValidationItem> issues,
@@ -159,14 +212,16 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateThrowEvent} that has a {@link MessageEventDefinition}.
-     * Includes checks for:
-     * <ul>
-     *   <li>Non-empty event name</li>
-     *   <li>Implementation class validity</li>
-     *   <li>Field injections</li>
-     *   <li>A warning if the {@code <bpmn:message>} reference is not null</li>
-     * </ul>
+     * Validates an {@link IntermediateThrowEvent} that contains a {@link MessageEventDefinition}.
+     * <p>
+     * The validation includes performing common message event validations and issuing a warning if the
+     * event definition's message reference is not null.
+     * </p>
+     *
+     * @param throwEvent the {@link IntermediateThrowEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateMessageIntermediateThrowEvent(
             IntermediateThrowEvent throwEvent,
@@ -187,8 +242,16 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateThrowEvent} containing a {@link SignalEventDefinition}.
-     * Checks the non-empty name and signal presence.
+     * Validates an {@link IntermediateThrowEvent} that contains a {@link SignalEventDefinition}.
+     * <p>
+     * The validation ensures that the event name is not empty and that the associated signal is present
+     * and has a non-empty name.
+     * </p>
+     *
+     * @param throwEvent the {@link IntermediateThrowEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateSignalIntermediateThrowEvent(
             IntermediateThrowEvent throwEvent,
@@ -220,10 +283,27 @@ public class BpmnEventValidator
         }
     }
 
-    // ----------------------------------------------------
     // END EVENT VALIDATION
-    // ----------------------------------------------------
 
+    /**
+     * Validates an {@link EndEvent}.
+     * <p>
+     * This method delegates validation based on the type of event definition:
+     * <ul>
+     *   <li>If the event contains a {@link MessageEventDefinition}, it calls
+     *       {@link #validateMessageEndEvent(EndEvent, List, File, String)}.</li>
+     *   <li>If the event contains a {@link SignalEventDefinition}, it calls
+     *       {@link #validateSignalEndEvent(EndEvent, List, File, String)}.</li>
+     *   <li>If no specific event definition is present, it calls
+     *       {@link #validateGenericEndEvent(EndEvent, List, File, String)}.</li>
+     * </ul>
+     * </p>
+     *
+     * @param endEvent the {@link EndEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
+     */
     public void validateEndEvent(
             EndEvent endEvent,
             List<BpmnElementValidationItem> issues,
@@ -247,13 +327,16 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates a {@link EndEvent} that has a {@link MessageEventDefinition}.
-     * Ensures:
-     * <ul>
-     *   <li>Non-empty event name</li>
-     *   <li>Implementation class correctness</li>
-     *   <li>Field injections checked for required fields</li>
-     * </ul>
+     * Validates an {@link EndEvent} that contains a {@link MessageEventDefinition}.
+     * <p>
+     * This method performs common message event validations for the end event by delegating
+     * to {@link #validateCommonMessageEvent(FlowElement, List, File, String)}.
+     * </p>
+     *
+     * @param endEvent the {@link EndEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateMessageEndEvent(
             EndEvent endEvent,
@@ -265,13 +348,20 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link EndEvent} (with no MessageEventDefinition).
-     * Checks:
+     * Validates an {@link EndEvent} that does not contain a {@link MessageEventDefinition}.
+     * <p>
+     * For such events, the validation checks include:
      * <ul>
-     *   <li>Non-empty name (if not in a SubProcess)</li>
-     *   <li>{@code camunda:asyncAfter} must be true if the event is inside a SubProcess</li>
-     *   <li>Extension listeners referencing {@code camunda:class} must exist on the classpath</li>
+     *   <li>If the event is not part of a {@link SubProcess}, its name must not be empty.</li>
+     *   <li>If the event is part of a {@link SubProcess}, the property {@code camunda:asyncAfter} must be set to {@code true}.</li>
+     *   <li>Verifying that execution listener classes referenced in the event's extension elements exist on the classpath.</li>
      * </ul>
+     * </p>
+     *
+     * @param endEvent the {@link EndEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateGenericEndEvent(
             EndEvent endEvent,
@@ -305,8 +395,19 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link EndEvent} containing a {@link SignalEventDefinition}.
-     * Ensures the event name and signal name are not empty.
+     * Validates an {@link EndEvent} that contains a {@link SignalEventDefinition}.
+     * <p>
+     * The validation ensures that:
+     * <ul>
+     *   <li>The event name is not empty.</li>
+     *   <li>The associated signal is present and its name is not empty.</li>
+     * </ul>
+     * </p>
+     *
+     * @param endEvent the {@link EndEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateSignalEndEvent(
             EndEvent endEvent,
@@ -333,15 +434,31 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal End Event",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
     }
 
-    // ----------------------------------------------------
     // INTERMEDIATE CATCH EVENT VALIDATION
-    // ----------------------------------------------------
 
+    /**
+     * Validates an {@link IntermediateCatchEvent}.
+     * <p>
+     * Based on the type of event definition contained in the catch event, this method delegates validation to:
+     * <ul>
+     *   <li>{@link #validateMessageIntermediateCatchEvent(IntermediateCatchEvent, List, File, String)} for a {@link MessageEventDefinition}</li>
+     *   <li>{@link #validateTimerIntermediateCatchEvent(IntermediateCatchEvent, List, File, String)} for a {@link TimerEventDefinition}</li>
+     *   <li>{@link #validateSignalIntermediateCatchEvent(IntermediateCatchEvent, List, File, String)} for a {@link SignalEventDefinition}</li>
+     *   <li>{@link #validateConditionalIntermediateCatchEvent(IntermediateCatchEvent, List, File, String)} for a {@link ConditionalEventDefinition}</li>
+     * </ul>
+     * </p>
+     *
+     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
+     */
     public void validateIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
             List<BpmnElementValidationItem> issues,
@@ -372,9 +489,20 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateCatchEvent} containing a {@link MessageEventDefinition}.
-     * Checks that the event name and message name are not empty, and verifies that the
-     * message name is found in the relevant FHIR resources.
+     * Validates an {@link IntermediateCatchEvent} that contains a {@link MessageEventDefinition}.
+     * <p>
+     * The validation ensures:
+     * <ul>
+     *   <li>The event name is not empty.</li>
+     *   <li>The associated message's name is not empty.</li>
+     *   <li>The message name is verified against FHIR resources using {@link BpmnValidationUtils#checkMessageName(String, List, String, File, String, File)}</li>
+     * </ul>
+     * </p>
+     *
+     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateMessageIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
@@ -403,14 +531,21 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateCatchEvent} containing a {@link TimerEventDefinition}.
-     * Checks:
+     * Validates an {@link IntermediateCatchEvent} that contains a {@link TimerEventDefinition}.
+     * <p>
+     * The validation for a timer event includes:
      * <ul>
-     *   <li>Non-empty name</li>
-     *   <li>Presence of one of {@code timeDate}, {@code timeCycle}, {@code timeDuration}</li>
-     *   <li>If {@code timeDate} is used, logs an info message</li>
-     *   <li>If {@code timeCycle} or {@code timeDuration} is used, warns if no version placeholder</li>
+     *   <li>Ensuring the event name is not empty.</li>
+     *   <li>Verifying that one of the timer definitions ({@code timeDate}, {@code timeCycle}, or {@code timeDuration}) is present.</li>
+     *   <li>If {@code timeDate} is used, logging an informational message.</li>
+     *   <li>If {@code timeCycle} or {@code timeDuration} is used, issuing a warning if no version placeholder is present.</li>
      * </ul>
+     * </p>
+     *
+     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateTimerIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
@@ -434,8 +569,19 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateCatchEvent} containing a {@link SignalEventDefinition}.
-     * Checks non-empty name and non-empty signal.
+     * Validates an {@link IntermediateCatchEvent} that contains a {@link SignalEventDefinition}.
+     * <p>
+     * The validation ensures:
+     * <ul>
+     *   <li>The event name is not empty.</li>
+     *   <li>The associated signal is present and its name is not empty.</li>
+     * </ul>
+     * </p>
+     *
+     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateSignalIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
@@ -467,8 +613,16 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates an {@link IntermediateCatchEvent} containing a {@link ConditionalEventDefinition}.
-     * Checks the variable name, variable events, condition type, and expression presence.
+     * Validates an {@link IntermediateCatchEvent} that contains a {@link ConditionalEventDefinition}.
+     * <p>
+     * The validation for a conditional catch event involves checking the event's variable name,
+     * variable events, condition type, and the presence of a condition expression.
+     * </p>
+     *
+     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateConditionalIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
@@ -479,10 +633,24 @@ public class BpmnEventValidator
         BpmnValidationUtils.checkConditionalEvent(catchEvent, issues, bpmnFile, processId);
     }
 
-    // ----------------------------------------------------
     // BOUNDARY EVENT VALIDATION
-    // ----------------------------------------------------
 
+    /**
+     * Validates a {@link BoundaryEvent}.
+     * <p>
+     * Based on the type of event definition contained in the boundary event, this method delegates
+     * validation to either:
+     * <ul>
+     *   <li>{@link #validateMessageBoundaryEvent(BoundaryEvent, List, File, String)} if a {@link MessageEventDefinition} is present</li>
+     *   <li>{@link #validateErrorBoundaryEvent(BoundaryEvent, List, File, String)} if an {@link ErrorEventDefinition} is present</li>
+     * </ul>
+     * </p>
+     *
+     * @param boundaryEvent the {@link BoundaryEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
+     */
     public void validateBoundaryEvent(
             BoundaryEvent boundaryEvent,
             List<BpmnElementValidationItem> issues,
@@ -503,9 +671,20 @@ public class BpmnEventValidator
     }
 
     /**
-     * Validates a {@link BoundaryEvent} that references a {@link MessageEventDefinition}.
-     * Checks for non-empty name, non-empty message name, and if that name is recognized
-     * in FHIR resources.
+     * Validates a {@link BoundaryEvent} that contains a {@link MessageEventDefinition}.
+     * <p>
+     * The validation includes:
+     * <ul>
+     *   <li>Checking that the event name is not empty.</li>
+     *   <li>Ensuring that the associated message's name is not empty.</li>
+     *   <li>Verifying that the message name is recognized in FHIR resources using {@link FhirValidator}.</li>
+     * </ul>
+     * </p>
+     *
+     * @param boundaryEvent the {@link BoundaryEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateMessageBoundaryEvent(
             BoundaryEvent boundaryEvent,
@@ -552,8 +731,16 @@ public class BpmnEventValidator
         }
     }
     /**
-     * Validates an {@link BoundaryEvent} containing an {@link ErrorEventDefinition}.
-     * Splits logic based on whether {@code errorRef} is set.
+     * Validates a {@link BoundaryEvent} that contains an {@link ErrorEventDefinition}.
+     * <p>
+     * The method delegates validation to {@link BpmnValidationUtils#checkErrorBoundaryEvent(BoundaryEvent, List, File, String)},
+     * which verifies the presence and correctness of the error reference and configuration.
+     * </p>
+     *
+     * @param boundaryEvent the {@link BoundaryEvent} to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateErrorBoundaryEvent(
             BoundaryEvent boundaryEvent,
@@ -564,20 +751,26 @@ public class BpmnEventValidator
         BpmnValidationUtils.checkErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
     }
 
-    // ----------------------------------------------------
     // COMMON MESSAGE EVENT VALIDATION (shared)
-    // ----------------------------------------------------
 
     /**
-     * Performs "common" validations for an event that uses a message definition, such
-     * as {@link IntermediateThrowEvent} or {@link EndEvent} with a {@link MessageEventDefinition}.
-     * Ensures:
+     * Performs common validations for a BPMN event that uses a message definition,
+     * such as an {@link IntermediateThrowEvent} or {@link EndEvent} with a {@link MessageEventDefinition}.
+     * <p>
+     * The common validations include:
      * <ul>
-     *   <li>Event name not empty</li>
-     *   <li>Implementation class is valid (non-empty, exists, implements {@code JavaDelegate})</li>
-     *   <li>Field injections for {@code profile}, {@code messageName}, {@code instantiatesCanonical}
-     *       are present and correct</li>
+     *   <li>Ensuring the event name is not empty.</li>
+     *   <li>Extracting and validating the implementation class (e.g., checking that it is not empty, exists,
+     *       and implements the required interface such as {@code JavaDelegate}).</li>
+     *   <li>Validating field injections for attributes such as <code>profile</code>, <code>messageName</code>,
+     *       and <code>instantiatesCanonical</code> using the {@link BpmnFieldInjectionValidator}.</li>
      * </ul>
+     * </p>
+     *
+     * @param event the BPMN {@link FlowElement} (such as an IntermediateThrowEvent or EndEvent) to be validated
+     * @param issues a list to which any validation issues will be added
+     * @param bpmnFile the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the event
      */
     private void validateCommonMessageEvent(
             FlowElement event,

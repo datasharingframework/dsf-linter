@@ -15,12 +15,23 @@ import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * FhirValidator provides static methods to validate and extract relevant values from
  * FHIR resources such as ActivityDefinition and StructureDefinition.
+ * <p>
+ * This class includes methods for:
+ * <ul>
+ *   <li>Checking for the existence of an ActivityDefinition resource containing a given message name.</li>
+ *   <li>Checking for the existence of a StructureDefinition resource containing a given profile (canonical) value.</li>
+ *   <li>Extracting all distinct message values from StructureDefinition files.</li>
+ *   <li>Verifying that an ActivityDefinition contains a specific message name in its extensions.</li>
+ *   <li>Retrieving the canonical value from Task.instantiatesCanonical elements.</li>
+ *   <li>Retrieving the fixed string value from Task.input:message-name.value[x] elements.</li>
+ *   <li>Checking for the existence of a Questionnaire resource matching a provided formKey.</li>
+ * </ul>
+ * </p>
  *
  * <p>
  * References:
@@ -466,7 +477,16 @@ public class FhirValidator
     }
 
     /**
-     * Checks if the provided StructureDefinition {@link Document} has {@code <url value="profileValue"/>}.
+     * Checks if the provided StructureDefinition {@link Document} contains a <code>&lt;url&gt;</code>
+     * element with a value matching the given profile value.
+     * <p>
+     * This method uses an XPath expression to search for a <code>&lt;url&gt;</code> element with the specified value.
+     * </p>
+     *
+     * @param doc          the XML {@link Document} of the StructureDefinition
+     * @param profileValue the profile value to search for
+     * @return {@code true} if a matching <code>&lt;url&gt;</code> element is found; {@code false} otherwise
+     * @throws XPathExpressionException if the XPath evaluation fails
      */
     private static boolean structureDefinitionHasUrlValue(Document doc, String profileValue)
             throws XPathExpressionException

@@ -38,9 +38,7 @@ public class BpmnTaskValidator
         this.projectRoot = projectRoot;
     }
 
-    // ----------------------------------------------------
     // SERVICE TASK VALIDATION
-    // ----------------------------------------------------
 
     /**
      * Validates that a {@link ServiceTask} has a non-empty name, a non-empty
@@ -88,9 +86,7 @@ public class BpmnTaskValidator
         }
     }
 
-    // ----------------------------------------------------
     // USER TASK VALIDATION
-    // ----------------------------------------------------
 
     /**
      * Validates a {@link UserTask}, checking:
@@ -161,9 +157,7 @@ public class BpmnTaskValidator
         BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
-    // ----------------------------------------------------
     // SEND TASK VALIDATION
-    // ----------------------------------------------------
 
     /**
      * Validates a {@link SendTask}, checking:
@@ -210,9 +204,7 @@ public class BpmnTaskValidator
                 sendTask, issues, bpmnFile, processId, projectRoot);
     }
 
-    // ----------------------------------------------------
     // RECEIVE TASK VALIDATION
-    // ----------------------------------------------------
 
     /**
      * Validates a {@link ReceiveTask}, checking:
