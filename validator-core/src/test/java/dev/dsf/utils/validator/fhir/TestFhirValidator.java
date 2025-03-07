@@ -13,24 +13,28 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for the {@link FhirValidator} class.
+ * Unit tests for the {@link FhirValidator} class.
+ *
  * <p>
- * This test class verifies the functionality of the FHIR resource validator,
- * which checks for the presence and content of local FHIR ActivityDefinition and
- * StructureDefinition XML resources. The tests ensure that:
+ * This class provides comprehensive unit tests to verify the functionality of the FHIR resource validator.
+ * It ensures that various FHIR resources such as ActivityDefinition, StructureDefinition, and Questionnaire are
+ * correctly recognized and processed. The tests cover scenarios such as:
  * <ul>
- *   <li>An ActivityDefinition referencing a given message is detected.</li>
- *   <li>A StructureDefinition containing the expected URL is found.</li>
- *   <li>Message-name values are correctly extracted from StructureDefinition files.</li>
- *   <li>The XML parsing utility method can parse an XML file via reflection.</li>
+ *   <li>Detection of ActivityDefinition XML files containing a specific message name.</li>
+ *   <li>Identification of StructureDefinition XML files with a given URL value.</li>
+ *   <li>Extraction of message name values from StructureDefinition files.</li>
+ *   <li>Recognition of Questionnaire resources within the expected directory structure.</li>
+ *   <li>Validation of XML parsing methods via reflection.</li>
+ *   <li>Verification of FHIR-specific elements such as Task.instantiatesCanonical and Task.input:message-name.value[x].</li>
  * </ul>
  * </p>
+ *
  * <p>
  * References:
  * <ul>
- *   <li><a href="https://www.hl7.org/fhir/">FHIR Specification</a></li>
- *   <li><a href="https://docs.oracle.com/en/java/javase/17/docs/specs/javadoc/doc-comment-spec.html">
- *       Oracle JavaDoc Guidelines</a></li>
+ *   <li><a href="https://junit.org/junit5/docs/current/user-guide/">JUnit 5 User Guide</a></li>
+ *   <li><a href="https://www.hl7.org/fhir/">FHIR Standard</a></li>
+ *   <li><a href="https://docs.oracle.com/en/java/javase/17/docs/specs/javadoc/doc-comment-spec.html">Oracle JavaDoc Guidelines</a></li>
  * </ul>
  * </p>
  */
@@ -183,4 +187,42 @@ class TestFhirValidator {
         Document doc = (Document) parseMethod.invoke(null, xmlFile);
         assertNotNull(doc, "Document should be parsed successfully");
     }
+
+    /**
+     * Tests that a Questionnaire XML file in a mocked directory structure is detected.
+     *
+     * <p>
+     * This test method creates a temporary directory structure simulating the expected location of FHIR
+     * Questionnaire resources. It then writes a minimal Questionnaire XML file containing a URL element with a
+     * matching value. The test asserts that the {@link FhirValidator#questionnaireExists(String, java.io.File)}
+     * method returns {@code true} when a Questionnaire with the specified URL is present.
+     * </p>
+     *
+     * @param tempDir a temporary directory provided by JUnit to isolate test resources
+     * @throws IOException if an I/O error occurs during file creation or writing
+     */
+    @Test
+    @DisplayName("Should detect a Questionnaire in a mocked directory structure")
+    void testQuestionnaireExists(@TempDir Path tempDir) throws IOException {
+        // Create the QUESTIONNAIRE_DIR subdirectory
+        Path questionnaireDir = tempDir.resolve("src")
+                .resolve("main")
+                .resolve("resources")
+                .resolve("fhir")
+                .resolve("Questionnaire");
+        Files.createDirectories(questionnaireDir);
+
+        // Create a minimal Questionnaire file with a matching URL
+        Path questionnaireFile = questionnaireDir.resolve("my-questionnaire.xml");
+        String xmlContent = """
+            <Questionnaire xmlns="http://hl7.org/fhir">
+              <url value="http://example.org/myQuestionnaire"/>
+            </Questionnaire>
+            """;
+        Files.writeString(questionnaireFile, xmlContent);
+
+        boolean result = FhirValidator.questionnaireExists("http://example.org/myQuestionnaire", tempDir.toFile());
+        assertTrue(result, "Should find a Questionnaire with the correct URL");
+    }
+
 }
