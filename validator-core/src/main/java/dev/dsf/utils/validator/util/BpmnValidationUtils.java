@@ -193,15 +193,6 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks whether a formKey presumably references a questionnaire. Here, it simply checks
-     * for the substring "questionnaire".
-     */
-    public static boolean questionnaireExists(String formKey)
-    {
-        return formKey != null && formKey.contains("questionnaire");
-    }
-
-    /**
      * Extracts the {@code camunda:class} attribute from a BPMN event, searching both
      * the element itself and any attached {@link MessageEventDefinition}.
      */

@@ -38,6 +38,7 @@ public class FhirValidator
 {
     private static final String ACTIVITY_DEFINITION_DIR = "src/main/resources/fhir/ActivityDefinition";
     private static final String STRUCTURE_DEFINITION_DIR = "src/main/resources/fhir/StructureDefinition";
+    private static final String QUESTIONNAIRE_DIR = "src/main/resources/fhir/Questionnaire";
 
     /**
      * Checks if an ActivityDefinition resource matching the given message name exists.
@@ -108,7 +109,7 @@ public class FhirValidator
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             return xmlFiles.stream().anyMatch(p -> fileContainsValue(p, value, isActivityDefinition));
         }
@@ -207,7 +208,7 @@ public class FhirValidator
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             for (Path xml : xmlFiles)
             {
@@ -264,7 +265,7 @@ public class FhirValidator
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             for (Path xml : xmlFiles) {
                 Document doc = parseXml(xml);
@@ -374,70 +375,6 @@ public class FhirValidator
         return (pipeIndex != -1) ? value.substring(0, pipeIndex) : value;
     }
 
-    /**
-     * Checks if any StructureDefinition file under the given project root contains a fixedCanonical
-     * element (ignoring any version suffix) that matches the given canonicalValue.
-     * <p>
-     * This method removes the version suffix from the input canonicalValue and then iterates through
-     * all XML files under the STRUCTURE_DEFINITION_DIR. For each file, it extracts the fixedCanonical
-     * element value (again removing any version suffix) and compares it with the processed input.
-     *
-     * @param canonicalValue The canonical value to search for, which may include a version suffix.
-     * @param projectRoot    The root folder of the project.
-     * @return {@code true} if a matching fixedCanonical is found in any file, {@code false} otherwise.
-     */
-    public static boolean structureDefinitionHasFixedCanonical(String canonicalValue, File projectRoot) {
-        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
-        if (!dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
-
-        // Remove version suffix from the input value
-        String searchValue = removeVersionSuffix(canonicalValue);
-
-        try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            List<Path> xmlFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
-
-            for (Path p : xmlFiles) {
-                Document doc = parseXml(p);
-                if (doc == null) {
-                    continue;
-                }
-
-                // Use XPath to locate the <fixedCanonical> element under the <element id='Task.instantiatesCanonical'>
-                String xpathExpr = "//*[local-name()='element' and @id='Task.instantiatesCanonical']" +
-                        "/*[local-name()='fixedCanonical']";
-                NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
-                        .compile(xpathExpr)
-                        .evaluate(doc, XPathConstants.NODESET);
-                if (nodes != null && nodes.getLength() > 0) {
-                    for (int i = 0; i < nodes.getLength(); i++) {
-                        Node node = nodes.item(i);
-                        String xmlValue = null;
-                        if (node.getAttributes() != null) {
-                            Node valueAttr = node.getAttributes().getNamedItem("value");
-                            if (valueAttr != null) {
-                                xmlValue = valueAttr.getNodeValue();
-                            }
-                        }
-                        if (xmlValue != null) {
-                            // Remove version suffix from the XML value and compare
-                            String processedXmlValue = removeVersionSuffix(xmlValue);
-                            if (processedXmlValue.equals(searchValue)) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return false;
-    }
 
     private static boolean activityDefinitionContainsInstantiatesCanonical(Document doc, String canonicalValue)
             throws XPathExpressionException {
@@ -469,7 +406,7 @@ public class FhirValidator
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
+                    .toList();
             return xmlFiles.stream().anyMatch(p -> fileContainsInstantiatesCanonical(p, canonicalValue));
         } catch (Exception e) {
             return false;
@@ -501,7 +438,7 @@ public class FhirValidator
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             for (Path p : xmlFiles)
             {
@@ -537,7 +474,6 @@ public class FhirValidator
         String xpathExpr = "//*[local-name()='url' and @value='" + profileValue + "']";
         return evaluateXPathExists(doc, xpathExpr);
     }
-
 
 
     /**
@@ -622,6 +558,49 @@ public class FhirValidator
             }
         }
         return null;
+    }
+
+    /**
+     * Checks if a Questionnaire resource matching the given formKey exists in the questionnaire directory.
+     * This method ignores any version suffix (everything after a "|" character).
+     *
+     * @param formKey     The formKey from the User Task, possibly containing a version suffix.
+     * @param projectRoot The project root directory containing the FHIR resources.
+     * @return {@code true} if a matching Questionnaire is found, {@code false} otherwise.
+     */
+    public static boolean questionnaireExists(String formKey, File projectRoot) {
+        if (formKey == null || formKey.trim().isEmpty()) {
+            return false;
+        }
+
+        // Remove the version part if present using "|" as a delimiter.
+        String baseFormKey = formKey.split("\\|")[0].trim();
+
+        File dir = new File(projectRoot, QUESTIONNAIRE_DIR);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+
+        try (Stream<Path> paths = Files.walk(dir.toPath())) {
+            List<Path> xmlFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .toList();
+
+            for (Path p : xmlFiles) {
+                Document doc = parseXml(p); // Uses the existing parseXml method.
+                if (doc == null) continue;
+                // Check if the root element is "Questionnaire"
+                if (!"Questionnaire".equals(doc.getDocumentElement().getLocalName())) continue;
+                // Use XPath to check if there's a <url> element with the matching baseFormKey.
+                if (evaluateXPathExists(doc, "//*[local-name()='url' and @value='" + baseFormKey + "']")) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
     }
 
 }

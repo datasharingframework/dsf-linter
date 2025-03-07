@@ -1,20 +1,10 @@
 package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.ValidationSeverity;
-import dev.dsf.utils.validator.item.BpmnElementValidationItem;
-import dev.dsf.utils.validator.item.BpmnEventNameEmptyValidationItem;
-import dev.dsf.utils.validator.item.BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem;
-import dev.dsf.utils.validator.item.BpmnMessageSendTaskImplementationClassEmptyValidationItem;
-import dev.dsf.utils.validator.item.BpmnMessageSendTaskImplementationClassNotFoundValidationItem;
-import dev.dsf.utils.validator.item.BpmnServiceTaskImplementationClassEmptyValidationItem;
-import dev.dsf.utils.validator.item.BpmnServiceTaskImplementationClassNotFoundValidationItem;
-import dev.dsf.utils.validator.item.BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem;
-import dev.dsf.utils.validator.item.BpmnServiceTaskImplementationNotExistValidationItem;
-import dev.dsf.utils.validator.item.BpmnServiceTaskNameEmptyValidationItem;
-import dev.dsf.utils.validator.item.BpmnFloatingElementValidationItem;
-import dev.dsf.utils.validator.item.BpmnMessageStartEventMessageNameEmptyValidationItem;
+import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.BpmnValidationUtils;
+import dev.dsf.utils.validator.fhir.FhirValidator;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
@@ -120,12 +110,12 @@ public class BpmnTaskValidator
             UserTask userTask,
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
+
         String elementId = userTask.getId();
 
-        if (BpmnValidationUtils.isEmpty(userTask.getName()))
-        {
+        // Check if the User Task name is empty.
+        if (BpmnValidationUtils.isEmpty(userTask.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task name is empty",
@@ -134,39 +124,40 @@ public class BpmnTaskValidator
         }
 
         String formKey = userTask.getCamundaFormKey();
-        if (BpmnValidationUtils.isEmpty(formKey))
-        {
+        boolean found = true;
+        // Check if the formKey is empty.
+        if (BpmnValidationUtils.isEmpty(formKey)) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task formKey is empty",
                     ValidationType.BPMN_FLOATING_ELEMENT,
                     ValidationSeverity.ERROR
             ));
-        }
-        else
-        {
-            if (!formKey.startsWith("external:"))
-            {
+            found= false;
+        } else {
+            // The external form must either be marked with "external:" or be a URL (starting with "http://" or "https://").
+            if (!(formKey.startsWith("external:") || formKey.startsWith("http://") || formKey.startsWith("https://"))) {
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "User Task formKey is not an external form: " + formKey,
                         ValidationType.BPMN_FLOATING_ELEMENT,
                         ValidationSeverity.ERROR
                 ));
+                found= false;
             }
-            // Example check to verify if the corresponding questionnaire
-            if (!BpmnValidationUtils.questionnaireExists(formKey))
-            {
-                issues.add(new BpmnFloatingElementValidationItem(
-                        elementId, bpmnFile, processId,
-                        "User Task questionnaire not found for formKey: " + formKey,
-                        ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.ERROR
+            // Check if the corresponding questionnaire exists.
+            // Assumes that the project root is the current directory.
+            if(found) {
+            if (!FhirValidator.questionnaireExists(formKey, projectRoot)) {
+                issues.add(new FhirQuestionnaireDefinitionValidationItem(
+                        ValidationSeverity.ERROR, elementId, bpmnFile, processId,
+                        formKey,
+                        "User Task questionnaire not found for formKey: " + formKey
                 ));
             }
+            }
         }
-
-        // Validate any <camunda:taskListener> classes
+    // Validate any <camunda:taskListener> classes
         BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
