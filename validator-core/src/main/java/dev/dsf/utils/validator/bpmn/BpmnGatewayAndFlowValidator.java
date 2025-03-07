@@ -112,18 +112,11 @@ public class BpmnGatewayAndFlowValidator
         {
             if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1)
             {
-                issues.add(new BpmnFloatingElementValidationItem(
-                        elementId, bpmnFile, processId,
-                        "Sequence flow originates from a source with multiple outgoing flows.",
-                        ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.WARN
-                ));
-
                 if (BpmnValidationUtils.isEmpty(flow.getName()))
                 {
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
-                            "Sequence flow name is empty.",
+                            "Sequence flow originates from a source with multiple outgoing flows and name is empty.",
                             ValidationType.BPMN_FLOATING_ELEMENT,
                             ValidationSeverity.WARN
                     ));

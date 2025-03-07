@@ -15,6 +15,37 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Main {
+    /**
+     * The {@code Main} class serves as the entry point for validating BPMN files
+     * in a project that is cloned from a remote repository.
+     * <p>
+     * The flow of the application includes:
+     * <ul>
+     *   <li>Reading the remote repository URL from the console.</li>
+     *   <li>Extracting the repository name and creating a local clone directory in the system's temporary directory.</li>
+     *   <li>Cloning the repository using {@link dev.dsf.utils.validator.repo.RepositoryManager}.</li>
+     *   <li>Locating the Maven executable using the helper class {@link dev.dsf.utils.validator.util.MavenUtil}.</li>
+     *   <li>Building the project (clean, compile, and copy dependencies) with {@link dev.dsf.utils.validator.build.MavenBuilder}.</li>
+     *   <li>Searching for BPMN files in the directory <code>src/main/resources/bpe</code>.</li>
+     *   <li>Validating the found BPMN files using the {@link dev.dsf.utils.validator.bpmn.BPMNValidator}.</li>
+     * </ul>
+     * </p>
+     * <p>
+     * For more details on JavaDoc, see the
+     * <a href="https://docs.oracle.com/javase/8/docs/technotes/tools/windows/javadoc.html">Oracle JavaDoc documentation</a>.
+     * </p>
+     * <p>
+     * Additional Maven guidance can be found in the
+     * <a href="https://maven.apache.org/guides/index.html">Maven Guides</a> and for JGit refer to the
+     * <a href="https://www.eclipse.org/jgit/">JGit documentation</a>.
+     * </p>
+     *
+     * @see dev.dsf.utils.validator.repo.RepositoryManager
+     * @see dev.dsf.utils.validator.build.MavenBuilder
+     * @see dev.dsf.utils.validator.util.MavenUtil
+     * @see dev.dsf.utils.validator.bpmn.BPMNValidator
+     * @see org.eclipse.jgit.api.errors.GitAPIException
+     */
     public static void main(String[] args) {
         // Prompt the user to enter the remote repository URL via the console
         Scanner scanner = new Scanner(System.in);

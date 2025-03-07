@@ -486,7 +486,8 @@ public class BpmnValidationUtils
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Timer type is empty (no timeDate, timeCycle, or timeDuration)",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
         else

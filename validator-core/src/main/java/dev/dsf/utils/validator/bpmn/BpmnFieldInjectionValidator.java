@@ -372,7 +372,7 @@ public class BpmnFieldInjectionValidator
                 boolean foundInActDef = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesValue, projectRoot);
                 if (!foundInActDef) {
                     issues.add(new FhirActivityDefinitionValidationItem(
-                            ValidationSeverity.ERROR,
+                            ValidationSeverity.WARN,
                             elementId,
                             bpmnFile,
                             processId,

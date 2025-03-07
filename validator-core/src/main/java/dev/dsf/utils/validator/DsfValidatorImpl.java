@@ -135,6 +135,7 @@ public class DsfValidatorImpl implements DsfValidator {
             current = current.getParent();
         }
         // Fallback to the BPMN file's parent directory if no pom.xml was located
+        assert bpmnFilePath.getParent() != null;
         return bpmnFilePath.getParent().toFile();
     }
 

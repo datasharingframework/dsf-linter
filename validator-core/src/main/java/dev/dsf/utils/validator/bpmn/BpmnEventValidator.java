@@ -163,9 +163,9 @@ public class BpmnEventValidator
             String processId)
     {
         String elementId = startEvent.getId();
+        // Warn if the Start Event is not part of a SubProcess and hast no name
         if (!(startEvent.getParentElement() instanceof SubProcess))
         {
-            // Warn if the Start Event is not part of a SubProcess and hast no name
             if (BpmnValidationUtils.isEmpty(startEvent.getName()))
             {
                 issues.add(new BpmnStartEventNotPartOfSubProcessValidationItem(elementId, bpmnFile, processId));
@@ -278,7 +278,8 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Throw Event",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
     }
@@ -370,7 +371,7 @@ public class BpmnEventValidator
             String processId)
     {
         String elementId = endEvent.getId();
-
+        // Warn if the End Event is not part of a SubProcess and hast no name
         if (!(endEvent.getParentElement() instanceof SubProcess))
         {
             if (BpmnValidationUtils.isEmpty(endEvent.getName()))
@@ -607,7 +608,8 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Catch Event",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.ERROR
             ));
         }
     }

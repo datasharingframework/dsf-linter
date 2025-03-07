@@ -12,7 +12,28 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
+
 public class LocalMain {
+    /**
+     * The {@code LocalMain} class serves as the entry point for validating BPMN files
+     * within a locally available Maven project.
+     * <p>
+     * The flow of the application includes:
+     * <ul>
+     *   <li>Reading the local project path from the console.</li>
+     *   <li>Checking if the provided path exists and is a directory.</li>
+     *   <li>Locating the Maven executable using the helper class {@link dev.dsf.utils.validator.util.MavenUtil}.</li>
+     *   <li>Building the project (clean, compile, and copy dependencies) using {@link dev.dsf.utils.validator.build.MavenBuilder}.</li>
+     *   <li>Searching for BPMN files in the directory <code>src/main/resources/bpe</code>.</li>
+     *   <li>Validating the found BPMN files using the {@link dev.dsf.utils.validator.bpmn.BPMNValidator}.</li>
+     * </ul>
+     * </p>
+     * <p>
+     * For more details on JavaDoc, see the
+     * <a href="https://docs.oracle.com/javase/8/docs/technotes/tools/windows/javadoc.html">Oracle JavaDoc documentation</a>.
+     * </p>
+     *
+     */
     public static void main(String[] args) {
 
         Scanner scanner = new Scanner(System.in);
