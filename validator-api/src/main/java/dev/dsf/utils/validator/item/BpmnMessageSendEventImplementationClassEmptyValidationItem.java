@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a message send event with an empty implementation class.
      *
@@ -21,8 +19,7 @@ public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends 
      */
     public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message send event implementation class is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Message send event implementation class is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnMessageSendEventImplementationClassEmptyValidationItem extends 
      */
     public BpmnMessageSendEventImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

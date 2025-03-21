@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnFieldInjectionProfileEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for an empty profile field injection.
      *
@@ -21,8 +19,7 @@ public class BpmnFieldInjectionProfileEmptyValidationItem extends BpmnElementVal
      */
     public BpmnFieldInjectionProfileEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Profile field injection is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Profile field injection is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnFieldInjectionProfileEmptyValidationItem extends BpmnElementVal
      */
     public BpmnFieldInjectionProfileEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

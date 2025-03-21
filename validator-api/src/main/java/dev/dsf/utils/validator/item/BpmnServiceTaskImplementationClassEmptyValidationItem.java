@@ -10,7 +10,6 @@ import java.io.File;
  */
 public class BpmnServiceTaskImplementationClassEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
 
     /**
      * Constructs a new validation item for a service task with an empty implementation class.
@@ -21,8 +20,7 @@ public class BpmnServiceTaskImplementationClassEmptyValidationItem extends BpmnE
      */
     public BpmnServiceTaskImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Service task implementation class is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Service task implementation class is empty");
     }
 
     /**
@@ -35,8 +33,7 @@ public class BpmnServiceTaskImplementationClassEmptyValidationItem extends BpmnE
      */
     public BpmnServiceTaskImplementationClassEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a message start event with an empty message name.
      *
@@ -21,8 +19,7 @@ public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnEle
      */
     public BpmnMessageStartEventMessageNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message start event message name is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Message start event message name is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnEle
      */
     public BpmnMessageStartEventMessageNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

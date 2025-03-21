@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a start event that is not part of a subprocess.
      *
@@ -21,8 +19,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
      */
     public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Start event is not part of a subprocess";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Start event is not part of a subprocess");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
      */
     public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

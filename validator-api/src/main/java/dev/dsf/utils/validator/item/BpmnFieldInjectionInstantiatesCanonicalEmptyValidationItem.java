@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for an empty instantiatesCanonical field injection.
      *
@@ -21,8 +19,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem extends 
      */
     public BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "instantiatesCanonical field injection is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "instantiatesCanonical field injection is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem extends 
      */
     public BpmnFieldInjectionInstantiatesCanonicalEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

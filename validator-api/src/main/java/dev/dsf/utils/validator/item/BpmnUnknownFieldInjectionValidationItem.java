@@ -15,7 +15,6 @@ import java.io.File;
 public class BpmnUnknownFieldInjectionValidationItem extends BpmnElementValidationItem
 {
     private final String fieldName;
-    private final String description;
 
     /**
      * Constructs a new validation item for an unknown field injection with a default description.
@@ -27,9 +26,9 @@ public class BpmnUnknownFieldInjectionValidationItem extends BpmnElementValidati
      */
     public BpmnUnknownFieldInjectionValidationItem(String elementId, File bpmnFile, String processId, String fieldName)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId,
+                "Unknown field injection encountered: " + fieldName);
         this.fieldName = fieldName;
-        this.description = "Unknown field injection encountered: " + fieldName;
     }
 
     /**
@@ -43,9 +42,8 @@ public class BpmnUnknownFieldInjectionValidationItem extends BpmnElementValidati
      */
     public BpmnUnknownFieldInjectionValidationItem(String elementId, File bpmnFile, String processId, String fieldName, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
         this.fieldName = fieldName;
-        this.description = description;
     }
 
     public String getFieldName()

@@ -24,7 +24,8 @@ public class FhirActivityDefinitionValidationItem extends BpmnElementValidationI
             String activityDefinitionUrl,
             String details)
     {
-        super(severity, elementId, bpmnFile, processId);
+        super(severity, elementId, bpmnFile, processId,
+                String.format("ActivityDefinition issue for '%s': %s", activityDefinitionUrl, details));
         this.activityDefinitionUrl = activityDefinitionUrl;
         this.details = details;
     }

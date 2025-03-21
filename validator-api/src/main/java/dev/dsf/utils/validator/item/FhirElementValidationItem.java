@@ -1,44 +1,67 @@
 package dev.dsf.utils.validator.item;
 
 import dev.dsf.utils.validator.ValidationSeverity;
+import dev.dsf.utils.validator.ValidationType;
+
 import java.io.File;
 
 /**
- * <p>
- * FHIR element validation item. Extends {@link FhirValidationItem} by adding
- * optional fields describing a particular FHIR resource reference, such as a
- * canonical URL or a pointer to the resource file.
+ * Represents a validation issue encountered while examining a FHIR resource (e.g. ActivityDefinition,
+ * StructureDefinition, CodeSystem, ValueSet, or Task).
+ *
+ * <p>This class extends {@link FhirValidationItem} by adding more context such as:
+ * <ul>
+ *   <li>Path to the FHIR resource file</li>
+ *   <li>FHIR reference (e.g., URL or canonical reference)</li>
+ *   <li>Type of validation issue encountered (via {@link ValidationType})</li>
+ *   <li>A descriptive message that details the validation problem</li>
+ * </ul>
  * </p>
  *
  * <p>
- * Subclasses often represent specific validation issues around certain FHIR elements
- * (e.g., StructureDefinition, ActivityDefinition, or other resources).
+ * References:
+ * <ul>
+ *   <li>
+ *     <a href="https://www.hl7.org/fhir/overview.html">
+ *       HL7 FHIR Overview
+ *     </a>
+ *   </li>
+ * </ul>
  * </p>
  */
-public abstract class FhirElementValidationItem extends FhirValidationItem
+public class FhirElementValidationItem extends FhirValidationItem
 {
-    /**
-     * The canonical or URL reference pointing to the FHIR resource (e.g. profile URL, activityDefinition URL).
-     */
-    protected final String fhirReference;
+    private final File resourceFile;
+    private final String fhirReference;
+    private final ValidationType issueType;
+    private final String description;
 
     /**
-     * The (optional) actual file that was being parsed or checked, if available.
-     */
-    protected final File fhirResourceFile;
-
-    /**
-     * Constructs a new FHIR element validation item with a specific severity, resource reference, and optional file.
+     * Constructs a new {@code FhirElementValidationItem}.
      *
-     * @param severity       the validation severity
-     * @param fhirReference  a canonical or other identifying string reference to the FHIR resource
-     * @param fhirFile       optional file pointer (may be null if unknown)
+     * @param severity the validation severity (e.g., ERROR, WARN, INFO)
+     * @param resourceFile the file where the resource was loaded from
+     * @param fhirReference a canonical URL or local reference that identifies the resource
+     * @param issueType the category or type of the validation issue
+     * @param description human-readable message describing the problem
      */
-    public FhirElementValidationItem(ValidationSeverity severity, String fhirReference, File fhirFile)
+    public FhirElementValidationItem(
+            ValidationSeverity severity,
+            File resourceFile,
+            String fhirReference,
+            ValidationType issueType,
+            String description)
     {
         super(severity);
+        this.resourceFile = resourceFile;
         this.fhirReference = fhirReference;
-        this.fhirResourceFile = fhirFile;
+        this.issueType = issueType;
+        this.description = description;
+    }
+
+    public File getResourceFile()
+    {
+        return resourceFile;
     }
 
     public String getFhirReference()
@@ -46,15 +69,21 @@ public abstract class FhirElementValidationItem extends FhirValidationItem
         return fhirReference;
     }
 
-    public File getFhirResourceFile()
+    public ValidationType getIssueType()
     {
-        return fhirResourceFile;
+        return issueType;
     }
-
 
     @Override
     public String getDescription()
     {
-        return "FHIR Element Validation Item for resource: " + (fhirReference != null ? fhirReference : "N/A");
+        return description;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "[" + getSeverity() + "] " + issueType + " (" + fhirReference + "): " + description
+                + " [file=" + (resourceFile != null ? resourceFile.getName() : "N/A") + "]";
     }
 }

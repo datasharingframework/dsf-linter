@@ -4,14 +4,17 @@ import dev.dsf.utils.validator.ValidationSeverity;
 
 import java.io.File;
 
+
 public abstract class BpmnElementValidationItem extends BpmnValidationItem{
 
     protected final String elementId;
     protected final String processId;
-    public BpmnElementValidationItem(ValidationSeverity severity, String elementId, File bpmnFile, String processId) {
+    protected final String description;
+    public BpmnElementValidationItem(ValidationSeverity severity, String elementId, File bpmnFile, String processId,String description) {
         super(severity,bpmnFile);
         this.elementId = elementId;
         this.processId = processId;
+        this.description = description;
     }
 
     public String getElementId()

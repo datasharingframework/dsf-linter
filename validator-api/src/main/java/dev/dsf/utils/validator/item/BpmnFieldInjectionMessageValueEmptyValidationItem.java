@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnFieldInjectionMessageValueEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for an empty message value in a field injection.
      *
@@ -21,8 +19,7 @@ public class BpmnFieldInjectionMessageValueEmptyValidationItem extends BpmnEleme
      */
     public BpmnFieldInjectionMessageValueEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Message value in field injection is empty";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Message value in field injection is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnFieldInjectionMessageValueEmptyValidationItem extends BpmnEleme
      */
     public BpmnFieldInjectionMessageValueEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnMessageIntermediateCatchEventNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a message intermediate catch event with an empty name.
      *
@@ -21,8 +19,7 @@ public class BpmnMessageIntermediateCatchEventNameEmptyValidationItem extends Bp
      */
     public BpmnMessageIntermediateCatchEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Message intermediate catch event name is empty";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message intermediate catch event name is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnMessageIntermediateCatchEventNameEmptyValidationItem extends Bp
      */
     public BpmnMessageIntermediateCatchEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

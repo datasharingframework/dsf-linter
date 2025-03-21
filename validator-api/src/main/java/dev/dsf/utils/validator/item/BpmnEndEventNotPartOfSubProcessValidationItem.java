@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnEndEventNotPartOfSubProcessValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for an end event that is not part of a subprocess.
      *
@@ -21,8 +19,7 @@ public class BpmnEndEventNotPartOfSubProcessValidationItem extends BpmnElementVa
      */
     public BpmnEndEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "End event is not part of a subprocess and name is empty";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "End event is not part of a subprocess and name is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnEndEventNotPartOfSubProcessValidationItem extends BpmnElementVa
      */
     public BpmnEndEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

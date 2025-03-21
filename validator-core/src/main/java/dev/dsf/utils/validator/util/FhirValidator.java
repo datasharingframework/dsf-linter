@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.fhir;
+package dev.dsf.utils.validator.util;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;

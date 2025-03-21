@@ -10,7 +10,6 @@ import java.io.File;
  */
 public class BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
 
     /**
      * Constructs a new validation item for an instantiatesCanonical field injection missing a version placeholder.
@@ -21,8 +20,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidati
      */
     public BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "instantiatesCanonical field injection does not contain a version placeholder";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "instantiatesCanonical field injection does not contain a version placeholder");
     }
 
     /**
@@ -35,8 +33,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidati
      */
     public BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

@@ -2,7 +2,6 @@ package dev.dsf.utils.validator.util;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
-import dev.dsf.utils.validator.fhir.FhirValidator;
 import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;

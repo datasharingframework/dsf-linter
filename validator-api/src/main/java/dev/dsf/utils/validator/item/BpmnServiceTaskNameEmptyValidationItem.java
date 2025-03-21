@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a service task with an empty name.
      *
@@ -21,8 +19,7 @@ public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidatio
      */
     public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Service task name is empty";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Service task name is empty");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidatio
      */
     public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

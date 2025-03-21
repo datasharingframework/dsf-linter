@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnErrorBoundaryEventErrorNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for an Error Boundary Event with an empty error name.
      *
@@ -21,8 +19,7 @@ public class BpmnErrorBoundaryEventErrorNameEmptyValidationItem extends BpmnElem
      */
     public BpmnErrorBoundaryEventErrorNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Error name is empty in Error Boundary Event";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Error name is empty in Error Boundary Event");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnErrorBoundaryEventErrorNameEmptyValidationItem extends BpmnElem
      */
     public BpmnErrorBoundaryEventErrorNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

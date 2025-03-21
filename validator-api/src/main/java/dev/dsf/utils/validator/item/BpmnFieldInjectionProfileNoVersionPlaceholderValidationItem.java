@@ -10,7 +10,6 @@ import java.io.File;
  */
 public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
     private final String rawValue;
 
     /**
@@ -23,9 +22,8 @@ public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends
      */
     public BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String rawValue)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Profile field injection does not contain a version placeholder: " + rawValue);
         this.rawValue = rawValue;
-        this.description = "Profile field injection does not contain a version placeholder: " + rawValue;
     }
 
     /**
@@ -39,9 +37,8 @@ public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends
      */
     public BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String rawValue, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
         this.rawValue = rawValue;
-        this.description = description;
     }
 
     @Override

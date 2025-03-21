@@ -23,12 +23,13 @@ public class FhirStructureDefinitionValidationItem extends BpmnElementValidation
             String structureDefinitionUrl,
             String details)
     {
-        super(severity, elementId, bpmnFile, processId);
+        super(severity, elementId, bpmnFile, processId,
+                String.format("StructureDefinition issue for '%s': %s", structureDefinitionUrl, details));
         this.structureDefinitionUrl = structureDefinitionUrl;
         this.details = details;
     }
 
-    public String getActivityDefinitionUrl()
+    public String getStructureDefinitionUrl()
     {
         return structureDefinitionUrl;
     }

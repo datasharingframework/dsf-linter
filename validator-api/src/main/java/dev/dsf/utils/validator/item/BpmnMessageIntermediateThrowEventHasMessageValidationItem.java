@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a Message Intermediate Throw Event that has a message.
      *
@@ -21,8 +19,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      */
     public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Message Intermediate Throw Event has a message";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message Intermediate Throw Event has a message");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      */
     public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

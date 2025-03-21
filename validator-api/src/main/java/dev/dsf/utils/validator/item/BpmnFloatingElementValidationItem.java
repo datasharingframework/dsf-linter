@@ -5,14 +5,9 @@ import dev.dsf.utils.validator.ValidationType;
 
 import java.io.File;
 
-/**
- * A generic validation item typically used when no specific validation type
- * exists. For example, "floating" or ambiguous BPMN elements, or a generic warning.
- * Corresponds to {@link ValidationType#BPMN_FLOATING_ELEMENT}.
- */
+
 public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
     private final ValidationType validationTypeOverride;
 
     /**
@@ -32,8 +27,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
             String description,
             ValidationType validationTypeOverride)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
         this.validationTypeOverride = validationTypeOverride;
     }
 
@@ -55,8 +49,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
             ValidationType validationTypeOverride,
             ValidationSeverity severityOverride)
     {
-        super(severityOverride, elementId, bpmnFile, processId);
-        this.description = description;
+        super(severityOverride, elementId, bpmnFile, processId, description);
         this.validationTypeOverride = validationTypeOverride;
     }
 

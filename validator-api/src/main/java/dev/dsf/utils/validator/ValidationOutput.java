@@ -20,11 +20,11 @@ public class ValidationOutput {
      */
     public void printResults() {
         if (validationItems.isEmpty()) {
-            System.out.println("✅ No issues found.");
+            System.out.println(" No issues found.");
         } else {
-            System.out.println("⚠️ Found " + validationItems.size() + " issue(s):");
+            System.out.println(" Found " + validationItems.size() + " issue(s):");
             for (AbstractValidationItem item : validationItems) {
-                System.out.println("🔹 " + item);
+                System.out.println("* " + item);
             }
         }
     }

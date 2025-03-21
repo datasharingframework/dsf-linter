@@ -10,7 +10,6 @@ import java.io.File;
  */
 public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
 
     /**
      * Constructs a new validation item for an event with an empty name.
@@ -21,8 +20,7 @@ public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
      */
     public BpmnEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Event name is empty";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId,"Event name is empty" );
     }
 
     /**
@@ -35,8 +33,7 @@ public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
      */
     public BpmnEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override

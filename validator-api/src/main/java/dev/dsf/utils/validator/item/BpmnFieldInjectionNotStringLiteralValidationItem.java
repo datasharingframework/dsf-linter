@@ -21,9 +21,9 @@ public class BpmnFieldInjectionNotStringLiteralValidationItem extends BpmnElemen
      * @param processId the process definition ID or key
      * @param fieldName the name of the field injection
      */
-    public BpmnFieldInjectionNotStringLiteralValidationItem(String elementId, File bpmnFile, String processId, String fieldName)
+    public BpmnFieldInjectionNotStringLiteralValidationItem(String elementId, File bpmnFile, String processId, String fieldName, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
         this.fieldName = fieldName;
     }
 

@@ -1,7 +1,7 @@
 package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.ValidationSeverity;
-import dev.dsf.utils.validator.fhir.FhirValidator;
+import dev.dsf.utils.validator.util.FhirValidator;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import org.camunda.bpm.model.bpmn.instance.*;
@@ -261,7 +261,7 @@ public class BpmnFieldInjectionValidator
             // If an expression is found, record an error/warning
             if (!BpmnValidationUtils.isEmpty(exprValue)) {
                 issues.add(new BpmnFieldInjectionNotStringLiteralValidationItem(
-                        elementId, bpmnFile, processId, fieldName));
+                        elementId, bpmnFile, processId, fieldName, "Field injection '" + fieldName + "' is not provided as a string literal"));
                 continue;
             }
 

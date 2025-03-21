@@ -10,8 +10,6 @@ import java.io.File;
  */
 public class BpmnServiceTaskImplementationNotExistValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a service task where the implementation does not exist.
      *
@@ -21,8 +19,7 @@ public class BpmnServiceTaskImplementationNotExistValidationItem extends BpmnEle
      */
     public BpmnServiceTaskImplementationNotExistValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = "Service task implementation does not exist";
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Service task implementation does not exist");
     }
 
     /**
@@ -35,8 +32,7 @@ public class BpmnServiceTaskImplementationNotExistValidationItem extends BpmnEle
      */
     public BpmnServiceTaskImplementationNotExistValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
     }
 
     @Override

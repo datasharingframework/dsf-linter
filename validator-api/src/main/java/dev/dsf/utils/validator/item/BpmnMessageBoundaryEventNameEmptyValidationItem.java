@@ -11,8 +11,6 @@ import java.io.File;
  */
 public class BpmnMessageBoundaryEventNameEmptyValidationItem extends BpmnElementValidationItem
 {
-    private final String description;
-
     /**
      * Constructs a new validation item for a message boundary event with an empty name.
      *
@@ -22,8 +20,7 @@ public class BpmnMessageBoundaryEventNameEmptyValidationItem extends BpmnElement
      */
     public BpmnMessageBoundaryEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = "Message boundary event name is empty";
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message boundary event name is empty");
     }
 
     /**
@@ -36,8 +33,7 @@ public class BpmnMessageBoundaryEventNameEmptyValidationItem extends BpmnElement
      */
     public BpmnMessageBoundaryEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId);
-        this.description = description;
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
     }
 
     @Override
