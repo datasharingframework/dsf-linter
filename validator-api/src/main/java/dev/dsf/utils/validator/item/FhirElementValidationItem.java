@@ -35,7 +35,7 @@ public class FhirElementValidationItem extends FhirValidationItem
     private final String fhirReference;
     private final ValidationType issueType;
     private final String description;
-
+    private final String resourceId;
     /**
      * Constructs a new {@code FhirElementValidationItem}.
      *
@@ -57,6 +57,23 @@ public class FhirElementValidationItem extends FhirValidationItem
         this.fhirReference = fhirReference;
         this.issueType = issueType;
         this.description = description;
+        this.resourceId = "unknown_resource";
+    }
+
+    public FhirElementValidationItem(
+            ValidationSeverity severity,
+            File resourceFile,
+            String fhirReference,
+            ValidationType issueType,
+            String description,
+            String resourceId
+    ) {
+        super(severity);
+        this.resourceFile = resourceFile;
+        this.fhirReference = fhirReference;
+        this.issueType = issueType;
+        this.description = description;
+        this.resourceId = resourceId;
     }
 
     public File getResourceFile()
@@ -85,5 +102,9 @@ public class FhirElementValidationItem extends FhirValidationItem
     {
         return "[" + getSeverity() + "] " + issueType + " (" + fhirReference + "): " + description
                 + " [file=" + (resourceFile != null ? resourceFile.getName() : "N/A") + "]";
+    }
+
+    public String getResourceId() {
+        return resourceId;
     }
 }
