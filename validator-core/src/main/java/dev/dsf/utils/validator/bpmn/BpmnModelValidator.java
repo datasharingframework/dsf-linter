@@ -62,19 +62,20 @@ import java.util.List;
  * </ul>
  * </p>
  */
-public class BpmnModelValidator
-{
-    private File projectRoot;
+public class BpmnModelValidator {
+
+    private final File projectRoot;
 
     /**
-     * Sets the project root directory used for validation, which is needed for
-     * loading compiled classes and dependencies from the file system.
+     * Constructs a new {@code BpmnModelValidator} with the specified project root.
      *
-     * @param projectRoot
-     *         the root directory of the project (e.g., containing {@code target/classes} or {@code build/classes})
+     * @param projectRoot the root directory of the project (e.g., containing {@code target/classes} or {@code build/classes})
+     * @throws IllegalArgumentException if {@code projectRoot} is null
      */
-    public void setProjectRoot(File projectRoot)
-    {
+    public BpmnModelValidator(File projectRoot) {
+        if (projectRoot == null) {
+            throw new IllegalArgumentException("Project root must not be null");
+        }
         this.projectRoot = projectRoot;
     }
 
@@ -117,82 +118,68 @@ public class BpmnModelValidator
     public List<BpmnElementValidationItem> validateModel(
             BpmnModelInstance model,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
+
         List<BpmnElementValidationItem> issues = new ArrayList<>();
         Collection<FlowElement> flowElements = model.getModelElementsByType(FlowElement.class);
 
-        // Initialize sub-validators
+        // Initialize sub-validators with the project root
         BpmnTaskValidator taskValidator = new BpmnTaskValidator(projectRoot);
         BpmnEventValidator eventValidator = new BpmnEventValidator(projectRoot);
         BpmnGatewayAndFlowValidator gatewayAndFlowValidator = new BpmnGatewayAndFlowValidator(projectRoot);
         BpmnSubProcessValidator subProcessValidator = new BpmnSubProcessValidator(projectRoot);
 
-        for (FlowElement element : flowElements)
-        {
+        for (FlowElement element : flowElements) {
             // --- SERVICE TASK ---
-            if (element instanceof ServiceTask serviceTask)
-            {
+            if (element instanceof ServiceTask serviceTask) {
                 taskValidator.validateServiceTask(serviceTask, issues, bpmnFile, processId);
             }
             // --- START EVENT ---
-            else if (element instanceof StartEvent startEvent)
-            {
+            else if (element instanceof StartEvent startEvent) {
                 eventValidator.validateStartEvent(startEvent, issues, bpmnFile, processId);
             }
             // --- INTERMEDIATE THROW EVENT ---
-            else if (element instanceof IntermediateThrowEvent throwEvent)
-            {
+            else if (element instanceof IntermediateThrowEvent throwEvent) {
                 eventValidator.validateIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
             }
             // --- END EVENT ---
-            else if (element instanceof EndEvent endEvent)
-            {
+            else if (element instanceof EndEvent endEvent) {
                 eventValidator.validateEndEvent(endEvent, issues, bpmnFile, processId);
             }
             // --- INTERMEDIATE CATCH EVENT ---
-            else if (element instanceof IntermediateCatchEvent catchEvent)
-            {
+            else if (element instanceof IntermediateCatchEvent catchEvent) {
                 eventValidator.validateIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
             }
             // --- BOUNDARY EVENT ---
-            else if (element instanceof BoundaryEvent boundaryEvent)
-            {
+            else if (element instanceof BoundaryEvent boundaryEvent) {
                 eventValidator.validateBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
             }
             // --- EXCLUSIVE GATEWAY ---
-            else if (element instanceof ExclusiveGateway exclusiveGateway)
-            {
+            else if (element instanceof ExclusiveGateway exclusiveGateway) {
                 gatewayAndFlowValidator.validateExclusiveGateway(exclusiveGateway, issues, bpmnFile, processId);
             }
             // --- SEQUENCE FLOW ---
-            else if (element instanceof SequenceFlow sequenceFlow)
-            {
+            else if (element instanceof SequenceFlow sequenceFlow) {
                 gatewayAndFlowValidator.validateSequenceFlow(sequenceFlow, issues, bpmnFile, processId);
             }
             // --- USER TASK ---
-            else if (element instanceof UserTask userTask)
-            {
+            else if (element instanceof UserTask userTask) {
                 taskValidator.validateUserTask(userTask, issues, bpmnFile, processId);
             }
             // --- SEND TASK ---
-            else if (element instanceof SendTask sendTask)
-            {
+            else if (element instanceof SendTask sendTask) {
                 taskValidator.validateSendTask(sendTask, issues, bpmnFile, processId);
             }
             // --- RECEIVE TASK ---
-            else if (element instanceof ReceiveTask receiveTask)
-            {
+            else if (element instanceof ReceiveTask receiveTask) {
                 taskValidator.validateReceiveTask(receiveTask, issues, bpmnFile, processId);
             }
             // --- SUB PROCESS ---
-            else if (element instanceof SubProcess subProcess)
-            {
+            else if (element instanceof SubProcess subProcess) {
                 subProcessValidator.validateSubProcess(subProcess, issues, bpmnFile, processId);
             }
             // --- EVENT-BASED GATEWAY ---
-            else if (element instanceof EventBasedGateway gateway)
-            {
+            else if (element instanceof EventBasedGateway gateway) {
                 gatewayAndFlowValidator.validateEventBasedGateway(gateway, issues, bpmnFile, processId);
             }
         }
