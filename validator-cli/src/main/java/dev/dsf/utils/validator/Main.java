@@ -3,7 +3,6 @@ package dev.dsf.utils.validator;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.util.MavenUtil;
@@ -15,6 +14,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
 
@@ -35,8 +35,8 @@ import java.util.concurrent.Callable;
  *       {@link dev.dsf.utils.validator.build.MavenBuilder}.</li>
  *   <li>Recursively validate BPMN files (under {@code src/main/resources/bpe}) with {@link BPMNValidator} and write
  *       them to an aggregated JSON.</li>
- *   <li>Validate FHIR resources by calling {@link FhirResourceValidator#validateAllFhirResources(File)} (like in the
- *       {@code Main} class), then write them to an aggregated JSON file named {@code fhir_issues_aggregated.json}.</li>
+ *   <li>Recursively validate FHIR files (under {@code src/main/resources/fhir}) with {@link FhirResourceValidator},
+ *       writing both a <strong>per-file JSON</strong> and an aggregated JSON report.</li>
  * </ol>
  *
  * <p><b>Usage Example:</b>
@@ -48,7 +48,7 @@ import java.util.concurrent.Callable;
  * <p><b>References and Further Reading:</b>
  * <ul>
  *   <li><a href="https://www.eclipse.org/jgit/">JGit Documentation</a></li>
- *   <li><a href="https://picocli.info/">Picocli</a></li>
+ *   <li><a href="https://picocli.info/">picocli</a></li>
  *   <li><a href="https://maven.apache.org/">Apache Maven</a></li>
  *   <li><a href="https://hl7.org/fhir/">HL7 FHIR Specification</a></li>
  *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
@@ -142,11 +142,14 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
-        // Validate BPMN
-        validateAllBpmnFiles(projectDir);
+        // Create a timestamped reports directory, e.g. "reports_28032025"
+        File reportsDir = createReportsDirectory();
 
-        // Validate FHIR (like "Main" class: single aggregator from validateAllFhirResources)
-        validateAllFhirResources(projectDir);
+        // Validate BPMN
+        validateAllBpmnFiles(projectDir, reportsDir);
+
+        // Validate FHIR (per-file + aggregated)
+        validateAllFhirResources(projectDir, reportsDir);
 
         System.out.println("\nValidation process finished!");
         return 0;
@@ -179,13 +182,35 @@ public class Main implements Callable<Integer>
     }
 
     /**
+     * Creates a "reports_" folder with the current date (in ddMMyyyy format).
+     * Example: "reports_28032025"
+     *
+     * @return a {@link File} pointing to the created directory
+     */
+    private File createReportsDirectory()
+    {
+        String dateStr = new SimpleDateFormat("ddMMyyyy").format(new Date());
+        File reportsDir = new File("reports_" + dateStr);
+        if (!reportsDir.exists())
+        {
+            boolean created = reportsDir.mkdirs();
+            if (!created)
+            {
+                System.err.println("WARNING: Failed to create reports directory: " + reportsDir.getAbsolutePath());
+            }
+        }
+        return reportsDir;
+    }
+
+    /**
      * Recursively finds all BPMN files under {@code src/main/resources/bpe}, validates them
      * one-by-one, writes per-file JSON using the BPMN {@code processId}, and produces an
-     * aggregated JSON file at the end.
+     * aggregated JSON file. All files are written to the provided {@code reportsDir}.
      *
      * @param projectDir the root project directory
+     * @param reportsDir the directory where JSON reports should be written
      */
-    private void validateAllBpmnFiles(File projectDir)
+    private void validateAllBpmnFiles(File projectDir, File reportsDir)
     {
         File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
         if (bpmnRoot == null)
@@ -210,33 +235,37 @@ public class Main implements Callable<Integer>
             ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
             output.printResults();
 
-            // aggregator
-            allBpmnItems.addAll(output.getValidationItems());
+            // Add to aggregator
+            allBpmnItems.addAll(output.validationItems());
 
-            // per-file JSON
+            // Per-file JSON using processId
             String processId = output.getProcessId();
-            File jsonFile = new File("bpmn_issues_" + processId + ".json");
+            File jsonFile = new File(reportsDir, "bpmn_issues_" + processId + ".json");
             output.writeResultsAsJson(jsonFile);
 
             System.out.println("Validation completed for: " + file.getName()
                     + " => BPMN JSON: " + jsonFile.getAbsolutePath());
         }
 
-        // aggregator JSON
+        // Aggregated BPMN JSON
         ValidationOutput aggregatedBpmn = new ValidationOutput(allBpmnItems);
-        File aggregatedJson = new File("bpmn_issues_aggregated.json");
+        File aggregatedJson = new File(reportsDir, "bpmn_issues_aggregated.json");
         aggregatedBpmn.writeResultsAsJson(aggregatedJson);
 
-        System.out.println("\nAll BPMN validation items aggregated in: " + aggregatedJson.getName());
+        System.out.println("\nAll BPMN validation items aggregated in: " + aggregatedJson.getAbsolutePath());
     }
 
     /**
-     * Validates all FHIR resources by calling {@code fhirValidator.validateAllFhirResources(...)}
-     * (like the "Main" class). Writes a single aggregated JSON named "fhir_issues_aggregated.json".
+     * Recursively finds all FHIR resource files under {@code src/main/resources/fhir}, validates them
+     * one-by-one, writes <strong>per-file JSON</strong> with a filename-based suffix, and produces an
+     * aggregated JSON file named {@code fhir_issues_aggregated.json}. All files are written to {@code reportsDir}.
+     *
+     * @param projectDir the root project directory
+     * @param reportsDir the directory where JSON reports should be written
      */
-    private void validateAllFhirResources(File projectDir)
+    private void validateAllFhirResources(File projectDir, File reportsDir)
     {
-        //todo
+       //todo
     }
 
     /**
