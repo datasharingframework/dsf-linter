@@ -36,15 +36,14 @@ class TestBpmnModelValidator {
     /**
      * Setup method executed before each test.
      * <p>
-     * This method initializes the {@link BpmnModelValidator} and configures it with a project root.
+     * This method initializes the {@link BpmnModelValidator} with a dummy project root used to simulate.
      * It also sets up a dummy BPMN file reference and a process ID that will be used in subsequent tests.
      * </p>
      */
     @BeforeEach
     void setup() {
-        validator = new BpmnModelValidator();
-        // If the validator checks for actual class existence, we can optionally set a real project root
-        validator.setProjectRoot(new File("."));
+        // Create a new validator with an explicit project root for class loading
+        validator = new BpmnModelValidator(new File("."));
 
         // We'll pretend our BPMN is in "dummyFile.bpmn"
         dummyBpmnFile = new File("dummyFile.bpmn");
