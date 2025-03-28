@@ -30,18 +30,13 @@ import java.util.List;
  *   <li><a href="https://maven.apache.org/">Apache Maven</a></li>
  * </ul>
  */
-public class ValidationOutput
-{
-    private final List<AbstractValidationItem> validationItems;
-
+public record ValidationOutput(List<AbstractValidationItem> validationItems) {
     /**
      * Constructs a {@code ValidationOutput} with the given list of validation items.
      *
      * @param validationItems the items to be stored
      */
-    public ValidationOutput(List<AbstractValidationItem> validationItems)
-    {
-        this.validationItems = validationItems;
+    public ValidationOutput {
     }
 
     /**
@@ -49,8 +44,8 @@ public class ValidationOutput
      *
      * @return a list of validation items
      */
-    public List<AbstractValidationItem> getValidationItems()
-    {
+    @Override
+    public List<AbstractValidationItem> validationItems() {
         return validationItems;
     }
 
@@ -59,17 +54,12 @@ public class ValidationOutput
      * If no items exist, prints "No issues found."
      * Otherwise, prints each issue on its own line.
      */
-    public void printResults()
-    {
-        if (validationItems.isEmpty())
-        {
+    public void printResults() {
+        if (validationItems.isEmpty()) {
             System.out.println(" No issues found.");
-        }
-        else
-        {
+        } else {
             System.out.println(" Found " + validationItems.size() + " issue(s):");
-            for (AbstractValidationItem item : validationItems)
-            {
+            for (AbstractValidationItem item : validationItems) {
                 System.out.println("* " + item);
             }
         }
@@ -81,21 +71,17 @@ public class ValidationOutput
      *
      * @param outputFile the target JSON file
      */
-    public void writeResultsAsJson(File outputFile)
-    {
+    public void writeResultsAsJson(File outputFile) {
         // Sort items by their string value (can be changed to any other comparator)
         validationItems.sort(Comparator.comparing(AbstractValidationItem::toString));
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-        try
-        {
+        try {
             mapper.writeValue(outputFile, validationItems);
             System.out.println("JSON output written to: " + outputFile.getAbsolutePath());
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             System.err.println("Failed to write JSON output: " + e.getMessage());
             e.printStackTrace();
         }
@@ -109,15 +95,12 @@ public class ValidationOutput
      *
      * @return the process ID, or "unknown_process" if not available
      */
-    public String getProcessId()
-    {
+    public String getProcessId() {
         if (validationItems == null || validationItems.isEmpty())
             return "unknown_process";
 
-        for (AbstractValidationItem item : validationItems)
-        {
-            if (item instanceof BpmnElementValidationItem bpmnItem)
-            {
+        for (AbstractValidationItem item : validationItems) {
+            if (item instanceof BpmnElementValidationItem bpmnItem) {
                 String pid = bpmnItem.getProcessId();
                 if (pid != null && !pid.isEmpty())
                     return pid;
@@ -126,7 +109,6 @@ public class ValidationOutput
 
         return "unknown_process";
     }
-
 
 
 }

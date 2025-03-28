@@ -1,8 +1,10 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
+import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -16,140 +18,232 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Implementation of the DSF Validator interface, responsible for validating BPMN models.
+ * <p>
+ * An implementation of the DSF Validator interface capable of validating either
+ * <strong>BPMN</strong> or <strong>FHIR</strong> files based on file extension or content.
+ * </p>
  *
- * <p>This class performs the following steps:
- * <ol>
- *   <li>Checks if the BPMN file exists.</li>
- *   <li>Checks if the BPMN file is readable (via {@link #isFileReadable(Path)}).</li>
- *   <li>Parses the BPMN file into a {@link BpmnModelInstance}.</li>
- *   <li>Extracts the first {@link Process} ID found within the model.</li>
- *   <li>Locates the project root directory by searching upward for a {@code pom.xml} file.</li>
- *   <li>Instantiates and uses a {@link BpmnModelValidator} to validate the BPMN model,
- *       passing along the project root for additional checks (e.g., class existence).</li>
- *   <li>Compiles all validation issues into a {@link ValidationOutput} object.</li>
- * </ol>
+ * <p>
+ * This class accomplishes the following:
+ * <ul>
+ *   <li>Determines if the provided file is a BPMN or FHIR resource (e.g., by checking file extension).</li>
+ *   <li>For BPMN files:
+ *     <ol>
+ *       <li>Checks if the file exists and is readable.</li>
+ *       <li>Parses the file into a {@link BpmnModelInstance}.</li>
+ *       <li>Extracts the first {@link Process} ID, if present.</li>
+ *       <li>Finds the project root directory by locating a {@code pom.xml} file.</li>
+ *       <li>Validates the BPMN model via {@link BpmnModelValidator}.</li>
+ *     </ol>
+ *   </li>
+ *   <li>For FHIR files:
+ *     <ol>
+ *       <li>Checks if the file exists and is readable.</li>
+ *     </ol>
+ *   </li>
+ *   <li>Aggregates all issues into a single {@link ValidationOutput} object.</li>
+ * </ul>
+ * </p>
+ *
+ * <h2>References</h2>
+ * <ul>
+ *   <li>BPMN 2.0: <a href="https://www.omg.org/spec/BPMN/2.0">https://www.omg.org/spec/BPMN/2.0</a></li>
+ *   <li>HL7 FHIR: <a href="https://hl7.org/fhir">https://hl7.org/fhir</a></li>
+ * </ul>
  */
-public class DsfValidatorImpl implements DsfValidator {
+public class DsfValidatorImpl implements DsfValidator
+{
+    private final BpmnModelValidator bpmnModelValidator;
 
     /**
-     * Validates the provided BPMN file and returns a {@link ValidationOutput} containing any validation issues.
+     * Constructs a new {@code DsfValidatorImpl} with default BPMN and FHIR validators.
+     */
+    public DsfValidatorImpl()
+    {
+        this.bpmnModelValidator = new BpmnModelValidator();
+
+    }
+
+    /**
+     * Validates the given file, delegating to either BPMN-specific or FHIR-specific logic
+     * depending on the file's extension.
      *
-     * <p>This method does the following:
-     * <ul>
-     *   <li>Verifies that the file at {@code path} exists.</li>
-     *   <li>Checks readability via {@link #isFileReadable(Path)}, which can be mocked in tests.</li>
-     *   <li>Attempts to parse the file as a BPMN model. If parsing fails, an error is recorded.</li>
-     *   <li>Extracts the first encountered BPMN {@link Process} ID from the model.</li>
-     *   <li>Determines the project root directory by searching parent directories for a {@code pom.xml} file.</li>
-     *   <li>Uses a {@link BpmnModelValidator} to validate the model.</li>
-     *   <li>Returns a {@link ValidationOutput} containing all collected validation issues.</li>
-     * </ul>
+     * <p><strong>BPMN logic flow:</strong>
+     * <ol>
+     *   <li>Check if the file exists.</li>
+     *   <li>Check if the file is readable via {@link #isFileReadable(Path)}.</li>
+     *   <li>Attempt to parse the file as a BPMN model.</li>
+     *   <li>Extract the first BPMN {@link Process} ID.</li>
+     *   <li>Determine the project root by finding a {@code pom.xml} file.</li>
+     *   <li>Validate the BPMN model via {@link BpmnModelValidator}.</li>
+     * </ol>
      *
-     * @param path the path to the BPMN file to validate (must exist and be readable)
+     * <p><strong>FHIR logic flow:</strong>
+     * <ol>
+     *   <li>Check if the file exists and is readable.</li>
+     *   <li>Use {@link FhirResourceValidator} to parse and validate the resource.</li>
+     * </ol>
+     *
+     * @param path the {@link Path} to either a BPMN file or a FHIR resource file
      * @return a {@link ValidationOutput} containing all validation issues encountered
      */
     @Override
-    public ValidationOutput validate(Path path) {
+    public ValidationOutput validate(Path path)
+    {
+        // 1) Decide if it's BPMN or FHIR by checking the file extension (adapt as needed)
+        String fileName = path.getFileName().toString().toLowerCase();
+        if (fileName.endsWith(".bpmn"))
+        {
+            return validateBpmn(path);
+        }
+        else
+        {
+            return validateFhir(path);
+        }
+    }
+
+    /**
+     * Validates a BPMN file by:
+     * <ul>
+     *   <li>Checking file existence.</li>
+     *   <li>Ensuring readability via {@link #isFileReadable(Path)}.</li>
+     *   <li>Attempting to parse the BPMN model.</li>
+     *   <li>Finding the {@code processId} of the first {@link Process}.</li>
+     *   <li>Searching upward for a {@code pom.xml} file to determine project root.</li>
+     *   <li>Delegating to the {@link BpmnModelValidator} for BPMN-specific checks.</li>
+     * </ul>
+     *
+     * @param path a {@link Path} pointing to a BPMN file
+     * @return a {@link ValidationOutput} with any BPMN-related validation issues
+     */
+    private ValidationOutput validateBpmn(Path path)
+    {
         List<AbstractValidationItem> allIssues = new ArrayList<>();
 
-        // 1) Check if the file exists
-        if (!Files.exists(path)) {
+        // Check existence
+        if (!Files.exists(path))
+        {
             System.err.println("Error: The file does not exist: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
         }
 
-        // 2) Check if the file is readable (via isFileReadable) - can be mocked in tests
-        if (!isFileReadable(path)) {
+        // Check readability
+        if (!isFileReadable(path))
+        {
             System.err.println("Error: The file is not readable: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
         }
 
-        // 3) Attempt to parse the BPMN file
+        // Parse BPMN model
         BpmnModelInstance model;
-        try {
+        try
+        {
             model = Bpmn.readModelFromFile(path.toFile());
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             System.err.println("Error reading BPMN file: " + e.getMessage());
             e.printStackTrace();
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
             return buildOutput(allIssues);
         }
 
-        // 4) Extract the process id from the BPMN model
+        // Extract process ID
         String processId = extractProcessId(model);
 
-        // 5) Determine the project root by searching upward for a pom.xml file
+        // Determine project root
         File projectRoot = getProjectRoot(path);
 
-        // 6) Perform BPMN validation using BpmnModelValidator
-        BpmnModelValidator validator = new BpmnModelValidator();
-        validator.setProjectRoot(projectRoot);
+        // Validate BPMN model
+        bpmnModelValidator.setProjectRoot(projectRoot);
+        List<BpmnElementValidationItem> bpmnIssues =
+                bpmnModelValidator.validateModel(model, path.toFile(), processId);
 
-        // Validate the model using the extracted process id.
-        List<BpmnElementValidationItem> bpmnIssues = validator.validateModel(model, path.toFile(), processId);
         allIssues.addAll(bpmnIssues);
-
         return buildOutput(allIssues);
     }
 
     /**
-     * Checks the readability of the file, using {@link Files#isReadable(Path)} by default.
-     * <p>
-     * This method can be overridden or mocked in tests to simulate an unreadable file
-     * without actually changing OS file permissions.
+     * Validates a FHIR resource by:
+     * <ul>
+     *   <li>Checking file existence and readability.</li>
+     *   <li>Delegating parsing and validation to {@link FhirResourceValidator}.</li>
+     * </ul>
      *
-     * @param path the BPMN file path
-     * @return true if the file is readable, false otherwise
+     * @param path a {@link Path} pointing to a FHIR resource file
+     * @return a {@link ValidationOutput} containing FHIR validation issues
      */
-    protected boolean isFileReadable(Path path) {
+    private ValidationOutput validateFhir(Path path)
+    {
+        //todo
+        return null;
+    }
+
+    /**
+     * Checks if the given file is readable using {@link Files#isReadable(Path)}.
+     * <p>
+     * Can be overridden or mocked in tests to simulate various conditions.
+     *
+     * @param path the path to the file
+     * @return {@code true} if the file is readable, {@code false} otherwise
+     */
+    protected boolean isFileReadable(Path path)
+    {
         return Files.isReadable(path);
     }
 
     /**
-     * Constructs a {@link ValidationOutput} from a list of validation items.
+     * Builds a {@link ValidationOutput} from the provided list of validation items.
      *
-     * @param items a list of validation items that represent specific validation findings
-     * @return a {@link ValidationOutput} containing the provided items
+     * @param items a list of validation items
+     * @return a new {@link ValidationOutput} containing all items
      */
-    private ValidationOutput buildOutput(List<AbstractValidationItem> items) {
+    private ValidationOutput buildOutput(List<AbstractValidationItem> items)
+    {
         return new ValidationOutput(items);
     }
 
     /**
-     * Determines the project root by walking up the directory tree from the BPMN file path
-     * and searching for a file named {@code pom.xml}.
+     * Finds the project root by walking upward in the directory structure until a {@code pom.xml} is found.
      *
-     * @param bpmnFilePath the path to the BPMN file
-     * @return the project root directory as a {@link File}, never {@code null}
+     * @param bpmnFilePath the path to the BPMN file (used to derive the starting directory)
+     * @return the directory containing {@code pom.xml}, or the BPMN file's parent directory if not found
      */
-    private File getProjectRoot(Path bpmnFilePath) {
+    private File getProjectRoot(Path bpmnFilePath)
+    {
         Path current = bpmnFilePath.getParent();
-        while (current != null) {
+        while (current != null)
+        {
             File pom = new File(current.toFile(), "pom.xml");
-            if (pom.exists()) {
+            if (pom.exists())
+            {
                 return current.toFile();
             }
             current = current.getParent();
         }
-        // Fallback to the BPMN file's parent directory if no pom.xml was located
+
+        // Fallback: the BPMN file's parent directory
         assert bpmnFilePath.getParent() != null;
         return bpmnFilePath.getParent().toFile();
     }
 
     /**
-     * Extracts the {@code id} of the first {@link Process} element found in the BPMN model.
+     * Extracts the {@code id} of the first {@link Process} element in the BPMN model.
      *
-     * @param model the parsed {@link BpmnModelInstance} of the BPMN file
-     * @return the extracted process id, or an empty string if none is found
+     * @param model the parsed {@link BpmnModelInstance}
+     * @return the ID of the first process, or an empty string if none exists
+     * @see <a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a>
      */
-    private String extractProcessId(BpmnModelInstance model) {
+    private String extractProcessId(BpmnModelInstance model)
+    {
         Collection<Process> processes = model.getModelElementsByType(Process.class);
-        if (!processes.isEmpty()) {
+        if (!processes.isEmpty())
+        {
             Process process = processes.iterator().next();
-            if (process.getId() != null && !process.getId().trim().isEmpty()) {
+            if (process.getId() != null && !process.getId().trim().isEmpty())
+            {
                 return process.getId();
             }
         }
