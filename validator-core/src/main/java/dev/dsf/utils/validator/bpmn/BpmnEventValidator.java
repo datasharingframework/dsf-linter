@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.FhirValidator;
@@ -266,7 +267,10 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Throw Event name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.SIGNAL_INTERMEDIATE_THROW_EVENT_NAME_IS_EMPTY
+
             ));
         }
 
@@ -279,7 +283,8 @@ public class BpmnEventValidator
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Throw Event",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.SIGNAL_IS_EMPTY_IN_SIGNAL_INTERMEDIATE_THROW_EVENT
             ));
         }
     }
@@ -387,7 +392,9 @@ public class BpmnEventValidator
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "End Event inside a SubProcess should have asyncAfter=true",
-                        ValidationType.BPMN_FLOATING_ELEMENT
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.WARN,
+                        FloatingElementType.END_EVENT_INSIDE_A_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE
                 ));
             }
         }
@@ -423,7 +430,9 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal End Event name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.SIGNAL_END_EVENT_NAME_IS_EMPTY
             ));
         }
 
@@ -436,7 +445,8 @@ public class BpmnEventValidator
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal End Event",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.SIGNAL_IS_EMPTY_IN_SIGNAL_END_EVENT
             ));
         }
     }
@@ -561,7 +571,9 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Timer Intermediate Catch Event name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.TIMER_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY
             ));
         }
 
@@ -597,7 +609,9 @@ public class BpmnEventValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Catch Event name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.SIGNAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY
             ));
         }
 
@@ -609,7 +623,8 @@ public class BpmnEventValidator
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Catch Event",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.SIGNAL_IS_EMPTY_IN_SIGNAL_INTERMEDIATE_CATCH_EVENT
             ));
         }
     }

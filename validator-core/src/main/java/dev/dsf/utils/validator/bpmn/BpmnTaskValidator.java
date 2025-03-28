@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
@@ -115,7 +116,9 @@ public class BpmnTaskValidator
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.USER_TASK_NAME_IS_EMPTY
             ));
         }
 
@@ -127,7 +130,8 @@ public class BpmnTaskValidator
                     elementId, bpmnFile, processId,
                     "User Task formKey is empty",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.USER_TASK_FORM_KEY_IS_EMPTY
             ));
             found= false;
         } else {
@@ -137,7 +141,8 @@ public class BpmnTaskValidator
                         elementId, bpmnFile, processId,
                         "User Task formKey is not an external form: " + formKey,
                         ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.ERROR
+                        ValidationSeverity.ERROR,
+                        FloatingElementType.USER_TASK_FORM_KEY_IS_NOT_AN_EXTERNAL_FORM
                 ));
                 found= false;
             }

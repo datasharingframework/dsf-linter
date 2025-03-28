@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
@@ -77,7 +78,8 @@ public class BpmnGatewayAndFlowValidator
                         elementId, bpmnFile, processId,
                         "Exclusive Gateway has multiple outgoing flows but name is empty.",
                         ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.WARN
+                        ValidationSeverity.WARN,
+                        FloatingElementType.EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY
                 ));
             }
         }
@@ -118,7 +120,8 @@ public class BpmnGatewayAndFlowValidator
                             elementId, bpmnFile, processId,
                             "Sequence flow originates from a source with multiple outgoing flows and name is empty.",
                             ValidationType.BPMN_FLOATING_ELEMENT,
-                            ValidationSeverity.WARN
+                            ValidationSeverity.WARN,
+                            FloatingElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
                     ));
                 }
 
@@ -133,7 +136,8 @@ public class BpmnGatewayAndFlowValidator
                                     elementId, bpmnFile, processId,
                                     "Non-default sequence flow from an ExclusiveGateway is missing a condition expression.",
                                     ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS,
-                                    ValidationSeverity.ERROR
+                                    ValidationSeverity.ERROR,
+                                    FloatingElementType.NON_DEFAULT_SEQUENCE_FLOW_FROM_AN_EXCLUSIVE_GATEWAY_IS_MISSING_A_CONDITION_EXPRESSION
                             ));
                         }
                     }

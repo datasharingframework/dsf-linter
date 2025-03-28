@@ -1,5 +1,7 @@
 package dev.dsf.utils.validator.bpmn;
 
+import dev.dsf.utils.validator.FloatingElementType;
+import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.BpmnFloatingElementValidationItem;
 import org.camunda.bpm.model.bpmn.instance.MultiInstanceLoopCharacteristics;
@@ -75,7 +77,9 @@ public class BpmnSubProcessValidator
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "SubProcess has multi-instance but is not asyncBefore=true",
-                        ValidationType.BPMN_FLOATING_ELEMENT
+                        ValidationType.BPMN_FLOATING_ELEMENT,
+                        ValidationSeverity.WARN,
+                        FloatingElementType.SUB_PROCESS_HAS_MULTI_INSTANCE_BUT_IS_NOT_ASYNC_BEFORE_TRUE
                 ));
             }
         }

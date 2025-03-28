@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.item;
 
+import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 
@@ -9,37 +10,18 @@ import java.io.File;
 public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
 {
     private final ValidationType validationTypeOverride;
+    private final FloatingElementType floatingElementType;
 
     /**
-     * Constructs a generic floating-element validation item with a custom message,
-     * a known ValidationType, and default severity of WARN.
+     * Constructs a floating-element validation item with a custom severity and a specific {@link FloatingElementType}.
      *
-     * @param elementId             the BPMN element ID
-     * @param bpmnFile              the BPMN file being validated
-     * @param processId             the process definition ID or key
-     * @param description           a descriptive message about the floating/ambiguous element
-     * @param validationTypeOverride the validation type to assign
-     */
-    public BpmnFloatingElementValidationItem(
-            String elementId,
-            File bpmnFile,
-            String processId,
-            String description,
-            ValidationType validationTypeOverride)
-    {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
-        this.validationTypeOverride = validationTypeOverride;
-    }
-
-    /**
-     * Overloaded constructor that also allows specifying a custom severity.
-     *
-     * @param elementId             the BPMN element ID
-     * @param bpmnFile              the BPMN file being validated
-     * @param processId             the process definition ID or key
-     * @param description           a descriptive message about the floating/ambiguous element
-     * @param validationTypeOverride the validation type to assign
-     * @param severityOverride      the custom severity to use
+     * @param elementId              the BPMN element ID that caused the validation issue
+     * @param bpmnFile               the BPMN file being validated
+     * @param processId              the ID or key of the process definition where the issue occurred
+     * @param description            a human-readable message describing the validation issue
+     * @param validationTypeOverride the validation type to associate with this issue
+     * @param severityOverride       the severity to assign to this validation issue
+     * @param floatingElementType    the specific floating element type that categorizes this issue
      */
     public BpmnFloatingElementValidationItem(
             String elementId,
@@ -47,10 +29,12 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
             String processId,
             String description,
             ValidationType validationTypeOverride,
-            ValidationSeverity severityOverride)
+            ValidationSeverity severityOverride,
+            FloatingElementType floatingElementType)
     {
         super(severityOverride, elementId, bpmnFile, processId, description);
         this.validationTypeOverride = validationTypeOverride;
+        this.floatingElementType = floatingElementType;
     }
 
     /**
@@ -62,14 +46,22 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
         return description;
     }
 
+    /**
+     * Gets the floating element type that categorizes this validation issue, if available.
+     *
+     * @return the {@link FloatingElementType}, or {@code null} if not specified
+     */
+    public FloatingElementType getFloatingElementType()
+    {
+        return floatingElementType;
+    }
 
     /**
-     * Overrides the default toString() method to include the description and other relevant details.
+     * Returns a string representation of this validation item including element ID, process ID, BPMN file,
+     * description, validation type override, floating element type (if any), and severity.
      *
-     * @return a string representation of this validation item including elementId, processId, file, description,
-     *         validation type, and severity.
+     * @return a string with detailed information about this validation item
      */
-
     @Override
     public String toString()
     {
@@ -79,6 +71,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
                 ", file=" + getBpmnFile() +
                 ", description='" + description + '\'' +
                 ", validationTypeOverride=" + validationTypeOverride +
+                ", floatingElementType=" + floatingElementType +
                 ", severity=" + getSeverity() +
                 '}';
     }

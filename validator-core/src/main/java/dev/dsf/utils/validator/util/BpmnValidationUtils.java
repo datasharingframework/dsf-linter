@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.util;
 
+import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
@@ -399,7 +400,8 @@ public class BpmnValidationUtils
                             elementId, bpmnFile, processId,
                             "Execution listener class not found: " + implClass,
                             ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                            ValidationSeverity.ERROR
+                            ValidationSeverity.ERROR,
+                            FloatingElementType.EXECUTION_LISTENER_CLASS_NOT_FOUND
                     ));
                 }
             }
@@ -444,7 +446,8 @@ public class BpmnValidationUtils
                             elementId, bpmnFile, processId,
                             "Task listener class not found: " + implClass,
                             ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                            ValidationSeverity.ERROR
+                            ValidationSeverity.ERROR,
+                            FloatingElementType.TASK_LISTENER_CLASS_NOT_FOUND
                     ));
                 }
             }
@@ -486,7 +489,8 @@ public class BpmnValidationUtils
                     elementId, bpmnFile, processId,
                     "Timer type is empty (no timeDate, timeCycle, or timeDuration)",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.TIMER_TYPE_IS_EMPTY
             ));
         }
         else
@@ -497,7 +501,8 @@ public class BpmnValidationUtils
                         elementId, bpmnFile, processId,
                         "Timer type is a fixed date/time (timeDate) – please verify if this is intended",
                         ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.INFO
+                        ValidationSeverity.INFO,
+                        FloatingElementType.TIMER_TYPE_IS_A_FIXED_DATE_TIME
                 ));
             }
             else if (!isTimeCycleEmpty || !isTimeDurationEmpty)
@@ -509,7 +514,9 @@ public class BpmnValidationUtils
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
                             "Timer value appears fixed (no placeholder found)",
-                            ValidationType.BPMN_FLOATING_ELEMENT
+                            ValidationType.BPMN_FLOATING_ELEMENT,
+                            ValidationSeverity.WARN,
+                            FloatingElementType.TIMER_VALUE_APPEARS_FIXED_NO_PLACEHOLDER_FOUND
                     ));
                 }
             }
@@ -610,7 +617,9 @@ public class BpmnValidationUtils
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event name is empty",
-                    ValidationType.BPMN_FLOATING_ELEMENT
+                    ValidationType.BPMN_FLOATING_ELEMENT,
+                    ValidationSeverity.WARN,
+                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY
             ));
         }
 
@@ -625,7 +634,8 @@ public class BpmnValidationUtils
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variable name is empty",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_EVENTS_IS_EMPTY
             ));
         }
 
@@ -638,7 +648,8 @@ public class BpmnValidationUtils
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variableEvents is empty",
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.ERROR
+                    ValidationSeverity.ERROR,
+                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_EVENTS_IS_EMPTY
             ));
         }
 
@@ -656,7 +667,8 @@ public class BpmnValidationUtils
                         elementId, bpmnFile, processId,
                         "Conditional Intermediate Catch Event condition type is empty",
                         ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.ERROR
+                        ValidationSeverity.ERROR,
+                        FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_CONDITION_TYPE_IS_EMPTY
                 ));
             }
         } else if (!"expression".equalsIgnoreCase(conditionType)) {
@@ -664,7 +676,8 @@ public class BpmnValidationUtils
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event condition type is not 'expression': " + conditionType,
                     ValidationType.BPMN_FLOATING_ELEMENT,
-                    ValidationSeverity.INFO
+                    ValidationSeverity.INFO,
+                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_CONDITION_TYPE_IS_NOT_EXPRESSION
             ));
         }
 
@@ -675,7 +688,8 @@ public class BpmnValidationUtils
                         elementId, bpmnFile, processId,
                         "Conditional Intermediate Catch Event expression is empty",
                         ValidationType.BPMN_FLOATING_ELEMENT,
-                        ValidationSeverity.ERROR
+                        ValidationSeverity.ERROR,
+                        FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_EXPRESSION_IS_EMPTY
                 ));
             }
         }
