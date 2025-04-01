@@ -1,7 +1,6 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
-import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.build.MavenBuilder;
@@ -35,8 +34,6 @@ import java.util.concurrent.Callable;
  *       {@link dev.dsf.utils.validator.build.MavenBuilder}.</li>
  *   <li>Recursively validate BPMN files (under {@code src/main/resources/bpe}) with {@link BPMNValidator} and write
  *       them to an aggregated JSON.</li>
- *   <li>Recursively validate FHIR files (under {@code src/main/resources/fhir}) with {@link FhirResourceValidator},
- *       writing both a <strong>per-file JSON</strong> and an aggregated JSON report.</li>
  * </ol>
  *
  * <p><b>Usage Example:</b>
@@ -182,15 +179,20 @@ public class Main implements Callable<Integer>
     }
 
     /**
-     * Creates a "reports_" folder with the current date (in ddMMyyyy format).
-     * Example: "reports_28032025"
+     * Creates a "reports_" directory with the current date and time in the format {@code ddMMyyyy_HHmmss}.
+     * <p>
+     * Example folder name: {@code reports_01042025_154530}
+     * </p>
+     * This ensures each validation run is saved in a uniquely timestamped folder, avoiding overwrites.
      *
-     * @return a {@link File} pointing to the created directory
+     * @return a {@link File} pointing to the created directory; it may not be created successfully if an error occurs
      */
     private File createReportsDirectory()
     {
-        String dateStr = new SimpleDateFormat("ddMMyyyy").format(new Date());
-        File reportsDir = new File("reports_" + dateStr);
+        // For example: "reports_01042025_154530"
+        String dateTimeStr = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        File reportsDir = new File("reports_" + dateTimeStr);
+
         if (!reportsDir.exists())
         {
             boolean created = reportsDir.mkdirs();
@@ -201,6 +203,7 @@ public class Main implements Callable<Integer>
         }
         return reportsDir;
     }
+
 
     /**
      * Recursively finds all BPMN files under {@code src/main/resources/bpe}, validates them
@@ -265,7 +268,7 @@ public class Main implements Callable<Integer>
      */
     private void validateAllFhirResources(File projectDir, File reportsDir)
     {
-       //todo
+        //todo
     }
 
     /**

@@ -80,7 +80,6 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems) {
 
         try {
             mapper.writeValue(outputFile, validationItems);
-            System.out.println("JSON output written to: " + outputFile.getAbsolutePath());
         } catch (IOException e) {
             System.err.println("Failed to write JSON output: " + e.getMessage());
             e.printStackTrace();
