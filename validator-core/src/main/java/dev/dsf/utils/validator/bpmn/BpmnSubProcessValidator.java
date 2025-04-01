@@ -3,6 +3,7 @@ package dev.dsf.utils.validator.bpmn;
 import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.item.BpmnElementValidationItemSuccess;
 import dev.dsf.utils.validator.item.BpmnFloatingElementValidationItem;
 import org.camunda.bpm.model.bpmn.instance.MultiInstanceLoopCharacteristics;
 import org.camunda.bpm.model.bpmn.instance.SubProcess;
@@ -53,12 +54,12 @@ public class BpmnSubProcessValidator
      * <p>
      * This method checks if the subprocess is configured with multi-instance loop characteristics.
      * If the subprocess has multi-instance settings, it enforces that the {@code camunda:asyncBefore}
-     * attribute is set to {@code true}. If this condition is not met, a validation issue is added to the
-     * provided list of {@link BpmnElementValidationItem}.
+     * attribute is set to {@code true}. If this condition is not met, a validation issue is added;
+     * otherwise, a success item is recorded.
      * </p>
      *
      * @param subProcess the {@link SubProcess} element to validate
-     * @param issues a list of {@link BpmnElementValidationItem} where any detected validation issues will be added
+     * @param issues a list of {@link BpmnElementValidationItem} where any detected validation issues or success items will be added
      * @param bpmnFile the BPMN file under validation (used for logging and reference purposes)
      * @param processId the identifier of the BPMN process containing the subprocess
      */
@@ -82,6 +83,14 @@ public class BpmnSubProcessValidator
                         FloatingElementType.SUB_PROCESS_HAS_MULTI_INSTANCE_BUT_IS_NOT_ASYNC_BEFORE_TRUE
                 ));
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "SubProcess with multi-instance loop characteristics is correctly configured with asyncBefore=true"
+                ));
+            }
         }
     }
+
 }

@@ -10,6 +10,7 @@ import java.io.File;
  */
 public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends BpmnElementValidationItem
 {
+    private String message;
     /**
      * Constructs a new validation item for a Message Intermediate Throw Event that has a message.
      *
@@ -19,7 +20,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      */
     public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message Intermediate Throw Event has a message");
+        super(ValidationSeverity.INFO, elementId, bpmnFile, processId, "Message Intermediate Throw Event does not have a message reference, as expected.");
     }
 
     /**
@@ -28,12 +29,12 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated
      * @param processId   the process definition ID or key
-     * @param description the custom validation description
+     * @param messageName the messageName of the Event.
      */
-    public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId, String description)
-    {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+    public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId, String messageName){
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message Intermediate Throw Event has a message with name: " + messageName);
     }
+
 
     @Override
     public String getDescription()

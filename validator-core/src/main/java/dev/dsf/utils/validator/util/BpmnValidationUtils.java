@@ -283,14 +283,15 @@ public class BpmnValidationUtils
      * Validates the implementation class extracted from a BPMN element.
      * <p>
      * This method checks that the implementation class is non-empty, exists on the classpath,
-     * and implements the {@code JavaDelegate} interface. Appropriate validation issues are added if any of these checks fail.
+     * and implements the {@code JavaDelegate} interface. Appropriate validation issues are added
+     * if any of these checks fail. If all validations pass, a success item is recorded.
      * </p>
      *
      * @param implClass   the implementation class as a string
      * @param elementId   the identifier of the BPMN element being validated
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the element
-     * @param issues      the list of {@link BpmnElementValidationItem} to which any validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} to which any validation issues or success items will be added
      * @param projectRoot the project root directory used for class loading
      */
     public static void validateImplementationClass(
@@ -315,17 +316,28 @@ public class BpmnValidationUtils
             issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
                     elementId, bpmnFile, processId, implClass));
         }
+        else
+        {
+            // Success: the implementation class is non-empty, exists, and implements JavaDelegate.
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId,
+                    bpmnFile,
+                    processId,
+                    "Implementation class '" + implClass + "' exists and implements JavaDelegate."
+            ));
+        }
     }
+
 
     /**
      * Checks if the given message name is recognized in FHIR resources.
      * <p>
      * This method verifies that the message name exists in at least one ActivityDefinition and one StructureDefinition.
-     * If not, it adds corresponding validation issues.
+     * If the message name is found, a success item is recorded; otherwise, corresponding validation issues are added.
      * </p>
      *
      * @param messageName the message name to check
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
      * @param elementId   the identifier of the BPMN element being validated
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the element
@@ -339,7 +351,17 @@ public class BpmnValidationUtils
             String processId,
             File projectRoot)
     {
-        if (!FhirValidator.activityDefinitionExists(messageName, projectRoot))
+        // Check for a matching ActivityDefinition.
+        if (FhirValidator.activityDefinitionExists(messageName, projectRoot))
+        {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId,
+                    bpmnFile,
+                    processId,
+                    "ActivityDefinition found for messageName: '" + messageName + "'"
+            ));
+        }
+        else
         {
             issues.add(new FhirActivityDefinitionValidationItem(
                     ValidationSeverity.ERROR,
@@ -350,9 +372,21 @@ public class BpmnValidationUtils
                     "No ActivityDefinition found for messageName: " + messageName
             ));
         }
-        if (!FhirValidator.structureDefinitionExists(messageName, projectRoot))
+
+        // Check for a matching StructureDefinition.
+        if (FhirValidator.structureDefinitionExists(messageName, projectRoot))
         {
-            issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId,
+                    bpmnFile,
+                    processId,
+                    "StructureDefinition found for messageName: '" + messageName + "'"
+            ));
+        }
+        else
+        {
+            issues.add(new FhirStructureDefinitionValidationItem(
+                    ValidationSeverity.ERROR,
                     elementId,
                     bpmnFile,
                     processId,
@@ -362,17 +396,22 @@ public class BpmnValidationUtils
         }
     }
 
+
     /**
-     * Checks if a BPMN element has any {@link CamundaExecutionListener} with an implementation class
+     * Checks if the given BPMN element has any {@link CamundaExecutionListener} with an implementation class
      * that cannot be found on the classpath.
      * <p>
      * This method inspects the extension elements of the BPMN element for execution listeners and verifies
-     * that each specified class exists.
+     * that each specified class exists. For each listener:
+     * <ul>
+     *   <li>If the listener's implementation class is specified and cannot be found, an error item is added.</li>
+     *   <li>If the listener's implementation class is specified and is found, a success item is recorded.</li>
+     * </ul>
      * </p>
      *
      * @param element     the BPMN {@link BaseElement} to check
      * @param elementId   the identifier of the BPMN element being validated
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the element
      * @param projectRoot the project root directory used for class loading
@@ -394,31 +433,48 @@ public class BpmnValidationUtils
             for (CamundaExecutionListener listener : listeners)
             {
                 String implClass = listener.getCamundaClass();
-                if (!isEmpty(implClass) && !classExists(implClass, projectRoot))
+                if (!BpmnValidationUtils.isEmpty(implClass))
                 {
-                    issues.add(new BpmnFloatingElementValidationItem(
-                            elementId, bpmnFile, processId,
-                            "Execution listener class not found: " + implClass,
-                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                            ValidationSeverity.ERROR,
-                            FloatingElementType.EXECUTION_LISTENER_CLASS_NOT_FOUND
-                    ));
+                    if (!classExists(implClass, projectRoot))
+                    {
+                        issues.add(new BpmnFloatingElementValidationItem(
+                                elementId, bpmnFile, processId,
+                                "Execution listener class not found: " + implClass,
+                                ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
+                                ValidationSeverity.ERROR,
+                                FloatingElementType.EXECUTION_LISTENER_CLASS_NOT_FOUND
+                        ));
+                    }
+                    else
+                    {
+                        issues.add(new BpmnElementValidationItemSuccess(
+                                elementId,
+                                bpmnFile,
+                                processId,
+                                "Execution listener class found: " + implClass
+                        ));
+                    }
                 }
             }
         }
     }
+
 
     /**
      * Checks if a BPMN user task has any {@link CamundaTaskListener} with an implementation class
      * that cannot be found on the classpath.
      * <p>
      * The method inspects the extension elements of the {@link UserTask} for task listeners and verifies
-     * the existence of their specified implementation classes.
+     * the existence of their specified implementation classes. For each listener:
+     * <ul>
+     *   <li>If the listener's implementation class is specified and cannot be found, an error item is added.</li>
+     *   <li>If the listener's implementation class is specified and is found, a success item is recorded.</li>
+     * </ul>
      * </p>
      *
      * @param userTask    the {@link UserTask} to check
      * @param elementId   the identifier of the BPMN element being validated
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the task
      * @param projectRoot the project root directory used for class loading
@@ -440,30 +496,43 @@ public class BpmnValidationUtils
             for (CamundaTaskListener listener : listeners)
             {
                 String implClass = listener.getCamundaClass();
-                if (!isEmpty(implClass) && !classExists(implClass, projectRoot))
+                if (!BpmnValidationUtils.isEmpty(implClass))
                 {
-                    issues.add(new BpmnFloatingElementValidationItem(
-                            elementId, bpmnFile, processId,
-                            "Task listener class not found: " + implClass,
-                            ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                            ValidationSeverity.ERROR,
-                            FloatingElementType.TASK_LISTENER_CLASS_NOT_FOUND
-                    ));
+                    if (!BpmnValidationUtils.classExists(implClass, projectRoot))
+                    {
+                        issues.add(new BpmnFloatingElementValidationItem(
+                                elementId, bpmnFile, processId,
+                                "Task listener class not found: " + implClass,
+                                ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
+                                ValidationSeverity.ERROR,
+                                FloatingElementType.TASK_LISTENER_CLASS_NOT_FOUND
+                        ));
+                    }
+                    else
+                    {
+                        issues.add(new BpmnElementValidationItemSuccess(
+                                elementId, bpmnFile, processId,
+                                "Task listener class found: " + implClass
+                        ));
+                    }
                 }
             }
         }
     }
 
+
     /**
      * Validates the TimerEventDefinition for an Intermediate Catch Event.
      * <p>
      * This method checks the timer expressions (timeDate, timeCycle, timeDuration) in the TimerEventDefinition.
-     * It adds a validation issue if all timer expressions are empty, logs an informational issue if a fixed date/time
-     * is used, or warns if a cycle/duration value appears fixed (i.e. contains no placeholder).
+     * It adds a validation issue if all timer expressions are empty. Otherwise, it records a success item
+     * indicating that the timer type is provided. Then, it logs an informational issue if a fixed date/time is used,
+     * or warns if a cycle/duration value appears fixed (i.e. contains no placeholder), and records a success item
+     * if a valid placeholder is found.
      * </p>
      *
      * @param elementId the identifier of the BPMN element being validated
-     * @param issues    the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param issues    the list of {@link BpmnElementValidationItem} to which validation issues or success items will be added
      * @param bpmnFile  the BPMN file under validation
      * @param processId the identifier of the BPMN process containing the event
      * @param timerDef  the {@link TimerEventDefinition} to validate
@@ -495,6 +564,12 @@ public class BpmnValidationUtils
         }
         else
         {
+            // Overall success: timer type is provided.
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Timer type is provided."
+            ));
+
             if (!isTimeDateEmpty)
             {
                 issues.add(new BpmnFloatingElementValidationItem(
@@ -504,11 +579,15 @@ public class BpmnValidationUtils
                         ValidationSeverity.INFO,
                         FloatingElementType.TIMER_TYPE_IS_A_FIXED_DATE_TIME
                 ));
+                // Record a success specifically for timeDate.
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Fixed date/time (timeDate) provided: '" + timeDateExpr.getTextContent() + "'"
+                ));
             }
             else if (!isTimeCycleEmpty || !isTimeDurationEmpty)
             {
-                String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent()
-                        : timeDurationExpr.getTextContent();
+                String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent() : timeDurationExpr.getTextContent();
                 if (!containsPlaceholder(timerValue))
                 {
                     issues.add(new BpmnFloatingElementValidationItem(
@@ -519,23 +598,33 @@ public class BpmnValidationUtils
                             FloatingElementType.TIMER_VALUE_APPEARS_FIXED_NO_PLACEHOLDER_FOUND
                     ));
                 }
+                else
+                {
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId, bpmnFile, processId,
+                            "Timer value with cycle/duration contains a valid placeholder: '" + timerValue + "'"
+                    ));
+                }
             }
         }
     }
+
+
 
     /**
      * Validates a {@link BoundaryEvent} that contains an {@link ErrorEventDefinition}.
      * <p>
      * The validation is split based on whether an error reference is provided:
      * <ul>
-     *   <li>If an error reference is present, it checks that both the error name and error code are not empty; errors are raised if they are.</li>
-     *   <li>If the boundary event's name is empty, a warning is added.</li>
-     *   <li>If the {@code errorCodeVariable} attribute is missing, a warning is added.</li>
+     *   <li>If the boundary event's name is empty, a warning is added; otherwise, a success item is recorded.</li>
+     *   <li>If an error is provided, it checks that both the error name and error code are not empty:
+     *       if either is empty, an error item is added; if provided, a success item is recorded for each.</li>
+     *   <li>If the {@code errorCodeVariable} attribute is missing, a warning is added; otherwise, a success item is recorded.</li>
      * </ul>
      * </p>
      *
      * @param boundaryEvent the {@link BoundaryEvent} to validate
-     * @param issues        the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param issues        the list of {@link BpmnElementValidationItem} to which validation issues or success items will be added
      * @param bpmnFile      the BPMN file under validation
      * @param processId     the identifier of the BPMN process containing the event
      */
@@ -547,32 +636,58 @@ public class BpmnValidationUtils
     {
         String elementId = boundaryEvent.getId();
 
+        // 1. Check if the BoundaryEvent's name is empty.
         if (isEmpty(boundaryEvent.getName()))
         {
             issues.add(new BpmnErrorBoundaryEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId
             ));
         }
+        else
+        {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "BoundaryEvent has a non-empty name: '" + boundaryEvent.getName() + "'"
+            ));
+        }
 
-        ErrorEventDefinition errorDef =
-                (ErrorEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
+        // 2. Retrieve the ErrorEventDefinition.
+        ErrorEventDefinition errorDef = (ErrorEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
 
+        // If an error is provided, check its name and error code.
         if (errorDef.getError() != null)
         {
+            // 2a. Check the error name.
             if (isEmpty(errorDef.getError().getName()))
             {
                 issues.add(new BpmnErrorBoundaryEventErrorNameEmptyValidationItem(
                         elementId, bpmnFile, processId
                 ));
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Error name is provided: '" + errorDef.getError().getName() + "'"
+                ));
+            }
+            // 2b. Check the error code.
             if (isEmpty(errorDef.getError().getErrorCode()))
             {
                 issues.add(new BpmnErrorBoundaryEventErrorCodeEmptyValidationItem(
                         elementId, bpmnFile, processId
                 ));
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Error code is provided: '" + errorDef.getError().getErrorCode() + "'"
+                ));
+            }
         }
 
+        // 3. Check the errorCodeVariable attribute.
         String errorCodeVariable = errorDef.getAttributeValueNs(
                 "http://camunda.org/schema/1.0/bpmn",
                 "errorCodeVariable");
@@ -582,24 +697,38 @@ public class BpmnValidationUtils
                     elementId, bpmnFile, processId
             ));
         }
+        else
+        {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "errorCodeVariable is provided: '" + errorCodeVariable + "'"
+            ));
+        }
     }
+
 
     /**
      * Validates a {@link ConditionalEventDefinition} for an Intermediate Catch Event.
      * <p>
      * This method performs several checks:
      * <ul>
-     *   <li>Warns if the event name is empty.</li>
-     *   <li>Errors if the conditional event variable name is empty.</li>
-     *   <li>Errors if the {@code variableEvents} attribute is empty.</li>
-     *   <li>Errors if the conditional event condition type is empty (unless a condition expression is provided),
-     *       and logs an informational issue if the condition type is not "expression".</li>
-     *   <li>Errors if the condition expression is empty when the condition type is "expression".</li>
+     *   <li>Warns if the event name is empty; otherwise, records a success item.</li>
+     *   <li>Errors if the conditional event variable name is empty; otherwise, records a success item.</li>
+     *   <li>Errors if the {@code variableEvents} attribute is empty; otherwise, records a success item.</li>
+     *   <li>
+     *       If the condition type attribute is empty but a condition expression is provided, it assumes "expression" and records a success item.
+     *       If the condition type is provided but is not "expression", an informational issue is logged and a success item is recorded.
+     *       If the condition type is "expression", a success item is recorded.
+     *   </li>
+     *   <li>
+     *       If the condition type is "expression" and the condition expression is empty, an error is recorded;
+     *       otherwise, a success item is recorded.
+     *   </li>
      * </ul>
      * </p>
      *
      * @param catchEvent the Conditional Intermediate Catch Event to validate
-     * @param issues     the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param issues     the list of {@link BpmnElementValidationItem} to which validation issues or success items will be added
      * @param bpmnFile   the BPMN file associated with the event
      * @param processId  the BPMN process identifier containing the event
      */
@@ -611,7 +740,7 @@ public class BpmnValidationUtils
 
         String elementId = catchEvent.getId();
 
-        // Check event name - warn if empty
+        // 1. Check event name.
         String eventName = catchEvent.getName();
         if (isEmpty(eventName)) {
             issues.add(new BpmnFloatingElementValidationItem(
@@ -621,13 +750,18 @@ public class BpmnValidationUtils
                     ValidationSeverity.WARN,
                     FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY
             ));
+        } else {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Conditional Intermediate Catch Event name is provided: '" + eventName + "'"
+            ));
         }
 
-        // Get the conditional event definition (assuming the first event definition is of type ConditionalEventDefinition)
+        // 2. Get the ConditionalEventDefinition (assuming the first event definition is ConditionalEventDefinition).
         ConditionalEventDefinition condDef =
                 (ConditionalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
-        // Check conditional event variable name - error if empty
+        // 3. Check conditional event variable name.
         String variableName = condDef.getCamundaVariableName();
         if (isEmpty(variableName)) {
             issues.add(new BpmnFloatingElementValidationItem(
@@ -637,9 +771,14 @@ public class BpmnValidationUtils
                     ValidationSeverity.ERROR,
                     FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_NAME_IS_EMPTY
             ));
+        } else {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Conditional Intermediate Catch Event variable name is provided: '" + variableName + "'"
+            ));
         }
 
-        // Check variableEvents attribute - error if empty
+        // 4. Check variableEvents attribute.
         String variableEvents = condDef.getAttributeValueNs(
                 "http://camunda.org/schema/1.0/bpmn",
                 "variableEvents");
@@ -651,17 +790,25 @@ public class BpmnValidationUtils
                     ValidationSeverity.ERROR,
                     FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_EVENTS_IS_EMPTY
             ));
+        } else {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Conditional Intermediate Catch Event variableEvents is provided: '" + variableEvents + "'"
+            ));
         }
 
-        // Check conditionType attribute
+        // 5. Check conditionType attribute.
         String conditionType = condDef.getAttributeValueNs(
                 "http://camunda.org/schema/1.0/bpmn",
                 "conditionType");
 
-        // If conditionType is empty, but a condition expression is defined, assume "expression"
         if (isEmpty(conditionType)) {
             if (condDef.getCondition() != null && !isEmpty(condDef.getCondition().getRawTextContent())) {
                 conditionType = "expression";
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Condition type assumed to be 'expression' as condition expression is provided."
+                ));
             } else {
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
@@ -679,9 +826,18 @@ public class BpmnValidationUtils
                     ValidationSeverity.INFO,
                     FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_CONDITION_TYPE_IS_NOT_EXPRESSION
             ));
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Condition type is provided and is not 'expression': '" + conditionType + "'"
+            ));
+        } else {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Conditional Intermediate Catch Event condition type is 'expression'"
+            ));
         }
 
-        // Check condition expression only if condition type is 'expression'
+        // 6. Check condition expression (only if condition type is 'expression').
         if ("expression".equalsIgnoreCase(conditionType)) {
             if (condDef.getCondition() == null || isEmpty(condDef.getCondition().getRawTextContent())) {
                 issues.add(new BpmnFloatingElementValidationItem(
@@ -691,22 +847,28 @@ public class BpmnValidationUtils
                         ValidationSeverity.ERROR,
                         FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_EXPRESSION_IS_EMPTY
                 ));
+            } else {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Conditional Intermediate Catch Event expression is provided: '" + condDef.getCondition().getRawTextContent() + "'"
+                ));
             }
         }
     }
+
 
     /**
      * Checks the "profile" field value for validity.
      * <p>
      * This method verifies that the profile field is not empty, contains a version placeholder,
      * and corresponds to an existing FHIR StructureDefinition. If any check fails, an appropriate
-     * validation issue is added.
+     * validation issue is added. Additionally, if a check passes, a success item is recorded.
      * </p>
      *
      * @param elementId   the identifier of the BPMN element being validated
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the element
-     * @param issues      the list of {@link BpmnElementValidationItem} to which validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} to which validation issues or success items will be added
      * @param literalValue the literal value of the profile field from the BPMN element
      * @param projectRoot the project root directory containing FHIR resources
      */
@@ -724,37 +886,62 @@ public class BpmnValidationUtils
         }
         else
         {
+            // Record success that the profile field is provided.
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Profile field is provided with value: '" + literalValue + "'"
+            ));
+
             if (!containsPlaceholder(literalValue))
             {
                 issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId, literalValue));
             }
+            else
+            {
+                // Record success that the version placeholder is present.
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "Profile field contains a version placeholder: '" + literalValue + "'"
+                ));
+            }
             if (!FhirValidator.structureDefinitionExists(literalValue, projectRoot))
             {
-                issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.WARN,
+                issues.add(new FhirStructureDefinitionValidationItem(
+                        ValidationSeverity.WARN,
                         elementId,
                         bpmnFile,
                         processId,
                         literalValue,
-                        "StructureDefinition for the profile : [" + literalValue + "] not found "
+                        "StructureDefinition for the profile: [" + literalValue + "] not found."
+                ));
+            }
+            else
+            {
+                // Record success that the StructureDefinition exists.
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "StructureDefinition found for profile: '" + literalValue + "'"
                 ));
             }
         }
     }
+
 
     /**
      * Checks the "instantiatesCanonical" field value for validity.
      * <p>
      * This method ensures that the instantiatesCanonical field is not empty and contains a version placeholder.
      * If the field is empty, a validation issue is added. Similarly, if the version placeholder is missing,
-     * a corresponding validation issue is added.
+     * a corresponding validation issue is added. If both conditions are met (i.e. the field is non-empty and
+     * contains a valid placeholder), a success item is recorded.
      * </p>
      *
      * @param elementId   the identifier of the BPMN element being validated
      * @param literalValue the literal value of the instantiatesCanonical field
      * @param bpmnFile    the BPMN file under validation
      * @param processId   the identifier of the BPMN process containing the element
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues will be added
+     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
      * @param projectRoot the project root directory containing FHIR resources
      */
     public static void checkInstantiatesCanonicalField(
@@ -777,8 +964,19 @@ public class BpmnValidationUtils
                 issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId));
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "instantiatesCanonical field is valid with value: '" + literalValue + "'"
+                ));
+            }
         }
     }
+
+
 
     // BpmnValidationUtils.java (near the bottom)
     /**

@@ -53,8 +53,10 @@ public class BpmnGatewayAndFlowValidator
      * Validates an {@link ExclusiveGateway}.
      * <p>
      * The validation checks if the gateway's name is empty when there are multiple outgoing flows.
-     * If the gateway has multiple outgoing sequence flows and its name is empty, a warning is added to
-     * the list of validation issues.
+     * <ul>
+     *   <li>If the gateway has multiple outgoing sequence flows and its name is empty, a warning is added.</li>
+     *   <li>If the gateway has multiple outgoing flows and a non-empty name, a success item is recorded.</li>
+     * </ul>
      * </p>
      *
      * @param gateway   the {@link ExclusiveGateway} to be validated
@@ -70,16 +72,22 @@ public class BpmnGatewayAndFlowValidator
     {
         String elementId = gateway.getId();
 
-        if (BpmnValidationUtils.isEmpty(gateway.getName()))
-        {
-            if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1)
-            {
+        // Check only if there are multiple outgoing flows.
+        if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1) {
+            if (BpmnValidationUtils.isEmpty(gateway.getName())) {
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "Exclusive Gateway has multiple outgoing flows but name is empty.",
                         ValidationType.BPMN_FLOATING_ELEMENT,
                         ValidationSeverity.WARN,
                         FloatingElementType.EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY
+                ));
+            } else {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Exclusive Gateway has multiple outgoing flows and a non-empty name: '" + gateway.getName() + "'"
                 ));
             }
         }
@@ -217,9 +225,30 @@ public class BpmnGatewayAndFlowValidator
                         }
                     }
                 }
+
+                // 3) If both validations pass, record a success
+                if (nameValid && conditionValid)
+                {
+                    String successMsg = "Sequence flow from a source with multiple outgoing flows is valid: name is not empty";
+                    if (flowNode instanceof ExclusiveGateway)
+                    {
+                        successMsg += " and condition expression is provided.";
+                    }
+                    else
+                    {
+                        successMsg += ".";
+                    }
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            successMsg
+                    ));
+                }
             }
         }
     }
+
 
     /**
      * Validates an {@link EventBasedGateway} by checking for extension elements (execution listeners)

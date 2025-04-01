@@ -19,7 +19,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
      */
     public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Start event is not part of a subprocess");
+        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Start event is not part of a subprocess and has no name.");
     }
 
     /**
