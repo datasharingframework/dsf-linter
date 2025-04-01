@@ -635,7 +635,7 @@ public class BpmnValidationUtils
                     "Conditional Intermediate Catch Event variable name is empty",
                     ValidationType.BPMN_FLOATING_ELEMENT,
                     ValidationSeverity.ERROR,
-                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_EVENTS_IS_EMPTY
+                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_NAME_IS_EMPTY
             ));
         }
 
