@@ -18,7 +18,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 
 /**
- * The {@code MainCombined} class combines local and remote validation flows into a single entry point.
+ * The {@code Main} class combines local and remote validation flows into a single entry point.
  * It can:
  * <ul>
  *   <li>Use a local path to validate BPMN and FHIR files directly.</li>
