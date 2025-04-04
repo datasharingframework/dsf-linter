@@ -94,70 +94,22 @@ public class BpmnGatewayAndFlowValidator
     }
 
     /**
-     * Validates a {@link SequenceFlow} based on its source element and name/condition constraints.
+     * Validates a {@link SequenceFlow} based on its source element's outgoing flows.
      * <p>
-     * This validation specifically checks whether the source {@link FlowNode} has multiple outgoing
-     * sequence flows. If so, several conditions apply:
-     * <ul>
-     *   <li><strong>Sequence Flow Name Check:</strong>
-     *       <ul>
-     *         <li>If the name is empty and the source node is determined to be floating (see {@link #isFloatingNode(FlowNode)}),
-     *             a {@link BpmnFloatingElementValidationItem} is added (warning level).</li>
-     *         <li>If the name is empty but the source node is not floating, a
-     *             {@link BpmnSequenceFlowOriginatesFromSourceWithMultipleOutgoingAndNameIsEmpty} item is added (warning level).</li>
-     *       </ul>
-     *   </li>
-     *   <li><strong>Exclusive Gateway Condition Check:</strong>
-     *       <ul>
-     *         <li>If the source is an {@link ExclusiveGateway}, and this sequence flow is not the default flow,
-     *             then the condition expression must be specified. If it is missing, a
-     *             {@link BpmnFloatingElementValidationItem} is added (error level).</li>
-     *       </ul>
-     *   </li>
-     *   <li><strong>Success Case:</strong>
-     *       <ul>
-     *         <li>If both the name check and (if applicable) the condition expression check pass, a success
-     *             validation item is recorded.</li>
-     *       </ul>
-     *   </li>
-     * </ul>
+     * The validation applies only when the source element has more than one outgoing sequence flow.
+     * The checks include:
      * </p>
+     * <ul>
+     *   <li>A warning that the sequence flow originates from a source with multiple outgoing flows.</li>
+     *   <li>A warning if the sequence flow name is empty.</li>
+     *   <li>An error if the condition expression is missing and the sequence flow is not the default flow
+     *       (for {@link ExclusiveGateway} sources).</li>
+     * </ul>
      *
      * @param flow      the {@link SequenceFlow} to be validated
-     * @param issues    a list of {@link BpmnElementValidationItem} where any discovered validation issues (warnings, errors, or successes) are added
-     * @param bpmnFile  the BPMN file being validated
-     * @param processId the process definition ID or key associated with this flow
-     *
-     * <h2>Example Usage</h2>
-     * <pre>{@code
-     * List<BpmnElementValidationItem> issues = new ArrayList<>();
-     * SequenceFlow flow = ...;  // retrieve or create a SequenceFlow
-     * File bpmnFile = ...;      // reference to the BPMN file
-     * String processId = "myProcess";
-     *
-     * validateSequenceFlow(flow, issues, bpmnFile, processId);
-     *
-     * // 'issues' will be populated with any warnings, errors, or success items found.
-     * }</pre>
-     *
-     * <h3>References and Further Reading</h3>
-     * <ul>
-     *   <li>
-     *     <a href="https://www.omg.org/spec/BPMN/2.0/PDF">
-     *       BPMN 2.0 Specification (Object Management Group)
-     *     </a>
-     *   </li>
-     *   <li>
-     *     <a href="https://docs.camunda.org/manual/latest/">
-     *       Camunda BPM Documentation
-     *     </a>
-     *   </li>
-     *   <li>
-     *     <a href="https://flowable.com/open-source/docs/">
-     *       Flowable Documentation
-     *     </a>
-     *   </li>
-     * </ul>
+     * @param issues    the list of {@link BpmnElementValidationItem} to which any validation issues will be added
+     * @param bpmnFile  the BPMN file under validation
+     * @param processId the identifier of the BPMN process containing the flow
      */
     public void validateSequenceFlow(
             SequenceFlow flow,
@@ -166,57 +118,30 @@ public class BpmnGatewayAndFlowValidator
             String processId)
     {
         String elementId = flow.getId();
-
         if (flow.getSource() instanceof FlowNode flowNode)
         {
-            // Only apply these checks if the source node has more than one outgoing flow
             if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1)
             {
-                // 1) Check if the sequence flow name is valid (non-empty)
-                boolean nameValid = !BpmnValidationUtils.isEmpty(flow.getName());
-                if (!nameValid)
+                if (BpmnValidationUtils.isEmpty(flow.getName()))
                 {
-                    boolean sourceIsFloating = isFloatingNode(flowNode);
-
-                    if (sourceIsFloating)
-                    {
-                        // If the node is floating, we add a BpmnFloatingElementValidationItem
-                        issues.add(new BpmnFloatingElementValidationItem(
-                                elementId,
-                                bpmnFile,
-                                processId,
-                                "Sequence flow originates from a FLOATING source with multiple outgoing flows and name is empty.",
-                                ValidationType.BPMN_FLOATING_ELEMENT,
-                                ValidationSeverity.WARN,
-                                FloatingElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
-                        ));
-                    }
-                    else
-                    {
-                        // If the node is NOT floating, we add our specialized validation item
-                        issues.add(new BpmnSequenceFlowOriginatesFromSourceWithMultipleOutgoingAndNameIsEmpty(
-                                elementId,
-                                bpmnFile,
-                                processId
-                        ));
-                    }
+                    issues.add(new BpmnFloatingElementValidationItem(
+                            elementId, bpmnFile, processId,
+                            "Sequence flow originates from a source with multiple outgoing flows and name is empty.",
+                            ValidationType.BPMN_FLOATING_ELEMENT,
+                            ValidationSeverity.WARN,
+                            FloatingElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
+                    ));
                 }
 
-                // 2) If the source is an ExclusiveGateway (non-default flow),
-                //    validate condition expression
-                boolean conditionValid = true;
-                if (flowNode instanceof ExclusiveGateway gateway)
+                if (flow.getConditionExpression() == null)
                 {
-                    // Make sure the flow is not the default, and if so, check the condition expression
-                    if (!flow.equals(gateway.getDefault()))
+                    // For ExclusiveGateway sources, only non-default flows must have a condition
+                    if (flowNode instanceof ExclusiveGateway gateway)
                     {
-                        if (flow.getConditionExpression() == null)
+                        if (!flow.equals(gateway.getDefault()))
                         {
-                            conditionValid = false;
                             issues.add(new BpmnFloatingElementValidationItem(
-                                    elementId,
-                                    bpmnFile,
-                                    processId,
+                                    elementId, bpmnFile, processId,
                                     "Non-default sequence flow from an ExclusiveGateway is missing a condition expression.",
                                     ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS,
                                     ValidationSeverity.ERROR,
@@ -271,74 +196,4 @@ public class BpmnGatewayAndFlowValidator
     {
         BpmnValidationUtils.checkExecutionListenerClasses(gateway, gateway.getId(), issues, bpmnFile, processId, projectRoot);
     }
-
-    /**
-     * Determines whether a BPMN element of type {@code FlowNode} should be considered “floating,” meaning it is isolated.
-     * <p>
-     * In this implementation, a flow node is deemed “floating” if:
-     * <ul>
-     *   <li>The {@code node} reference itself is not {@code null},</li>
-     *   <li>No incoming flows are defined ({@code getIncoming()} returns {@code null} or an empty list), and</li>
-     *   <li>No outgoing flows are defined ({@code getOutgoing()} returns {@code null} or an empty list).</li>
-     * </ul>
-     * </p>
-     *
-     * @param node The {@code FlowNode} object to check (can be {@code null}).
-     * @return {@code true} if the node is considered “floating,” otherwise {@code false}.
-     *
-     * <h2>Example Usage</h2>
-     * <pre>{@code
-     * FlowNode node = ...;
-     * boolean isNodeFloating = isFloatingNode(node);
-     * if (isNodeFloating) {
-     *     // The node is isolated in the BPMN diagram
-     * } else {
-     *     // The node has at least one incoming or outgoing flow
-     * }
-     * }</pre>
-     *
-     * <h3>Implementation Details</h3>
-     * <p>
-     * The check is performed through these steps:
-     * <ul>
-     *   <li>A {@code null} check on the {@code node} to avoid {@link NullPointerException}.</li>
-     *   <li>Examining {@code node.getIncoming()} and {@code node.getOutgoing()} for {@code null} or empty lists.</li>
-     *   <li>Returning {@code true} only if both the incoming and outgoing lists are either {@code null} or empty.</li>
-     * </ul>
-     * </p>
-     *
-     * <h3>See Also</h3>
-     * <ul>
-     *   <li>{@link org.camunda.bpm.model.bpmn.instance.FlowNode}</li>
-     *   <li>{@link org.camunda.bpm.model.bpmn.instance.SequenceFlow}</li>
-     * </ul>
-     *
-     * <h3>Further Reading and Sources</h3>
-     * <ul>
-     *   <li>
-     *     <a href="https://www.omg.org/spec/BPMN/2.0/PDF">
-     *       BPMN 2.0 Specification (Object Management Group)
-     *     </a>
-     *   </li>
-     *   <li>
-     *     <a href="https://docs.camunda.org/manual/latest/">
-     *       Camunda BPM Documentation
-     *     </a>
-     *   </li>
-     *   <li>
-     *     <a href="https://flowable.com/open-source/docs/">
-     *       Flowable Documentation
-     *     </a>
-     *   </li>
-     * </ul>
-     */
-    private boolean isFloatingNode(FlowNode node) {
-        if (node == null) {
-            return false;
-        }
-        boolean noIncoming = (node.getIncoming() == null || node.getIncoming().isEmpty());
-        boolean noOutgoing = (node.getOutgoing() == null || node.getOutgoing().isEmpty());
-        return noIncoming && noOutgoing;
-    }
-
 }
