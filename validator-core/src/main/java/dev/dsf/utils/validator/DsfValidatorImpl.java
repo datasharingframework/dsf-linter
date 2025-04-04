@@ -1,10 +1,8 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
-import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
-import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -39,7 +37,6 @@ import java.util.List;
  *   <li>For FHIR files:
  *     <ol>
  *       <li>Checks if the file exists and is readable.</li>
- *       <li>Delegates to the {@link FhirResourceValidator} for parsing and validation logic.</li>
  *     </ol>
  *   </li>
  *   <li>Aggregates all issues into a single {@link ValidationOutput} object.</li>
@@ -82,7 +79,6 @@ public class DsfValidatorImpl implements DsfValidator
      * <p><strong>FHIR logic flow:</strong>
      * <ol>
      *   <li>Check if the file exists and is readable.</li>
-     *   <li>Delegate parsing and validation to {@link FhirResourceValidator}.</li>
      * </ol>
      *
      * @param path the {@link Path} to either a BPMN file or a FHIR resource file
@@ -164,13 +160,7 @@ public class DsfValidatorImpl implements DsfValidator
         return buildOutput(allIssues);
     }
 
-    /**
-     * Validates a FHIR resource by checking file existence, readability,
-     * and delegating the validation to {@link FhirResourceValidator}.
-     *
-     * @param path a {@link Path} pointing to a FHIR resource file
-     * @return a {@link ValidationOutput} containing FHIR validation issues
-     */
+
     private ValidationOutput validateFhir(Path path)
     {
         //todo
