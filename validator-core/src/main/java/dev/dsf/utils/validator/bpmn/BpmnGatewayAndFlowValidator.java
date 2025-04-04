@@ -150,26 +150,6 @@ public class BpmnGatewayAndFlowValidator
                         }
                     }
                 }
-
-                // 3) If both validations pass, record a success
-                if (nameValid && conditionValid)
-                {
-                    String successMsg = "Sequence flow from a source with multiple outgoing flows is valid: name is not empty";
-                    if (flowNode instanceof ExclusiveGateway)
-                    {
-                        successMsg += " and condition expression is provided.";
-                    }
-                    else
-                    {
-                        successMsg += ".";
-                    }
-                    issues.add(new BpmnElementValidationItemSuccess(
-                            elementId,
-                            bpmnFile,
-                            processId,
-                            successMsg
-                    ));
-                }
             }
         }
     }
