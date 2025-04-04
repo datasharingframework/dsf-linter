@@ -1,0 +1,10 @@
+stages:
+  - build
+
+compile-job:
+  stage: build
+  image: maven:3.9.4-eclipse-temurin-17
+  script:
+    - mvn clean compile
+  only:
+    - branches
