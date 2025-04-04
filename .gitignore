@@ -33,3 +33,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### ignore the test class ###
+src/test/java/dev/dsf/utils/validator/TestDsfValidatorImpl.java
