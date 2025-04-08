@@ -1,6 +1,7 @@
 package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.FloatingElementType;
+import dev.dsf.utils.validator.FlowElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
@@ -96,18 +97,22 @@ public class BpmnGatewayAndFlowValidator
     /**
      * Validates a {@link SequenceFlow} based on its source element's outgoing flows.
      * <p>
-     * The validation applies only when the source element has more than one outgoing sequence flow.
-     * The checks include:
-     * </p>
+     * For a source with multiple outgoing flows, the method performs individual checks:
      * <ul>
-     *   <li>A warning that the sequence flow originates from a source with multiple outgoing flows.</li>
-     *   <li>A warning if the sequence flow name is empty.</li>
-     *   <li>An error if the condition expression is missing and the sequence flow is not the default flow
-     *       (for {@link ExclusiveGateway} sources).</li>
+     *   <li>If the sequence flow's name is empty, a success item is logged with a corresponding message.</li>
+     *   <li>If the sequence flow's name is non-empty, a success item is logged indicating a valid name.</li>
+     *   <li>For an {@link ExclusiveGateway} source, if the sequence flow is not the default flow, then:
+     *     <ul>
+     *       <li>If the condition expression is missing, a success item is logged with the message
+     *           "Non-default sequence flow from an ExclusiveGateway is missing a condition expression."</li>
+     *       <li>If the condition expression is present, a success item is logged indicating a valid condition expression.</li>
+     *     </ul>
+     *   </li>
      * </ul>
+     * </p>
      *
      * @param flow      the {@link SequenceFlow} to be validated
-     * @param issues    the list of {@link BpmnElementValidationItem} to which any validation issues will be added
+     * @param issues    the list of {@link BpmnElementValidationItem} where validation results will be added
      * @param bpmnFile  the BPMN file under validation
      * @param processId the identifier of the BPMN process containing the flow
      */
@@ -122,30 +127,53 @@ public class BpmnGatewayAndFlowValidator
         {
             if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1)
             {
+                // Check the sequence flow name.
                 if (BpmnValidationUtils.isEmpty(flow.getName()))
                 {
-                    issues.add(new BpmnFloatingElementValidationItem(
-                            elementId, bpmnFile, processId,
+                    issues.add(new BpmnFlowElementValidationItem(
+                            elementId,
+                            bpmnFile,
+                            processId,
                             "Sequence flow originates from a source with multiple outgoing flows and name is empty.",
-                            ValidationType.BPMN_FLOATING_ELEMENT,
+                            ValidationType.BPMN_FLOW_ELEMENT,
                             ValidationSeverity.WARN,
-                            FloatingElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
+                            FlowElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
+                    ));
+                }
+                else
+                {
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "Sequence flow originates from a source with multiple outgoing flows and has a valid name."
                     ));
                 }
 
-                if (flow.getConditionExpression() == null)
+                // Check the condition expression for flows from an ExclusiveGateway (if the flow is not the default).
+                if (flowNode instanceof ExclusiveGateway gateway)
                 {
-                    // For ExclusiveGateway sources, only non-default flows must have a condition
-                    if (flowNode instanceof ExclusiveGateway gateway)
+                    if (!flow.equals(gateway.getDefault()))
                     {
-                        if (!flow.equals(gateway.getDefault()))
+                        if (flow.getConditionExpression() == null)
                         {
-                            issues.add(new BpmnFloatingElementValidationItem(
-                                    elementId, bpmnFile, processId,
+                            issues.add(new BpmnFlowElementValidationItem(
+                                    elementId,
+                                    bpmnFile,
+                                    processId,
                                     "Non-default sequence flow from an ExclusiveGateway is missing a condition expression.",
-                                    ValidationType.BPMN_SEQUENCE_FLOW_AMBIGUOUS,
-                                    ValidationSeverity.ERROR,
-                                    FloatingElementType.NON_DEFAULT_SEQUENCE_FLOW_FROM_AN_EXCLUSIVE_GATEWAY_IS_MISSING_A_CONDITION_EXPRESSION
+                                    ValidationType.BPMN_FLOW_ELEMENT,
+                                    ValidationSeverity.WARN,
+                                    FlowElementType.NON_DEFAULT_SEQUENCE_FLOW_FROM_AN_EXCLUSIVE_GATEWAY_IS_MISSING_A_CONDITION_EXPRESSION
+                            ));
+                        }
+                        else
+                        {
+                            issues.add(new BpmnElementValidationItemSuccess(
+                                    elementId,
+                                    bpmnFile,
+                                    processId,
+                                    "Non-default sequence flow from an ExclusiveGateway has a valid condition expression."
                             ));
                         }
                     }
