@@ -15,6 +15,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.FileInputStream;
+import java.lang.Error;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Collection;
@@ -136,13 +137,36 @@ public class BpmnValidationUtils
         }
         catch (ClassNotFoundException e)
         {
-            // fallback
+            // Fallback to custom loader
         }
-        catch (Throwable t)
+        catch (NoClassDefFoundError err)
         {
-            System.err.println("DEBUG: Throwable while trying context CL: " + t.getMessage());
+            System.err.println("DEBUG: NoClassDefFoundError while trying context CL: " + err.getMessage());
+        }
+        catch (ExceptionInInitializerError err)
+        {
+            System.err.println("DEBUG: ExceptionInInitializerError while trying context CL: " + err.getMessage());
+        }
+        catch (UnsatisfiedLinkError err)
+        {
+            System.err.println("DEBUG: UnsatisfiedLinkError while trying context CL: " + err.getMessage());
+        }
+        catch (ClassFormatError err)
+        {
+            System.err.println("DEBUG: ClassFormatError while trying context CL: " + err.getMessage());
+        }
+        catch (Error err)
+        {
+            // Catching Error is generally discouraged, but logged here for class-loading edge cases
+            System.err.println("DEBUG: Serious error while trying context CL: " + err.getMessage());
+        }
+        catch (Exception e)
+        {
+            // If some other runtime exception occurs
+            System.err.println("DEBUG: Exception while trying context CL: " + e.getMessage());
         }
 
+        // Second, try a custom class loader if projectRoot is provided
         if (projectRoot != null)
         {
             try
@@ -151,13 +175,39 @@ public class BpmnValidationUtils
                 urlCl.loadClass(className);
                 return true;
             }
-            catch (Throwable t)
+            catch (ClassNotFoundException e)
             {
-                System.err.println("DEBUG: Throwable while custom loading " + className + ": " + t.getMessage());
+                // No fallback beyond this
+            }
+            catch (NoClassDefFoundError err)
+            {
+                System.err.println("DEBUG: NoClassDefFoundError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (ExceptionInInitializerError err)
+            {
+                System.err.println("DEBUG: ExceptionInInitializerError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (UnsatisfiedLinkError err)
+            {
+                System.err.println("DEBUG: UnsatisfiedLinkError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (ClassFormatError err)
+            {
+                System.err.println("DEBUG: ClassFormatError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (Error err)
+            {
+                // Again, logged but not rethrown, to maintain boolean return
+                System.err.println("DEBUG: Serious error while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (Exception e)
+            {
+                System.err.println("DEBUG: Exception while custom loading " + className + ": " + e.getMessage());
             }
         }
         return false;
     }
+
 
     /**
      * Creates a {@link URLClassLoader} that includes the project's class directories and dependency JARs.
