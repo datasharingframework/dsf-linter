@@ -1,6 +1,7 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
+import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
@@ -9,41 +10,28 @@ import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.*;
 
 /**
  * <p>
  * An implementation of the DSF Validator interface capable of validating either
- * <strong>BPMN</strong> or <strong>FHIR</strong> files based on file extension or content.
+ * <strong>BPMN</strong> or <strong>FHIR</strong> files based on file extension
+ * or content.
  * </p>
  *
  * <p>
- * This class accomplishes the following:
+ * This class handles:
  * <ul>
- *   <li>Determines if the provided file is a BPMN or FHIR resource (e.g., by checking file extension).</li>
- *   <li>For BPMN files:
- *     <ol>
- *       <li>Checks if the file exists and is readable.</li>
- *       <li>Parses the file into a {@link BpmnModelInstance}.</li>
- *       <li>Extracts the first {@link Process} ID, if present.</li>
- *       <li>Finds the project root directory by locating a {@code pom.xml} file.</li>
- *       <li>Validates the BPMN model via a {@link BpmnModelValidator} instantiated with the project root.</li>
- *     </ol>
- *   </li>
- *   <li>For FHIR files:
- *     <ol>
- *       <li>Checks if the file exists and is readable.</li>
- *     </ol>
- *   </li>
- *   <li>Aggregates all issues into a single {@link ValidationOutput} object.</li>
+ *   <li>Detection of BPMN vs FHIR based on file extension.</li>
+ *   <li>Validation logic for both file types (BPMN and FHIR).</li>
+ *   <li>Recursive discovery of BPMN and FHIR files in a project structure.</li>
+ *   <li>Writing validation reports (per-file and aggregated) to JSON.</li>
  * </ul>
  * </p>
  *
- * <h2>References</h2>
+ * <h3>References</h3>
  * <ul>
  *   <li>BPMN 2.0: <a href="https://www.omg.org/spec/BPMN/2.0">https://www.omg.org/spec/BPMN/2.0</a></li>
  *   <li>HL7 FHIR: <a href="https://hl7.org/fhir">https://hl7.org/fhir</a></li>
@@ -54,32 +42,14 @@ public class DsfValidatorImpl implements DsfValidator
 
     /**
      * Constructs a new {@code DsfValidatorImpl} with the default FHIR validator.
-     * Note that the BPMN validator is instantiated per file validation with the
-     * appropriate project root.
+     * The BPMN validator is instantiated per file validation with the
+     * appropriate project root as needed.
      */
-    public DsfValidatorImpl()
-    {
-
-    }
+    public DsfValidatorImpl() {}
 
     /**
      * Validates the given file, delegating to either BPMN-specific or FHIR-specific logic
      * depending on the file's extension.
-     *
-     * <p><strong>BPMN logic flow:</strong>
-     * <ol>
-     *   <li>Check if the file exists.</li>
-     *   <li>Check if the file is readable via {@link #isFileReadable(Path)}.</li>
-     *   <li>Attempt to parse the file as a BPMN model.</li>
-     *   <li>Extract the first BPMN {@link Process} ID.</li>
-     *   <li>Determine the project root by finding a {@code pom.xml} file.</li>
-     *   <li>Instantiate a {@link BpmnModelValidator} with the project root and validate the BPMN model.</li>
-     * </ol>
-     *
-     * <p><strong>FHIR logic flow:</strong>
-     * <ol>
-     *   <li>Check if the file exists and is readable.</li>
-     * </ol>
      *
      * @param path the {@link Path} to either a BPMN file or a FHIR resource file
      * @return a {@link ValidationOutput} containing all validation issues encountered
@@ -87,7 +57,6 @@ public class DsfValidatorImpl implements DsfValidator
     @Override
     public ValidationOutput validate(Path path)
     {
-        // Determine file type by extension (adapt logic as needed)
         String fileName = path.getFileName().toString().toLowerCase();
         if (fileName.endsWith(".bpmn"))
         {
@@ -100,14 +69,87 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
+     * <p>
+     * Recursively finds all BPMN files under {@code src/main/resources/bpe}, validates them
+     * one-by-one, writes a per-file JSON file (using the {@code processId}) and produces
+     * an aggregated JSON file named {@code bpmn_issues_aggregated.json} in the given
+     * {@code reportsDir}.
+     * </p>
+     *
+     * <p>
+     * Example usage within a calling class:
+     * <pre>
+     *   DsfValidatorImpl validator = new DsfValidatorImpl();
+     *   validator.validateAllBpmnFiles(projectDirectory, reportOutputDirectory);
+     * </pre>
+     * </p>
+     *
+     * @param projectDir the root project directory (will search for {@code src/main/resources/bpe} inside it)
+     * @param reportsDir the directory where per-file and aggregated JSON reports should be written
+     */
+    public void validateAllBpmnFiles(File projectDir, File reportsDir)
+    {
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath());
+        if (bpmnRoot == null)
+        {
+            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
+            return;
+        }
+
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath());
+        if (bpmnFiles.isEmpty())
+        {
+            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
+            return;
+        }
+
+        // Aggregator for all BPMN validation items
+        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
+
+        // Use the BPMNValidator for each file, or you could also delegate to validate(Path)
+        BPMNValidator bpmnValidator = new BPMNValidator();
+
+        for (File file : bpmnFiles)
+        {
+            System.out.println("\nValidating BPMN file: " + file.getName());
+            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
+            output.printResults();
+
+            // Add to aggregator
+            allBpmnItems.addAll(output.validationItems());
+
+            // Write per-file JSON named after the processId
+            String processId = output.getProcessId();
+            File jsonFile = new File(reportsDir, "bpmn_issues_" + processId + ".json");
+            output.writeResultsAsJson(jsonFile);
+
+            System.out.println("Validation completed for: " + file.getName()
+                    + " => BPMN JSON: " + jsonFile.getAbsolutePath());
+        }
+
+        // Write aggregated BPMN JSON
+        ValidationOutput aggregatedBpmn = new ValidationOutput(allBpmnItems);
+        File aggregatedJson = new File(reportsDir, "bpmn_issues_aggregated.json");
+        aggregatedBpmn.writeResultsAsJson(aggregatedJson);
+
+        System.out.println("\nAll BPMN validation items aggregated in: " + aggregatedJson.getAbsolutePath());
+    }
+
+
+    public void validateAllFhirResources(File projectDir, File reportsDir)
+    {
+        //todo
+    }
+
+    /**
      * Validates a BPMN file by:
      * <ul>
      *   <li>Checking file existence.</li>
      *   <li>Ensuring readability via {@link #isFileReadable(Path)}.</li>
-     *   <li>Attempting to parse the BPMN model.</li>
+     *   <li>Parsing the BPMN model.</li>
      *   <li>Finding the {@code processId} of the first {@link Process}.</li>
-     *   <li>Searching upward for a {@code pom.xml} file to determine project root.</li>
-     *   <li>Delegating to the {@link BpmnModelValidator} for BPMN-specific checks.</li>
+     *   <li>Locating a {@code pom.xml} to determine the project root.</li>
+     *   <li>Using {@link BpmnModelValidator} for BPMN-specific checks.</li>
      * </ul>
      *
      * @param path a {@link Path} pointing to a BPMN file
@@ -117,7 +159,7 @@ public class DsfValidatorImpl implements DsfValidator
     {
         List<AbstractValidationItem> allIssues = new ArrayList<>();
 
-        // Check if the file exists
+        // Check existence
         if (!Files.exists(path))
         {
             System.err.println("Error: The file does not exist: " + path);
@@ -125,7 +167,7 @@ public class DsfValidatorImpl implements DsfValidator
             return buildOutput(allIssues);
         }
 
-        // Check if the file is readable
+        // Check readability
         if (!isFileReadable(path))
         {
             System.err.println("Error: The file is not readable: " + path);
@@ -133,7 +175,7 @@ public class DsfValidatorImpl implements DsfValidator
             return buildOutput(allIssues);
         }
 
-        // Attempt to parse the BPMN model
+        // Parse BPMN model
         BpmnModelInstance model;
         try
         {
@@ -147,16 +189,17 @@ public class DsfValidatorImpl implements DsfValidator
             return buildOutput(allIssues);
         }
 
-        // Extract the first BPMN process ID
+        // Extract first process ID
         String processId = extractProcessId(model);
 
-        // Determine the project root by searching for a pom.xml file
+        // Determine project root (search for pom.xml)
         File projectRoot = getProjectRoot(path);
 
-        // Instantiate a new BPMN validator with the determined project root
+        // Validate with BpmnModelValidator
         BpmnModelValidator validator = new BpmnModelValidator(projectRoot);
         List<BpmnElementValidationItem> bpmnIssues = validator.validateModel(model, path.toFile(), processId);
         allIssues.addAll(bpmnIssues);
+
         return buildOutput(allIssues);
     }
 
@@ -169,11 +212,10 @@ public class DsfValidatorImpl implements DsfValidator
 
     /**
      * Checks if the given file is readable using {@link Files#isReadable(Path)}.
-     * <p>
-     * Can be overridden or mocked in tests to simulate various conditions.
+     * Override or mock in tests for specific scenarios.
      *
-     * @param path the path to the file
-     * @return {@code true} if the file is readable, {@code false} otherwise
+     * @param path the path to check
+     * @return true if readable, false otherwise
      */
     protected boolean isFileReadable(Path path)
     {
@@ -184,7 +226,7 @@ public class DsfValidatorImpl implements DsfValidator
      * Constructs a {@link ValidationOutput} from the provided list of validation items.
      *
      * @param items a list of validation items
-     * @return a new {@link ValidationOutput} containing all items
+     * @return a {@link ValidationOutput} containing all items
      */
     private ValidationOutput buildOutput(List<AbstractValidationItem> items)
     {
@@ -192,11 +234,11 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
-     * Finds the project root directory by traversing upward from the BPMN file path until a {@code pom.xml}
-     * file is located. If no {@code pom.xml} is found, the BPMN file's parent directory is returned.
+     * Finds the project root by searching upwards for a {@code pom.xml}.
+     * If none is found, returns the BPMN file's parent directory.
      *
-     * @param bpmnFilePath the path to the BPMN file
-     * @return the directory containing {@code pom.xml} or the BPMN file's parent directory if not found
+     * @param bpmnFilePath path to the BPMN file
+     * @return directory containing {@code pom.xml} or the file's parent if none found
      */
     private File getProjectRoot(Path bpmnFilePath)
     {
@@ -210,17 +252,16 @@ public class DsfValidatorImpl implements DsfValidator
             }
             current = current.getParent();
         }
-        // Fallback to the BPMN file's parent directory
+        // Fallback
         assert bpmnFilePath.getParent() != null;
         return bpmnFilePath.getParent().toFile();
     }
 
     /**
-     * Extracts the {@code id} of the first {@link Process} element found in the BPMN model.
+     * Extracts the ID of the first {@link Process} in the BPMN model.
      *
-     * @param model the parsed {@link BpmnModelInstance}
-     * @return the process ID if found; otherwise, an empty string
-     * @see <a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a>
+     * @param model the BPMN model instance
+     * @return the process ID if found, or an empty string otherwise
      */
     private String extractProcessId(BpmnModelInstance model)
     {
@@ -235,4 +276,130 @@ public class DsfValidatorImpl implements DsfValidator
         }
         return "";
     }
+
+    /**
+     * <p>
+     * Recursively searches for a sub-path (e.g., "src/main/resources/bpe") starting
+     * from the given root path.
+     * </p>
+     *
+     * @param rootPath The root directory from which to start searching
+     * @return a {@link File} pointing to the sub-directory if found, or {@code null} otherwise
+     */
+    private File findDirectoryRecursively(Path rootPath)
+    {
+        Queue<Path> queue = new LinkedList<>();
+        queue.offer(rootPath);
+
+        while (!queue.isEmpty())
+        {
+            Path current = queue.poll();
+            if (!Files.isDirectory(current))
+            {
+                continue;
+            }
+
+            Path candidate = current.resolve("src/main/resources/bpe");
+            if (Files.isDirectory(candidate))
+            {
+                return candidate.toFile();
+            }
+
+            try
+            {
+                Files.list(current)
+                        .filter(Files::isDirectory)
+                        .forEach(queue::offer);
+            }
+            catch (IOException e)
+            {
+                // Ignore
+            }
+        }
+        return null;
+    }
+
+    /**
+     * <p>
+     * Recursively finds all files under the given {@code rootPath} that match the specified extension.
+     * </p>
+     *
+     * @param rootPath The root path to traverse
+     * @return a list of {@link File} objects that match the specified extension
+     */
+    private List<File> findFilesWithExtensionRecursively(Path rootPath)
+    {
+        List<File> result = new ArrayList<>();
+        Deque<Path> stack = new ArrayDeque<>();
+        stack.push(rootPath);
+
+        while (!stack.isEmpty())
+        {
+            Path currentDir = stack.pop();
+            if (Files.isDirectory(currentDir))
+            {
+                try
+                {
+                    Files.list(currentDir).forEach(child -> {
+                        if (Files.isDirectory(child))
+                        {
+                            stack.push(child);
+                        }
+                        else if (child.getFileName().toString().toLowerCase().endsWith(".bpmn"))
+                        {
+                            result.add(child.toFile());
+                        }
+                    });
+                }
+                catch (IOException e)
+                {
+                    // skip
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Recursively searches for BPMN files under src/main/resources/bpe in the given {@code projectDir},
+     * validates them, and returns a combined {@link ValidationOutput} of all issues.
+     * <p>
+     * This method is primarily intended for testing, so that tests can assert
+     * against the aggregated {@link ValidationOutput}.
+     *
+     * @param projectDir the root project directory
+     * @return a {@link ValidationOutput} containing all accumulated BPMN validation items
+     */
+    public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
+    {
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath());
+        if (bpmnRoot == null)
+        {
+            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
+            // No BPMN files => return an empty ValidationOutput
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath());
+        if (bpmnFiles.isEmpty())
+        {
+            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
+            // No BPMN files => return an empty ValidationOutput
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        // Use the BPMNValidator for each file
+        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
+        BPMNValidator bpmnValidator = new BPMNValidator();
+
+        for (File file : bpmnFiles)
+        {
+            // Validate this single BPMN file
+            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
+            allBpmnItems.addAll(output.validationItems());
+        }
+
+        return new ValidationOutput(allBpmnItems);
+    }
+
 }
