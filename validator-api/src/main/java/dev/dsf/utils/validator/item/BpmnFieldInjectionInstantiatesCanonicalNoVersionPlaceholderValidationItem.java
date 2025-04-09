@@ -20,7 +20,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidati
      */
     public BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "instantiatesCanonical field injection does not contain a version placeholder");
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "instantiatesCanonical field injection does not contain a version placeholder");
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidati
      */
     public BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

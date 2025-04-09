@@ -32,7 +32,7 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
             ValidationSeverity severityOverride,
             FloatingElementType floatingElementType)
     {
-        super(severityOverride, elementId, bpmnFile, processId, description);
+        super(severityOverride, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.validationTypeOverride = validationTypeOverride;
         this.floatingElementType = floatingElementType;
     }

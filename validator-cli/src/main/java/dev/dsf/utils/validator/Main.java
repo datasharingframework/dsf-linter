@@ -29,9 +29,9 @@ import java.util.concurrent.Callable;
  *   <li>Invoke the {@link DsfValidatorImpl} to:
  *       <ul>
  *         <li>Create a timestamped report directory via
- *             {@link DsfValidatorImpl#createReportsDirectory()}</li>
- *         <li>Validate all BPMN files recursively and produce JSON reports.</li>
- *         <li>Validate all FHIR files recursively and produce JSON reports.</li>
+ *             {@link DsfValidatorImpl#createReportsDirectory()}.</li>
+ *         <li>Validate all BPMN files recursively and produce JSON reports,
+ *             splitting into <strong>success</strong> and <strong>others</strong>.</li>
  *       </ul>
  *   </li>
  * </ol>
@@ -95,19 +95,21 @@ public class Main implements Callable<Integer>
 
     /**
      * <p>
-     * Called by picocli after parsing the command-line arguments. Ensures either
+     * Called by picocli after parsing command-line arguments. Ensures either
      * {@code --localPath} or {@code --remoteRepo} is provided (but not both), attempts
-     * to build the project via Maven, and triggers BPMN/FHIR validation through the
+     * to build the project via Maven, and triggers BPMN validation through
      * {@link DsfValidatorImpl}.
      * </p>
      *
      * <p><strong>Flow:</strong></p>
      * <ol>
      *   <li>If {@code --remoteRepo} is specified, clone the repository using {@link RepositoryManager}.</li>
-     *   <li>Locate the Maven installation with {@link MavenUtil#locateMavenExecutable()}.</li>
+     *   <li>Locate Maven with {@link MavenUtil#locateMavenExecutable()}.</li>
      *   <li>Build the project with {@link MavenBuilder#buildProject(File, String)}.</li>
-     *   <li>Create a timestamped reports directory via {@link DsfValidatorImpl#createReportsDirectory()}.</li>
-     *   <li>Invoke {@link DsfValidatorImpl#validateAllBpmnFiles(File, File)}.</li>
+     *   <li>Create a timestamped reports directory or pass a root directory to the new split approach.</li>
+     *   <li>Invoke
+     *       {@link DsfValidatorImpl#validateAllBpmnFilesSplitBySeverity(File, File)}
+     *       to produce separate success/others folders in a new timestamped folder.</li>
      * </ol>
      *
      * @return an integer exit code (0 indicates success)
@@ -167,13 +169,12 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
-        // 5. Use the DsfValidator to create the reports directory and run validations
+        // 5. Use the DsfValidator to create success/others subfolders in a timestamped folder
         DsfValidatorImpl dsfValidator = new DsfValidatorImpl();
-        File reportsDir = dsfValidator.createReportsDirectory();
 
-        // Validate BPMN
-        dsfValidator.validateAllBpmnFiles(projectDir, reportsDir);
-
+        // Instead of validating all BPMN files into a single folder,
+        // we'll call the "split by severity" approach, creating subfolders:
+        dsfValidator.validateAllBpmnFilesSplitBySeverity(projectDir, new File("."));
 
         System.out.println("\nValidation process finished!");
         return 0;
@@ -193,7 +194,6 @@ public class Main implements Callable<Integer>
      *
      * @param remoteUrl the URL of the remote Git repository to clone
      * @return the local {@link File} directory of the cloned repository, or {@code null} if cloning fails
-     * @see RepositoryManager#getRepository(String, File)
      */
     private File cloneRepository(String remoteUrl)
     {

@@ -19,7 +19,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
      */
     public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Start event is not part of a subprocess and has no name.");
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Start event is not part of a subprocess and has no name.");
     }
 
     /**
@@ -32,7 +32,7 @@ public class BpmnStartEventNotPartOfSubProcessValidationItem extends BpmnElement
      */
     public BpmnStartEventNotPartOfSubProcessValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

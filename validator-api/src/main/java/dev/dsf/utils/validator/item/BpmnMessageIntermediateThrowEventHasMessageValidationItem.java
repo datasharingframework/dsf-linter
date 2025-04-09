@@ -20,7 +20,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      */
     public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.INFO, elementId, bpmnFile, processId, "Message Intermediate Throw Event does not have a message reference, as expected.");
+        super(ValidationSeverity.INFO, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Message Intermediate Throw Event does not have a message reference, as expected.");
     }
 
     /**
@@ -32,7 +32,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
      * @param messageName the messageName of the Event.
      */
     public BpmnMessageIntermediateThrowEventHasMessageValidationItem(String elementId, File bpmnFile, String processId, String messageName){
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Message Intermediate Throw Event has a message with name: " + messageName);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Message Intermediate Throw Event has a message with name: " + messageName);
     }
 
 
@@ -51,7 +51,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageValidationItem extends B
                 this.getClass().getSimpleName(),
                 getElementId(),
                 getProcessId(),
-                (bpmnFile != null ? bpmnFile.getName() : "N/A")
+                getBpmnFile()
         );
     }
 }

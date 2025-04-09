@@ -23,7 +23,7 @@ public class BpmnFieldInjectionNotStringLiteralValidationItem extends BpmnElemen
      */
     public BpmnFieldInjectionNotStringLiteralValidationItem(String elementId, File bpmnFile, String processId, String fieldName, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.fieldName = fieldName;
     }
 

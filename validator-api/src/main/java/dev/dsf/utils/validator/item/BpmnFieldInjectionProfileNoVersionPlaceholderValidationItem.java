@@ -22,7 +22,7 @@ public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends
      */
     public BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String rawValue)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Profile field injection does not contain a version placeholder: " + rawValue);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Profile field injection does not contain a version placeholder: " + rawValue);
         this.rawValue = rawValue;
     }
 
@@ -37,7 +37,7 @@ public class BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem extends
      */
     public BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(String elementId, File bpmnFile, String processId, String rawValue, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.rawValue = rawValue;
     }
 

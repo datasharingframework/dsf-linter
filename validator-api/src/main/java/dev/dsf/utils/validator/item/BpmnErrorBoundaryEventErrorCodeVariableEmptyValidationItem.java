@@ -20,7 +20,7 @@ public class BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem extends 
      */
     public BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Error code variable is empty in Error Boundary Event");
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Error code variable is empty in Error Boundary Event");
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem extends 
      */
     public BpmnErrorBoundaryEventErrorCodeVariableEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

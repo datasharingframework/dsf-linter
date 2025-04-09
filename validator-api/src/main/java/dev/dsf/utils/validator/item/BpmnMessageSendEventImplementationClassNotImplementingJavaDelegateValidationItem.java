@@ -22,7 +22,7 @@ public class BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateV
      */
     public BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(String elementId, File bpmnFile, String processId, String className)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Message send event implementation class does not implement JavaDelegate: " + className);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Message send event implementation class does not implement JavaDelegate: " + className);
         this.className = className;
     }
 
@@ -37,7 +37,7 @@ public class BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateV
      */
     public BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(String elementId, File bpmnFile, String processId, String className, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.className = className;
     }
 

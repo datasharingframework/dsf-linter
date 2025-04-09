@@ -27,7 +27,7 @@ public class BpmnFlowElementValidationItem extends BpmnElementValidationItem
                                          ValidationType validationTypeOverride,
                                          FlowElementType flowElementType)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Flow element validation WARN");
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Flow element validation WARN");
         this.validationTypeOverride = validationTypeOverride;
         this.flowElementType = flowElementType;
     }
@@ -48,7 +48,7 @@ public class BpmnFlowElementValidationItem extends BpmnElementValidationItem
                                          ValidationSeverity severityOverride,
                                          FlowElementType flowElementType)
     {
-        super(severityOverride, elementId, bpmnFile, processId, description);
+        super(severityOverride, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.validationTypeOverride = validationTypeOverride;
         this.flowElementType = flowElementType;
     }

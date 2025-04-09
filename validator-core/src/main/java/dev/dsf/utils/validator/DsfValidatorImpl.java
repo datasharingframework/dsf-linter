@@ -1,7 +1,7 @@
 package dev.dsf.utils.validator;
 
-import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
+import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.Date;
 
 /**
  * <p>
@@ -23,34 +25,46 @@ import java.util.*;
  * </p>
  *
  * <p>
- * This class handles:
+ * Primary responsibilities:
  * <ul>
- *   <li>Detection of BPMN vs FHIR based on file extension.</li>
- *   <li>Validation logic for both file types (BPMN).</li>
+ *   <li>BPMN vs FHIR detection (by file extension).</li>
+ *   <li>BPMN validation logic (via {@link BpmnModelValidator}).</li>
  *   <li>Recursive discovery of BPMN files in a project structure.</li>
- *   <li>Writing validation reports (per-file and aggregated) to JSON.</li>
- *   <li>Creation of a timestamped directory for validation reports.</li>
+ *   <li>Writing validation reports (per-file and aggregated) to <em>timestamped</em> subfolders.</li>
  * </ul>
+ * </p>
+ *
+ * <h2>Splitting by Severity: "success" vs. "others"</h2>
+ * <p>
+ * This class supports a mode where validated results are split into a <strong>success</strong>
+ * folder (only {@code SUCCESS} severities) and an <strong>others</strong> folder (everything else)
+ * under a single timestamped report directory.
  * </p>
  *
  * <h3>References</h3>
  * <ul>
- *   <li>BPMN 2.0: <a href="https://www.omg.org/spec/BPMN/2.0">https://www.omg.org/spec/BPMN/2.0</a></li>
- *   <li>Java I/O (File): <a href="https://docs.oracle.com/javase/8/docs/api/java/io/File.html">Oracle Docs</a></li>
- *   <li>Java NIO.2 File Operations: <a href="https://docs.oracle.com/javase/tutorial/essential/io/">Oracle Tutorial</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/model-api/bpmn-model-api/">Camunda BPMN Model API</a></li>
+ *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
+ *   <li><a href="https://github.com/FasterXML/jackson-databind">Jackson Project for JSON</a></li>
  * </ul>
  */
 public class DsfValidatorImpl implements DsfValidator
 {
-
+    /**
+     * Constructs a default {@code DsfValidatorImpl}.
+     */
     public DsfValidatorImpl()
     {
-
+        // no-op
     }
 
     /**
+     * Determines whether to validate as BPMN or FHIR based on file extension.
+     * If the file ends with {@code .bpmn}, delegates to {@link #validateBpmn(Path)};
+     * otherwise returns {@code null} or potentially a future FHIR validation.
+     *
      * @param path the {@link Path} to either a BPMN file or a FHIR resource file
-     * @return a {@link ValidationOutput} containing all validation issues encountered
+     * @return a {@link ValidationOutput} containing all validation issues encountered, or null if not recognized
      */
     @Override
     public ValidationOutput validate(Path path)
@@ -62,24 +76,88 @@ public class DsfValidatorImpl implements DsfValidator
         }
         else
         {
+            // Future expansions: handle .json or .xml for FHIR
             return null;
         }
     }
 
     /**
      * <p>
+     * Validates a single BPMN file by:
+     * </p>
+     * <ol>
+     *   <li>Checking file existence.</li>
+     *   <li>Ensuring readability via {@link #isFileReadable(Path)}.</li>
+     *   <li>Parsing the BPMN model with the Camunda API.</li>
+     *   <li>Locating the first {@link Process} ID.</li>
+     *   <li>Searching upward for a {@code pom.xml} to find the project root.</li>
+     *   <li>Using {@link BpmnModelValidator} to perform BPMN-specific checks.</li>
+     * </ol>
+     *
+     * @param path a {@link Path} pointing to a BPMN file
+     * @return a {@link ValidationOutput} with any BPMN-related validation issues
+     */
+    private ValidationOutput validateBpmn(Path path)
+    {
+        List<AbstractValidationItem> allIssues = new ArrayList<>();
+
+        // 1) Check existence
+        if (!Files.exists(path))
+        {
+            System.err.println("Error: The file does not exist: " + path);
+            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
+            return buildOutput(allIssues);
+        }
+
+        // 2) Check readability
+        if (!isFileReadable(path))
+        {
+            System.err.println("Error: The file is not readable: " + path);
+            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
+            return buildOutput(allIssues);
+        }
+
+        // 3) Parse BPMN model
+        BpmnModelInstance model;
+        try
+        {
+            model = Bpmn.readModelFromFile(path.toFile());
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error reading BPMN file: " + e.getMessage());
+            e.printStackTrace();
+            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
+            return buildOutput(allIssues);
+        }
+
+        // 4) Extract process ID
+        String processId = extractProcessId(model);
+
+        // 5) Determine project root
+        File projectRoot = getProjectRoot(path);
+
+        // 6) Validate with BpmnModelValidator
+        //    We pass only the short BPMN file name to ensure the "bpmnFile" field is short.
+        File shortNameFile = new File(path.getFileName().toString());
+        BpmnModelValidator validator = new BpmnModelValidator(projectRoot);
+        List<BpmnElementValidationItem> bpmnIssues = validator.validateModel(model, shortNameFile, processId);
+        allIssues.addAll(bpmnIssues);
+
+        return buildOutput(allIssues);
+    }
+
+    /**
+     * <p>
      * Recursively finds all BPMN files under {@code src/main/resources/bpe}, validates them
-     * one-by-one, writes a per-file JSON file (using the {@code processId}) and produces
-     * an aggregated JSON file named {@code bpmn_issues_aggregated.json} in the given
-     * {@code reportsDir}.
+     * one-by-one, writes <strong>per-file JSON</strong> using the {@code processId} in the filename,
+     * and finally writes an <strong>aggregated JSON</strong> file named
+     * {@code bpmn_issues_aggregated.json}.
      * </p>
      *
      * <p>
-     * Example usage within a calling class:
-     * <pre>
-     *   DsfValidatorImpl validator = new DsfValidatorImpl();
-     *   validator.validateAllBpmnFiles(projectDirectory, reportOutputDirectory);
-     * </pre>
+     * This method <strong>does not</strong> split results by severity. For splitting, see
+     * {@link #validateAllBpmnFilesSplitBySeverity(File, File)}.
      * </p>
      *
      * @param projectDir the root project directory (will search for {@code src/main/resources/bpe} inside it)
@@ -104,7 +182,7 @@ public class DsfValidatorImpl implements DsfValidator
         // Aggregator for all BPMN validation items
         List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
 
-        // Use the BPMNValidator for each file, or you could also delegate to validate(Path)
+        // Use BPMNValidator for each file (or call this.validate(...))
         BPMNValidator bpmnValidator = new BPMNValidator();
 
         for (File file : bpmnFiles)
@@ -113,7 +191,6 @@ public class DsfValidatorImpl implements DsfValidator
             ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
             output.printResults();
 
-            // Add to aggregator
             allBpmnItems.addAll(output.validationItems());
 
             // Write per-file JSON named after the processId
@@ -133,84 +210,199 @@ public class DsfValidatorImpl implements DsfValidator
         System.out.println("\nAll BPMN validation items aggregated in: " + aggregatedJson.getAbsolutePath());
     }
 
-
-    public void validateAllFhirResources(File projectDir, File reportsDir)
+    /**
+     * <p>
+     * An advanced approach that writes BPMN validation results into two subfolders:
+     * <strong>success</strong> and <strong>others</strong>. The method:
+     * </p>
+     * <ul>
+     *   <li>Creates a <em>timestamped</em> folder (e.g., {@code reports_09042025_160816}) in {@code reportsRootDir}.</li>
+     *   <li>Inside that folder, creates subfolders {@code success} and {@code others}.</li>
+     *   <li>Validates each BPMN file under {@code src/main/resources/bpe}, splitting items by severity:</li>
+     *   <ul>
+     *     <li>{@code success} if {@link ValidationSeverity#SUCCESS}</li>
+     *     <li>{@code others} if anything else (WARN, ERROR, INFO, DEBUG, etc.)</li>
+     *   </ul>
+     *   <li>Generates up to two JSON files per BPMN: one for success items, one for other items.</li>
+     *   <li>Also writes two aggregated JSON files (success/others) across <em>all</em> validated BPMNs.</li>
+     * </ul>
+     *
+     * @param projectDir      the root project directory
+     * @param reportsRootDir  the directory in which to create the new timestamped reports folder
+     */
+    public void validateAllBpmnFilesSplitBySeverity(File projectDir, File reportsRootDir)
     {
-        //todo
+        // 1) Locate the "src/main/resources/bpe" folder
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
+        if (bpmnRoot == null)
+        {
+            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
+            return;
+        }
+
+        // 2) Collect all .bpmn files
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
+        if (bpmnFiles.isEmpty())
+        {
+            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
+            return;
+        }
+
+        // 3) Create a timestamped top-level folder
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        File topLevelReports = new File(reportsRootDir, "reports_" + timeStamp);
+        if (!topLevelReports.exists() && !topLevelReports.mkdirs())
+        {
+            System.err.println("WARNING: Could not create top-level reports folder: " + topLevelReports.getAbsolutePath());
+            return;
+        }
+
+        // 4) Create "success" and "others" subfolders
+        File successFolder = new File(topLevelReports, "success");
+        File othersFolder = new File(topLevelReports, "others");
+        successFolder.mkdirs();
+        othersFolder.mkdirs();
+
+        // We'll accumulate success items and others items across all BPMN
+        List<AbstractValidationItem> aggregatedSuccess = new ArrayList<>();
+        List<AbstractValidationItem> aggregatedOthers = new ArrayList<>();
+
+        // 5) Validate each BPMN file
+        BPMNValidator bpmnValidator = new BPMNValidator();
+
+        for (File bpmnFile : bpmnFiles)
+        {
+            System.out.println("\nValidating BPMN file: " + bpmnFile.getName());
+            ValidationOutput output = bpmnValidator.validateBpmnFile(bpmnFile.toPath());
+            output.printResults();
+
+            // Separate success from others
+            List<AbstractValidationItem> successItems = output.validationItems().stream()
+                    .filter(this::isSuccessItem)
+                    .collect(Collectors.toList());
+            List<AbstractValidationItem> otherItems = output.validationItems().stream()
+                    .filter(item -> !isSuccessItem(item))
+                    .collect(Collectors.toList());
+
+            aggregatedSuccess.addAll(successItems);
+            aggregatedOthers.addAll(otherItems);
+
+            // If we have at least one success item, write a success JSON
+            if (!successItems.isEmpty())
+            {
+                ValidationOutput successOutput = new ValidationOutput(successItems);
+                String successPid = successOutput.getProcessId();
+                File outFile = new File(successFolder, "bpmn_issues_" + successPid + ".json");
+                successOutput.writeResultsAsJson(outFile);
+                System.out.println("  -> Wrote SUCCESS items to " + outFile.getAbsolutePath());
+            }
+            // If we have at least one non-success item, write an others JSON
+            if (!otherItems.isEmpty())
+            {
+                ValidationOutput othersOutput = new ValidationOutput(otherItems);
+                String othersPid = othersOutput.getProcessId();
+                File outFile = new File(othersFolder, "bpmn_issues_" + othersPid + ".json");
+                othersOutput.writeResultsAsJson(outFile);
+                System.out.println("  -> Wrote OTHER items to " + outFile.getAbsolutePath());
+            }
+        }
+
+        // 6) Write aggregated JSON for success
+        if (!aggregatedSuccess.isEmpty())
+        {
+            ValidationOutput aggSuccessOut = new ValidationOutput(aggregatedSuccess);
+            File aggFile = new File(successFolder, "bpmn_issues_aggregated.json");
+            aggSuccessOut.writeResultsAsJson(aggFile);
+            System.out.println("\nAggregated success items written to: " + aggFile.getAbsolutePath());
+        }
+
+        // 7) Write aggregated JSON for others
+        if (!aggregatedOthers.isEmpty())
+        {
+            ValidationOutput aggOthersOut = new ValidationOutput(aggregatedOthers);
+            File aggFile = new File(othersFolder, "bpmn_issues_aggregated.json");
+            aggOthersOut.writeResultsAsJson(aggFile);
+            System.out.println("Aggregated other items written to: " + aggFile.getAbsolutePath());
+        }
+
+        System.out.println("\nValidation completed. See folder: " + topLevelReports.getAbsolutePath());
     }
 
     /**
-     * Validates a BPMN file by:
-     * <ul>
-     *   <li>Checking file existence.</li>
-     *   <li>Ensuring readability via {@link #isFileReadable(Path)}.</li>
-     *   <li>Parsing the BPMN model.</li>
-     *   <li>Finding the {@code processId} of the first {@link Process}.</li>
-     *   <li>Locating a {@code pom.xml} to determine the project root.</li>
-     *   <li>Using {@link BpmnModelValidator} for BPMN-specific checks.</li>
-     * </ul>
+     * Determines if the validation item is "SUCCESS." Adjust if your success logic differs.
      *
-     * @param path a {@link Path} pointing to a BPMN file
-     * @return a {@link ValidationOutput} with any BPMN-related validation issues
+     * @param item a validation item
+     * @return {@code true} if severity == {@link ValidationSeverity#SUCCESS}, else false
      */
-    private ValidationOutput validateBpmn(Path path)
+    private boolean isSuccessItem(AbstractValidationItem item)
     {
-        List<AbstractValidationItem> allIssues = new ArrayList<>();
-
-        // Check existence
-        if (!Files.exists(path))
-        {
-            System.err.println("Error: The file does not exist: " + path);
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return buildOutput(allIssues);
-        }
-
-        // Check readability
-        if (!isFileReadable(path))
-        {
-            System.err.println("Error: The file is not readable: " + path);
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return buildOutput(allIssues);
-        }
-
-        // Parse BPMN model
-        BpmnModelInstance model;
-        try
-        {
-            model = Bpmn.readModelFromFile(path.toFile());
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error reading BPMN file: " + e.getMessage());
-            e.printStackTrace();
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return buildOutput(allIssues);
-        }
-
-        // Extract first process ID
-        String processId = extractProcessId(model);
-
-        // Determine project root (search for pom.xml)
-        File projectRoot = getProjectRoot(path);
-
-        // Validate with BpmnModelValidator
-        BpmnModelValidator validator = new BpmnModelValidator(projectRoot);
-        List<BpmnElementValidationItem> bpmnIssues = validator.validateModel(model, path.toFile(), processId);
-        allIssues.addAll(bpmnIssues);
-
-        return buildOutput(allIssues);
+        return (item.getSeverity() == ValidationSeverity.SUCCESS);
     }
 
-
-    private ValidationOutput validateFhir(Path path)
+    /**
+     * Creates and returns a new timestamped report directory in the current working directory.
+     * For example, the directory name might look like: {@code reports_09042025_153045}.
+     *
+     * @return a {@link File} pointing to the created directory (or an existing one if it was already there)
+     */
+    public File createReportsDirectory()
     {
-       //todo
-        return null;
+        String dateTimeStr = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        File reportsDir = new File("reports_" + dateTimeStr);
+
+        if (!reportsDir.exists())
+        {
+            boolean created = reportsDir.mkdirs();
+            if (!created)
+            {
+                System.err.println("WARNING: Failed to create reports directory: " + reportsDir.getAbsolutePath());
+            }
+        }
+        return reportsDir;
     }
+
+    /**
+     * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
+     * validates them, and returns a combined {@link ValidationOutput} of all issues.
+     * <p>
+     * Useful for testing, so that tests can assert on a single aggregated output.
+     *
+     * @param projectDir the root project directory
+     * @return a {@link ValidationOutput} containing all accumulated BPMN validation items
+     */
+    public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
+    {
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
+        if (bpmnRoot == null)
+        {
+            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
+        if (bpmnFiles.isEmpty())
+        {
+            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
+        BPMNValidator bpmnValidator = new BPMNValidator();
+
+        for (File file : bpmnFiles)
+        {
+            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
+            allBpmnItems.addAll(output.validationItems());
+        }
+
+        return new ValidationOutput(allBpmnItems);
+    }
+
+    // Helper Methods
 
     /**
      * Checks if the given file is readable using {@link Files#isReadable(Path)}.
-     * Override or mock in tests for specific scenarios.
+     * Override or mock in tests for special scenarios.
      *
      * @param path the path to check
      * @return true if readable, false otherwise
@@ -250,9 +442,11 @@ public class DsfValidatorImpl implements DsfValidator
             }
             current = current.getParent();
         }
-        // Fallback
-        assert bpmnFilePath.getParent() != null;
-        return bpmnFilePath.getParent().toFile();
+        if (bpmnFilePath.getParent() != null)
+        {
+            return bpmnFilePath.getParent().toFile();
+        }
+        return new File(".");
     }
 
     /**
@@ -276,10 +470,8 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
-     * <p>
-     * Recursively searches for a sub-path (e.g., "src/main/resources/bpe") starting
+     * Recursively searches for a sub-path (e.g., {@code src/main/resources/bpe}) starting
      * from the given root path.
-     * </p>
      *
      * @param rootPath        The root directory from which to start searching
      * @param relativeSubPath The sub-path to locate (e.g., {@code src/main/resources/bpe})
@@ -312,16 +504,15 @@ public class DsfValidatorImpl implements DsfValidator
             }
             catch (IOException e)
             {
-                // Ignore
+                // ignore
             }
         }
         return null;
     }
 
     /**
-     * <p>
-     * Recursively finds all files under the given {@code rootPath} that match the specified extension.
-     * </p>
+     * Recursively finds all files under the given {@code rootPath} that match
+     * the specified extension.
      *
      * @param rootPath  The root path to traverse
      * @param extension The file extension to match (e.g., ".bpmn", ".xml")
@@ -361,70 +552,17 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
-     * Creates and returns a new timestamped report directory in the current working directory.
-     * For example, the directory name might look like: {@code reports_09042025_153045}.
      * <p>
-     * If the directory cannot be created, a warning is printed to {@code stderr}.
+     * Future method for validating FHIR. Currently unimplemented.
+     * </p>
      *
-     * @return a {@link File} pointing to the created directory (which may already exist,
-     *         or be {@code null} if creation fails)
+     * @param path file path to FHIR resource
+     * @return a {@link ValidationOutput} with FHIR validation issues (currently {@code null})
      */
-    public File createReportsDirectory()
+    @SuppressWarnings("unused")
+    private ValidationOutput validateFhir(Path path)
     {
-        String dateTimeStr = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
-        File reportsDir = new File("reports_" + dateTimeStr);
-
-        if (!reportsDir.exists())
-        {
-            boolean created = reportsDir.mkdirs();
-            if (!created)
-            {
-                System.err.println("WARNING: Failed to create reports directory: " + reportsDir.getAbsolutePath());
-            }
-        }
-        return reportsDir;
-    }
-
-    /**
-     * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
-     * validates them, and returns a combined {@link ValidationOutput} of all issues.
-     * <p>
-     * This method is primarily intended for testing, so that tests can assert
-     * against the aggregated {@link ValidationOutput}.
-     *
-     * @param projectDir the root project directory
-     * @return a {@link ValidationOutput} containing all accumulated BPMN validation items
-     */
-    public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
-    {
-        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
-        if (bpmnRoot == null)
-        {
-            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
-            // No BPMN files => return an empty ValidationOutput
-            return new ValidationOutput(Collections.emptyList());
-        }
-
-        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
-        if (bpmnFiles.isEmpty())
-        {
-            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
-            // No BPMN files => return an empty ValidationOutput
-            return new ValidationOutput(Collections.emptyList());
-        }
-
-        // Use the BPMNValidator for each file
-        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
-        BPMNValidator bpmnValidator = new BPMNValidator();
-
-        for (File file : bpmnFiles)
-        {
-            // Validate this single BPMN file
-            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
-            allBpmnItems.addAll(output.validationItems());
-        }
-
-        return new ValidationOutput(allBpmnItems);
+        //todo
+        return null;
     }
 }
-

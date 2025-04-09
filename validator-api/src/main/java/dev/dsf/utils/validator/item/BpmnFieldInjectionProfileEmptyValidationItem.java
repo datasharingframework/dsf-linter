@@ -19,7 +19,7 @@ public class BpmnFieldInjectionProfileEmptyValidationItem extends BpmnElementVal
      */
     public BpmnFieldInjectionProfileEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Profile field injection is empty");
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Profile field injection is empty");
     }
 
     /**
@@ -32,7 +32,7 @@ public class BpmnFieldInjectionProfileEmptyValidationItem extends BpmnElementVal
      */
     public BpmnFieldInjectionProfileEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

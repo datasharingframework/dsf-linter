@@ -26,7 +26,7 @@ public class BpmnUnknownFieldInjectionValidationItem extends BpmnElementValidati
      */
     public BpmnUnknownFieldInjectionValidationItem(String elementId, File bpmnFile, String processId, String fieldName)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId,
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId,
                 "Unknown field injection encountered: " + fieldName);
         this.fieldName = fieldName;
     }
@@ -42,7 +42,7 @@ public class BpmnUnknownFieldInjectionValidationItem extends BpmnElementValidati
      */
     public BpmnUnknownFieldInjectionValidationItem(String elementId, File bpmnFile, String processId, String fieldName, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
         this.fieldName = fieldName;
     }
 

@@ -24,7 +24,7 @@ public class FhirQuestionnaireDefinitionValidationItem extends BpmnElementValida
             String questionnaireDefinitionUrl,
             String details)
     {
-        super(severity, elementId, bpmnFile, processId,
+        super(severity, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId,
                 String.format("QuestionnaireDefinition issue for '%s': %s", questionnaireDefinitionUrl, details));
         this.questionnaireDefinitionUrl = questionnaireDefinitionUrl;
         this.details = details;

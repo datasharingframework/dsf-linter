@@ -19,7 +19,7 @@ public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidatio
      */
     public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, "Service task name is empty");
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Service task name is empty");
     }
 
     /**
@@ -32,7 +32,7 @@ public class BpmnServiceTaskNameEmptyValidationItem extends BpmnElementValidatio
      */
     public BpmnServiceTaskNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

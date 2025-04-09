@@ -19,7 +19,7 @@ public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnEle
      */
     public BpmnMessageStartEventMessageNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, "Message start event message name is empty");
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Message start event message name is empty");
     }
 
     /**
@@ -32,7 +32,7 @@ public class BpmnMessageStartEventMessageNameEmptyValidationItem extends BpmnEle
      */
     public BpmnMessageStartEventMessageNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.ERROR, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override

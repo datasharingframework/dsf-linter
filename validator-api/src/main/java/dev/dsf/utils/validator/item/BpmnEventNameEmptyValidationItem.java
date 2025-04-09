@@ -20,7 +20,7 @@ public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
      */
     public BpmnEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId,"Event name is empty" );
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId,"Event name is empty" );
     }
 
     /**
@@ -33,7 +33,7 @@ public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
      */
     public BpmnEventNameEmptyValidationItem(String elementId, File bpmnFile, String processId, String description)
     {
-        super(ValidationSeverity.WARN, elementId, bpmnFile, processId, description);
+        super(ValidationSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);
     }
 
     @Override
