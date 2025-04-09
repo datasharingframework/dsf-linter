@@ -12,6 +12,7 @@ import org.camunda.bpm.model.bpmn.instance.Process;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -25,32 +26,29 @@ import java.util.*;
  * This class handles:
  * <ul>
  *   <li>Detection of BPMN vs FHIR based on file extension.</li>
- *   <li>Validation logic for both file types (BPMN and FHIR).</li>
- *   <li>Recursive discovery of BPMN and FHIR files in a project structure.</li>
+ *   <li>Validation logic for both file types (BPMN).</li>
+ *   <li>Recursive discovery of BPMN files in a project structure.</li>
  *   <li>Writing validation reports (per-file and aggregated) to JSON.</li>
+ *   <li>Creation of a timestamped directory for validation reports.</li>
  * </ul>
  * </p>
  *
  * <h3>References</h3>
  * <ul>
  *   <li>BPMN 2.0: <a href="https://www.omg.org/spec/BPMN/2.0">https://www.omg.org/spec/BPMN/2.0</a></li>
- *   <li>HL7 FHIR: <a href="https://hl7.org/fhir">https://hl7.org/fhir</a></li>
+ *   <li>Java I/O (File): <a href="https://docs.oracle.com/javase/8/docs/api/java/io/File.html">Oracle Docs</a></li>
+ *   <li>Java NIO.2 File Operations: <a href="https://docs.oracle.com/javase/tutorial/essential/io/">Oracle Tutorial</a></li>
  * </ul>
  */
 public class DsfValidatorImpl implements DsfValidator
 {
 
-    /**
-     * Constructs a new {@code DsfValidatorImpl} with the default FHIR validator.
-     * The BPMN validator is instantiated per file validation with the
-     * appropriate project root as needed.
-     */
-    public DsfValidatorImpl() {}
+    public DsfValidatorImpl()
+    {
+
+    }
 
     /**
-     * Validates the given file, delegating to either BPMN-specific or FHIR-specific logic
-     * depending on the file's extension.
-     *
      * @param path the {@link Path} to either a BPMN file or a FHIR resource file
      * @return a {@link ValidationOutput} containing all validation issues encountered
      */
@@ -64,7 +62,7 @@ public class DsfValidatorImpl implements DsfValidator
         }
         else
         {
-            return validateFhir(path);
+            return null;
         }
     }
 
@@ -89,14 +87,14 @@ public class DsfValidatorImpl implements DsfValidator
      */
     public void validateAllBpmnFiles(File projectDir, File reportsDir)
     {
-        File bpmnRoot = findDirectoryRecursively(projectDir.toPath());
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
         if (bpmnRoot == null)
         {
             System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
             return;
         }
 
-        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath());
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
         if (bpmnFiles.isEmpty())
         {
             System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
@@ -206,7 +204,7 @@ public class DsfValidatorImpl implements DsfValidator
 
     private ValidationOutput validateFhir(Path path)
     {
-        //todo
+       //todo
         return null;
     }
 
@@ -283,10 +281,11 @@ public class DsfValidatorImpl implements DsfValidator
      * from the given root path.
      * </p>
      *
-     * @param rootPath The root directory from which to start searching
+     * @param rootPath        The root directory from which to start searching
+     * @param relativeSubPath The sub-path to locate (e.g., {@code src/main/resources/bpe})
      * @return a {@link File} pointing to the sub-directory if found, or {@code null} otherwise
      */
-    private File findDirectoryRecursively(Path rootPath)
+    private File findDirectoryRecursively(Path rootPath, String relativeSubPath)
     {
         Queue<Path> queue = new LinkedList<>();
         queue.offer(rootPath);
@@ -299,7 +298,7 @@ public class DsfValidatorImpl implements DsfValidator
                 continue;
             }
 
-            Path candidate = current.resolve("src/main/resources/bpe");
+            Path candidate = current.resolve(relativeSubPath);
             if (Files.isDirectory(candidate))
             {
                 return candidate.toFile();
@@ -324,10 +323,11 @@ public class DsfValidatorImpl implements DsfValidator
      * Recursively finds all files under the given {@code rootPath} that match the specified extension.
      * </p>
      *
-     * @param rootPath The root path to traverse
+     * @param rootPath  The root path to traverse
+     * @param extension The file extension to match (e.g., ".bpmn", ".xml")
      * @return a list of {@link File} objects that match the specified extension
      */
-    private List<File> findFilesWithExtensionRecursively(Path rootPath)
+    private List<File> findFilesWithExtensionRecursively(Path rootPath, String extension)
     {
         List<File> result = new ArrayList<>();
         Deque<Path> stack = new ArrayDeque<>();
@@ -345,7 +345,7 @@ public class DsfValidatorImpl implements DsfValidator
                         {
                             stack.push(child);
                         }
-                        else if (child.getFileName().toString().toLowerCase().endsWith(".bpmn"))
+                        else if (child.getFileName().toString().toLowerCase().endsWith(extension))
                         {
                             result.add(child.toFile());
                         }
@@ -361,7 +361,32 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
-     * Recursively searches for BPMN files under src/main/resources/bpe in the given {@code projectDir},
+     * Creates and returns a new timestamped report directory in the current working directory.
+     * For example, the directory name might look like: {@code reports_09042025_153045}.
+     * <p>
+     * If the directory cannot be created, a warning is printed to {@code stderr}.
+     *
+     * @return a {@link File} pointing to the created directory (which may already exist,
+     *         or be {@code null} if creation fails)
+     */
+    public File createReportsDirectory()
+    {
+        String dateTimeStr = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        File reportsDir = new File("reports_" + dateTimeStr);
+
+        if (!reportsDir.exists())
+        {
+            boolean created = reportsDir.mkdirs();
+            if (!created)
+            {
+                System.err.println("WARNING: Failed to create reports directory: " + reportsDir.getAbsolutePath());
+            }
+        }
+        return reportsDir;
+    }
+
+    /**
+     * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
      * validates them, and returns a combined {@link ValidationOutput} of all issues.
      * <p>
      * This method is primarily intended for testing, so that tests can assert
@@ -372,7 +397,7 @@ public class DsfValidatorImpl implements DsfValidator
      */
     public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
     {
-        File bpmnRoot = findDirectoryRecursively(projectDir.toPath());
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
         if (bpmnRoot == null)
         {
             System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
@@ -380,7 +405,7 @@ public class DsfValidatorImpl implements DsfValidator
             return new ValidationOutput(Collections.emptyList());
         }
 
-        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath());
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
         if (bpmnFiles.isEmpty())
         {
             System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
@@ -401,5 +426,5 @@ public class DsfValidatorImpl implements DsfValidator
 
         return new ValidationOutput(allBpmnItems);
     }
-
 }
+
