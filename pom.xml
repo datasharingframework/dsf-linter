@@ -12,7 +12,6 @@
         <module>validator-core</module>
         <module>validator-cli</module>
         <module>validator-api</module>
-        <module>validator-maven-plugin</module>
     </modules>
 
     <properties>

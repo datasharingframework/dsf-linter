@@ -417,6 +417,43 @@ public class DsfValidatorImpl implements DsfValidator
         }
         return result;
     }
+    /**
+     * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
+     * validates them, and returns a combined {@link ValidationOutput} of all issues.
+     * <p>
+     * Useful for testing, so that tests can assert on a single aggregated output.
+     *
+     * @param projectDir the root project directory
+     * @return a {@link ValidationOutput} containing all accumulated BPMN validation items
+     */
+    public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
+    {
+        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
+        if (bpmnRoot == null)
+        {
+            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
+        if (bpmnFiles.isEmpty())
+        {
+            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
+        BPMNValidator bpmnValidator = new BPMNValidator();
+
+        for (File file : bpmnFiles)
+        {
+            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
+            allBpmnItems.addAll(output.validationItems());
+        }
+
+        return new ValidationOutput(allBpmnItems);
+    }
+
 
     /**
      * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
