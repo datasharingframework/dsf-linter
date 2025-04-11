@@ -1,6 +1,7 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.build.MavenBuilder;
+import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -10,11 +11,13 @@ import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
  * <p>
- * The {@code Main} class serves as the entry point for validating BPMN and FHIR files,
+ * The {@code Main} class serves as the entry point for validating both BPMN and FHIR files,
  * either from a local path or from a remote Git repository that must be cloned and built.
  * It uses <strong>picocli</strong> for command-line argument parsing, <strong>JGit</strong>
  * for cloning remote repositories, and <strong>Maven</strong> for building the cloned
@@ -26,12 +29,14 @@ import java.util.concurrent.Callable;
  *   <li>Parse command-line arguments using {@link picocli.CommandLine}.</li>
  *   <li>Either use a local project directory or clone a remote Git repository.</li>
  *   <li>Run an Apache Maven build to ensure the project is built.</li>
- *   <li>Invoke the {@link DsfValidatorImpl} to:
+ *   <li>Invoke the {@link DsfValidatorImpl} to generate reports in the new structure:
  *       <ul>
- *         <li>Create a timestamped report directory via
- *             {@link DsfValidatorImpl#createReportsDirectory()}.</li>
- *         <li>Validate all BPMN files recursively and produce JSON reports,
- *             splitting into <strong>success</strong> and <strong>others</strong>.</li>
+ *         <li>A single {@code report} folder at the root.</li>
+ *         <li>Inside it, <em>bpmnReports</em>, each containing
+ *             <em>success</em> and <em>other</em> subfolders, as well as a
+ *             <code>_aggregated.json</code> for that file type.</li>
+ *         <li>An additional <code>aggregated.json</code> file at the root that combines
+ *             <em>all</em> BPMN items.</li>
  *       </ul>
  *   </li>
  * </ol>
@@ -50,7 +55,6 @@ import java.util.concurrent.Callable;
  *   <li><a href="https://picocli.info/">Picocli Documentation</a> – for command-line parsing</li>
  *   <li><a href="https://www.eclipse.org/jgit/">JGit Documentation</a> – for Git repository cloning</li>
  *   <li><a href="https://maven.apache.org/">Apache Maven</a> – for building the cloned project</li>
- *   <li><a href="https://hl7.org/fhir/">HL7 FHIR</a> – for FHIR file validation specifics</li>
  *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0</a> – for BPMN file validation specifics</li>
  * </ul>
  */
@@ -97,8 +101,8 @@ public class Main implements Callable<Integer>
      * <p>
      * Called by picocli after parsing command-line arguments. Ensures either
      * {@code --localPath} or {@code --remoteRepo} is provided (but not both), attempts
-     * to build the project via Maven, and triggers BPMN validation through
-     * {@link DsfValidatorImpl}.
+     * to build the project via Maven, and triggers BPMN & FHIR validations
+     * through {@link DsfValidatorImpl}.
      * </p>
      *
      * <p><strong>Flow:</strong></p>
@@ -106,10 +110,9 @@ public class Main implements Callable<Integer>
      *   <li>If {@code --remoteRepo} is specified, clone the repository using {@link RepositoryManager}.</li>
      *   <li>Locate Maven with {@link MavenUtil#locateMavenExecutable()}.</li>
      *   <li>Build the project with {@link MavenBuilder#buildProject(File, String)}.</li>
-     *   <li>Create a timestamped reports directory or pass a root directory to the new split approach.</li>
-     *   <li>Invoke
-     *       {@link DsfValidatorImpl#validateAllBpmnFilesSplitBySeverity(File, File)}
-     *       to produce separate success/others folders in a new timestamped folder.</li>
+     *   <li>Create or identify the <code>report</code> directory for writing the new structure (bpmnReports, fhirReports, etc.).</li>
+     *   <li>Invoke the DSF validator methods for BPMN, returning the respective items.</li>
+     *   <li>Combine both sets into a single list to generate a <code>report/aggregated.json</code>.</li>
      * </ol>
      *
      * @return an integer exit code (0 indicates success)
@@ -169,12 +172,26 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
-        // 5. Use the DsfValidator to create success/others subfolders in a timestamped folder
+        // 5. Create the DSF validator and produce the new "report" structure
         DsfValidatorImpl dsfValidator = new DsfValidatorImpl();
+        // Where the new "report" folder is created or cleaned up
+        File reportRoot = new File("report");
+        reportRoot.mkdirs();
 
-        // Instead of validating all BPMN files into a single folder,
-        // we'll call the "split by severity" approach, creating subfolders:
-        dsfValidator.validateAllBpmnFilesSplitBySeverity(projectDir, new File("."));
+        // Validate BPMN (split by severity) => returns all BPMN items
+        List<AbstractValidationItem> allBpmnItems = dsfValidator.validateAllBpmnFilesSplitNewStructure(projectDir, reportRoot);
+
+        // Validate FHIR (split by severity) => returns all FHIR items
+        //todo
+
+        // Combine them for a global aggregated JSON
+        List<AbstractValidationItem> combinedItems = new ArrayList<>(allBpmnItems);
+        //combinedItems.addAll(allFhirItems);
+        // Write to "report/aggregated.json"
+        ValidationOutput globalOutput = new ValidationOutput(combinedItems);
+        File globalJson = new File(reportRoot, "aggregated.json");
+        globalOutput.writeResultsAsJson(globalJson);
+        System.out.println("Wrote combined BPMN+FHIR issues to: " + globalJson.getAbsolutePath());
 
         System.out.println("\nValidation process finished!");
         return 0;
