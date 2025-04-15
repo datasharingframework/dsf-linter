@@ -12,12 +12,12 @@ public class InvalidFhirStatusValidationItem extends FhirElementValidationItem
 {
     public InvalidFhirStatusValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS,
+        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS,
                 "FHIR status is invalid");
     }
 
     public InvalidFhirStatusValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS, description);
+        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS, description);
     }
 }
