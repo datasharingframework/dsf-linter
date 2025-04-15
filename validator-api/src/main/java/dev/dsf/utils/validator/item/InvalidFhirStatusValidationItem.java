@@ -6,18 +6,18 @@ import java.io.File;
 
 /**
  * Validation item indicating that the FHIR status is invalid.
- * Corresponds to {@link ValidationType#FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN}.
+ * Corresponds to {@link ValidationType#INVALID_FHIR_STATUS}.
  */
 public class InvalidFhirStatusValidationItem extends FhirElementValidationItem
 {
     public InvalidFhirStatusValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN,
+        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS,
                 "FHIR status is invalid");
     }
 
     public InvalidFhirStatusValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN, description);
+        super(ValidationSeverity.WARN, resourceFile, fhirReference, ValidationType.INVALID_FHIR_STATUS, description);
     }
 }
