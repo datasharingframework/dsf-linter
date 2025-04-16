@@ -2,7 +2,7 @@ package dev.dsf.utils.validator;
 
 public enum ValidationType {
 
-    UNPARSABLE_FHIR_RESSOURCE,
+    UNPARSABLE_FHIR_RESOURCE,
 
     UNPARSABLE_BPMN_FILE,
 
@@ -104,8 +104,7 @@ public enum ValidationType {
 
     PLUGIN_DEFINITION_FHIR_RESSOURCE_NOT_LISTED,
 
-
-    // new addition @Khalil
+    // new addition @khalil BPMN
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_EMPTY,
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY,
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_NAME_EMPTY,
@@ -140,5 +139,6 @@ public enum ValidationType {
     FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN,
     INVALID_FHIR_KIND,
     SUCCESS
+    SUCCESS,
     NO_EXTENSION_PROCESS_AUTHORIZATION_FOUND
 }
