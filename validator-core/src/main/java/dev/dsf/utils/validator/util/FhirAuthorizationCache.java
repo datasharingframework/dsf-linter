@@ -1,148 +1,148 @@
 package dev.dsf.utils.validator.util;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Caches the DSF authorization codes discovered from a local
- * CodeSystem resource with URL "http://dsf.dev/fhir/CodeSystem/process-authorization".
+ * <h2>DSF CodeSystem Cache</h2>
+ * Utility class that maintains an in‑memory, thread‑safe cache of codes taken from selected
+ * <a href="https://dsf.dev/">Digital Square Framework</a> (DSF) CodeSystems.
  * <p>
- * This class provides static methods to store and retrieve codes. It is not meant to be instantiated.
- * Hence, the private constructor throws an exception if someone tries to instantiate it.
+ * The primary purpose is to support validation logic that checks whether a <em>code</em> occurring in an
+ * ActivityDefinition (or any other FHIR resource) is allowed by the DSF specification.  At runtime the
+ * cache is pre‑filled with <b>all</b> codes of the
+ * {@code http://dsf.dev/fhir/CodeSystem/process-authorization} CodeSystem so that the validators can
+ * operate even when no CodeSystem bundle has been parsed yet. Additional codes may be registered via
+ * {@link #addCodes(Set)} — for example when the validator application loads a newer DSF release bundle
+ * on start‑up.
+ * </p>
+ * <p>
+ * <strong>Scope:</strong> Only CodeSystems that are required by the core FHIR validators live here.  BPMN‑specific
+ * systems such as {@code bpmn-message} or {@code bpmn-task-profile} are validated by the BPMN layer and are
+ * intentionally <em>not</em> covered by this cache.
+ * </p>
+ * <p>
+ * This class is a pure static utility and therefore cannot be instantiated.
  * </p>
  */
-public class FhirAuthorizationCache
+public final class FhirAuthorizationCache
 {
-    private static final Set<String> AUTH_CODES = new HashSet<>();
+    /*
+     * Static code sets (extend when DSF introduces new codes)
+     */
+
+    /** All requester/recipient codes as defined in DSF 1.0.0 <em>process‑authorization</em>. */
+    private static final Set<String> PROCESS_AUTHORIZATION_CODES = Set.of(
+            "LOCAL_ALL",
+            "LOCAL_ALL_PRACTITIONER",
+            "LOCAL_ORGANIZATION",
+            "LOCAL_ORGANIZATION_PRACTITIONER",
+            "LOCAL_ROLE",
+            "LOCAL_ROLE_PRACTITIONER",
+            "REMOTE_ALL",
+            "REMOTE_ORGANIZATION",
+            "REMOTE_ROLE"
+    );
+
+    /** Valid codes for the <em>read‑access‑tag</em> CodeSystem. */
+    private static final Set<String> READ_ACCESS_TAG_CODES = Set.of(
+            "ALL", "LOCAL", "ORGANIZATION", "ROLE", "PRACTITIONER", "ROLE_PRACTITIONER");
+
+    /** Example practitioner‑role codes. Extend this set when your installation requires more. */
+    private static final Set<String> PRACTITIONER_ROLE_CODES = Set.of("DSF_ADMIN", "ORGANIZATION_USER");
+
+    /** Example organization‑role codes. Extend as needed. */
+    private static final Set<String> ORGANIZATION_ROLE_CODES = Set.of("DATA_PROVIDER", "COORDINATOR");
+
 
     /**
-     * Private constructor ensures the class cannot be instantiated.
-     * If reflection somehow tries to create an instance, it will fail with an exception.
+     * Thread‑safe backing set for codes of <em>process‑authorization</em>.
+     * Starts with the predefined codes and can be updated at runtime.
      */
-    private FhirAuthorizationCache()
+    private static final Set<String> AUTH_CODES = ConcurrentHashMap.newKeySet();
+
+    /* Static initialiser: preload default codes exactly once. */
+    static
     {
-        throw new AssertionError("Utility class FhirAuthorizationCache cannot be instantiated.");
+        AUTH_CODES.addAll(PROCESS_AUTHORIZATION_CODES);
     }
 
+    /** Prevent instantiation. */
+    private FhirAuthorizationCache()
+    {
+        throw new AssertionError("Utility class must not be instantiated");
+    }
+
+    /*
+     * Public API
+     */
+
     /**
-     * Adds one or more codes discovered from the DSF process-authorization CodeSystem.
+     * Registers additional <em>process‑authorization</em> codes. Duplicate entries are ignored.
      *
-     * @param codes a set of codes to add to the authorization cache
+     * @param codes the codes to add; {@code null} is ignored
      */
     public static void addCodes(Set<String> codes)
     {
-        AUTH_CODES.addAll(codes);
+        if (codes != null)
+            AUTH_CODES.addAll(codes);
     }
 
     /**
-     * Returns an unmodifiable snapshot of the currently known DSF authorization codes.
-     *
-     * @return an unmodifiable set of all cached authorization codes
+     * Returns an unmodifiable snapshot of all cached <em>process‑authorization</em> codes. Intended for
+     * diagnostic and unit‑test purposes.
      */
+    @Deprecated
     public static Set<String> getCodes()
     {
         return Collections.unmodifiableSet(AUTH_CODES);
     }
 
     /**
-     * Checks if the provided {@code code} is known/valid from
-     * the DSF process-authorization CodeSystem discovered so far.
-     *
-     * @param code the code to check
-     * @return {@code true} if the code is in the cache; {@code false} otherwise
+     * True when the supplied code is contained in the <em>process‑authorization</em> cache.
      */
     public static boolean isKnownAuthorizationCode(String code)
     {
         return AUTH_CODES.contains(code);
     }
 
-    /**
-     * Checks if the provided {@code code} for the given DSF CodeSystem is known.
-     * <p>
-     * This method supports multiple DSF CodeSystems such as:
-     * <ul>
-     *   <li>http://dsf.dev/fhir/CodeSystem/read-access-tag</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/process-authorization</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/practitioner-role</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/bpmn-message</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/bpmn-task-profile</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/organization-role</li>
-     *   <li>http://dsf.dev/fhir/CodeSystem/resource-type</li>
-     * </ul>
-     * </p>
-     *
-     * @param system the CodeSystem URL
-     * @param code   the code to check
-     * @return {@code true} if the code is known for the given CodeSystem, {@code false} otherwise.
-     */
+    @Deprecated
     public static boolean isKnownDsfCode(String system, String code)
     {
-        if ("http://dsf.dev/fhir/CodeSystem/process-authorization".equals(system))
+        if (system == null || code == null || code.isBlank())
+            return false;
+
+        return switch (system)
         {
-            return AUTH_CODES.contains(code);
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/read-access-tag".equals(system))
-        {
-            // Known read-access-tag codes
-            Set<String> knownReadAccessTagCodes = Set.of("ALL", "LOCAL", "ORGANIZATION", "ROLE", "PRACTITIONER", "ROLE_PRACTITIONER");
-            return knownReadAccessTagCodes.contains(code);
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/practitioner-role".equals(system))
-        {
-            // Known practitioner role codes (that is an example, but we will improve it)
-            Set<String> knownPractitionerRoleCodes = Set.of("DSF_ADMIN", "ORGANIZATION_USER");
-            return knownPractitionerRoleCodes.contains(code);
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/bpmn-message".equals(system))
-        {
-            // Known BPMN message names (that is an example, but we will improve it)
-            Set<String> knownBpmnMessages = Set.of("startPing", "pong");
-            return knownBpmnMessages.contains(code);
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/bpmn-task-profile".equals(system))
-        {
-            return code != null && !code.isBlank();
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/organization-role".equals(system))
-        {
-            // Known organization roles (that is an example, but we will improve it)
-            Set<String> knownOrganizationRoles = Set.of("DATA_PROVIDER", "COORDINATOR");
-            return knownOrganizationRoles.contains(code);
-        }
-        else if ("http://dsf.dev/fhir/CodeSystem/resource-type".equals(system))
-        {
-            // Known resource types (that is an example, but we will improve it)
-            Set<String> knownResourceTypes = Set.of("Task", "DocumentReference");
-            return knownResourceTypes.contains(code);
-        }
-        // For unknown CodeSystems, return false.
-        return false;
+            case "http://dsf.dev/fhir/CodeSystem/process-authorization" -> AUTH_CODES.contains(code);
+            case "http://dsf.dev/fhir/CodeSystem/read-access-tag"       -> READ_ACCESS_TAG_CODES.contains(code);
+            case "http://dsf.dev/fhir/CodeSystem/practitioner-role"     -> PRACTITIONER_ROLE_CODES.contains(code);
+            case "http://dsf.dev/fhir/CodeSystem/organization-role"     -> ORGANIZATION_ROLE_CODES.contains(code);
+            case "http://dsf.dev/fhir/CodeSystem/resource-type"         -> Character.isUpperCase(code.charAt(0));
+            default                                                      -> false;
+        };
     }
 
-    /**
-     * Returns the list of known DSF CodeSystem URLs.
-     *
-     * @return a list of known DSF CodeSystem URLs.
-     */
+
+    @Deprecated
     public static List<String> getKnownDsfCodeSystems()
     {
         return List.of(
                 "http://dsf.dev/fhir/CodeSystem/read-access-tag",
                 "http://dsf.dev/fhir/CodeSystem/process-authorization",
                 "http://dsf.dev/fhir/CodeSystem/practitioner-role",
-                "http://dsf.dev/fhir/CodeSystem/bpmn-message",
-                "http://dsf.dev/fhir/CodeSystem/bpmn-task-profile",
                 "http://dsf.dev/fhir/CodeSystem/organization-role",
                 "http://dsf.dev/fhir/CodeSystem/resource-type"
         );
     }
 
     /**
-     * Clears all cached codes.
-     * (Use with caution; typically only for testing or re-initialization.)
+     * Clears the runtime cache. <strong>Use only in unit tests!</strong> Production code should never empty
+     * the cache after initialisation.
      */
+    @Deprecated
     public static void clearCache()
     {
         AUTH_CODES.clear();
