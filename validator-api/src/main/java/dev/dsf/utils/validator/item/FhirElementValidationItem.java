@@ -5,27 +5,51 @@ import dev.dsf.utils.validator.ValidationType;
 
 
 /**
- * Represents a validation issue encountered while examining a FHIR resource
- * (e.g., ActivityDefinition, StructureDefinition, CodeSystem, ValueSet, or Task).
- *
- * <p>This class extends {@link FhirValidationItem} by adding:
+ * Represents a single validation result for a FHIR resource, such as a {@code Task}, {@code ActivityDefinition},
+ * {@code StructureDefinition}, {@code ValueSet}, or {@code CodeSystem}.
+ * <p>
+ * This class extends {@link FhirValidationItem} and encapsulates the following:
  * <ul>
- *   <li>Path to the FHIR resource file</li>
- *   <li>FHIR reference (URL or canonical reference)</li>
- *   <li>Type of validation issue encountered (via {@link ValidationType})</li>
- *   <li>A descriptive message detailing the validation problem</li>
+ *   <li>The name of the resource file where the issue was found</li>
+ *   <li>A FHIR reference, such as a canonical URL or identifier for the resource</li>
+ *   <li>A {@link ValidationType} describing the specific category of issue</li>
+ *   <li>A {@code resourceId}, which is derived from the FHIR reference if not explicitly provided</li>
+ *   <li>A human-readable {@code description} of the issue</li>
  * </ul>
  *
- * <p>References:
+ * <p>
+ * This class provides multiple constructors to accommodate different use cases, including:
  * <ul>
- *   <li>
- *     <a href="https://hl7.org/fhir/overview.html">
- *       HL7 FHIR Overview
- *     </a>
- *   </li>
+ *   <li>Full constructor with all parameters</li>
+ *   <li>Constructor with implicit {@code resourceId} derived from {@code fhirReference}</li>
+ *   <li>Minimal constructor with only {@code severity}, {@code description}, and {@code resourceFile}</li>
+ * </ul>
+ *
+ * <p>
+ * The {@code resourceId} is automatically derived from the last path segment of the {@code fhirReference}
+ * (excluding the version) unless explicitly set.
+ * </p>
+ *
+ * <p>
+ * Example:
+ * <pre>
+ *   ValidationType type = ValidationType.MISSING_BUSINESS_KEY;
+ *   String fhirRef = "http://dsf.dev/bpe/Process/pingAutostart|1.0.0";
+ *   new FhirElementValidationItem(ERROR, "task.xml", fhirRef, type, "Missing business-key input");
+ * </pre>
+ *
+ * <p>
+ * References:
+ * <ul>
+ *   <li><a href="https://hl7.org/fhir/overview.html">HL7 FHIR Overview</a></li>
  * </ul>
  * </p>
+ *
+ * @see ValidationType
+ * @see ValidationSeverity
+ * @see FhirValidationItem
  */
+
 public class FhirElementValidationItem extends FhirValidationItem
 {
     private final String fhirReference;
@@ -34,13 +58,14 @@ public class FhirElementValidationItem extends FhirValidationItem
     private final String resourceId;
 
     /**
-     * Constructs a new {@code FhirElementValidationItem} with all required fields.
+     * Constructs a {@code FhirElementValidationItem} with the {@code resourceId} automatically
+     * derived from the {@code fhirReference}.
      *
-     * @param severity       the validation severity (e.g., ERROR, WARN, INFO)
-     * @param resourceFile   the file where the resource was loaded from
-     * @param fhirReference  a canonical URL or local reference identifying the resource
-     * @param issueType      the category or type of the validation issue
-     * @param description    human-readable message describing the problem
+     * @param severity      the validation severity
+     * @param resourceFile  the name of the file from which the resource was loaded
+     * @param fhirReference the canonical or local reference to the FHIR resource
+     * @param issueType     the validation category or type
+     * @param description   a human-readable explanation of the issue
      */
     public FhirElementValidationItem(
             ValidationSeverity severity,
@@ -53,18 +78,19 @@ public class FhirElementValidationItem extends FhirValidationItem
         this.fhirReference = fhirReference;
         this.issueType = issueType;
         this.description = description;
-        this.resourceId = "unknown_resource";
+        this.resourceId    = deriveId(fhirReference);
     }
 
     /**
-     * Constructs a new {@code FhirElementValidationItem} with all required fields plus a resource ID.
+     * Constructs a {@code FhirElementValidationItem} using all fields. If {@code resourceId} is null or blank,
+     * it will be derived from the {@code fhirReference}.
      *
-     * @param severity       the validation severity
-     * @param resourceFile   the file where the resource was loaded from
-     * @param fhirReference  the canonical URL or reference identifying the resource
-     * @param issueType      the category or type of the validation issue
-     * @param description    human-readable message describing the problem
-     * @param resourceId     the FHIR resource ID, if known
+     * @param severity      the validation severity (e.g. ERROR, WARN, INFO)
+     * @param resourceFile  the name of the file from which the resource was loaded
+     * @param fhirReference the canonical or local reference to the FHIR resource
+     * @param issueType     the validation category or type
+     * @param description   a human-readable explanation of the issue
+     * @param resourceId    the resource ID, or null to derive it from the reference
      */
     public FhirElementValidationItem(
             ValidationSeverity severity,
@@ -76,18 +102,22 @@ public class FhirElementValidationItem extends FhirValidationItem
     ) {
         super(severity, resourceFile);
         this.fhirReference = fhirReference;
-        this.issueType = issueType;
-        this.description = description;
-        this.resourceId = resourceId;
+        this.issueType     = issueType;
+        this.description   = description;
+        this.resourceId    = (resourceId == null || resourceId.isBlank())
+                ? deriveId(fhirReference)
+                : resourceId;
     }
 
+
+
     /**
-     * <p>A convenience constructor to allow minimal creation with only a message and severity.</p>
-     * <p>All other fields are defaulted or set to {@code null} or {@code "unknown_resource"}. Use this
-     * when the file or resource details are unavailable.</p>
+     * Minimal constructor for fallback use cases. Initializes a basic validation item
+     * with only a description and severity. All other fields are set to default values.
      *
-     * @param description a human-readable description of the problem
-     * @param severity    the validation severity
+     * @param description  a message describing the validation issue
+     * @param severity     the validation severity
+     * @param resourceFile the name of the file containing the FHIR resource
      */
     public FhirElementValidationItem(String description, ValidationSeverity severity, String resourceFile)
     {
@@ -113,12 +143,23 @@ public class FhirElementValidationItem extends FhirValidationItem
         return issueType;
     }
 
+
+    public String getResourceId() {
+        return resourceId;
+    }
+
     @Override
     public String getDescription()
     {
         return description;
     }
 
+    /**
+     * Generates a human-readable string representation of this validation item,
+     * including severity, issue type, FHIR reference, and file name.
+     *
+     * @return string describing the validation issue
+     */
     @Override
     public String toString()
     {
@@ -126,7 +167,24 @@ public class FhirElementValidationItem extends FhirValidationItem
                 + " [file=" + getResourceFile() + "]";
     }
 
-    public String getResourceId() {
-        return resourceId;
+
+
+    /**
+     * Derives a FHIR resource ID from the canonical or local reference.
+     * If no valid reference can be determined, returns "unknown_resource".
+     *
+     * @param ref the FHIR reference (e.g., "http://example.org/fhir/Task/my-task|1.0.0")
+     * @return the derived resource ID (e.g., "my-task")
+     */
+    private static String deriveId(String ref)
+    {
+        if (ref == null || ref.isBlank())
+            return "unknown_resource";
+
+        String withoutVersion = ref.split("\\|", 2)[0];           // strip |version
+        String lastPart       = withoutVersion.substring(withoutVersion.lastIndexOf('/') + 1);
+        if (lastPart.contains("#"))
+            lastPart = lastPart.substring(lastPart.indexOf('#') + 1);
+        return lastPart.isBlank() ? "unknown_resource" : lastPart;
     }
 }
