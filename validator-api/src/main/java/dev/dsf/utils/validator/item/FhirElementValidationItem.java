@@ -3,7 +3,6 @@ package dev.dsf.utils.validator.item;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 
-import java.io.File;
 
 /**
  * Represents a validation issue encountered while examining a FHIR resource
@@ -29,7 +28,6 @@ import java.io.File;
  */
 public class FhirElementValidationItem extends FhirValidationItem
 {
-    private final File resourceFile;
     private final String fhirReference;
     private final ValidationType issueType;
     private final String description;
@@ -46,13 +44,12 @@ public class FhirElementValidationItem extends FhirValidationItem
      */
     public FhirElementValidationItem(
             ValidationSeverity severity,
-            File resourceFile,
+            String resourceFile,
             String fhirReference,
             ValidationType issueType,
             String description)
     {
-        super(severity);
-        this.resourceFile = resourceFile;
+        super(severity, resourceFile);
         this.fhirReference = fhirReference;
         this.issueType = issueType;
         this.description = description;
@@ -71,14 +68,13 @@ public class FhirElementValidationItem extends FhirValidationItem
      */
     public FhirElementValidationItem(
             ValidationSeverity severity,
-            File resourceFile,
+            String resourceFile,
             String fhirReference,
             ValidationType issueType,
             String description,
             String resourceId
     ) {
-        super(severity);
-        this.resourceFile = resourceFile;
+        super(severity, resourceFile);
         this.fhirReference = fhirReference;
         this.issueType = issueType;
         this.description = description;
@@ -93,17 +89,16 @@ public class FhirElementValidationItem extends FhirValidationItem
      * @param description a human-readable description of the problem
      * @param severity    the validation severity
      */
-    public FhirElementValidationItem(String description, ValidationSeverity severity)
+    public FhirElementValidationItem(String description, ValidationSeverity severity, String resourceFile)
     {
-        super(severity);
-        this.resourceFile = null;
+        super(severity,resourceFile);
         this.fhirReference = "";
         this.issueType = ValidationType.UNKNOWN;
         this.description = description;
         this.resourceId = "unknown_resource";
     }
 
-    public File getResourceFile()
+    public String getResourceFile()
     {
         return resourceFile;
     }
@@ -128,7 +123,7 @@ public class FhirElementValidationItem extends FhirValidationItem
     public String toString()
     {
         return "[" + getSeverity() + "] " + issueType + " (" + fhirReference + "): " + description
-                + " [file=" + (resourceFile != null ? resourceFile.getName() : "N/A") + "]";
+                + " [file=" + getResourceFile() + "]";
     }
 
     public String getResourceId() {

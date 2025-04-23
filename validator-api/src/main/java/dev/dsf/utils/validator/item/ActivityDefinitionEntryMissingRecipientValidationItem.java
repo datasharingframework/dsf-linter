@@ -21,7 +21,7 @@ public class ActivityDefinitionEntryMissingRecipientValidationItem extends FhirE
     public ActivityDefinitionEntryMissingRecipientValidationItem(File resourceFile, String fhirReference)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_RECIPIENT_EXTENSION,
                 "No <extension url='recipient'> found in process-authorization.");
@@ -37,7 +37,7 @@ public class ActivityDefinitionEntryMissingRecipientValidationItem extends FhirE
     public ActivityDefinitionEntryMissingRecipientValidationItem(File resourceFile, String fhirReference, String description)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_RECIPIENT_EXTENSION,
                 description);

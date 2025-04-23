@@ -12,12 +12,12 @@ public class ActivityDefinitionEntryInvalidRecipientValidationItem extends FhirE
 {
     public ActivityDefinitionEntryInvalidRecipientValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT,
                 "Invalid recipient in ActivityDefinition entry");
     }
 
     public ActivityDefinitionEntryInvalidRecipientValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT, description);
     }
 }

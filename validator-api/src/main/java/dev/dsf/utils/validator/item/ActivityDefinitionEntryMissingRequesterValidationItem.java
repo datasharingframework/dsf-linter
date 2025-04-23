@@ -20,7 +20,7 @@ public class ActivityDefinitionEntryMissingRequesterValidationItem extends FhirE
     public ActivityDefinitionEntryMissingRequesterValidationItem(File resourceFile, String fhirReference)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_REQUESTER_EXTENSION,
                 "No <extension url='requester'> found in process-authorization.");
@@ -36,7 +36,7 @@ public class ActivityDefinitionEntryMissingRequesterValidationItem extends FhirE
     public ActivityDefinitionEntryMissingRequesterValidationItem(File resourceFile, String fhirReference, String description)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_REQUESTER_EXTENSION,
                 description);

@@ -18,7 +18,7 @@ public class FhirInvalidFhirAccessTagValidationItem extends FhirElementValidatio
      */
     public FhirInvalidFhirAccessTagValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_ACCESS_TAG,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.INVALID_FHIR_ACCESS_TAG,
                 "Invalid FHIR access tag");
     }
 
@@ -31,6 +31,6 @@ public class FhirInvalidFhirAccessTagValidationItem extends FhirElementValidatio
      */
     public FhirInvalidFhirAccessTagValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_ACCESS_TAG, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.INVALID_FHIR_ACCESS_TAG, description);
     }
 }

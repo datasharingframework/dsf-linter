@@ -12,12 +12,12 @@ public class ActivityDefinitionEntryInvalidRequesterValidationItem extends FhirE
 {
     public ActivityDefinitionEntryInvalidRequesterValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER,
                 "Invalid requester in ActivityDefinition entry");
     }
 
     public ActivityDefinitionEntryInvalidRequesterValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER, description);
     }
 }

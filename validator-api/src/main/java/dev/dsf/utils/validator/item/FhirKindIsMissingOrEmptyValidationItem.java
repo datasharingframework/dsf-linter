@@ -18,7 +18,7 @@ public class FhirKindIsMissingOrEmptyValidationItem extends FhirElementValidatio
      */
     public FhirKindIsMissingOrEmptyValidationItem(File resourceFile, String fhirKind)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirKind, ValidationType.INVALID_FHIR_KIND,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirKind, ValidationType.INVALID_FHIR_KIND,
                 "FHIR kind is missing or empty");
     }
 
@@ -31,6 +31,6 @@ public class FhirKindIsMissingOrEmptyValidationItem extends FhirElementValidatio
      */
     public FhirKindIsMissingOrEmptyValidationItem(File resourceFile, String fhirKind, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirKind, ValidationType.INVALID_FHIR_KIND, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirKind, ValidationType.INVALID_FHIR_KIND, description);
     }
 }

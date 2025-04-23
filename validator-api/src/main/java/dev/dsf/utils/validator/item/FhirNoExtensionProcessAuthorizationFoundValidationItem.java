@@ -23,7 +23,7 @@ public class FhirNoExtensionProcessAuthorizationFoundValidationItem extends Fhir
      */
     public FhirNoExtensionProcessAuthorizationFoundValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference,
                 ValidationType.NO_EXTENSION_PROCESS_AUTHORIZATION_FOUND,
                 "No extension-process-authorization found in file: " + resourceFile.getName());
     }
@@ -38,7 +38,7 @@ public class FhirNoExtensionProcessAuthorizationFoundValidationItem extends Fhir
      */
     public FhirNoExtensionProcessAuthorizationFoundValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference,
                 ValidationType.NO_EXTENSION_PROCESS_AUTHORIZATION_FOUND,
                 description);
     }
@@ -56,7 +56,7 @@ public class FhirNoExtensionProcessAuthorizationFoundValidationItem extends Fhir
                 this.getClass().getSimpleName(),
                 getFhirReference(),
                 getDescription(),
-                getResourceFile() != null ? getResourceFile().getName() : "N/A"
+                getResourceFile()
         );
     }
 }

@@ -18,7 +18,7 @@ public class InvalidFhirUrlValidationItem extends FhirElementValidationItem
      */
     public InvalidFhirUrlValidationItem(File resourceFile, String fhirReference)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_URL,
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.INVALID_FHIR_URL,
                 "FHIR URL is invalid");
     }
 
@@ -31,6 +31,6 @@ public class InvalidFhirUrlValidationItem extends FhirElementValidationItem
      */
     public InvalidFhirUrlValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.INVALID_FHIR_URL, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.INVALID_FHIR_URL, description);
     }
 }

@@ -34,7 +34,7 @@ public class FhirElementValidationItemSuccess extends FhirElementValidationItem
             String fhirReference,
             String description)
     {
-        super(ValidationSeverity.SUCCESS, resourceFile, fhirReference, ValidationType.SUCCESS, description);
+        super(ValidationSeverity.SUCCESS, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.SUCCESS, description);
     }
 
     /**
@@ -51,7 +51,7 @@ public class FhirElementValidationItemSuccess extends FhirElementValidationItem
             String description,
             String resourceId)
     {
-        super(ValidationSeverity.SUCCESS, resourceFile, fhirReference, ValidationType.SUCCESS, description, resourceId);
+        super(ValidationSeverity.SUCCESS, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.SUCCESS, description, resourceId);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class FhirElementValidationItemSuccess extends FhirElementValidationItem
                 ValidationSeverity.SUCCESS,
                 this.getClass().getSimpleName(),
                 getFhirReference(),
-                (getResourceFile() != null ? getResourceFile().getName() : "N/A"),
+                getResourceFile(),
                 getDescription()
         );
     }

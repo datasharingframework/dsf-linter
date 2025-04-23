@@ -18,7 +18,7 @@ public class FhirStatusIsNotSetAsUnknown extends FhirElementValidationItem
      */
     public FhirStatusIsNotSetAsUnknown(File resourceFile, String fhirStatus)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirStatus, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN,
+        super(ValidationSeverity.WARN, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirStatus, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN,
                 "FHIR status is not set as unknown");
     }
 
@@ -31,6 +31,6 @@ public class FhirStatusIsNotSetAsUnknown extends FhirElementValidationItem
      */
     public FhirStatusIsNotSetAsUnknown(File resourceFile, String fhirStatus, String description)
     {
-        super(ValidationSeverity.WARN, resourceFile, fhirStatus, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN, description);
+        super(ValidationSeverity.WARN, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirStatus, ValidationType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN, description);
     }
 }

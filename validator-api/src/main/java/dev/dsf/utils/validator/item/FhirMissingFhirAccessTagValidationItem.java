@@ -19,7 +19,7 @@ public class FhirMissingFhirAccessTagValidationItem extends FhirElementValidatio
     public FhirMissingFhirAccessTagValidationItem(File resourceFile, String fhirReference)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_FHIR_ACCESS_TAG,
                 "Missing FHIR access tag");
@@ -35,7 +35,7 @@ public class FhirMissingFhirAccessTagValidationItem extends FhirElementValidatio
     public FhirMissingFhirAccessTagValidationItem(File resourceFile, String fhirReference, String description)
     {
         super(ValidationSeverity.ERROR,
-                resourceFile,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.MISSING_FHIR_ACCESS_TAG,
                 description);

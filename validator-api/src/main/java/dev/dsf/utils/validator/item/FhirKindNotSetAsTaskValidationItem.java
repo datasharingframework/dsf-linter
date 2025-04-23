@@ -26,7 +26,7 @@ public class FhirKindNotSetAsTaskValidationItem extends FhirElementValidationIte
             String fhirReference,
             String description)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.FHIR_KIND_NOT_SET_AS_TASK, description);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.FHIR_KIND_NOT_SET_AS_TASK, description);
     }
 
     /**
@@ -44,7 +44,7 @@ public class FhirKindNotSetAsTaskValidationItem extends FhirElementValidationIte
             String description,
             String resourceId)
     {
-        super(ValidationSeverity.ERROR, resourceFile, fhirReference, ValidationType.FHIR_KIND_NOT_SET_AS_TASK, description, resourceId);
+        super(ValidationSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.FHIR_KIND_NOT_SET_AS_TASK, description, resourceId);
     }
 
     @Override
@@ -55,7 +55,7 @@ public class FhirKindNotSetAsTaskValidationItem extends FhirElementValidationIte
                 getSeverity(),
                 this.getClass().getSimpleName(),
                 getFhirReference(),
-                (getResourceFile() != null ? getResourceFile().getName() : "N/A"),
+                getResourceFile(),
                 getDescription()
         );
     }
