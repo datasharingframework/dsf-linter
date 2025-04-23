@@ -63,7 +63,7 @@ public final class FhirAuthorizationCache
      */
     private static final Set<String> AUTH_CODES = ConcurrentHashMap.newKeySet();
 
-    /* Static initialiser: preload default codes exactly once. */
+    /* Static initializer: preload default codes exactly once. */
     static
     {
         AUTH_CODES.addAll(PROCESS_AUTHORIZATION_CODES);
