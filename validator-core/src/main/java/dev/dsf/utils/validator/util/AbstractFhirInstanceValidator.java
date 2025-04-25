@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.util;
 
+import dev.dsf.utils.validator.item.FhirElementValidationItemSuccess;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -9,31 +10,52 @@ import java.io.File;
 import java.util.List;
 
 /**
- * Abstract base for FHIR resource validators. Provides helper methods for DOM parsing and placeholders checks.
+ * Abstract base class for FHIR resource validators.
+ *
+ * <p>This class provides common utility methods to assist in validating FHIR resources
+ * represented as DOM {@link Document} objects. It defines the basic structure for
+ * all concrete validators, and centralizes frequently used XPath and utility logic
+ * for consistent use across all subclasses.</p>
+ *
+ * <p>Subclasses must implement the validation logic by overriding the abstract methods
+ * {@link #canValidate(Document)} and {@link #validate(Document, File)}.</p>
  */
 public abstract class AbstractFhirInstanceValidator
 {
+    /*
+      API to be implemented by concrete validators
+      */
+
     /**
-     * Checks if the validator can handle the given FHIR resource {@link Document} (by checking the root element).
+     * Determines whether this validator can process the given FHIR resource.
+     * Typically, this check is performed by inspecting the root element's local name
+     * of the provided {@link Document}.
      *
-     * @param document the XML Document of the resource
-     * @return true if this validator can handle it, false otherwise
+     * @param document the FHIR XML document to inspect
+     * @return {@code true} if the validator supports this document type; {@code false} otherwise
      */
     public abstract boolean canValidate(Document document);
 
     /**
-     * Performs the validation checks on the given FHIR resource Document.
+     * Performs all validation checks on the given FHIR resource and collects results
+     * in the form of validation items (success, warnings, or errors).
      *
-     * @param document the XML Document of the resource
-     * @param resourceFile the file from which the document was loaded
-     * @return list of issues found
+     * @param document     the FHIR resource document to validate
+     * @param resourceFile the corresponding file on disk (used for reference reporting)
+     * @return a list of validation items indicating success or problems found
      */
     public abstract List<?> validate(Document document, File resourceFile);
 
+    /*
+      Shared XPath helpers (unchanged)
+       */
+
     /**
-     * Evaluates an XPath expression on the given Document, returns a NodeList result (may be empty).
-     * <p>
-     * This version always starts from the root of the Document.
+     * Evaluates the given XPath expression on the provided document and returns the resulting node list.
+     *
+     * @param doc       the XML document to query
+     * @param xpathExpr the XPath expression
+     * @return a {@link NodeList} of matching nodes, or {@code null} if evaluation fails
      */
     protected NodeList evaluateXPath(Document doc, String xpathExpr)
     {
@@ -49,9 +71,11 @@ public abstract class AbstractFhirInstanceValidator
     }
 
     /**
-     * Evaluates an XPath expression on a specific Node, returning a NodeList result (may be empty).
-     * <p>
-     * This version is useful for sub-queries relative to a specific element.
+     * Evaluates a relative XPath expression starting from the given context node.
+     *
+     * @param node         the context node from which to evaluate
+     * @param relativeExpr the relative XPath expression
+     * @return a {@link NodeList} of matching child nodes, or {@code null} if evaluation fails
      */
     protected NodeList evaluateXPath(Node node, String relativeExpr)
     {
@@ -67,12 +91,11 @@ public abstract class AbstractFhirInstanceValidator
     }
 
     /**
-     * Extracts the string value of the first matching node from an XPath expression
-     * evaluated on a {@link Document}.
+     * Extracts the text value of the first node that matches the given XPath expression in the document.
      *
-     * @param doc the XML Document
+     * @param doc       the XML document to search
      * @param xpathExpr the XPath expression
-     * @return the extracted text, or null if not found
+     * @return the text content of the first matching node, or {@code null} if no match
      */
     protected String extractSingleNodeValue(Document doc, String xpathExpr)
     {
@@ -83,18 +106,103 @@ public abstract class AbstractFhirInstanceValidator
     }
 
     /**
-     * Extracts the string value of the first matching node from an XPath expression
-     * evaluated on a {@link Node}.
+     * Extracts the text value of the first node that matches the relative XPath expression from the given node.
      *
-     * @param node the Node
-     * @param relativeExpr the XPath expression relative to that node
-     * @return the extracted text, or null if not found
+     * @param node         the context node
+     * @param relativeExpr the XPath expression relative to the node
+     * @return the text content of the first matching node, or {@code null} if no match
      */
     protected String extractSingleNodeValue(Node node, String relativeExpr)
     {
         NodeList nodes = evaluateXPath(node, relativeExpr);
         if (nodes != null && nodes.getLength() > 0 && nodes.item(0) != null)
             return nodes.item(0).getTextContent();
+        return null;
+    }
+
+    /*
+      Convenience helpers shared by all validators
+      */
+
+    /**
+     * Records a successful validation step.
+     *
+     * <p>This helper creates a {@link FhirElementValidationItemSuccess} item to document
+     * a passed validation check. It mirrors the success reporting approach used in
+     * {@code FhirTaskValidator} and is designed for reuse in other validators.</p>
+     *
+     * @param file    the file being validated
+     * @param ref     a string reference (e.g., resource URL)
+     * @param message a message describing the successful validation
+     * @return a success item to be added to the result list
+     */
+    protected FhirElementValidationItemSuccess ok(File file, String ref, String message)
+    {
+        return new FhirElementValidationItemSuccess(file, ref, message);
+    }
+
+    /**
+     * Utility method that checks whether a string is {@code null} or contains only whitespace.
+     *
+     * @param s the string to check
+     * @return {@code true} if the string is blank; {@code false} otherwise
+     */
+    protected static boolean blank(String s)
+    {
+        return s == null || s.isBlank();
+    }
+
+    /**
+     * Convenience wrapper for {@link #extractSingleNodeValue(Node, String)}.
+     *
+     * @param ctx the context node
+     * @param xp  the relative XPath expression
+     * @return the extracted string value, or {@code null}
+     */
+    protected String val(Node ctx, String xp)
+    {
+        return extractSingleNodeValue(ctx, xp);
+    }
+
+    /**
+     * Convenience wrapper for {@link #evaluateXPath(Node, String)}.
+     *
+     * @param ctx the context node
+     * @param xp  the relative XPath expression
+     * @return a {@link NodeList} of matching child nodes, or {@code null}
+     */
+    protected NodeList xp(Node ctx, String xp)
+    {
+        return evaluateXPath(ctx, xp);
+    }
+
+    /**
+     * Extracts the value of the first child element whose tag name starts with {@code "value"} and
+     * contains a {@code value} attribute.
+     *
+     * <p>This method iterates through all child nodes of the given {@link Node} and returns
+     * the value of the {@code value} attribute from the first matching child element.
+     * It is typically used to extract primitive values from FHIR-encoded XML sub-elements such as:
+     * <pre>{@code
+     * <valueString value="some text"/>
+     * <valueBoolean value="true"/>
+     * }</pre>
+     *
+     * @param node the parent DOM node to inspect
+     * @return the string value of the {@code value} attribute if found, or {@code null} if no matching child is found
+     */
+    protected static String extractValueX(Node node)
+    {
+        NodeList kids = node.getChildNodes();
+        for (int i = 0; i < kids.getLength(); i++)
+        {
+            Node k = kids.item(i);
+            if (k.getNodeName().startsWith("value") && k.getAttributes() != null)
+            {
+                Node v = k.getAttributes().getNamedItem("value");
+                if (v != null) return v.getNodeValue();
+            }
+        }
         return null;
     }
 }

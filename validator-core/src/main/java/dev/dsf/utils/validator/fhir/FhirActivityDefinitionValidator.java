@@ -250,27 +250,4 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
                 ? new ActivityDefinitionEntryInvalidRequesterValidationItem(file, url, message)
                 : new ActivityDefinitionEntryInvalidRecipientValidationItem(file, url, message);
     }
-
-    /*
-      Tiny utility helpers
-      */
-    private FhirElementValidationItemSuccess ok(File f, String ref, String msg)
-    {
-        return new FhirElementValidationItemSuccess(f, ref, msg);
-    }
-
-    private static boolean blank(String s)
-    {
-        return s == null || s.isBlank();
-    }
-
-    private String val(Node ctx, String xp)
-    {
-        return extractSingleNodeValue(ctx, xp);
-    }
-
-    private NodeList xp(Node ctx, String xp)
-    {
-        return evaluateXPath(ctx, xp);
-    }
 }
