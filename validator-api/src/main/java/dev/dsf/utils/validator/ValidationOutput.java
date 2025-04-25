@@ -168,4 +168,9 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
 
         return "unknown_process";
     }
+    public static ValidationOutput empty()
+    {
+        return new ValidationOutput(List.of());
+    }
+
 }
