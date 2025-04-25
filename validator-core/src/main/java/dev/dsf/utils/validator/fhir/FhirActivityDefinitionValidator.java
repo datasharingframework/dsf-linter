@@ -10,6 +10,7 @@ import org.w3c.dom.NodeList;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Validator for FHIR {@code ActivityDefinition} resources.
@@ -18,7 +19,7 @@ import java.util.List;
  * <ul>
  *     <li><strong>Mandatory elements</strong><br/>
  *         <ul>
- *             <li>{@code <url>} must be present and non‑blank.</li>
+ *             <li>{@code <url>} must be present and non-blank.</li>
  *             <li>{@code <status>} must be present and set to {@code "unknown"} (required by DSF).</li>
  *             <li>{@code <kind>} must be present and set to {@code "Task"}.</li>
  *         </ul>
@@ -29,7 +30,7 @@ import java.util.List;
  *     <li><strong>Process‑Authorization Extension</strong><br/>
  *         <ul>
  *             <li>{@code extension-process-authorization} must exist.</li>
- *             <li>Each {@code requester} and {@code recipient} sub‑extension must contain a {@code valueCoding}
+ *             <li>Each {@code requester} and {@code recipient} sub-extension must contain a {@code valueCoding}
  *                 with {@code system} equal to {@value #PROCESS_AUTHORIZATION_SYSTEM} and a {@code code} that is
  *                 known to {@link FhirAuthorizationCache#isKnownAuthorizationCode(String)}.</li>
  *         </ul>
@@ -53,16 +54,36 @@ import java.util.List;
  * </ul>
  * </p>
  */
-public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidator
+public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidator
 {
-    /** DSF CodeSystem for read‑access‑tag entries. */
-    private static final String READ_ACCESS_TAG_SYSTEM = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
+    /*
+      XPath constants
+      */
+    private static final String ACTIVITY_DEFINITION_XP = "/*[local-name()='ActivityDefinition']";
+    private static final String URL_XP     = ACTIVITY_DEFINITION_XP + "/*[local-name()='url']/@value";
+    private static final String STATUS_XP  = ACTIVITY_DEFINITION_XP + "/*[local-name()='status']/@value";
+    private static final String KIND_XP    = ACTIVITY_DEFINITION_XP + "/*[local-name()='kind']/@value";
 
-    /** Allowed code for global read access. */
+    private static final String TAG_SYS_XP  = ACTIVITY_DEFINITION_XP +
+            "/*[local-name()='meta']/*[local-name()='tag'][1]/*[local-name()='system'][1]/@value";
+    private static final String TAG_CODE_XP = ACTIVITY_DEFINITION_XP +
+            "/*[local-name()='meta']/*[local-name()='tag'][1]/*[local-name()='code'][1]/@value";
+
+    private static final String AUTH_EXT_BASE_XP = ACTIVITY_DEFINITION_XP +
+            "/*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']";
+    private static final String AUTH_EXT_REQUESTER_XP  = "./*[local-name()='extension' and @url='requester']";
+    private static final String AUTH_EXT_RECIPIENT_XP  = "./*[local-name()='extension' and @url='recipient']";
+    private static final String AUTH_CODING_SYSTEM_XP  = "./*[local-name()='valueCoding'][1]/*[local-name()='system'][1]/@value";
+    private static final String AUTH_CODING_CODE_XP    = "./*[local-name()='valueCoding'][1]/*[local-name()='code'][1]/@value";
+
+    /*
+      DSF‑specific CodeSystems / codes
+      */
+    private static final String READ_ACCESS_TAG_SYSTEM = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
     private static final String READ_ACCESS_TAG_CODE_ALL = "ALL";
 
-    /** DSF CodeSystem for process‑authorization requester / recipient codings. */
     private static final String PROCESS_AUTHORIZATION_SYSTEM = "http://dsf.dev/fhir/CodeSystem/process-authorization";
+
 
     @Override
     public boolean canValidate(Document document)
@@ -71,137 +92,91 @@ public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidat
     }
 
     @Override
-    public List<FhirElementValidationItem> validate(Document document, File resourceFile)
+    public List<FhirElementValidationItem> validate(Document doc, File resourceFile)
     {
-        List<FhirElementValidationItem> issues = new ArrayList<>();
+        final List<FhirElementValidationItem> issues = new ArrayList<>();
 
-        /*
-         * (1) Mandatory elements: <url>
-         */
-        String resourceUrl = extractSingleNodeValue(document,
-                "/*[local-name()='ActivityDefinition']/*[local-name()='url']/@value");
-        if (resourceUrl == null || resourceUrl.isBlank())
-        {
+        /* (1) <url>  */
+        final String resourceUrl = val(doc, URL_XP);
+        if (blank(resourceUrl))
             issues.add(new InvalidFhirUrlValidationItem(resourceFile, null,
                     "ActivityDefinition is missing <url> or it is empty."));
-        }
         else
-        {
-            issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                    "Success: <url> found: '" + resourceUrl + "'."));
-        }
+            issues.add(ok(resourceFile, resourceUrl, "Found <url>: '" + resourceUrl + "'."));
 
-        /*
-         * (2) Mandatory elements: <status>
-         */
-        String statusVal = extractSingleNodeValue(document,
-                "/*[local-name()='ActivityDefinition']/*[local-name()='status']/@value");
-        if (statusVal == null || statusVal.isBlank())
-        {
+        /* (2) <status> must be "unknown"  */
+        final String statusVal = val(doc, STATUS_XP);
+        if (blank(statusVal))
             issues.add(new InvalidFhirStatusValidationItem(resourceFile, resourceUrl,
                     "ActivityDefinition is missing <status> or it is empty."));
-        }
         else if (!"unknown".equals(statusVal))
-        {
             issues.add(new FhirStatusIsNotSetAsUnknown(resourceFile, resourceUrl,
-                    "ActivityDefinition <status> must be 'unknown' (found '" + statusVal + "')."));
-        }
+                    "<status> must be 'unknown' (found '" + statusVal + "')."));
         else
-        {
-            issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                    "Success: <status> is set to 'unknown'."));
-        }
+            issues.add(ok(resourceFile, resourceUrl, "<status> is 'unknown'."));
 
-        /*
-         * (3) Mandatory elements: <kind>
-         */
-        String kindVal = extractSingleNodeValue(document,
-                "/*[local-name()='ActivityDefinition']/*[local-name()='kind']/@value");
-        if (kindVal == null || kindVal.isBlank())
-        {
+        /* (3) <kind> must be "Task"  */
+        final String kindVal = val(doc, KIND_XP);
+        if (blank(kindVal))
             issues.add(new FhirKindIsMissingOrEmptyValidationItem(resourceFile, resourceUrl));
-        }
         else if (!"Task".equals(kindVal))
-        {
             issues.add(new FhirKindNotSetAsTaskValidationItem(resourceFile, resourceUrl,
-                    "ActivityDefinition <kind> must be 'Task' (found '" + kindVal + "')."));
-        }
+                    "<kind> must be 'Task' (found '" + kindVal + "')."));
         else
-        {
-            issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                    "Success: <kind> is 'Task'."));
-        }
+            issues.add(ok(resourceFile, resourceUrl, "<kind> is 'Task'."));
 
-        /*
-         * (4) Read‑Access Tag
-         */
-        String tagSystem = extractSingleNodeValue(document,
-                "/*[local-name()='ActivityDefinition']/*[local-name()='meta']/*[local-name()='tag'][1]/*[local-name()='system'][1]/@value");
-        String tagCode = extractSingleNodeValue(document,
-                "/*[local-name()='ActivityDefinition']/*[local-name()='meta']/*[local-name()='tag'][1]/*[local-name()='code'][1]/@value");
+        /* (4) Read‑Access‑Tag  */
+        final String tagSystem = val(doc, TAG_SYS_XP);
+        final String tagCode   = val(doc, TAG_CODE_XP);
 
-        if (tagSystem == null || tagCode == null)
-        {
+        if (blank(tagSystem) || blank(tagCode))
             issues.add(new FhirMissingFhirAccessTagValidationItem(resourceFile, resourceUrl,
-                    "ActivityDefinition is missing the mandatory read‑access tag (system + code)."));
-        }
-        else if (!READ_ACCESS_TAG_SYSTEM.equals(tagSystem) || !READ_ACCESS_TAG_CODE_ALL.equals(tagCode))
-        {
+                    "Missing read‑access tag (system + code)."));
+        else if (!Objects.equals(READ_ACCESS_TAG_SYSTEM, tagSystem) ||
+                !Objects.equals(READ_ACCESS_TAG_CODE_ALL, tagCode))
             issues.add(new FhirInvalidFhirAccessTagValidationItem(resourceFile, resourceUrl,
-                    "Read‑access tag must use system '" + READ_ACCESS_TAG_SYSTEM + "' and code '" +
-                            READ_ACCESS_TAG_CODE_ALL + "' (found system='" + tagSystem + "', code='" + tagCode + "')."));
-        }
+                    "Read‑access tag must be system='" + READ_ACCESS_TAG_SYSTEM + "', code='" + READ_ACCESS_TAG_CODE_ALL +
+                            "' (found system='" + tagSystem + "', code='" + tagCode + "')."));
         else
-        {
-            issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                    "Success: read‑access tag system '" + tagSystem + "', code '" + tagCode + "' recognized."));
-        }
+            issues.add(ok(resourceFile, resourceUrl,
+                    "Read‑access tag ok (system '" + tagSystem + "', code '" + tagCode + "')."));
 
-        /*
-         * (5) Process‑Authorization Extension – presence + content
-         */
-        String authExtXPath = "/*[local-name()='ActivityDefinition']" +
-                "/*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']";
-        NodeList authExtensions = evaluateXPath(document, authExtXPath);
-
-        if (authExtensions == null || authExtensions.getLength() == 0)
+        /* (5) Process‑Authorization‑Extension  */
+        NodeList authExts = xp(doc, AUTH_EXT_BASE_XP);
+        if (authExts == null || authExts.getLength() == 0)
         {
             issues.add(new FhirNoExtensionProcessAuthorizationFoundValidationItem(resourceFile, resourceUrl));
         }
         else
         {
-            issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                    "Success: Found extension-process-authorization."));
+            issues.add(ok(resourceFile, resourceUrl,
+                    "Found extension-process-authorization (" + authExts.getLength() + ")."));
 
-            for (int i = 0; i < authExtensions.getLength(); i++)
+            for (int i = 0; i < authExts.getLength(); i++)
             {
-                Node authExt = authExtensions.item(i);
+                Node authExt = authExts.item(i);
 
-                NodeList requesterNodes = evaluateXPath(authExt,
-                        "./*[local-name()='extension' and @url='requester']");
+                /* requester  */
+                NodeList requesterNodes = xp(authExt, AUTH_EXT_REQUESTER_XP);
                 if (requesterNodes.getLength() == 0)
-                {
                     issues.add(new ActivityDefinitionEntryMissingRequesterValidationItem(resourceFile, resourceUrl,
                             "No <extension url='requester'> found in process-authorization."));
-                }
                 else
                 {
-                    issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                            "Success: Found <extension url='requester'> in process-authorization."));
+                    issues.add(ok(resourceFile, resourceUrl,
+                            "Found <extension url='requester'> (" + requesterNodes.getLength() + ")."));
                     checkAuthorizationCodings(requesterNodes, resourceFile, resourceUrl, issues, true);
                 }
 
-                NodeList recipientNodes = evaluateXPath(authExt,
-                        "./*[local-name()='extension' and @url='recipient']");
+                /* recipient  */
+                NodeList recipientNodes = xp(authExt, AUTH_EXT_RECIPIENT_XP);
                 if (recipientNodes.getLength() == 0)
-                {
                     issues.add(new ActivityDefinitionEntryMissingRecipientValidationItem(resourceFile, resourceUrl,
                             "No <extension url='recipient'> found in process-authorization."));
-                }
                 else
                 {
-                    issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                            "Success: Found <extension url='recipient'> in process-authorization."));
+                    issues.add(ok(resourceFile, resourceUrl,
+                            "Found <extension url='recipient'> (" + recipientNodes.getLength() + ")."));
                     checkAuthorizationCodings(recipientNodes, resourceFile, resourceUrl, issues, false);
                 }
             }
@@ -210,6 +185,9 @@ public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidat
         return issues;
     }
 
+    /*
+      Helper: authorization coding validation
+       */
     /**
      * Validates {@code requester} or {@code recipient} sub‑extensions.
      * <ul>
@@ -223,30 +201,24 @@ public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidat
                                            List<FhirElementValidationItem> issues,
                                            boolean requester)
     {
+        final String elementName = requester ? "requester" : "recipient";
+
         for (int i = 0; i < nodes.getLength(); i++)
         {
             Node node = nodes.item(i);
 
-            String systemVal = extractSingleNodeValue(
-                    node,
-                    "./*[local-name()='valueCoding'][1]/*[local-name()='system'][1]/@value");
+            final String systemVal = val(node, AUTH_CODING_SYSTEM_XP);
+            final String codeVal   = val(node, AUTH_CODING_CODE_XP);
 
-            String codeVal = extractSingleNodeValue(
-                    node,
-                    "./*[local-name()='valueCoding'][1]/*[local-name()='code'][1]/@value");
-
-
-            String elementName = requester ? "requester" : "recipient";
-
-            // Missing system / code
-            if (systemVal == null || codeVal == null)
+            // (a) system & code must be present
+            if (blank(systemVal) || blank(codeVal))
             {
                 issues.add(createAuthValidationError(requester, resourceFile, resourceUrl,
                         "Missing <system> or <code> in '" + elementName + "' valueCoding."));
                 continue;
             }
 
-            // Wrong system
+            // (b) system must match DSF process‑authorization system
             if (!PROCESS_AUTHORIZATION_SYSTEM.equals(systemVal))
             {
                 issues.add(createAuthValidationError(requester, resourceFile, resourceUrl,
@@ -255,17 +227,17 @@ public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidat
                 continue;
             }
 
-            // Unknown code
+            // (c) code must be known
             if (!FhirAuthorizationCache.isKnownAuthorizationCode(codeVal))
             {
                 issues.add(createAuthValidationError(requester, resourceFile, resourceUrl,
                         "'" + elementName + "' code '" + codeVal + "' is not known in the process-authorization CodeSystem."));
+                continue;
             }
-            else
-            {
-                issues.add(new FhirElementValidationItemSuccess(resourceFile, resourceUrl,
-                        "Success: '" + elementName + "' coding system and code are valid (" + codeVal + ")."));
-            }
+
+            // success
+            issues.add(ok(resourceFile, resourceUrl,
+                    "'" + elementName + "' coding system and code are valid (" + codeVal + ")."));
         }
     }
 
@@ -274,7 +246,31 @@ public class FhirActivityDefinitionValidator extends AbstractFhirInstanceValidat
                                                                 String url,
                                                                 String message)
     {
-        return requester ? new ActivityDefinitionEntryInvalidRequesterValidationItem(file, url, message)
+        return requester
+                ? new ActivityDefinitionEntryInvalidRequesterValidationItem(file, url, message)
                 : new ActivityDefinitionEntryInvalidRecipientValidationItem(file, url, message);
+    }
+
+    /*
+      Tiny utility helpers
+      */
+    private FhirElementValidationItemSuccess ok(File f, String ref, String msg)
+    {
+        return new FhirElementValidationItemSuccess(f, ref, msg);
+    }
+
+    private static boolean blank(String s)
+    {
+        return s == null || s.isBlank();
+    }
+
+    private String val(Node ctx, String xp)
+    {
+        return extractSingleNodeValue(ctx, xp);
+    }
+
+    private NodeList xp(Node ctx, String xp)
+    {
+        return evaluateXPath(ctx, xp);
     }
 }
