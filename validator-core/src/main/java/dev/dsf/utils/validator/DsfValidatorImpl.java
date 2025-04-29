@@ -63,23 +63,33 @@ public class DsfValidatorImpl implements DsfValidator
      * </ul>
      */
     @Override
-    public ValidationOutput validate(Path path)
-    {
-        String fn = path.getFileName().toString().toLowerCase();
-        if (fn.endsWith(".bpmn"))
-        {
-            return validateBpmn(path);
+    public ValidationOutput validate(Path path) {
+
+        // A) ProjectFolder
+        if (Files.isDirectory(path)) {
+            File reportRoot = new File("report");
+            reportRoot.mkdirs();
+
+            List<AbstractValidationItem> bpmnItems =
+                    validateAllBpmnFilesSplitNewStructure(path.toFile(), reportRoot);
+
+            List<AbstractValidationItem> fhirItems =
+                    Optional.ofNullable(
+                            validateAllFhirResourcesSplitNewStructure(path.toFile(), reportRoot)
+                    ).orElse(List.of());                     // ← avoid NPE
+
+            List<AbstractValidationItem> all = new ArrayList<>(bpmnItems);
+            all.addAll(fhirItems);
+
+            ValidationOutput combined = new ValidationOutput(all);
+            combined.writeResultsAsJson(new File(reportRoot, "aggregated.json"));
+            return combined;
         }
-        else if (fn.endsWith(".xml") || fn.endsWith(".json"))
-        {
-            return validateFhir(path);
-        }
-        else
-        {
-            System.err.println("Unrecognized extension for: " + path);
-            return null;
-        }
+
+        // B) single file
+        return validateSingleFile(path);
     }
+
 
 
     // BPMN (Split with sub-aggregators)
@@ -454,6 +464,38 @@ public class DsfValidatorImpl implements DsfValidator
         return new ValidationOutput(allBpmnItems);
     }
 
+    /**
+     * <p>
+     * Validates a single file based on its file extension.
+     * </p>
+     *
+     * <p>
+     * Supported file types:
+     * <ul>
+     *   <li><strong>BPMN files</strong> – Files ending with {@code .bpmn} will be validated using the BPMN validation logic.</li>
+     *   <li><strong>FHIR files</strong> – Files ending with {@code .xml} or {@code .json} will be validated using the FHIR validation logic (to be implemented).</li>
+     * </ul>
+     * </p>
+     *
+     * <p>
+     * If the file extension is not recognized, an empty {@link ValidationOutput} will be returned, and an error message will be printed.
+     * </p>
+     *
+     * @param file the {@link Path} of the file to validate
+     * @return a {@link ValidationOutput} containing validation results; empty if the file type is unsupported
+     */
+    private ValidationOutput validateSingleFile(Path file) {
+        String fn = file.getFileName().toString().toLowerCase();
+
+        if (fn.endsWith(".bpmn"))
+            return validateBpmn(file);
+        else if (fn.endsWith(".xml") || fn.endsWith(".json"))
+            return validateFhir(file);          //TODO
+        else {
+            System.err.println("Unrecognized extension for: " + file);
+            return new ValidationOutput(List.of());
+        }
+    }
 
     /**
      * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
