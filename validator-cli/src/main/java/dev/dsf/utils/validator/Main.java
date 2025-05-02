@@ -3,6 +3,7 @@ package dev.dsf.utils.validator;
 import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
+import dev.dsf.utils.validator.util.ReportCleaner;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -124,12 +125,16 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
+        // Prepare clean report directory
+        File reportRoot = new File("report");
+        ReportCleaner.prepareCleanReportDirectory(reportRoot);
+
         // Validate the project files (BPMN and FHIR).
         DsfValidatorImpl validator = new DsfValidatorImpl();
         ValidationOutput output = validator.validate(projectDir.toPath());
 
         System.out.printf("%nValidation finished – %d issue(s) found.%n", output.validationItems().size());
-        System.out.println("Reports written to: " + new File("report").getAbsolutePath());
+        System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
         return 0;
     }
 
