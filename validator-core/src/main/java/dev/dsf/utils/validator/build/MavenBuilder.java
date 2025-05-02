@@ -16,20 +16,6 @@ import java.util.concurrent.TimeUnit;
 public class MavenBuilder
 {
     /**
-     * Executes a Maven build with default goals: clean, compile, and dependency:copy-dependencies.
-     *
-     * @param projectDir the directory containing the Maven project
-     * @param mavenCmd   the Maven executable (e.g. "mvn" or full path to mvn)
-     * @return true if the build succeeds, false otherwise
-     * @throws IOException          if an I/O error occurs
-     * @throws InterruptedException if the process is interrupted
-     */
-    public boolean buildProject(File projectDir, String mavenCmd) throws IOException, InterruptedException
-    {
-        return buildProject(projectDir, mavenCmd, "clean", "compile", "dependency:copy-dependencies");
-    }
-
-    /**
      * Executes a Maven build with the specified goals.
      *
      * @param projectDir the directory containing the Maven project

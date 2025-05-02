@@ -117,7 +117,8 @@ public class Main implements Callable<Integer>
             System.err.println("ERROR: Maven executable not found in PATH.");
             return 1;
         }
-        if (!builder.buildProject(projectDir, mavenExecutable, "package"))
+        if (!builder.buildProject(projectDir, mavenExecutable,
+                "-B", "-DskipTests", "-Dformatter.skip=true", "clean", "package"))
         {
             System.err.println("ERROR: Maven 'package' phase failed.");
             return 1;
