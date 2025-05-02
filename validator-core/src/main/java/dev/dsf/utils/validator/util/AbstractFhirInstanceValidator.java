@@ -228,6 +228,13 @@ public abstract class AbstractFhirInstanceValidator
                 if (idValue != null && !idValue.isBlank()) return idValue;
             }
 
+            // case 4 – valueIdentifier: <valueIdentifier><value value="..."/></valueIdentifier>
+            if ("valueIdentifier".equals(k.getNodeName())) {
+                String idVal = extractSingleNodeValue(
+                        k, "./*[local-name()='value']/@value");
+                if (idVal != null && !idVal.isBlank()) return idVal;
+            }
+
         }
 
         return null;
