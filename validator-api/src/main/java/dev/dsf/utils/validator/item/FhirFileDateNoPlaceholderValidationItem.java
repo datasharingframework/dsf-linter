@@ -13,7 +13,7 @@ public class FhirFileDateNoPlaceholderValidationItem extends FhirElementValidati
     public FhirFileDateNoPlaceholderValidationItem(File resourceFile, String fhirReference)
     {
         super(ValidationSeverity.WARN, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, ValidationType.FILE_DATE_NO_PLACEHOLDER,
-                "ActivityDefinition date does not contain a placeholder");
+                "The File date does not contain a placeholder");
     }
 
     public FhirFileDateNoPlaceholderValidationItem(File resourceFile, String fhirReference, String description)
