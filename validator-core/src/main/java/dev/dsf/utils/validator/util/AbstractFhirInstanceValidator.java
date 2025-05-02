@@ -220,7 +220,16 @@ public abstract class AbstractFhirInstanceValidator
                 String ref = extractSingleNodeValue(k, "./*[local-name()='reference']/@value");
                 if (ref != null && !ref.isBlank()) return ref;
             }
+
+            // case 3 – logical reference: <valueReference><identifier><value value="..."/></identifier>
+            if ("valueReference".equals(k.getNodeName())) {
+                String idValue = extractSingleNodeValue(
+                        k, "./*[local-name()='identifier']/*[local-name()='value']/@value");
+                if (idValue != null && !idValue.isBlank()) return idValue;
+            }
+
         }
+
         return null;
     }
 
