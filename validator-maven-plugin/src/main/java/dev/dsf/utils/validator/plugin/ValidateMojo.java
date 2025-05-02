@@ -3,18 +3,11 @@ package dev.dsf.utils.validator.plugin;
 import dev.dsf.utils.validator.DsfValidatorImpl;
 import dev.dsf.utils.validator.ValidationOutput;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.plugins.annotations.ResolutionScope;
 
 import java.io.File;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -109,15 +102,10 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
  *       Maven Plugin API</a></li>
  * </ul>
  *
- * @author Khalil Malla
- * @version 1.2
+ * @author Khalil Malla (updated by [Your Name])
+ * @version 1.1
  */
-@Mojo(
-        name = "verify",
-        defaultPhase = LifecyclePhase.VERIFY,
-        requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME,
-        threadSafe = true
-)
+@Mojo(name = "verify")
 public class ValidateMojo extends AbstractMojo
 {
     /**
@@ -128,46 +116,21 @@ public class ValidateMojo extends AbstractMojo
     private File buildDirectory;
 
     /**
-     * The output directory containing compiled classes (target/classes).
-     */
-    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
-    private String classesDirectory;
-
-    /**
-     * Project classpath elements (compile + runtime) for resolving project dependencies.
-     */
-    @Parameter(defaultValue = "${project.compileClasspathElements}", readonly = true, required = true)
-    private List<String> classpathElements;
-
-    /**
      * Executes the BPMN and FHIR validation process.
+     * <p>
+     * This method validates all BPMN and FHIR files in the project and generates a structured report.
+     * The report includes separate JSON files for successful and other validation items for both BPMN and FHIR,
+     * as well as aggregated JSON files that combine all issues.
+     * The output is written to:
+     * {@code ${project.build.directory}/dsf-validation-reports}
+     * </p>*
      */
     @Override
     @SuppressWarnings("deprecation")
-    public void execute() throws MojoExecutionException
+    public void execute()
     {
         // Assume Maven is executed from the project's root directory.
         File projectDir = new File(".");
-
-        // Prepare a ClassLoader that includes project classes and dependencies
-        try
-        {
-            List<URL> urls = new ArrayList<>();
-            urls.add(new File(classesDirectory).toURI().toURL());
-            for (String element : classpathElements)
-            {
-                urls.add(new File(element).toURI().toURL());
-            }
-            URLClassLoader projectClassLoader = new URLClassLoader(
-                    urls.toArray(new URL[0]),
-                    Thread.currentThread().getContextClassLoader()
-            );
-            Thread.currentThread().setContextClassLoader(projectClassLoader);
-        }
-        catch (Exception e)
-        {
-            throw new MojoExecutionException("Failed to set up project classloader", e);
-        }
 
         // Create a new DSF Validator implementation instance.
         DsfValidatorImpl validator = new DsfValidatorImpl();
@@ -176,17 +139,13 @@ public class ValidateMojo extends AbstractMojo
         File reportRoot = new File(buildDirectory, "dsf-validation-reports");
         prepareCleanReportDirectory(reportRoot);
 
-        // Detect and store API version before any validation
-        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
-        ApiVersionHolder.setVersion(apiVersion);
-
-        // 1) Validate BPMN files
+        // 1) Validate BPMN files using the DSF Validator.
         List<AbstractValidationItem> allBpmnItems = validator.validateAllBpmnFilesSplitNewStructure(projectDir, reportRoot);
 
-        // 2) Validate FHIR files
+        // 2) Validate FHIR files using the DSF Validator.
         List<AbstractValidationItem> allFhirItems = validator.validateAllFhirResourcesSplitNewStructure(projectDir, reportRoot);
 
-        // 3) Combine BPMN and FHIR validation items into a global aggregated report
+        // 3) Combine BPMN and FHIR validation items into a global aggregated report.
         List<AbstractValidationItem> globalItems = new ArrayList<>();
         globalItems.addAll(allBpmnItems);
         globalItems.addAll(allFhirItems);
@@ -196,9 +155,5 @@ public class ValidateMojo extends AbstractMojo
 
         // Log the completion message.
         getLog().info("Validation completed. See folder: " + reportRoot.getAbsolutePath());
-
-        // Print detected API version in red
-        System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + apiVersion + "\u001B[0m");
     }
 }
