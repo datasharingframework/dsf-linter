@@ -127,7 +127,6 @@ public class Main implements Callable<Integer>
 
         // Prepare clean report directory
         File reportRoot = new File("report");
-        ReportCleaner.prepareCleanReportDirectory(reportRoot);
 
         // Validate the project files (BPMN and FHIR).
         DsfValidatorImpl validator = new DsfValidatorImpl();
