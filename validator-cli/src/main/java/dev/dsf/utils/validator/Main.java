@@ -119,7 +119,7 @@ public class Main implements Callable<Integer>
             return 1;
         }
         if (!builder.buildProject(projectDir, mavenExecutable,
-                "-B", "-DskipTests", "-Dformatter.skip=true", "-Dexec.skip=true", "clean", "package"))
+                "-B", "-DskipTests", "-Dformatter.skip=true", "-Dexec.skip=true", "clean", "package", "dependency:copy-dependencies"))
         {
             System.err.println("ERROR: Maven 'package' phase failed.");
             return 1;
