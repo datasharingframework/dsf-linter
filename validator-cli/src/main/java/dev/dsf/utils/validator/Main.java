@@ -3,7 +3,8 @@ package dev.dsf.utils.validator;
 import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
-import dev.dsf.utils.validator.util.ReportCleaner;
+import dev.dsf.utils.validator.util.ApiVersionDetector;
+import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -42,6 +43,7 @@ import java.util.concurrent.Callable;
  *   or
  *
  *   java -jar dsf-validator.jar --remoteRepo https://github.com/user/project.git
+ *
  * </pre>
  *
  * <h3>References:</h3>
@@ -128,12 +130,20 @@ public class Main implements Callable<Integer>
         // Prepare clean report directory
         File reportRoot = new File("report");
 
+        // Detect and store API version before any validation
+        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
+        ApiVersionHolder.setVersion(apiVersion);
+
         // Validate the project files (BPMN and FHIR).
         DsfValidatorImpl validator = new DsfValidatorImpl();
         ValidationOutput output = validator.validate(projectDir.toPath());
 
         System.out.printf("%nValidation finished – %d issue(s) found.%n", output.validationItems().size());
         System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
+
+        // Print detected API version in red
+        System.out.println("\u001B[31mDetected DSF BPE API version: "
+                + apiVersion + "\u001B[0m");
         return 0;
     }
 

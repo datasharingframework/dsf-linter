@@ -3,6 +3,8 @@ package dev.dsf.utils.validator.plugin;
 import dev.dsf.utils.validator.DsfValidatorImpl;
 import dev.dsf.utils.validator.ValidationOutput;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
+import dev.dsf.utils.validator.util.ApiVersionDetector;
+import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -174,6 +176,10 @@ public class ValidateMojo extends AbstractMojo
         File reportRoot = new File(buildDirectory, "dsf-validation-reports");
         prepareCleanReportDirectory(reportRoot);
 
+        // Detect and store API version before any validation
+        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
+        ApiVersionHolder.setVersion(apiVersion);
+
         // 1) Validate BPMN files
         List<AbstractValidationItem> allBpmnItems = validator.validateAllBpmnFilesSplitNewStructure(projectDir, reportRoot);
 
@@ -190,5 +196,9 @@ public class ValidateMojo extends AbstractMojo
 
         // Log the completion message.
         getLog().info("Validation completed. See folder: " + reportRoot.getAbsolutePath());
+
+        // Print detected API version in red
+        System.out.println("\u001B[31mDetected DSF BPE API version: "
+                + apiVersion + "\u001B[0m");
     }
 }
