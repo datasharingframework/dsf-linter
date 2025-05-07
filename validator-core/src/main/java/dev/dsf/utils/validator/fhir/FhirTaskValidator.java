@@ -404,7 +404,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
 
         String idVal = val(doc,
                 TASK_XP + "/*[local-name()='identifier']/*[local-name()='value']/@value");
-        return !blank(idVal) ? idVal : file.toURI().toString();
+        return !blank(idVal) ? idVal : file.getName();
     }
 
     /**
