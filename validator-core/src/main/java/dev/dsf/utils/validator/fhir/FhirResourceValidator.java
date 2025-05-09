@@ -1,22 +1,15 @@
 package dev.dsf.utils.validator.fhir;
 
-import dev.dsf.utils.validator.exception.ResourceValidationException;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.ValidationOutput;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
-import dev.dsf.utils.validator.util.JsonXmlConverter;
-import dev.dsf.utils.validator.util.FhirFileUtils;
 import org.w3c.dom.Document;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.xml.sax.InputSource;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -29,18 +22,20 @@ import java.util.stream.Stream;
  *
  * <p>Compared to the previous implementation the class has been streamlined:</p>
  * <ul>
+ *   <li> Introduced a new, more flexible {@link #validateDirectory(Path)} method that
+ *       walks a directory tree and returns a single aggregated {@link ValidationOutput}.</li>
  *   <li> Validators are now discovered lazily through {@link ServiceLoader} to avoid
  *       manual maintenance of the list in this class.</li>
- *   <li> Uses {@link java.nio.file.Files#walk} & JavaStreams for concise IO logic.</li>
+ *   <li> Uses {@link java.nio.file.Files#walk} & Java Streams for concise IO logic.</li>
  * </ul>
  */
-public final class FhirResourceValidator {
-    /**
-     * All discovered validators (cached).
-     */
+public final class FhirResourceValidator
+{
+    /** All discovered validators (cached). */
     private final List<AbstractFhirInstanceValidator> validators;
 
-    public FhirResourceValidator() {
+    public FhirResourceValidator()
+    {
         // Discover validators via ServiceLoader OR fallback to manual list
         ServiceLoader<AbstractFhirInstanceValidator> loader =
                 ServiceLoader.load(AbstractFhirInstanceValidator.class);
@@ -49,25 +44,14 @@ public final class FhirResourceValidator {
                 .collect(Collectors.toCollection(ArrayList::new));
 
         // Fallback in case ServiceLoader finds nothing (e.g., during tests)
-        if (validators.isEmpty()) {
-            validators.add(
+        if (validators.isEmpty())
+        {
+            validators.addAll(List.of(
                     new FhirActivityDefinitionValidator()
-            );
-            validators.add(
+            ));
+            validators.addAll(List.of(
                     new FhirTaskValidator()
-            );
-            validators.add(
-                    new FhirValueSetValidator()
-            );
-            validators.add(
-                    new FhirCodeSystemValidator()
-            );
-            validators.add(
-                    new FhirQuestionnaireValidator()
-            );
-            validators.add(
-                    new FhirStructureDefinitionValidator()
-            );
+            ));
         }
     }
 
@@ -75,13 +59,37 @@ public final class FhirResourceValidator {
       Public API
        */
 
+    /**
+     * Validates every <strong>.xml</strong> file under the given directory (recursively).
+     * Returns a {@link ValidationOutput} containing the aggregated issues of all resources.
+     *
+     * @param directory the root directory to scan (e.g. {@code src/main/resources/fhir})
+     * @return aggregated validation output; {@link ValidationOutput#empty()} if no XML files found
+     * @throws IOException if directory traversal fails
+     */
+    public ValidationOutput validateDirectory(Path directory) throws IOException
+    {
+        if (!Files.isDirectory(directory))
+            throw new IllegalArgumentException("Not a directory: " + directory);
+
+        try (Stream<Path> xmlFiles = Files.walk(directory).filter(this::isXmlFile))
+        {
+            List<FhirElementValidationItem> issues = xmlFiles
+                    .map(Path::toFile)
+                    .map(this::validateFileInternal)
+                    .flatMap(List::stream)
+                    .collect(Collectors.toList());
+
+            return new ValidationOutput(new ArrayList<>(issues));
+        }
+    }
 
     /**
-     * Validates a single FHIR XML or JSON resource file and returns its validation output.
+     * Validates a single FHIR XML resource file and returns its validation output.
      */
-    public ValidationOutput validateSingleFile(Path fhirFile) throws ResourceValidationException
+    public ValidationOutput validateSingleFile(Path xmlFile)
     {
-        List<FhirElementValidationItem> issues = validateFileInternal(fhirFile.toFile());
+        List<FhirElementValidationItem> issues = validateFileInternal(xmlFile.toFile());
         return new ValidationOutput(new ArrayList<>(issues));
     }
 
@@ -89,35 +97,19 @@ public final class FhirResourceValidator {
       Internal helpers
       */
 
-    private List<FhirElementValidationItem> validateFileInternal(File file) throws ResourceValidationException
+    private boolean isXmlFile(Path p)
+    {
+        return Files.isRegularFile(p) && p.getFileName().toString().toLowerCase().endsWith(".xml");
+    }
+
+    private List<FhirElementValidationItem> validateFileInternal(File file)
     {
         List<FhirElementValidationItem> issues = new ArrayList<>();
-        Document doc;
-
-        try
-        {
-            if (file.getName().toLowerCase().endsWith(".xml"))
-            {
-                doc = parseXmlSafe(file);
-            }
-            else if (file.getName().toLowerCase().endsWith(".json"))
-            {
-                doc = parseJsonSafe(file);
-            }
-            else
-            {
-                return issues; // Should not happen with proper filtering
-            }
-        }
-        catch (FhirParsingException e)
-        {
-            // Requirement 7: Abort on syntax error by converting internal to public exception
-            throw new ResourceValidationException("FHIR resource parsing failed", file.toPath(), e);
-        }
-
+        Document doc = parseXmlSafe(file);
         if (doc == null)
-            return issues;
+            return issues; // Parsing error already logged
 
+        // Find first validator that supports this resource type
         for (AbstractFhirInstanceValidator v : validators)
         {
             if (v.canValidate(doc))
@@ -133,51 +125,6 @@ public final class FhirResourceValidator {
         return issues;
     }
 
-    /**
-     * Parses a JSON FHIR file and converts it to a DOM Document for validation.
-     * This allows the existing DOM-based validators to work with JSON files without modification.
-     */
-    private Document parseJsonSafe(File file)
-    {
-        try
-        {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonNode = mapper.readTree(file);
-            String xmlString = JsonXmlConverter.convertJsonToXml(jsonNode);
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setNamespaceAware(true);
-            DocumentBuilder db = dbf.newDocumentBuilder();
-            return db.parse(new InputSource(new StringReader(xmlString)));
-        }
-        catch (Exception e)
-        {
-            // Throw internal exception instead of returning null
-            throw new FhirParsingException("Failed to parse/convert JSON", e);
-        }
-    }
-
-    /**
-     * Package-private method for testing XML conversion.
-     * This allows tests to inspect the generated XML.
-     */
-    public String convertJsonToXmlForTesting(String jsonContent) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode jsonNode = mapper.readTree(jsonContent);
-        return JsonXmlConverter.convertJsonToXml(jsonNode);
-    }
-
-
-    /**
-     * Internal unchecked exception for parsing failures.
-     */
-    private static class FhirParsingException extends RuntimeException
-    {
-        public FhirParsingException(String message, Throwable cause)
-        {
-            super(message, cause);
-        }
-    }
-
     private Document parseXmlSafe(File file)
     {
         try (InputStream in = Files.newInputStream(file.toPath()))
@@ -189,10 +136,8 @@ public final class FhirResourceValidator {
         }
         catch (Exception e)
         {
-            // Throw internal exception instead of returning null
-            throw new FhirParsingException("Failed to parse XML", e);
+            System.err.println("[WARN] Failed to parse XML " + file.getName() + ": " + e.getMessage());
+            return null;
         }
     }
-
-
 }
