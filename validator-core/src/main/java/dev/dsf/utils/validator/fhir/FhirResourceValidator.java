@@ -52,6 +52,9 @@ public final class FhirResourceValidator
             validators.addAll(List.of(
                     new FhirTaskValidator()
             ));
+            validators.addAll(List.of(
+                    new FhirValueSetValidator()
+            ));
         }
     }
 
