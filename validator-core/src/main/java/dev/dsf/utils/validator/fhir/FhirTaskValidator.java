@@ -383,7 +383,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             String sys = val(c, "./*[local-name()='system']/@value");
             String code = val(c, "./*[local-name()='code']/@value");
 
-            if (!FhirAuthorizationCache.isKnown(sys, code))
+            if (FhirAuthorizationCache.isUnknown(sys, code))
                 out.add(new FhirTaskUnknownCodeValidationItem(f, ref,
                         "Unknown code '" + code + "' in '" + sys + "'"));
         }

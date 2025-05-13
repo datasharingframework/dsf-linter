@@ -7,6 +7,7 @@ import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
+import dev.dsf.utils.validator.util.FhirAuthorizationCache;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
@@ -85,6 +86,11 @@ public class DsfValidatorImpl implements DsfValidator
     @Override
     public ValidationOutput validate(Path path) {
 
+        // add DSF‑CodeSystem‑Cache
+        File projectRoot = Files.isDirectory(path)
+                ? path.toFile()
+                : getProjectRoot(path);
+        FhirAuthorizationCache.seedFromProjectFolder(projectRoot);
         // A) ProjectFolder
         if (Files.isDirectory(path)) {
             File reportRoot = new File("report");
