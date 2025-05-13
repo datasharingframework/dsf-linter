@@ -214,21 +214,9 @@ public class DsfValidatorImpl implements DsfValidator
             }
         }
 
-        // 4) Write aggregated success
-        if (!successAggregator.isEmpty())
-        {
-            ValidationOutput successOutput = new ValidationOutput(successAggregator);
-            File aggSuccess = new File(successFolder, "aggregated.json");
-            successOutput.writeResultsAsJson(aggSuccess);
-        }
-
-        // 5) Write aggregated other
-        if (!otherAggregator.isEmpty())
-        {
-            ValidationOutput otherOutput = new ValidationOutput(otherAggregator);
-            File aggOther = new File(otherFolder, "aggregated.json");
-            otherOutput.writeResultsAsJson(aggOther);
-        }
+        // 4+5) Write aggregated BPMN sub-reports
+        writeAggregatedReport("aggregated", successAggregator, successFolder);
+        writeAggregatedReport("aggregated", otherAggregator, otherFolder);
 
         // 6) Write aggregated BPMN (all items)
         if (!allBpmnItems.isEmpty())
@@ -333,21 +321,9 @@ public class DsfValidatorImpl implements DsfValidator
             }
         }
 
-        // 4) Write aggregated success
-        if (!successAggregator.isEmpty())
-        {
-            ValidationOutput soAgg = new ValidationOutput(successAggregator);
-            File aggFile = new File(successFolder, "aggregated.json");
-            soAgg.writeResultsAsJson(aggFile);
-        }
-
-        // 5) Write aggregated other
-        if (!otherAggregator.isEmpty())
-        {
-            ValidationOutput ooAgg = new ValidationOutput(otherAggregator);
-            File aggFile = new File(otherFolder, "aggregated.json");
-            ooAgg.writeResultsAsJson(aggFile);
-        }
+        // 4+5) Write aggregated FHIR sub-reports
+        writeAggregatedReport("aggregated", successAggregator, successFolder);
+        writeAggregatedReport("aggregated", otherAggregator, otherFolder);
 
         // 6) Write aggregated FHIR (all items)
         if (!allFhirItems.isEmpty())
@@ -659,6 +635,20 @@ public class DsfValidatorImpl implements DsfValidator
             return new ValidationOutput(List.of());
         }
     }
+    /**
+     * Writes an aggregated JSON for the given items into the specified folder,
+     * using the given filename prefix.
+     */
+    private void writeAggregatedReport(String prefix,
+                                       List<AbstractValidationItem> items,
+                                       File folder) {
+        if (items.isEmpty()) return;
+
+        ValidationOutput output = new ValidationOutput(items);
+        File outFile = new File(folder, prefix + "_aggregated.json");
+        output.writeResultsAsJson(outFile);
+    }
+
 
     /**
      * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
