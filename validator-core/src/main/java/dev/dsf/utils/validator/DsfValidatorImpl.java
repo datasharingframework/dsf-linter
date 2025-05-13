@@ -187,7 +187,7 @@ public class DsfValidatorImpl implements DsfValidator
 
             // We pick the processId or fallback to filename
             String pid = out.getProcessId();
-            if (pid == null || pid.isBlank())
+            if (pid.isBlank())
             {
                 pid = bpmnFile.getName().replace(".bpmn", "");
             }
@@ -215,9 +215,8 @@ public class DsfValidatorImpl implements DsfValidator
         }
 
         // 4+5) Write aggregated BPMN sub-reports
-        writeAggregatedReport("aggregated", successAggregator, successFolder);
-        writeAggregatedReport("aggregated", otherAggregator, otherFolder);
-
+        writeAggregatedReport("bpmn_success", successAggregator, successFolder);
+        writeAggregatedReport("bpmn_other",   otherAggregator,   otherFolder);
         // 6) Write aggregated BPMN (all items)
         if (!allBpmnItems.isEmpty())
         {
@@ -322,8 +321,8 @@ public class DsfValidatorImpl implements DsfValidator
         }
 
         // 4+5) Write aggregated FHIR sub-reports
-        writeAggregatedReport("aggregated", successAggregator, successFolder);
-        writeAggregatedReport("aggregated", otherAggregator, otherFolder);
+        writeAggregatedReport("fhir_success", successAggregator, successFolder);
+        writeAggregatedReport("fhir_other",   otherAggregator,   otherFolder);
 
         // 6) Write aggregated FHIR (all items)
         if (!allFhirItems.isEmpty())
@@ -348,7 +347,7 @@ public class DsfValidatorImpl implements DsfValidator
             return new ValidationOutput(allIssues);
         }
 
-        if (!isFileReadable(path))
+        if (isFileReadable(path))
         {
             System.err.println("Error: The file is not readable: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
@@ -389,7 +388,7 @@ public class DsfValidatorImpl implements DsfValidator
                     path.getFileName().toString()));
             return new ValidationOutput(allIssues);
         }
-        if (!isFileReadable(path))
+        if (isFileReadable(path))
         {
             allIssues.add(new FhirElementValidationItem(
                     "File not readable",
@@ -425,7 +424,7 @@ public class DsfValidatorImpl implements DsfValidator
      */
     protected boolean isFileReadable(Path path)
     {
-        return Files.isReadable(path);
+        return !Files.isReadable(path);
     }
     /**
      * Attempts to locate the root directory of a Maven project by traversing up the directory tree
@@ -636,14 +635,16 @@ public class DsfValidatorImpl implements DsfValidator
         }
     }
     /**
-     * Writes an aggregated JSON for the given items into the specified folder,
-     * using the given filename prefix.
+     * Writes an aggregated JSON file named "<prefix>_aggregated.json" in das gegebene Verzeichnis.
+     *
+     * @param prefix   z. B. "bpmn_success", "bpmn_other", "fhir_success", "fhir_other"
+     * @param items    die List<AbstractValidationItem> zum Aggregieren
+     * @param folder   das Ziel-Verzeichnis
      */
     private void writeAggregatedReport(String prefix,
                                        List<AbstractValidationItem> items,
                                        File folder) {
         if (items.isEmpty()) return;
-
         ValidationOutput output = new ValidationOutput(items);
         File outFile = new File(folder, prefix + "_aggregated.json");
         output.writeResultsAsJson(outFile);
