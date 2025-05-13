@@ -192,11 +192,15 @@ public class DsfValidatorImpl implements DsfValidator
                 pid = bpmnFile.getName().replace(".bpmn", "");
             }
 
+            // Determine containing folder name (e.g. “ping” or “pong”)
+            String parentFolder = bpmnFile.getParentFile().getName();
+
             // Write success JSON if relevant
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder, "bpmn_issues_" + pid + ".json");
+                File outFile = new File(successFolder,
+                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
                 so.writeResultsAsJson(outFile);
             }
 
@@ -204,7 +208,8 @@ public class DsfValidatorImpl implements DsfValidator
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder, "bpmn_issues_" + pid + ".json");
+                File outFile = new File(otherFolder,
+                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
                 oo.writeResultsAsJson(outFile);
             }
         }
@@ -308,18 +313,22 @@ public class DsfValidatorImpl implements DsfValidator
                 baseName = baseName.substring(0, idx);
             }
 
+            // Determine containing folder name (the last segment under “fhir”)
+            String parentFolder = f.getParentFile().getName();
             // success
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder, "fhir_issues_" + baseName + ".json");
+                File outFile = new File(successFolder,
+                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
                 so.writeResultsAsJson(outFile);
             }
             // other
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder, "fhir_issues_" + baseName + ".json");
+                File outFile = new File(otherFolder,
+                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
                 oo.writeResultsAsJson(outFile);
             }
         }
