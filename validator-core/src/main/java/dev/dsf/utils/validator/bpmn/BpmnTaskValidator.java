@@ -6,6 +6,7 @@ import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import dev.dsf.utils.validator.util.FhirValidator;
+import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
@@ -68,7 +69,7 @@ public class BpmnTaskValidator
             String processId)
     {
         String elementId = task.getId();
-
+        String apiVersion = ApiVersionHolder.getVersion();
         // Validate the task name.
         if (BpmnValidationUtils.isEmpty(task.getName()))
         {
@@ -101,9 +102,10 @@ public class BpmnTaskValidator
                 issues.add(new BpmnServiceTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (!BpmnValidationUtils.implementsJavaDelegate(implClass, projectRoot))
+            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
-                issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
+                if ("v1".equals(apiVersion))
+                  issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
             else
@@ -244,6 +246,7 @@ public class BpmnTaskValidator
             String processId)
     {
         String elementId = sendTask.getId();
+        String apiVersion = ApiVersionHolder.getVersion();
 
         // Validate the task name.
         if (BpmnValidationUtils.isEmpty(sendTask.getName()))
@@ -274,23 +277,25 @@ public class BpmnTaskValidator
                 issues.add(new BpmnMessageSendTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (!BpmnValidationUtils.implementsJavaDelegate(implClass, projectRoot))
+            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
-                issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
-                        elementId, bpmnFile, processId, implClass));
+                // only report this issue for v1
+                if ("v1".equals(apiVersion))
+                {
+                    issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
+                            elementId, bpmnFile, processId, implClass));
+                }
             }
             else
             {
                 issues.add(new BpmnElementValidationItemSuccess(
-                        elementId,
-                        bpmnFile,
-                        processId,
-                        "SendTask implementation class '" + implClass + "' exists and implements JavaDelegate."
-                ));
+                        elementId, bpmnFile, processId,
+                        "Implementation class '" + implClass
+                                + "' exists and implements a supported DSF task interface."));
             }
         }
 
-        // Validate field injections (no success item is added for field injections)
+        //todo Validate field injections (no success item is added for field injections)
         BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
                 sendTask, issues, bpmnFile, processId, projectRoot);
     }

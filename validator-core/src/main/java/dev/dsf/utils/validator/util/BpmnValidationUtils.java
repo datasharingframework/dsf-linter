@@ -53,6 +53,28 @@ import java.util.List;
  */
 public class BpmnValidationUtils
 {
+
+    /**
+     * List of all DSF task-related interface class names supported for validation purposes.
+     * <p>
+     * This array includes:
+     * <ul>
+     *   <li><b>API v1:</b> {@code org.camunda.bpm.engine.delegate.JavaDelegate}</li>
+     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.task.ServiceTask}, {@code TaskMessageSend}, {@code TaskMessageReceive}, and {@code UserTaskListener}</li>
+     * </ul>
+     * These interfaces define valid implementations for service tasks, message events, and user task listeners
+     * in both legacy and modern DSF process definitions.
+     * </p>
+     */
+    private static final String[] DSF_TASK_INTERFACES = {
+            /* API v1 */
+            "org.camunda.bpm.engine.delegate.JavaDelegate",
+            /* API v2 */
+            "dev.dsf.bpe.v2.task.ServiceTask",
+            "dev.dsf.bpe.v2.task.TaskMessageSend",
+            "dev.dsf.bpe.v2.task.TaskMessageReceive",
+            "dev.dsf.bpe.v2.task.UserTaskListener"
+    };
     /**
      * Checks if the given string is null or empty (after trimming).
      *
@@ -253,16 +275,19 @@ public class BpmnValidationUtils
     }
 
     /**
+     * old
      * Checks if the class with the given name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
      * <p>
      * The check is performed by loading both the candidate class and the {@code JavaDelegate} interface using
      * a custom class loader, then verifying assignability.
      * </p>
-     *
+     * new
+     * Methode is not anymore used after the new version von DSF (API 2)
      * @param className   the fully-qualified class name to check
      * @param projectRoot the project root directory used to create the custom class loader
      * @return {@code true} if the candidate class implements {@code JavaDelegate}; {@code false} otherwise
      */
+    @Deprecated
     public static boolean implementsJavaDelegate(String className, File projectRoot)
     {
         try
@@ -352,6 +377,7 @@ public class BpmnValidationUtils
             List<BpmnElementValidationItem> issues,
             File projectRoot)
     {
+        String apiVersion = ApiVersionHolder.getVersion();
         if (isEmpty(implClass))
         {
             issues.add(new BpmnMessageSendEventImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
@@ -361,20 +387,22 @@ public class BpmnValidationUtils
             issues.add(new BpmnMessageSendEventImplementationClassNotFoundValidationItem(
                     elementId, bpmnFile, processId, implClass));
         }
-        else if (!implementsJavaDelegate(implClass, projectRoot))
+        else if (!implementsDsfTaskInterface(implClass, projectRoot))
         {
-            issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
-                    elementId, bpmnFile, processId, implClass));
+            // only report this issue for v1
+            if ("v1".equals(apiVersion))
+            {
+                issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
+                        elementId, bpmnFile, processId, implClass));
+            }
         }
         else
         {
-            // Success: the implementation class is non-empty, exists, and implements JavaDelegate.
+            // Success: the implementation class is non-empty, exists, and implements
             issues.add(new BpmnElementValidationItemSuccess(
-                    elementId,
-                    bpmnFile,
-                    processId,
-                    "Implementation class '" + implClass + "' exists and implements JavaDelegate."
-            ));
+                    elementId, bpmnFile, processId,
+                    "Implementation class '" + implClass
+                            + "' exists and implements a supported DSF task interface."));
         }
     }
 
@@ -1049,6 +1077,44 @@ public class BpmnValidationUtils
         {
             return db.parse(fis);
         }
+    }
+
+    /**
+     * Determines whether the specified class implements any of the DSF-supported task interfaces
+     * listed in {@link #DSF_TASK_INTERFACES}.
+     * <p>
+     * This includes support for both DSF API v1 and API v2 interfaces, such as {@code JavaDelegate},
+     * {@code ServiceTask}, {@code TaskMessageSend}, and others. The method attempts to load the target
+     * class and each interface using a custom class loader scoped to the given project directory.
+     * </p>
+     *
+     * @param className   the fully-qualified name of the class to inspect
+     * @param projectRoot the root directory of the project (used to resolve class and dependency paths)
+     * @return {@code true} if the class implements any known DSF task interface; {@code false} otherwise
+     */
+    public static boolean implementsDsfTaskInterface(String className, File projectRoot)
+    {
+        try
+        {
+            ClassLoader cl = createProjectClassLoader(projectRoot);
+            Class<?> candidate = Class.forName(className, false, cl);
+
+            for (String ifaceName : DSF_TASK_INTERFACES)
+            {
+                try
+                {
+                    Class<?> iface = Class.forName(ifaceName, false, cl);
+                    if (iface.isAssignableFrom(candidate))
+                        return true;
+                }
+                catch (ClassNotFoundException ignore) { /* interface not on class‑path */ }
+            }
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: " + t.getMessage());
+        }
+        return false;
     }
 
 }

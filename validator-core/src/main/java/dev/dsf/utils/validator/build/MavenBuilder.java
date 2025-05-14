@@ -7,43 +7,76 @@ import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Responsible for building the project using Maven.
+ * Responsible for building a project using Maven.
+ * <p>
+ * This class provides methods to execute Maven goals within a given project directory.
+ * It supports flexible goal execution as well as a default build process including
+ * clean, compile, and copy-dependencies.
  */
-public class MavenBuilder {
-
+public class MavenBuilder
+{
     /**
-     * Executes a Maven build (clean, compile, and dependency:copy-dependencies) in the given project directory.
+     * Executes a Maven build with the specified goals.
      *
-     * @param projectDir the project directory.
-     * @param mavenCmd   the Maven command to execute.
-     * @return true if the build succeeds, false otherwise.
-     * @throws IOException          if an I/O error occurs.
-     * @throws InterruptedException if the process is interrupted.
+     * @param projectDir the directory containing the Maven project
+     * @param mavenCmd   the Maven executable (e.g. "mvn" or full path to mvn)
+     * @param goals      one or more Maven goals or lifecycle phases to execute
+     * @return true if the build succeeds, false otherwise
+     * @throws IOException          if an I/O error occurs
+     * @throws InterruptedException if the process is interrupted
      */
-    public boolean buildProject(File projectDir, String mavenCmd) throws IOException, InterruptedException {
-        System.out.println("Building project with Maven (clean, compile, and copy dependencies)...");
-        ProcessBuilder pb = new ProcessBuilder(mavenCmd, "clean", "compile", "dependency:copy-dependencies");
-        pb.directory(projectDir);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+    public boolean buildProject(File projectDir, String mavenCmd, String... goals)
+            throws IOException, InterruptedException
+    {
+        System.out.println("Building project with Maven goals: " + String.join(" ", goals));
+
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        processBuilder.command(buildCommand(mavenCmd, goals));
+        processBuilder.directory(projectDir);
+        processBuilder.redirectErrorStream(true);
+
+        Process process = processBuilder.start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream())))
+        {
             String line;
-            while ((line = reader.readLine()) != null) {
+            while ((line = reader.readLine()) != null)
+            {
                 System.out.println(line);
             }
         }
-        if (!process.waitFor(5, TimeUnit.MINUTES)) {
+
+        if (!process.waitFor(5, TimeUnit.MINUTES))
+        {
             process.destroy();
             System.err.println("ERROR: Maven build timed out.");
             return false;
         }
+
         int exitCode = process.exitValue();
-        if (exitCode != 0) {
+        if (exitCode != 0)
+        {
             System.err.println("ERROR: Maven build failed with exit code " + exitCode);
             return false;
-        } else {
-            System.out.println("Maven build succeeded");
-            return true;
         }
+
+        System.out.println("Maven build succeeded");
+        return true;
+    }
+
+    /**
+     * Constructs the full command array for the Maven execution.
+     *
+     * @param mavenCmd the Maven executable
+     * @param goals    the Maven goals or phases to include
+     * @return a String array containing the full command to execute
+     */
+    private String[] buildCommand(String mavenCmd, String... goals)
+    {
+        String[] command = new String[goals.length + 1];
+        command[0] = mavenCmd;
+        System.arraycopy(goals, 0, command, 1, goals.length);
+        return command;
     }
 }
+

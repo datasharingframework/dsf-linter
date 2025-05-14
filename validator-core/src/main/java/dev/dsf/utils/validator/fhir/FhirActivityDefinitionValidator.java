@@ -32,7 +32,7 @@ import java.util.Objects;
  *             <li>{@code extension-process-authorization} must exist.</li>
  *             <li>Each {@code requester} and {@code recipient} sub-extension must contain a {@code valueCoding}
  *                 with {@code system} equal to {@value #PROCESS_AUTHORIZATION_SYSTEM} and a {@code code} that is
- *                 known to {@link FhirAuthorizationCache#isKnownAuthorizationCode(String)}.</li>
+ *                 known to {@link FhirAuthorizationCache#isUnknown(String, String)}.</li>
  *         </ul>
  *     </li>
  *     <li>For every step the validator records <em>success</em>, <em>warning</em> or <em>error</em> items.</li>
@@ -227,11 +227,15 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
                 continue;
             }
 
-            // (c) code must be known
-            if (!FhirAuthorizationCache.isKnownAuthorizationCode(codeVal))
+            // (c) code must be recognised
+            if (FhirAuthorizationCache.isUnknown(PROCESS_AUTHORIZATION_SYSTEM, codeVal))
             {
-                issues.add(createAuthValidationError(requester, resourceFile, resourceUrl,
-                        "'" + elementName + "' code '" + codeVal + "' is not known in the process-authorization CodeSystem."));
+                issues.add(createAuthValidationError(
+                        requester,
+                        resourceFile,
+                        resourceUrl,
+                        "'" + elementName + "' code '" + codeVal +
+                                "' is not known in CodeSystem '" + PROCESS_AUTHORIZATION_SYSTEM + "'."));
                 continue;
             }
 

@@ -138,6 +138,7 @@ public class BpmnGatewayAndFlowValidator
                             ValidationType.BPMN_FLOW_ELEMENT,
                             ValidationSeverity.WARN,
                             FlowElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
+                            //todo the name of type should be clearer
                     ));
                 }
                 else

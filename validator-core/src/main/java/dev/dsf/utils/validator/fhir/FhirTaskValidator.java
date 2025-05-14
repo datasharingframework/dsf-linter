@@ -1,0 +1,428 @@
+package dev.dsf.utils.validator.fhir;
+
+import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
+import dev.dsf.utils.validator.util.FhirAuthorizationCache;
+import dev.dsf.utils.validator.util.FhirValidator;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.*;
+
+/**
+ * <h2>DSF Task Validator (Profile: dsf-task-base 1.0.0)</h2>
+ *
+ * <p>This class implements a FHIR validator for Task resources used in the
+ * Digital Sample Framework (DSF). It performs validation checks according to
+ * the <code>dsf-task-base</code> profile (version 1.0.0), supporting both
+ * structural and semantic validation.</p>
+ *
+ * <p>The following validation features are supported:</p>
+ * <ul>
+ *   <li><strong>Meta and core checks:</strong> Verifies that required fields such as
+ *       <code>id</code>, <code>instantiatesCanonical</code>, <code>intent</code>, and
+ *       <code>status</code> are present and valid.</li>
+ *   <li><strong>Placeholder enforcement:</strong> Ensures that certain fields contain required
+ *       template placeholders such as <code>#{date}</code> and <code>#{organization}</code>.</li>
+ *   <li><strong>Input slice validation:</strong> Validates presence and uniqueness of required input slices
+ *       like <code>message-name</code> and <code>business-key</code>. Optional slices like
+ *       <code>correlation-key</code> are also detected.</li>
+ *   <li><strong>Duplicate slice detection:</strong> Tracks input slice types using a
+ *       <code>Map&lt;String,Integer&gt;</code> and flags duplicates (i.e., where count > 1).</li>
+ *   <li><strong>Output slice validation:</strong> Ensures each output entry has a valid
+ *       <code>type.coding.code</code> and value. Special rules apply for <code>status=failed</code>,
+ *       which requires an <code>error</code> slice.</li>
+ *   <li><strong>Terminology checks:</strong> Cross-references all <code>coding</code> elements
+ *       against the known DSF CodeSystems using {@link FhirAuthorizationCache}.</li>
+ *   <li><strong>Canonical reference resolution:</strong> Automatically resolves the effective resource
+ *       reference using <code>instantiatesCanonical</code> or <code>identifier.value</code>.</li>
+ *   <li><strong>Project root discovery:</strong> Determines the root directory of the FHIR project
+ *       either via a configuration option (system property or environment variable) or by walking
+ *       the parent directory hierarchy.</li>
+ * </ul>
+ *
+ * <p>Each check results in one of the following validation items:
+ * <ul>
+ *   <li>{@link FhirElementValidationItemSuccess} for successful validations</li>
+ *   <li>Various {@link FhirElementValidationItem} subclasses for validation errors</li>
+ * </ul>
+ * </p>
+ *
+ * <h3>How to Use</h3>
+ * The validator is automatically invoked when validating FHIR Task files using the
+ * {@code DsfValidatorImpl} class. This class does not require instantiation and is managed by
+ * the validation framework.
+ *
+ * <h3>Configuration</h3>
+ * Optionally, the project root can be specified via:
+ * <ul>
+ *   <li>System property <code>dsf.projectRoot</code></li>
+ *   <li>Environment variable <code>DSF_PROJECT_ROOT</code></li>
+ * </ul>
+ *
+ * @see dev.dsf.utils.validator.DsfValidatorImpl
+ * @see dev.dsf.utils.validator.util.FhirAuthorizationCache
+ * @see dev.dsf.utils.validator.util.FhirValidator
+ */
+public final class FhirTaskValidator extends AbstractFhirInstanceValidator
+{
+    // XPath constants
+    private static final String TASK_XP           = "/*[local-name()='Task']";
+    private static final String INPUT_XP          = TASK_XP + "/*[local-name()='input']";
+    private static final String OUTPUT_XP         = TASK_XP + "/*[local-name()='output']";
+    private static final String CODING_SYS_XP     = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
+    private static final String CODING_CODE_XP    = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
+
+    private static final String SYSTEM_BPMN_MSG   = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
+    private static final String SYSTEM_ORG_ID     = "http://dsf.dev/sid/organization-identifier";
+
+    private static final Set<String> STATUSES_NEED_BIZKEY =
+            Set.of("in-progress", "completed", "failed");
+
+    /**
+     * Determines whether this validator supports the given document.
+     *
+     * @param d the DOM document to validate
+     * @return true if it is a FHIR Task resource, false otherwise
+     */
+    @Override
+    public boolean canValidate(Document d)
+    {
+        return "Task".equals(d.getDocumentElement().getLocalName());
+    }
+
+    /**
+     * Performs validation of a FHIR Task resource.
+     *
+     * @param doc the DOM document representing the Task
+     * @param resFile the file associated with the resource
+     * @return a list of validation issues or confirmations
+     */
+    @Override
+    public List<FhirElementValidationItem> validate(Document doc, File resFile)
+    {
+        final String ref   = computeReference(doc, resFile);
+        final List<FhirElementValidationItem> issues = new ArrayList<>();
+
+        checkMetaAndBasic(doc, resFile, ref, issues);
+        checkPlaceholders(doc, resFile, ref, issues);
+
+        validateInputs(doc, resFile, ref, issues);
+
+
+        validateOutputs(doc, resFile, ref, issues);
+
+        validateTerminology(doc, resFile, ref, issues);
+
+        return issues;
+    }
+
+    /**
+     * Validates core metadata and basic elements of the Task.
+     */
+    private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementValidationItem> out)
+    {
+        // id
+        String id = val(doc, TASK_XP + "/@id");
+        if (blank(id))
+            out.add(new FhirTaskMissingIdValidationItem(f, ref));
+        else
+            out.add(ok(f, ref, "Task.id present."));
+
+        //  meta.profile
+        NodeList prof = xp(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
+        if (prof == null || prof.getLength() == 0)
+            out.add(new FhirTaskMissingProfileValidationItem(f, ref));
+        else
+            out.add(ok(f, ref, "meta.profile present."));
+
+        //  instantiatesCanonical
+        String instCanon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (blank(instCanon))
+            out.add(new FhirTaskMissingInstantiatesCanonicalValidationItem(f, ref));
+        else
+        {
+            out.add(ok(f, ref, "instantiatesCanonical found."));
+            // Existence-Check
+            File root = determineProjectRoot(f);
+            if (root != null)
+            {
+                boolean exists = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
+                if (!exists)
+                    out.add(new FhirTaskUnknownInstantiatesCanonicalValidationItem(
+                            f, ref,
+                            "No ActivityDefinition '" + instCanon + "' under '" +
+                                    root.getAbsolutePath() + "'."));
+                else
+                    out.add(ok(f, ref, "ActivityDefinition exists."));
+            }
+        }
+
+        //  status
+        String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
+        if (blank(status))
+            out.add(new FhirTaskMissingStatusValidationItem(f, ref));
+        else
+            out.add(ok(f, ref, "status = '" + status + "'"));
+
+        //  intent ('order')
+        String intent = val(doc, TASK_XP + "/*[local-name()='intent']/@value");
+        if (!"order".equals(intent))
+            out.add(new FhirTaskValueIsNotSetAsOrderValidationItem(f, ref,
+                    "intent must be 'order' (found '" + intent + "')"));
+        else
+            out.add(ok(f, ref, "intent = order"));
+
+        //  requester.identifier.system
+        String reqSys = val(doc, TASK_XP +
+                "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='system']/@value");
+        if (!SYSTEM_ORG_ID.equals(reqSys))
+            out.add(new FhirTaskInvalidRequesterValidationItem(f, ref,
+                    "requester.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
+        else
+            out.add(ok(f, ref, "requester.identifier.system OK"));
+
+        //  restriction.recipient.identifier.system
+        String recSys = val(doc, TASK_XP +
+                "/*[local-name()='restriction']/*[local-name()='recipient']" +
+                "/*[local-name()='identifier']/*[local-name()='system']/@value");
+        if (!SYSTEM_ORG_ID.equals(recSys))
+            out.add(new FhirTaskInvalidRecipientValidationItem(f, ref,
+                    "restriction.recipient.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
+        else
+            out.add(ok(f, ref, "restriction.recipient.identifier.system OK"));
+    }
+
+    /**
+     * Validates presence of required development placeholders such as #{date} and #{organization}.
+     */
+    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementValidationItem> out)
+    {
+        String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
+        if (authoredOn != null && !authoredOn.contains("#{date}"))
+            out.add(new FhirFileDateNoPlaceholderValidationItem(f, ref,
+                    "<authoredOn> must contain '#{date}'."));
+        else
+            out.add(ok(f, ref, "<authoredOn> placeholder OK."));
+
+        String reqIdVal = val(doc,
+                TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']" +
+                        "/*[local-name()='value']/@value");
+        if (reqIdVal == null || !reqIdVal.contains("#{organization}"))
+            out.add(new FhirFileVersionNoPlaceholderValidationItem(f, ref,
+                    "requester.identifier.value must contain '#{organization}'."));
+        else
+            out.add(ok(f, ref, "requester.identifier.value placeholder OK."));
+    }
+
+    /**
+     * Validates input slices including mandatory, optional, and checks for duplicate entries.
+     */
+    private void validateInputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
+    {
+        System.out.println(">>> validateInputs called on: " + f.getName());
+
+        NodeList ins = xp(doc, INPUT_XP);
+        if (ins == null || ins.getLength() == 0)
+        {
+            out.add(new FhirTaskMissingInputValidationItem(f, ref));
+            return;
+        }
+
+        boolean messageName = false, businessKey = false;
+        boolean correlation = false;
+
+        Map<String,Integer> duplicates = new HashMap<>();
+
+        for (int i = 0; i < ins.getLength(); i++)
+        {
+            Node in  = ins.item(i);
+            String sys = val(in, CODING_SYS_XP);
+            String code = val(in, CODING_CODE_XP);
+            String v    = extractValueX(in);
+
+            /*
+             Duplicate counter
+              */
+            if (!blank(sys) && !blank(code))
+                duplicates.merge(sys + "#" + code, 1, Integer::sum);
+
+            /*
+             Missing coding data
+              */
+            if (blank(sys) || blank(code))
+            {
+                out.add(new FhirTaskInputRequiredCodingSystemAndCodingCodeValidationItem(f, ref,
+                        "Task.input without system/code"));
+                continue;
+            }
+
+            /*
+            Value present?
+              */
+            if (blank(v))
+                out.add(new FhirTaskInputMissingValueValidationItem(f, ref,
+                        "Task.input(" + code + ") missing value[x]"));
+            else
+                out.add(ok(f, ref,
+                        "input '" + code + "' value='" + v + "'"));
+
+            /*
+            Slice types
+              */
+            if (SYSTEM_BPMN_MSG.equals(sys))
+            {
+                switch (code)
+                {
+                    case "message-name"    -> messageName = true;
+                    case "business-key"    -> businessKey = true;
+                    case "correlation-key" -> correlation  = true;
+                }
+            }
+        }
+
+        /*
+        Duplicates
+         */
+        duplicates.forEach((k,v) -> {
+            if (v > 1)
+                out.add(new FhirTaskInputDuplicateSliceValidationItem(f, ref,
+                        "Duplicate slice '" + k + "' (" + v + "×)"));
+        });
+
+        /*
+        Presence checks
+         */
+        if (messageName)
+            out.add(ok(f, ref, "mandatory slice 'message-name' present"));
+        else
+            out.add(new FhirTaskRequiredInputWithCodeMessageNameValidationItem(f, ref));
+
+        /*
+          Status-dependent rule
+          */
+        String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
+
+        if (STATUSES_NEED_BIZKEY.contains(status)) {
+            if (!businessKey)
+                out.add(new FhirTaskStatusRequiredInputBusinessKeyValidationItem(
+                        f, ref, "status='" + status + "' needs business-key"));
+            else
+                out.add(ok(f, ref, "business-key present (required by status)"));
+        }
+        else if ("draft".equals(status))
+            out.add(ok(f, ref, "status=draft → business-key not required"));
+        else if (businessKey)
+            out.add(ok(f, ref, "optional slice business-key present"));
+
+        if (correlation)
+            out.add(ok(f, ref, "optional slice correlation-key present"));
+    }
+
+    /*
+      3) Outputs
+      */
+
+    /**
+     * Validates output slices of the Task.
+     */
+    private void validateOutputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
+    {
+        NodeList outs = xp(doc, OUTPUT_XP);
+        if (outs == null || outs.getLength() == 0)
+            return;
+
+        boolean hasError = false;
+
+        for (int i = 0; i < outs.getLength(); i++)
+        {
+            Node o = outs.item(i);
+            String code = val(o, CODING_CODE_XP);
+            String v    = extractValueX(o);
+
+            if (blank(code))
+            {
+                out.add(new FhirTaskOutputMissingTypeCodingCodeValidationItem(f, ref));
+                continue;
+            }
+
+            if (blank(v))
+                out.add(new FhirTaskOutputMissingValueValidationItem(f, ref,
+                        "Task.output(" + code + ") missing value[x]"));
+            else
+                out.add(ok(f, ref, "output '" + code + "' value='" + v + "'"));
+
+            if ("error".equals(code))
+                hasError = true;
+        }
+
+        String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
+        if ("failed".equals(status) && !hasError)
+            out.add(new FhirTaskMissingErrorOutputValidationItem(f, ref,
+                    "status=failed but 'error' slice missing"));
+    }
+
+    /*
+      4) Terminology
+       */
+
+    /**
+     * Validates all coding elements against known DSF CodeSystems.
+     */
+    private void validateTerminology(Document doc, File f, String ref, List<FhirElementValidationItem> out)
+    {
+        NodeList codings = xp(doc, "//coding");
+        if (codings == null) return;
+
+        for (int i = 0; i < codings.getLength(); i++)
+        {
+            Node c = codings.item(i);
+            String sys = val(c, "./*[local-name()='system']/@value");
+            String code = val(c, "./*[local-name()='code']/@value");
+
+            if (FhirAuthorizationCache.isUnknown(sys, code))
+                out.add(new FhirTaskUnknownCodeValidationItem(f, ref,
+                        "Unknown code '" + code + "' in '" + sys + "'"));
+        }
+    }
+
+    /*
+      Helper methods
+      */
+
+    /**
+     * Extracts a reference identifier from instantiatesCanonical or identifier.value.
+     */
+    private String computeReference(Document doc, File file)
+    {
+        String canon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (!blank(canon))
+            return canon.split("\\|")[0];
+
+        String idVal = val(doc,
+                TASK_XP + "/*[local-name()='identifier']/*[local-name()='value']/@value");
+        return !blank(idVal) ? idVal : file.getName();
+    }
+
+    /**
+     * Determines the project root directory by checking system property, env variable,
+     * or traversing upwards for a src folder.
+     */
+    private File determineProjectRoot(File res)
+    {
+        String cfg = Optional.ofNullable(System.getProperty("dsf.projectRoot"))
+                .orElse(System.getenv("DSF_PROJECT_ROOT"));
+        if (cfg != null && !cfg.isBlank())
+        {
+            File dir = new File(cfg);
+            if (dir.isDirectory()) return dir;
+        }
+        for (Path p = res.toPath().getParent(); p != null; p = p.getParent())
+            if (p.resolve("src").toFile().isDirectory())
+                return p.toFile();
+        return null;
+    }
+}

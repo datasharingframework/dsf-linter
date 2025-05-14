@@ -77,7 +77,7 @@ public abstract class AbstractFhirInstanceValidator
      * @param relativeExpr the relative XPath expression
      * @return a {@link NodeList} of matching child nodes, or {@code null} if evaluation fails
      */
-    protected NodeList evaluateXPath(Node node, String relativeExpr)
+    protected static NodeList evaluateXPath(Node node, String relativeExpr)
     {
         try
         {
@@ -112,7 +112,7 @@ public abstract class AbstractFhirInstanceValidator
      * @param relativeExpr the XPath expression relative to the node
      * @return the text content of the first matching node, or {@code null} if no match
      */
-    protected String extractSingleNodeValue(Node node, String relativeExpr)
+    protected static String extractSingleNodeValue(Node node, String relativeExpr)
     {
         NodeList nodes = evaluateXPath(node, relativeExpr);
         if (nodes != null && nodes.getLength() > 0 && nodes.item(0) != null)
@@ -177,19 +177,28 @@ public abstract class AbstractFhirInstanceValidator
     }
 
     /**
-     * Extracts the value of the first child element whose tag name starts with {@code "value"} and
-     * contains a {@code value} attribute.
+     * Extracts the effective value from a FHIR value[x] element.
      *
-     * <p>This method iterates through all child nodes of the given {@link Node} and returns
-     * the value of the {@code value} attribute from the first matching child element.
-     * It is typically used to extract primitive values from FHIR-encoded XML sub-elements such as:
-     * <pre>{@code
-     * <valueString value="some text"/>
-     * <valueBoolean value="true"/>
-     * }</pre>
+     * <p>This method handles both:</p>
+     * <ul>
+     *   <li><b>Primitive types</b> such as {@code valueString}, {@code valueBoolean}, etc., where the {@code value}
+     *       attribute is located directly on the {@code value[x]} element.</li>
+     *   <li><b>Complex types</b> such as {@code valueReference}, where the actual value (e.g., a {@code reference} string)
+     *       is nested within a child element of the {@code valueReference} element.</li>
+     * </ul>
      *
-     * @param node the parent DOM node to inspect
-     * @return the string value of the {@code value} attribute if found, or {@code null} if no matching child is found
+     * <p>Specifically:</p>
+     * <ul>
+     *   <li>If a child node starts with {@code value} (e.g., {@code valueString}) and has a {@code value} attribute,
+     *       that attribute's content is returned.</li>
+     *   <li>If the child node is {@code valueReference}, it attempts to extract the {@code reference} attribute
+     *       from a nested {@code reference} element.</li>
+     * </ul>
+     *
+     * @param node the parent node (typically an {@code input} or {@code output} element)
+     * @return the extracted string value if present; {@code null} if no value could be found
+     *
+     * @see <a href="https://hl7.org/fhir/xml.html">FHIR XML Representation Rules (hl7.org)</a>
      */
     protected static String extractValueX(Node node)
     {
@@ -197,12 +206,38 @@ public abstract class AbstractFhirInstanceValidator
         for (int i = 0; i < kids.getLength(); i++)
         {
             Node k = kids.item(i);
-            if (k.getNodeName().startsWith("value") && k.getAttributes() != null)
+
+            // case 1 – primitive value[x]: <valueString value="..."/>
+            if (k.getNodeName().startsWith("value") && k.hasAttributes())
             {
                 Node v = k.getAttributes().getNamedItem("value");
                 if (v != null) return v.getNodeValue();
             }
+
+            // case 2 – Reference / CodableReference: <valueReference><reference value="..."/></valueReference>
+            if ("valueReference".equals(k.getNodeName()))
+            {
+                String ref = extractSingleNodeValue(k, "./*[local-name()='reference']/@value");
+                if (ref != null && !ref.isBlank()) return ref;
+            }
+
+            // case 3 – logical reference: <valueReference><identifier><value value="..."/></identifier>
+            if ("valueReference".equals(k.getNodeName())) {
+                String idValue = extractSingleNodeValue(
+                        k, "./*[local-name()='identifier']/*[local-name()='value']/@value");
+                if (idValue != null && !idValue.isBlank()) return idValue;
+            }
+
+            // case 4 – valueIdentifier: <valueIdentifier><value value="..."/></valueIdentifier>
+            if ("valueIdentifier".equals(k.getNodeName())) {
+                String idVal = extractSingleNodeValue(
+                        k, "./*[local-name()='value']/@value");
+                if (idVal != null && !idVal.isBlank()) return idVal;
+            }
+
         }
+
         return null;
     }
+
 }

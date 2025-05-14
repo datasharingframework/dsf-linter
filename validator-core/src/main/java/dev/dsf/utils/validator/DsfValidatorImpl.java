@@ -7,6 +7,7 @@ import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
+import dev.dsf.utils.validator.util.FhirAuthorizationCache;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
@@ -16,6 +17,8 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
  * <p>
@@ -83,10 +86,15 @@ public class DsfValidatorImpl implements DsfValidator
     @Override
     public ValidationOutput validate(Path path) {
 
+        // add DSF‑CodeSystem‑Cache
+        File projectRoot = Files.isDirectory(path)
+                ? path.toFile()
+                : getProjectRoot(path);
+        FhirAuthorizationCache.seedFromProjectFolder(projectRoot);
         // A) ProjectFolder
         if (Files.isDirectory(path)) {
             File reportRoot = new File("report");
-            reportRoot.mkdirs();
+            prepareCleanReportDirectory(reportRoot);
 
             List<AbstractValidationItem> bpmnItems =
                     validateAllBpmnFilesSplitNewStructure(path.toFile(), reportRoot);
@@ -179,16 +187,20 @@ public class DsfValidatorImpl implements DsfValidator
 
             // We pick the processId or fallback to filename
             String pid = out.getProcessId();
-            if (pid == null || pid.isBlank())
+            if (pid.isBlank())
             {
                 pid = bpmnFile.getName().replace(".bpmn", "");
             }
+
+            // Determine containing folder name (e.g. “ping” or “pong”)
+            String parentFolder = bpmnFile.getParentFile().getName();
 
             // Write success JSON if relevant
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder, "bpmn_issues_" + pid + ".json");
+                File outFile = new File(successFolder,
+                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
                 so.writeResultsAsJson(outFile);
             }
 
@@ -196,27 +208,15 @@ public class DsfValidatorImpl implements DsfValidator
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder, "bpmn_issues_" + pid + ".json");
+                File outFile = new File(otherFolder,
+                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
                 oo.writeResultsAsJson(outFile);
             }
         }
 
-        // 4) Write aggregated success
-        if (!successAggregator.isEmpty())
-        {
-            ValidationOutput successOutput = new ValidationOutput(successAggregator);
-            File aggSuccess = new File(successFolder, "aggregated.json");
-            successOutput.writeResultsAsJson(aggSuccess);
-        }
-
-        // 5) Write aggregated other
-        if (!otherAggregator.isEmpty())
-        {
-            ValidationOutput otherOutput = new ValidationOutput(otherAggregator);
-            File aggOther = new File(otherFolder, "aggregated.json");
-            otherOutput.writeResultsAsJson(aggOther);
-        }
-
+        // 4+5) Write aggregated BPMN sub-reports
+        writeAggregatedReport("bpmn_success", successAggregator, successFolder);
+        writeAggregatedReport("bpmn_other",   otherAggregator,   otherFolder);
         // 6) Write aggregated BPMN (all items)
         if (!allBpmnItems.isEmpty())
         {
@@ -300,37 +300,29 @@ public class DsfValidatorImpl implements DsfValidator
                 baseName = baseName.substring(0, idx);
             }
 
+            // Determine containing folder name (the last segment under “fhir”)
+            String parentFolder = f.getParentFile().getName();
             // success
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder, "fhir_issues_" + baseName + ".json");
+                File outFile = new File(successFolder,
+                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
                 so.writeResultsAsJson(outFile);
             }
             // other
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder, "fhir_issues_" + baseName + ".json");
+                File outFile = new File(otherFolder,
+                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
                 oo.writeResultsAsJson(outFile);
             }
         }
 
-        // 4) Write aggregated success
-        if (!successAggregator.isEmpty())
-        {
-            ValidationOutput soAgg = new ValidationOutput(successAggregator);
-            File aggFile = new File(successFolder, "aggregated.json");
-            soAgg.writeResultsAsJson(aggFile);
-        }
-
-        // 5) Write aggregated other
-        if (!otherAggregator.isEmpty())
-        {
-            ValidationOutput ooAgg = new ValidationOutput(otherAggregator);
-            File aggFile = new File(otherFolder, "aggregated.json");
-            ooAgg.writeResultsAsJson(aggFile);
-        }
+        // 4+5) Write aggregated FHIR sub-reports
+        writeAggregatedReport("fhir_success", successAggregator, successFolder);
+        writeAggregatedReport("fhir_other",   otherAggregator,   otherFolder);
 
         // 6) Write aggregated FHIR (all items)
         if (!allFhirItems.isEmpty())
@@ -355,7 +347,7 @@ public class DsfValidatorImpl implements DsfValidator
             return new ValidationOutput(allIssues);
         }
 
-        if (!isFileReadable(path))
+        if (isFileReadable(path))
         {
             System.err.println("Error: The file is not readable: " + path);
             allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
@@ -396,7 +388,7 @@ public class DsfValidatorImpl implements DsfValidator
                     path.getFileName().toString()));
             return new ValidationOutput(allIssues);
         }
-        if (!isFileReadable(path))
+        if (isFileReadable(path))
         {
             allIssues.add(new FhirElementValidationItem(
                     "File not readable",
@@ -432,7 +424,7 @@ public class DsfValidatorImpl implements DsfValidator
      */
     protected boolean isFileReadable(Path path)
     {
-        return Files.isReadable(path);
+        return !Files.isReadable(path);
     }
     /**
      * Attempts to locate the root directory of a Maven project by traversing up the directory tree
@@ -642,6 +634,22 @@ public class DsfValidatorImpl implements DsfValidator
             return new ValidationOutput(List.of());
         }
     }
+    /**
+     * Writes an aggregated JSON file named "<prefix>_aggregated.json" in das gegebene Verzeichnis.
+     *
+     * @param prefix   z. B. "bpmn_success", "bpmn_other", "fhir_success", "fhir_other"
+     * @param items    die List<AbstractValidationItem> zum Aggregieren
+     * @param folder   das Ziel-Verzeichnis
+     */
+    private void writeAggregatedReport(String prefix,
+                                       List<AbstractValidationItem> items,
+                                       File folder) {
+        if (items.isEmpty()) return;
+        ValidationOutput output = new ValidationOutput(items);
+        File outFile = new File(folder, prefix + "_aggregated.json");
+        output.writeResultsAsJson(outFile);
+    }
+
 
     /**
      * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
