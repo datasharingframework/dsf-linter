@@ -10,15 +10,29 @@ import java.io.File;
 import java.util.List;
 
 /**
- * Abstract base class for FHIR resource validators.
+ * Abstract base class for all FHIR resource validators used in the DSF validation framework.
  *
- * <p>This class provides common utility methods to assist in validating FHIR resources
- * represented as DOM {@link Document} objects. It defines the basic structure for
- * all concrete validators, and centralizes frequently used XPath and utility logic
- * for consistent use across all subclasses.</p>
+ * <p>
+ * This class defines a common structure and utility methods for FHIR validators that operate on
+ * DOM-based XML {@link Document} instances. Subclasses must implement the validation logic for
+ * specific FHIR resource types such as {@code Questionnaire}, {@code Task}, {@code ValueSet}, etc.
+ * </p>
  *
- * <p>Subclasses must implement the validation logic by overriding the abstract methods
- * {@link #canValidate(Document)} and {@link #validate(Document, File)}.</p>
+ * <h3>Responsibilities</h3>
+ * <ul>
+ *   <li>Defines an abstract API for checking whether a resource can be validated
+ *       ({@link #canValidate(Document)})</li>
+ *   <li>Defines an abstract API for executing validation and producing structured results
+ *       ({@link #validate(Document, File)})</li>
+ *   <li>Provides reusable XPath utilities to extract values from FHIR XML resources</li>
+ *   <li>Provides convenience methods for reporting validation results</li>
+ * </ul>
+ *
+ * <p>
+ * Validators extending this class typically operate on a single FHIR resource type and are
+ * automatically discovered via {@code ServiceLoader} or registered manually.
+ * </p>
+ *
  */
 public abstract class AbstractFhirInstanceValidator
 {
@@ -88,21 +102,6 @@ public abstract class AbstractFhirInstanceValidator
         {
             return null;
         }
-    }
-
-    /**
-     * Extracts the text value of the first node that matches the given XPath expression in the document.
-     *
-     * @param doc       the XML document to search
-     * @param xpathExpr the XPath expression
-     * @return the text content of the first matching node, or {@code null} if no match
-     */
-    protected String extractSingleNodeValue(Document doc, String xpathExpr)
-    {
-        NodeList nodes = evaluateXPath(doc, xpathExpr);
-        if (nodes != null && nodes.getLength() > 0 && nodes.item(0) != null)
-            return nodes.item(0).getTextContent();
-        return null;
     }
 
     /**
