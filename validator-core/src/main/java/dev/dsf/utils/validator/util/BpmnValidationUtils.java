@@ -128,6 +128,7 @@ public class BpmnValidationUtils
             for (DomElement child : childEls)
             {
                 if ("string".equals(child.getLocalName())
+                        && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()) || "expression".equals(child.getLocalName())
                         && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()))
                 {
                     return child.getTextContent();
