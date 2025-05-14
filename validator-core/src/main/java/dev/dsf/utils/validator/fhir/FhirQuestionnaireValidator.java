@@ -220,7 +220,6 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
 
             if (blank(text)) {
                 out.add(new FhirQuestionnaireItemMissingAttributesTextValidationItem(file, ref));
-                continue;
             }
 
             /* duplicate linkIds  */
