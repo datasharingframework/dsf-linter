@@ -14,45 +14,64 @@ import java.io.File;
 import java.util.concurrent.Callable;
 
 /**
- * <p>
- * Entry point for validating BPMN and FHIR files contained in either a local project directory
- * or a remote Git repository. If a remote repository is specified, it is cloned before validation.
- * </p>
+ * <h2>DSF Validator CLI Entry Point</h2>
  *
  * <p>
- * This class uses:
+ * This is the main class for running the DSF Validator as a command-line application.
+ * It supports validation of both BPMN and FHIR resources from:
+ * </p>
  * <ul>
- *   <li><strong>Picocli</strong> – for command-line argument parsing</li>
- *   <li><strong>JGit</strong> – for Git repository cloning</li>
- *   <li><strong>Maven</strong> – for building the cloned or local project before validation</li>
+ *   <li>A local project directory, using {@code --localPath}</li>
+ *   <li>A remote Git repository, using {@code --remoteRepo}</li>
  * </ul>
- * </p>
  *
- * <p><strong>Main responsibilities:</strong></p>
+ * <p>
+ * The class performs the following operations:
+ * </p>
  * <ol>
- *   <li>Parse command-line arguments.</li>
- *   <li>Clone a remote Git repository or use a specified local project directory.</li>
- *   <li>Build the project using Maven.</li>
- *   <li>Run validations for BPMN and FHIR files and generate reports.</li>
+ *   <li>Parses command-line arguments using <a href="https://picocli.info/">Picocli</a>.</li>
+ *   <li>Clones a remote Git repository if {@code --remoteRepo} is specified.</li>
+ *   <li>Builds the project using <a href="https://maven.apache.org/">Apache Maven</a>.</li>
+ *   <li>Validates all BPMN and FHIR files in the project using {@link DsfValidatorImpl}.</li>
+ *   <li>Generates JSON-based validation reports in the {@code report/} directory.</li>
+ *   <li>Detects the DSF BPE API version and prints it after validation.</li>
  * </ol>
  *
- * <h3>Example Usage:</h3>
- * <pre>
- *   java -jar dsf-validator.jar --localPath /path/to/local/project
+ * <h3>Command-line Usage</h3>
+ * <pre>{@code
+ * java -jar dsf-validator.jar --localPath /path/to/local/project
+ * java -jar dsf-validator.jar --remoteRepo https://gitlab.com/org/project.git
+ * }</pre>
  *
- *   or
- *
- *   java -jar dsf-validator.jar --remoteRepo https://github.com/user/project.git
- *
- * </pre>
- *
- * <h3>References:</h3>
+ * <h3>Behavior Notes</h3>
  * <ul>
- *   <li><a href="https://picocli.info/">Picocli Documentation</a></li>
- *   <li><a href="https://www.eclipse.org/jgit/">JGit Documentation</a></li>
- *   <li><a href="https://maven.apache.org/">Apache Maven Documentation</a></li>
+ *   <li>Exactly one of {@code --localPath} or {@code --remoteRepo} must be provided.</li>
+ *   <li>If Maven is not found on the system PATH, validation will fail.</li>
+ *   <li>The validator uses Maven to run {@code clean package dependency:copy-dependencies} before validation.</li>
  * </ul>
+ *
+ * <h3>Dependencies</h3>
+ * <ul>
+ *   <li><strong>Picocli</strong> – CLI parsing framework</li>
+ *   <li><strong>JGit</strong> – Git client for Java (used for repository cloning)</li>
+ *   <li><strong>Apache Maven</strong> – Used to build the project before validation</li>
+ * </ul>
+ *
+ * <h3>Report Output</h3>
+ * <p>
+ * Validation results are written to the {@code report/} directory,
+ * structured by resource type (BPMN / FHIR) and severity (success / other).
+ * A summary report is also generated at {@code report/aggregated.json}.
+ * </p>
+ *
+ * @see DsfValidatorImpl
+ * @see MavenBuilder
+ * @see RepositoryManager
+ * @see ApiVersionDetector
+ * @see ValidationOutput
+ *
  */
+
 @Command(
         name = "Main",
         mixinStandardHelpOptions = true,
