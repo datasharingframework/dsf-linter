@@ -109,36 +109,6 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Attempts to read any nested {@code <camunda:string>} text content from a {@link CamundaField}.
-     * <p>
-     * If the field does not have a direct string value set via {@code camunda:stringValue},
-     * this method inspects its DOM children for a {@code <camunda:string>} element and returns its text content.
-     * </p>
-     *
-     * @param field the {@link CamundaField} to extract nested string content from
-     * @return the text content from a nested {@code <camunda:string>} element, or {@code null} if not found
-     */
-    public static String tryReadNestedStringContent(CamundaField field)
-    {
-        if (field == null) return null;
-        DomElement domEl = field.getDomElement();
-        if (domEl != null)
-        {
-            Collection<DomElement> childEls = domEl.getChildElements();
-            for (DomElement child : childEls)
-            {
-                if ("string".equals(child.getLocalName())
-                        && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()) || "expression".equals(child.getLocalName())
-                        && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()))
-                {
-                    return child.getTextContent();
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
      * Checks if a fully-qualified class name can be loaded from the current context or via a custom class loader.
      * <p>
      * This method first attempts to load the class using the context class loader. If that fails,
