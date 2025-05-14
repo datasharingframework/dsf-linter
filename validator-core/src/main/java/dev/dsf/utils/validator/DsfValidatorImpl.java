@@ -21,48 +21,69 @@ import java.util.stream.Collectors;
 import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
+ * <h2>DSF Validator Implementation</h2>
+ *
  * <p>
- * An implementation of the DSF Validator interface capable of validating
- * <strong>BPMN</strong> or <strong>FHIR</strong> files based on file extension.
+ * This class provides a full implementation of the {@link DsfValidator} interface and supports
+ * validation of both BPMN and FHIR resources within a DSF project.
+ * The validator determines the type of file (BPMN or FHIR) based on its extension and applies
+ * appropriate validation logic. It also supports recursive validation of entire project directories.
  * </p>
  *
- * <p><strong>Folder Structure</strong>:</p>
+ * <h3>Validation Modes</h3>
+ * <ul>
+ *   <li><b>Single File Validation</b> – Supports individual BPMN (.bpmn) and FHIR (.xml/.json) files</li>
+ *   <li><b>Project Folder Validation</b> – Recursively validates all BPMN and FHIR resources
+ *       under <code>src/main/resources/bpe</code> and <code>src/main/resources/fhir</code></li>
+ * </ul>
+ *
+ * <h3>Report Output Structure</h3>
+ * <p>
+ * The validator writes its output to the {@code report/} folder using the following structure:
+ * </p>
+ *
  * <pre>
  * report/
- *   bpmnReports/
- *     success/
- *       bpmn_issues_foo.json
- *       aggregated.json   (ALL success items from BPMN)
- *     other/
- *       bpmn_issues_bar.json
- *       aggregated.json   (ALL other items from BPMN)
- *     bpmn_issues_aggregated.json  (ALL BPMN items)
- *
- *   fhirReports/
- *     success/
- *       fhir_issues_foo.json
- *       aggregated.json   (ALL success items from FHIR)
- *     other/
- *       fhir_issues_bar.json
- *       aggregated.json   (ALL other items from FHIR)
- *     fhir_issues_aggregated.json  (ALL FHIR items)
- *
- *   aggregated.json (ALL BPMN + FHIR items, typically written by caller)
+ * ├── bpmnReports/
+ * │   ├── success/
+ * │   │   ├── bpmn_issues_*.json
+ * │   │   └── bpmn_success_aggregated.json
+ * │   ├── other/
+ * │   │   ├── bpmn_issues_*.json
+ * │   │   └── bpmn_other_aggregated.json
+ * │   └── bpmn_issues_aggregated.json
+ * ├── fhirReports/
+ * │   ├── success/
+ * │   │   ├── fhir_issues_*.json
+ * │   │   └── fhir_success_aggregated.json
+ * │   ├── other/
+ * │   │   ├── fhir_issues_*.json
+ * │   │   └── fhir_other_aggregated.json
+ * │   └── fhir_issues_aggregated.json
+ * └── aggregated.json
  * </pre>
  *
  * <p>
- * In every JSON file, a date/time is included as the first field under "timestamp".
+ * Each individual report file contains a list of {@link dev.dsf.utils.validator.item.AbstractValidationItem}
+ * with timestamps and categorized validation results.
  * </p>
  *
- * <h3>References</h3>
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ * DsfValidator validator = new DsfValidatorImpl();
+ * ValidationOutput result = validator.validate(Path.of("src/main/resources/fhir"));
+ * }</pre>
+ *
+ * <h3>See Also</h3>
  * <ul>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/model-api/bpmn-model-api/">Camunda BPMN Model API</a></li>
- *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- *   <li><a href="https://github.com/FasterXML/jackson-databind">Jackson JSON Project</a></li>
- *   <li><a href="https://hl7.org/fhir">HL7 FHIR Specification</a></li>
+ *   <li>{@link BPMNValidator}</li>
+ *   <li>{@link FhirResourceValidator}</li>
+ *   <li>{@link dev.dsf.utils.validator.ValidationOutput}</li>
  * </ul>
+ *
  */
 public class DsfValidatorImpl implements DsfValidator
+
 {
     private final FhirResourceValidator fhirResourceValidator;
 
