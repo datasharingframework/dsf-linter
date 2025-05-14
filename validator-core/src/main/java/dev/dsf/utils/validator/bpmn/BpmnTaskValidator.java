@@ -46,7 +46,6 @@ import java.util.List;
  *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
  * </ul>
  */
-
 public class BpmnTaskValidator
 {
     private final File projectRoot;

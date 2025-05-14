@@ -15,37 +15,36 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <p>
- * The {@code ValidationOutput} class encapsulates a list of validation items (issues)
- * found during BPMN validation processes. It provides methods for both console-based
- * and JSON-based output.
- * </p>
+ * <h2>DSF BPMN Validation Output</h2>
  *
  * <p>
- * Example usage:
- * <pre>
- *   ValidationOutput output = new ValidationOutput(items);
- *   output.printResults();
- *   output.writeResultsAsJson(new File("issues.json"));
- * </pre>
+ * The {@code ValidationOutput} class encapsulates the results of BPMN or FHIR validation runs.
+ * It stores a list of {@link AbstractValidationItem} instances and provides methods to:
+ * <ul>
+ *   <li>Print issues to the console</li>
+ *   <li>Export results as a pretty-printed JSON file</li>
+ *   <li>Retrieve associated process identifiers</li>
+ * </ul>
  * </p>
  *
- * <p>
- * When writing to JSON, the following structure is produced:
- * </p>
+ * <h3>Example Usage:</h3>
+ * <pre>{@code
+ * List<AbstractValidationItem> items = ...;
+ * ValidationOutput output = new ValidationOutput(items);
+ * output.printResults();
+ * output.writeResultsAsJson(new File("issues.json"));
+ * }</pre>
+ *
+ * <h3>JSON Output Format:</h3>
  * <pre>
  * {
  *   "timestamp": "2025-04-11 16:58:23",
  *   "validationItems": [ ... ]
  * }
  * </pre>
- * <p>
- * The timestamp is always included as the first field, using a {@code yyyy-MM-dd HH:mm:ss} format.
- * The list of validation items is sorted (by {@link AbstractValidationItem#toString()})
- * for consistency.
- * </p>
+ * <p>The output includes a timestamp in {@code yyyy-MM-dd HH:mm:ss} format and a list of sorted items.</p>
  *
- * <p><strong>References:</strong></p>
+ * <h3>References:</h3>
  * <ul>
  *   <li><a href="https://github.com/FasterXML/jackson-databind">Jackson Databind</a></li>
  *   <li><a href="https://picocli.info/">picocli</a></li>

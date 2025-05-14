@@ -36,7 +36,6 @@ import java.util.List;
  * </ul>
  * </p>
  */
-
 public class BpmnFieldInjectionValidator {
 
     /**
