@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
  *   <li><a href="https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/where">where command (Microsoft)</a></li>
  * </ul>
  */
-
 public class MavenUtil {
 
     /**
