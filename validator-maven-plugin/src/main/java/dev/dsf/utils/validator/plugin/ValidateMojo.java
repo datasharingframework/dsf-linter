@@ -21,69 +21,42 @@ import java.util.List;
 import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
- * <p>
- * Maven Mojo for validating both BPMN and FHIR files using the DSF Validator.
- * </p>
+ * <h2>DSF Maven Plugin: Validator Mojo</h2>
  *
  * <p>
- * The validation results are written to the following directory within the build folder:
+ * This Mojo provides an integration point for running the DSF Validator directly from a Maven build.
+ * It validates both BPMN and FHIR resources located in the DSF project source tree and writes JSON-formatted reports
+ * to a dedicated output directory inside the Maven {@code target} folder.
  * </p>
  *
- * <pre>
- * ${project.build.directory}/dsf-validation-reports/
- * ├── bpmnReports/
- * │   ├── success/
- * │   │   ├── bpmn_issues_<processId>.json
- * │   │   └── aggregated.json  ← Aggregated BPMN success issues
- * │   ├── other/
- * │   │   ├── bpmn_issues_<processId>.json
- * │   │   └── aggregated.json  ← Aggregated BPMN other issues
- * │   └── bpmn_issues_aggregated.json      ← All BPMN issues (success + others)
- * ├── fhirReports/
- * │   ├── success/
- * │   │   ├── fhir_issues_<baseName>.json
- * │   │   └── aggregated.json  ← Aggregated FHIR success issues
- * │   ├── other/
- * │   │   ├── fhir_issues_<baseName>.json
- * │   │   └── aggregated.json  ← Aggregated FHIR other issues
- * │   └── fhir_issues_aggregated.json      ← All FHIR issues (success + others)
- * └── aggregated.json                      ← Combined BPMN and FHIR issues (global)
- * </pre>
+ * <h3>Key Features</h3>
+ * <ul>
+ *   <li>Runs automatically during the Maven {@code verify} phase</li>
+ *   <li>Supports validation of:
+ *     <ul>
+ *       <li>BPMN process models under {@code src/main/resources/bpe}</li>
+ *       <li>FHIR resource files under {@code src/main/resources/fhir}</li>
+ *     </ul>
+ *   </li>
+ *   <li>Writes categorized report files into:
+ *     <code>${project.build.directory}/dsf-validation-reports</code>
+ *   </li>
+ *   <li>Prints a summary and detected DSF BPE API version to the console</li>
+ * </ul>
  *
- * <p>
- * Each generated JSON file follows this format:
- * </p>
+ * <h3>Usage Instructions</h3>
  *
- * <pre>
- * {
- *   "timestamp": "2025-04-11 17:45:30",
- *   "validationItems": [
- *     {
- *       "severity": "ERROR",
- *       "message": "Missing start event...",
- *       ...
- *     }
- *   ]
- * }
- * </pre>
- *
- * <p>
- * Note: The DSF Validator now performs validation for both BPMN and FHIR files.
- * </p>
- *
- * <h3>How to use this plugin</h3>
- *
- * <p>Execute via command line:</p>
- * <pre>
+ * <h4>CLI Execution</h4>
+ * <pre>{@code
  * mvn dev.dsf.utils.validator:validator-maven-plugin:verify
- * </pre>
+ * }</pre>
  *
- * <p>Or include in your POM:</p>
+ * <h4>POM Integration</h4>
  * <pre>{@code
  * <plugin>
  *   <groupId>dev.dsf.utils.validator</groupId>
  *   <artifactId>validator-maven-plugin</artifactId>
- *   <version>1.0-SNAPSHOT</version>
+ *   <version>1.2</version>
  *   <executions>
  *     <execution>
  *       <phase>verify</phase>
@@ -95,22 +68,32 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
  * </plugin>
  * }</pre>
  *
- * <h3>References</h3>
+ * <h3>Report Output Structure</h3>
+ * <pre>
+ * target/dsf-validation-reports/
+ * ├── bpmnReports/
+ * │   ├── success/ → Individual and aggregated BPMN success reports
+ * │   ├── other/   → Individual and aggregated BPMN error/warning reports
+ * │   └── bpmn_issues_aggregated.json
+ * ├── fhirReports/
+ * │   ├── success/ → Individual and aggregated FHIR success reports
+ * │   ├── other/   → Individual and aggregated FHIR error/warning reports
+ * │   └── fhir_issues_aggregated.json
+ * └── aggregated.json (combined BPMN + FHIR report)
+ * </pre>
+ *
+ * <h3>Requirements</h3>
  * <ul>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/model-api/bpmn-model-api/">
- *       Camunda BPMN Model API</a></li>
- *   <li><a href="https://www.omg.org/spec/BPMN/2.0">
- *       BPMN 2.0 Specification</a></li>
- *   <li><a href="https://github.com/FasterXML/jackson-databind">
- *       Jackson JSON Project</a></li>
- *   <li><a href="https://hl7.org/fhir">
- *       FHIR Specification</a></li>
- *   <li><a href="https://maven.apache.org/developers/mojo-api.html">
- *       Maven Plugin API</a></li>
+ *   <li>Assumes the Maven project is correctly structured and compiled</li>
+ *   <li>Requires the project classpath to be resolvable at runtime</li>
  * </ul>
  *
  * @author Khalil Malla
  * @version 1.2
+ * @since 1.0.0
+ * @see dev.dsf.utils.validator.DsfValidatorImpl
+ * @see org.apache.maven.plugin.AbstractMojo
+ * @see <a href="https://maven.apache.org/developers/mojo-api.html">Maven Mojo API</a>
  */
 @Mojo(
         name = "verify",

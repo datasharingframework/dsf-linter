@@ -71,7 +71,6 @@ import java.util.concurrent.Callable;
  * @see ValidationOutput
  *
  */
-
 @Command(
         name = "Main",
         mixinStandardHelpOptions = true,
