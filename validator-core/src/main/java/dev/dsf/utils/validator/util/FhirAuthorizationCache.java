@@ -17,20 +17,43 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 /**
- * <h2>DSF CodeSystem Cache – v3 (2025‑05)</h2>
+ * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑05)</h2>
  *
- * A thread-safe and extensible registry that tracks {@code CodeSystem} codes used by DSF (Digital Sample Framework)
- * FHIR validators. This cache supports both static bootstrapping of core DSF systems and dynamic discovery of
- * additional {@code CodeSystem} XML definitions within a project tree.
+ * <p>
+ * This class implements a centralized, thread-safe cache for known FHIR {@code CodeSystem} codes
+ * used throughout the DSF (Digital Sample Framework) validation process. It is used by multiple
+ * validators to verify whether a referenced {@code Coding} is declared and recognized.
+ * </p>
  *
- * <p><b>Main Features</b></p>
+ * <h3>Main Responsibilities</h3>
  * <ul>
- *   <li><b>Thread-safe</b> storage using {@code ConcurrentHashMap}</li>
- *   <li><b>Dynamic loading</b> of {@code CodeSystem} definitions from
- *       {@code src/main/resources/fhir/CodeSystem} folders</li>
- *   <li><b>Static bootstrap</b> of official DSF CodeSystems</li>
- *   <li><b>Debug logging</b> enabled via JVM option {@code -Ddsf.debug.codesystem=true}</li>
+ *   <li>Registers core DSF {@code CodeSystem} entries at startup</li>
+ *   <li>Dynamically discovers additional {@code CodeSystem} definitions by scanning
+ *       {@code src/main/resources/fhir/CodeSystem} directories</li>
+ *   <li>Supports fast lookup of known codes per system for validation use cases</li>
+ *   <li>Offers utilities to register, clear, and debug the contents of the cache</li>
  * </ul>
+ *
+ * <h3>Concurrency</h3>
+ * <p>
+ * Internally, the class uses a {@link ConcurrentHashMap} with thread-safe sets to store code
+ * values per system. It is safe to use concurrently across threads during validation.
+ * </p>
+ *
+ * <h3>Debugging</h3>
+ * <p>
+ * If the system property {@code -Ddsf.debug.codesystem=true} is set, the class prints detailed
+ * output to {@code System.out} during loading and summarization.
+ * </p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * FhirAuthorizationCache.seedFromProjectFolder(projectDir);
+ * if (FhirAuthorizationCache.isUnknown("http://dsf.dev/fhir/CodeSystem/practitioner-role", "HRP_USER")) {
+ *     // handle missing code
+ * }
+ * }</pre>
+ *
  */
 public final class FhirAuthorizationCache
 {
