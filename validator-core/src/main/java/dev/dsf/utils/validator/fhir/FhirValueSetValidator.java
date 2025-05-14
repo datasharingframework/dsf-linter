@@ -40,9 +40,12 @@ import java.util.*;
  * <code>immutable</code> and <code>experimental</code>, since these are overwritten by the
  * BPE server during deployment.</p>
  *
- * <p>All problems are reported as subclasses of {@link FhirElementValidationItem}.
- *
- *
+ * <p>Each check results in one of the following validation items:
+ * <ul>
+ *   <li>{@link FhirElementValidationItemSuccess} for successful validations</li>
+ *   <li>Various {@link FhirElementValidationItem} subclasses for validation errors</li>
+ * </ul>
+ * </p>
  */
 public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 {
