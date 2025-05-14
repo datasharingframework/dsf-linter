@@ -16,25 +16,47 @@ import java.io.File;
 import java.util.List;
 
 /**
+ * <h2>DSF BPMN Task Validator</h2>
+ *
  * <p>
- * The {@code BpmnTaskValidator} class handles validation logic for various BPMN tasks:
- * ServiceTask, UserTask, SendTask, and ReceiveTask.
+ * The {@code BpmnTaskValidator} performs structural and semantic validation on BPMN
+ * task elements defined in Camunda workflows. It validates four types of tasks:
+ * {@link ServiceTask}, {@link UserTask}, {@link SendTask}, and {@link ReceiveTask}.
  * </p>
  *
  * <p>
- * References:
+ * Each validation method checks for required attributes, Camunda-specific extensions,
+ * and integration consistency with FHIR resources where applicable. Validation results
+ * are appended to a list of {@link BpmnElementValidationItem} instances.
+ * </p>
+ *
+ * <h3>Supported Validation Features:</h3>
+ * <ul>
+ *   <li><b>ServiceTask:</b> Name presence, implementation class existence, and JavaDelegate interface checks.</li>
+ *   <li><b>UserTask:</b> Name, formKey validation, questionnaire resolution, and listener class checks.</li>
+ *   <li><b>SendTask:</b> Name, implementation class existence/interface, and field injection validations.</li>
+ *   <li><b>ReceiveTask:</b> Name, message definition integrity, and FHIR message name cross-checks.</li>
+ * </ul>
+ *
+ * <h3>References:</h3>
  * <ul>
  *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extensions</a></li>
  *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
  *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
  * </ul>
- * </p>
  */
+
 public class BpmnTaskValidator
 {
     private final File projectRoot;
 
+    /**
+     * Constructs a new {@code BpmnTaskValidator} for validating BPMN task elements
+     * within a given project directory.
+     *
+     * @param projectRoot the root directory of the project containing BPMN and FHIR resources
+     */
     public BpmnTaskValidator(File projectRoot)
     {
         this.projectRoot = projectRoot;
