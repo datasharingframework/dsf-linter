@@ -703,4 +703,69 @@ public class FhirValidator
         }
     }
 
+
+
+    /**
+     * Checks whether the given recipient organization identifier is authorized to receive
+     * the Task according to the {@code ActivityDefinition}'s
+     * {@code extension-process-authorization} rules.
+     *
+     * <p>This method evaluates the {@code ActivityDefinition} resource for:
+     * <ul>
+     *   <li>Generic recipient permissions such as {@code LOCAL_ALL} or {@code LOCAL_ALL_PRACTITIONER}.</li>
+     *   <li>Explicitly listed organization identifiers inside nested extensions
+     *       (e.g., {@code extension-process-authorization-organization} or
+     *       {@code extension-process-authorization-organization-practitioner}).</li>
+     * </ul>
+     * If either condition is met, the recipient is considered authorized.</p>
+     *
+     * <p>If the ActivityDefinition cannot be parsed or does not declare any of the
+     * relevant recipient extensions, this method returns {@code false}.</p>
+     *
+     * @param activityDefinitionFile the {@code ActivityDefinition} XML file to check
+     * @param recipientOrgId         the recipient's organization identifier (e.g., {@code hs-heilbronn.de})
+     * @return {@code true} if the recipient is authorized; {@code false} otherwise
+     */
+    public static boolean isRecipientAuthorised(File activityDefinitionFile,
+                                                String recipientOrgId)
+    {
+        try
+        {
+            Document doc = parseXml(activityDefinitionFile.toPath());
+            if (doc == null) return false;
+
+            /* 1) generic LOCAL_ALL / LOCAL_ALL_PRACTITIONER → allow */
+            String genericXpath =
+                    "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']"
+                            + "/*[local-name()='extension' and @url='recipient']"
+                            + "/*[local-name()='valueCoding']/*[local-name()='code']"
+                            + "[@value='LOCAL_ALL' or @value='LOCAL_ALL_PRACTITIONER']";
+            if (evaluateXPathExists(doc, genericXpath))
+                return true;
+
+            /* 2) concrete organisation identifiers */
+            String orgXpath =
+                    "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']"
+                            + "/*[local-name()='extension' and @url='recipient']"
+                            + "/*[local-name()='valueCoding']"
+                            + "/*[local-name()='extension' and ("
+                            + "@url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-organization' or "
+                            + "@url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-organization-practitioner')]"
+                            + "//*[local-name()='valueIdentifier']/*[local-name()='value']/@value";
+
+            NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(orgXpath)
+                    .evaluate(doc, XPathConstants.NODESET);
+
+            Set<String> allowed = new HashSet<>();
+            for (int i = 0; i < nodes.getLength(); i++)
+                allowed.add(nodes.item(i).getTextContent());
+
+            return allowed.contains(recipientOrgId);
+        }
+        catch (Exception ignored) { }
+        return false;
+    }
+
+
 }

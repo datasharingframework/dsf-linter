@@ -118,6 +118,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         validateTerminology(doc, resFile, ref, issues);
 
         validateRequesterAuthorization(doc, resFile, ref, issues);
+        validateRecipientAuthorization(doc, resFile, ref, issues);
 
         return issues;
     }
@@ -443,13 +444,34 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         return null;
     }
     /*
-      Requester vs ActivityDefinition check
+      Requester/Recipient vs ActivityDefinition check
       */
 
     /**
-     * Verifies that {@code Task.requester.identifier.value} is authorised by
-     * the corresponding ActivityDefinition’s {@code extension-process-authorization}
-     * rules.
+     * Validates that the {@code Task.requester.identifier.value} is authorized
+     * based on the corresponding {@code ActivityDefinition}'s
+     * {@code extension-process-authorization} declarations.
+     *
+     * <p>This method performs a cross-resource validation by locating the
+     * {@code ActivityDefinition} referenced by the {@code Task.instantiatesCanonical}
+     * element. It then verifies whether the requesting organization specified
+     * in the Task is explicitly listed or generically allowed (e.g., via
+     * {@code LOCAL_ALL} or {@code LOCAL_ALL_PRACTITIONER}) in the authorization
+     * rules defined in the ActivityDefinition.</p>
+     *
+     * <p>If the requester identifier contains the development placeholder
+     * {@code #{organization}}, the check is skipped and a successful validation
+     * result is added. This allows developers to validate incomplete resources
+     * during development.</p>
+     *
+     * <p>If the requester is not authorized according to the ActivityDefinition,
+     * a {@link dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem}
+     * is added to the output list.</p>
+     *
+     * @param taskDoc   the XML DOM representation of the Task resource
+     * @param taskFile  the source file from which the Task was loaded (used for reporting)
+     * @param ref       a canonical reference to the Task (typically from {@code instantiatesCanonical})
+     * @param out       the list of validation items to which results are appended
      */
     private void validateRequesterAuthorization(Document taskDoc,
                                                 File taskFile,
@@ -491,6 +513,69 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             out.add(new FhirTaskRequesterNotAuthorisedValidationItem(
                     taskFile, ref,
                     "Organisation '" + requesterId
+                            + "' is not authorised according to ActivityDefinition "
+                            + actFile.getName()));
+    }
+
+    /**
+     * Validates that the {@code Task.restriction.recipient.identifier.value} is authorized
+     * according to the corresponding {@code ActivityDefinition}'s
+     * {@code extension-process-authorization} block.
+     *
+     * <p>This method performs a cross-resource check by locating the
+     * {@code ActivityDefinition} referenced by {@code Task.instantiatesCanonical}.
+     * It then verifies whether the recipient organization specified in the Task
+     * is explicitly listed or generically permitted (e.g., {@code LOCAL_ALL})
+     * in the ActivityDefinition's recipient authorization extensions.</p>
+     *
+     * <p>If the recipient identifier contains the development placeholder
+     * {@code #{organization}}, the check is skipped and a success entry is added.
+     * This allows local development processes to pass validation.</p>
+     *
+     * <p>If the recipient organization is not authorized, a
+     * {@link dev.dsf.utils.validator.item.FhirTaskRecipientNotAuthorisedValidationItem}
+     * is added to the output.</p>
+     *
+     * @param taskDoc   the DOM representation of the FHIR Task resource
+     * @param taskFile  the source file from which the Task was loaded (used for reporting)
+     * @param ref       a canonical reference string (e.g., from {@code instantiatesCanonical})
+     * @param out       the validation output list to which validation results are appended
+     */
+    private void validateRecipientAuthorization(Document taskDoc,
+                                                File taskFile,
+                                                String ref,
+                                                List<FhirElementValidationItem> out)
+    {
+        String instCanon = val(taskDoc,
+                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (blank(instCanon))
+            return;                                     // already reported elsewhere
+
+        File projectRoot = determineProjectRoot(taskFile);
+        File actFile = FhirValidator.findActivityDefinitionForInstantiatesCanonical(
+                instCanon, projectRoot);
+        if (actFile == null)
+            return;                                     // ActivityDefinition missing
+
+        String recipientId = val(taskDoc,
+                TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']"
+                        + "/*[local-name()='identifier']/*[local-name()='value']/@value");
+
+        /* Allow development placeholder */
+        if (recipientId != null && recipientId.contains("#{organization}"))
+        {
+            out.add(ok(taskFile, ref, "recipient placeholder – skipped auth check"));
+            return;
+        }
+
+        boolean authorised = FhirValidator.isRecipientAuthorised(actFile, recipientId);
+
+        if (authorised)
+            out.add(ok(taskFile, ref, "recipient organisation authorised by ActivityDefinition"));
+        else
+            out.add(new FhirTaskRecipientNotAuthorisedValidationItem(
+                    taskFile, ref,
+                    "Organisation '" + recipientId
                             + "' is not authorised according to ActivityDefinition "
                             + actFile.getName()));
     }
