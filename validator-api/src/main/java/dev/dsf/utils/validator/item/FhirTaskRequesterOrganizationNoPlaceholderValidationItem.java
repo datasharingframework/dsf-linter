@@ -38,7 +38,7 @@ import java.io.File;
  *   "severity": "WARN",
  *   "file": "task-example.xml",
  *   "reference": "Task/example",
- *   "type": "FILE_VERSION_NO_PLACEHOLDER",
+ *   "type": "FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER",
  *   "description": "requester.identifier.value must contain '#{organization}'."
  * }
  * </pre>

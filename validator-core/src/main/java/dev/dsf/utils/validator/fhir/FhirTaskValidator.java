@@ -117,6 +117,8 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
 
         validateTerminology(doc, resFile, ref, issues);
 
+        validateRequesterAuthorization(doc, resFile, ref, issues);
+
         return issues;
     }
 
@@ -155,7 +157,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                     out.add(new FhirTaskUnknownInstantiatesCanonicalValidationItem(
                             f, ref,
                             "No ActivityDefinition '" + instCanon + "' under '" +
-                                    root.getAbsolutePath() + "'."));
+                                    f.getName() + "'."));
                 else
                     out.add(ok(f, ref, "ActivityDefinition exists."));
             }
@@ -440,4 +442,57 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                 return p.toFile();
         return null;
     }
+    /*
+      Requester vs ActivityDefinition check
+      */
+
+    /**
+     * Verifies that {@code Task.requester.identifier.value} is authorised by
+     * the corresponding ActivityDefinition’s {@code extension-process-authorization}
+     * rules.
+     */
+    private void validateRequesterAuthorization(Document taskDoc,
+                                                File taskFile,
+                                                String ref,
+                                                List<FhirElementValidationItem> out)
+    {
+        String instCanon = val(taskDoc,
+                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (blank(instCanon))
+            return; // already handled elsewhere
+
+        File projectRoot = determineProjectRoot(taskFile);
+        File actFile = FhirValidator.findActivityDefinitionForInstantiatesCanonical(
+                instCanon, projectRoot);
+
+        if (actFile == null)
+        {
+            // The missing ActivityDefinition error is already reported, no need to double-report
+            return;
+        }
+
+        String requesterId = val(taskDoc,
+                TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']"
+                        + "/*[local-name()='value']/@value");
+
+        // Allow the dev placeholder
+        if (requesterId != null && requesterId.contains("#{organization}"))
+        {
+            out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
+            return;
+        }
+
+        boolean authorised = FhirValidator.isRequesterAuthorised(
+                actFile, requesterId);
+
+        if (authorised)
+            out.add(ok(taskFile, ref, "requester organisation authorised by ActivityDefinition"));
+        else
+            out.add(new FhirTaskRequesterNotAuthorisedValidationItem(
+                    taskFile, ref,
+                    "Organisation '" + requesterId
+                            + "' is not authorised according to ActivityDefinition "
+                            + actFile.getName()));
+    }
+
 }

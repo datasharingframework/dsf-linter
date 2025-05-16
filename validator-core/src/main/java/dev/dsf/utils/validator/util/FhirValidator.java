@@ -622,5 +622,85 @@ public class FhirValidator
         }
         return false;
     }
+    /**
+     * Returns the <i>first</i> ActivityDefinition that matches the supplied
+     * {@code instantiatesCanonical} string (version suffix ignored).
+     */
+    public static File findActivityDefinitionForInstantiatesCanonical(String canonical,
+                                                                      File projectRoot)
+    {
+        String baseCanon = removeVersionSuffix(canonical);
+        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
+        if (!dir.isDirectory()) return null;
+
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".xml"))
+                    .filter(p -> fileContainsInstantiatesCanonical(p, baseCanon))
+                    .map(Path::toFile)
+                    .findFirst()
+                    .orElse(null);
+        }
+        catch (Exception ignored) { }
+        return null;
+    }
+
+    /**
+     * Evaluates whether the given {@code requesterOrgId} is permitted according
+     * to the {@code extension-process-authorization} rules inside the supplied
+     * ActivityDefinition XML file.
+     *
+     * <p>The logic is intentionally simple:</p>
+     * <ul>
+     *   <li>If any requester code is <code>LOCAL_ALL</code> / <code>LOCAL_ALL_PRACTITIONER</code>
+     *       &rArr; <b>authorised</b></li>
+     *   <li>If the ActivityDefinition names one or more concrete organisation
+     *       identifiers (valueIdentifier.value) and {@code requesterOrgId} is
+     *       one of them &rArr; <b>authorised</b></li>
+     *   <li>Else &rArr; <b>not authorised</b></li>
+     * </ul>
+     */
+    public static boolean isRequesterAuthorised(File activityDefinitionFile,
+                                                String requesterOrgId)
+    {
+        try
+        {
+            Document doc = parseXml(activityDefinitionFile.toPath());
+            if (doc == null) return false;
+
+            // 1) Any generic code => allow all local orgs
+            String genericXpath =
+                    "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']"
+                            + "/*[local-name()='extension' and @url='requester']"
+                            + "/*[local-name()='valueCoding']/*[local-name()='code'][@value='LOCAL_ALL' or @value='LOCAL_ALL_PRACTITIONER']";
+            if (evaluateXPathExists(doc, genericXpath))
+                return true;
+
+            // 2) Collect concrete org identifiers
+            String orgXpath =
+                    "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']"
+                            + "/*[local-name()='extension' and @url='requester']"
+                            + "/*[local-name()='valueCoding']"
+                            + "/*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-organization' "
+                            + "           or @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-organization-practitioner']"
+                            + "//*[local-name()='valueIdentifier']/*[local-name()='value']/@value";
+
+            NodeList vals = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile(orgXpath)
+                    .evaluate(doc, XPathConstants.NODESET);
+
+            Set<String> allowed = new HashSet<>();
+            for (int i = 0; i < vals.getLength(); i++)
+                allowed.add(vals.item(i).getTextContent());
+
+            return allowed.contains(requesterOrgId);
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
 
 }
