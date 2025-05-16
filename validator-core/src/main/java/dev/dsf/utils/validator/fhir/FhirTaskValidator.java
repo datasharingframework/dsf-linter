@@ -179,7 +179,10 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         //  requester.identifier.system
         String reqSys = val(doc, TASK_XP +
                 "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='system']/@value");
-        if (!SYSTEM_ORG_ID.equals(reqSys))
+        if(blank(reqSys))
+            out.add(new FhirTaskMissingRequesterValidationItem(f, ref));
+
+        else if (!SYSTEM_ORG_ID.equals(reqSys))
             out.add(new FhirTaskInvalidRequesterValidationItem(f, ref,
                     "requester.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
@@ -189,7 +192,10 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String recSys = val(doc, TASK_XP +
                 "/*[local-name()='restriction']/*[local-name()='recipient']" +
                 "/*[local-name()='identifier']/*[local-name()='system']/@value");
-        if (!SYSTEM_ORG_ID.equals(recSys))
+        if(blank(recSys))
+            out.add(new FhirTaskMissingRecipientValidationItem(f, ref));
+
+        else if (!SYSTEM_ORG_ID.equals(recSys))
             out.add(new FhirTaskInvalidRecipientValidationItem(f, ref,
                     "restriction.recipient.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
