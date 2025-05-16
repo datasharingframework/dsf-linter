@@ -203,7 +203,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     {
         String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
         if (authoredOn != null && !authoredOn.contains("#{date}"))
-            out.add(new FhirFileDateNoPlaceholderValidationItem(f, ref,
+            out.add(new FhirTaskDateNoPlaceholderValidationItem(f, ref,
                     "<authoredOn> must contain '#{date}'."));
         else
             out.add(ok(f, ref, "<authoredOn> placeholder OK."));
@@ -212,10 +212,19 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                 TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']" +
                         "/*[local-name()='value']/@value");
         if (reqIdVal == null || !reqIdVal.contains("#{organization}"))
-            out.add(new FhirFileVersionNoPlaceholderValidationItem(f, ref,
+            out.add(new FhirTaskRequesterOrganizationNoPlaceholderValidationItem(f, ref,
                     "requester.identifier.value must contain '#{organization}'."));
         else
             out.add(ok(f, ref, "requester.identifier.value placeholder OK."));
+
+        String recIdVal = val(doc,
+                TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']" +
+                        "/*[local-name()='identifier']/*[local-name()='value']/@value");
+        if (recIdVal == null || !recIdVal.contains("#{organization}"))
+            out.add(new FhirTaskRecipientOrganizationNoPlaceholderValidationItem(f, ref,
+                    "restriction.recipient.identifier.value must contain '#{organization}'."));
+        else
+            out.add(ok(f, ref, "restriction.recipient.identifier.value placeholder OK."));
     }
 
     /**

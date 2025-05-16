@@ -17,7 +17,7 @@ import java.io.File;
  * </p>
  *
  * <p>
- * This item corresponds to the {@link ValidationType#FILE_VERSION_NO_PLACEHOLDER}
+ * This item corresponds to the {@link ValidationType#FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER}
  * type and is reported with {@link ValidationSeverity#WARN} severity.
  * </p>
  *
@@ -43,7 +43,7 @@ import java.io.File;
  * }
  * </pre>
  */
-public class FhirFileVersionNoPlaceholderValidationItem extends FhirElementValidationItem
+public class FhirTaskRequesterOrganizationNoPlaceholderValidationItem extends FhirElementValidationItem
 {
     /**
      * Creates a new {@code FhirFileVersionNoPlaceholderValidationItem} with a default description.
@@ -51,13 +51,13 @@ public class FhirFileVersionNoPlaceholderValidationItem extends FhirElementValid
      * @param resourceFile the FHIR resource file in which the issue was found (can be {@code null})
      * @param fhirReference the FHIR reference (e.g., {@code Task/example})
      */
-    public FhirFileVersionNoPlaceholderValidationItem(File resourceFile, String fhirReference)
+    public FhirTaskRequesterOrganizationNoPlaceholderValidationItem(File resourceFile, String fhirReference)
     {
         super(
                 ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
-                ValidationType.FILE_VERSION_NO_PLACEHOLDER,
+                ValidationType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
                 "Required field does not contain a dynamic placeholder"
         );
     }
@@ -69,13 +69,13 @@ public class FhirFileVersionNoPlaceholderValidationItem extends FhirElementValid
      * @param fhirReference the FHIR reference (e.g., {@code Task/example})
      * @param description a custom description to provide additional context for the validation issue
      */
-    public FhirFileVersionNoPlaceholderValidationItem(File resourceFile, String fhirReference, String description)
+    public FhirTaskRequesterOrganizationNoPlaceholderValidationItem(File resourceFile, String fhirReference, String description)
     {
         super(
                 ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
-                ValidationType.FILE_VERSION_NO_PLACEHOLDER,
+                ValidationType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
                 description
         );
     }
