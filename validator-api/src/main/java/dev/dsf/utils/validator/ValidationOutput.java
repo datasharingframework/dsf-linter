@@ -108,8 +108,15 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      */
     public void writeResultsAsJson(File outputFile)
     {
-        // Sort items by their string value (you can change this comparator if needed)
-        validationItems.sort(Comparator.comparing(AbstractValidationItem::toString));
+        // Sort items by their string value (ERROR, WARN, INFO, then success)
+        validationItems.sort(
+                Comparator
+                        // first: by our explicit severity ranking
+                        .comparingInt((AbstractValidationItem i) ->
+                                SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
+                        // second: stable alphabetical tiebreaker (optional)
+                        .thenComparing(AbstractValidationItem::toString)
+        );
 
         // Build a root structure that includes the timestamp and the list of items
         Map<String, Object> root = new LinkedHashMap<>();
@@ -172,4 +179,36 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
         return new ValidationOutput(List.of());
     }
 
+    /**
+     * <h3>Severity Ranking for Validation Output Sorting</h3>
+     *
+     * <p>
+     * Defines an explicit sort order for {@link ValidationSeverity} values used to prioritize
+     * validation items in JSON reports. This ranking ensures that validation issues are sorted
+     * in descending order of importance:
+     * </p>
+     *
+     * <ol>
+     *   <li>{@link ValidationSeverity#ERROR} → rank 0 (highest priority)</li>
+     *   <li>{@link ValidationSeverity#WARN} → rank 1</li>
+     *   <li>{@link ValidationSeverity#INFO} → rank 2</li>
+     *   <li>{@link ValidationSeverity#SUCCESS} → rank 3 (lowest priority)</li>
+     * </ol>
+     *
+     * <p>
+     * This mapping is primarily used to sort the {@code validationItems} list before writing
+     * it to {@code aggregated.json}, so that critical issues appear at the top of the report.
+     * </p>
+     *
+     * <p>
+     * Items with severities not explicitly listed in this map are assigned {@code Integer.MAX_VALUE}
+     * and appear last in the output.
+     * </p>
+     */
+    private static final Map<ValidationSeverity, Integer> SEVERITY_RANK = Map.of(
+            ValidationSeverity.ERROR,   0,
+            ValidationSeverity.WARN,    1,
+            ValidationSeverity.INFO,    2,
+            ValidationSeverity.SUCCESS, 3
+    );
 }
