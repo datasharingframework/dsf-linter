@@ -500,17 +500,21 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
-     * <p>
-     * Recursively searches for a sub-path (e.g., "src/main/resources/bpe") starting
-     * from the given root path.
-     * </p>
+     * Recursively searches for a sub-directory that matches either
+     * <ul>
+     *   <li>the full Maven style path (e.g. {@code src/main/resources/bpe}) or</li>
+     *   <li>the plain folder name (e.g. {@code bpe})</li>
+     * </ul>
      *
-     * @param rootPath        The root directory from which to start searching
-     * @param relativeSubPath The sub-path to locate (e.g., {@code src/main/resources/bpe})
-     * @return a {@link File} pointing to the sub-directory if found, or {@code null} otherwise
+     * @param rootPath        the directory from which to start searching
+     * @param relativeSubPath the Maven-style sub-path to locate
+     * @return a {@link File} pointing to the first matching directory, or {@code null} if nothing is found
      */
     private File findDirectoryRecursively(Path rootPath, String relativeSubPath)
     {
+        // Extract the last path segment once so we do not compute it in every loop
+        String simpleName = Paths.get(relativeSubPath).getFileName().toString();
+
         Queue<Path> queue = new LinkedList<>();
         queue.offer(rootPath);
 
@@ -518,14 +522,19 @@ public class DsfValidatorImpl implements DsfValidator
         {
             Path current = queue.poll();
             if (!Files.isDirectory(current))
-            {
                 continue;
-            }
-            Path candidate = current.resolve(relativeSubPath);
-            if (Files.isDirectory(candidate))
-            {
-                return candidate.toFile();
-            }
+
+            // 1) Try the full Maven-style path
+            Path candidateFull = current.resolve(relativeSubPath);
+            if (Files.isDirectory(candidateFull))
+                return candidateFull.toFile();
+
+            // 2) Fallback: try only the last segment (flat layout)
+            Path candidateSimple = current.resolve(simpleName);
+            if (Files.isDirectory(candidateSimple))
+                return candidateSimple.toFile();
+
+            // Enqueue sub-directories for breadth-first search
             try
             {
                 Files.list(current)
@@ -534,11 +543,12 @@ public class DsfValidatorImpl implements DsfValidator
             }
             catch (IOException e)
             {
-                // ignore
+                // Ignore unreadable folders and continue searching
             }
         }
         return null;
     }
+
 
     /**
      * <p>
