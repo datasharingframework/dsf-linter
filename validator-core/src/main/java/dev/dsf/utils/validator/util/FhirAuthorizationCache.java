@@ -161,31 +161,55 @@ public final class FhirAuthorizationCache
     }
 
     /**
-     * Recursively scans the given project root directory for all directories named
-     * {@code src/main/resources/fhir/CodeSystem} and loads all {@code *.xml} files inside them.
-     * This method must be called before FHIR validation is executed.
+     * Recursively scans the given project root directory for directories named
+     * {@code src/main/resources/fhir/CodeSystem} or {@code fhir/CodeSystem} and loads
+     * all {@code *.xml} files found within them.
      *
-     * @param projectRoot the project root directory or a file within the project
+     * <p>
+     * This method supports both Maven-style resource layouts and flat directory
+     * structures as commonly produced by exploded plugin JARs in CI pipelines.
+     * </p>
+     *
+     * <p>
+     * All discovered CodeSystem definitions will be parsed and their system/code
+     * pairs registered in the internal cache for later use during FHIR validation.
+     * </p>
+     *
+     * <p>
+     * This method must be called before executing any validation that relies on known
+     * {@code CodeSystem} code values (e.g., to check {@code Coding.code} or {@code ValueSet} references).
+     * </p>
+     *
+     * @param projectRoot the root of the project or a file within it; used to determine base traversal path
      */
+
     public static void seedFromProjectFolder(File projectRoot)
     {
-        if (projectRoot == null) return;
+        if (projectRoot == null)
+            return;
 
         if (!projectRoot.isDirectory()) {
             projectRoot = projectRoot.getParentFile();
-            if (projectRoot == null || !projectRoot.isDirectory()) return;
+            if (projectRoot == null || !projectRoot.isDirectory())
+                return;
         }
 
-        try (Stream<Path> walk = Files.walk(projectRoot.toPath())) {
-            walk.filter(path -> path.endsWith(Paths.get("src", "main", "resources", "fhir", "CodeSystem")))
-                    .filter(Files::isDirectory)
+        final Path MAVEN_LAYOUT = Paths.get("src", "main", "resources", "fhir", "CodeSystem");
+        final Path FLAT_LAYOUT  = Paths.get("fhir", "CodeSystem");   // fallback for exploded JARs
+
+        try (Stream<Path> walk = Files.walk(projectRoot.toPath()))
+        {
+            walk.filter(Files::isDirectory) // cheap test first
+                    .filter(p -> p.endsWith(MAVEN_LAYOUT) || p.endsWith(FLAT_LAYOUT))
                     .forEach(FhirAuthorizationCache::loadAllXmlInDirectory);
         }
-        catch (IOException e) {
+        catch (IOException e)
+        {
             System.err.println("[CodeSystem-Cache] Failed to walk project tree: " + e.getMessage());
         }
 
-        if (DEBUG) dumpStatistics();
+        if (DEBUG)
+            dumpStatistics();
     }
 
     /**
