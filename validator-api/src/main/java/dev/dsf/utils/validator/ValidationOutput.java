@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * <h2>DSF BPMN Validation Output</h2>
@@ -95,50 +96,64 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
     }
 
     /**
+     * Writes the validation results to a JSON file in a human-readable format.
      * <p>
-     * Writes the validation items to a JSON file, always including a timestamp
-     * as the first field in the output. The JSON file is pretty-printed for readability.
+     * The generated JSON contains three main sections:
+     * </p>
+     * <ol>
+     *   <li><b>{@code timestamp}</b>: The current time when the report is generated, formatted as {@code yyyy-MM-dd HH:mm:ss}.</li>
+     *   <li><b>{@code summary}</b>: A map summarizing the total number of issues by severity level ({@code ERROR}, {@code WARN}, {@code INFO}, {@code SUCCESS}).</li>
+     *   <li><b>{@code validationItems}</b>: A sorted list of all validation issues found.</li>
+     * </ol>
+     * <p>
+     * Validation items are first sorted by severity (as defined by the {@link #SEVERITY_RANK}) and then alphabetically
+     * by their string representation. The output is written as a pretty-printed JSON file.
      * </p>
      *
-     * <p>
-     * The internal list of items is sorted by their string representation before being written.
-     * </p>
-     *
-     * @param outputFile the target JSON file
+     * @param outputFile the target file to which the report will be written
      */
     public void writeResultsAsJson(File outputFile)
     {
-        // Sort items by their string value (ERROR, WARN, INFO, then success)
+        // 0) Sort items (existing logic, kept)
         validationItems.sort(
-                Comparator
-                        // first: by our explicit severity ranking
-                        .comparingInt((AbstractValidationItem i) ->
+                Comparator.comparingInt((AbstractValidationItem i) ->
                                 SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
-                        // second: stable alphabetical tiebreaker (optional)
-                        .thenComparing(AbstractValidationItem::toString)
-        );
+                        .thenComparing(AbstractValidationItem::toString));
 
-        // Build a root structure that includes the timestamp and the list of items
-        Map<String, Object> root = new LinkedHashMap<>();
+        /*  1) Build JSON root  */
+        Map<String, Object> root = new LinkedHashMap<>();   // preserves insertion order
 
-        // 1) Insert a timestamp in "yyyy-MM-dd HH:mm:ss" format
+        // 1.1 Timestamp
         String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         root.put("timestamp", now);
 
-        // 2) Add the sorted validation items
+        // 1.2 NEW: Severity summary
+        Map<ValidationSeverity, Long> bySeverity =
+                validationItems.stream()
+                        .collect(Collectors.groupingBy(AbstractValidationItem::getSeverity,
+                                Collectors.counting()));
+
+        Map<String, Long> summary = Map.of(
+                "ERROR",   bySeverity.getOrDefault(ValidationSeverity.ERROR,   0L),
+                "WARN",    bySeverity.getOrDefault(ValidationSeverity.WARN,    0L),
+                "INFO",    bySeverity.getOrDefault(ValidationSeverity.INFO,    0L),
+                "SUCCESS", bySeverity.getOrDefault(ValidationSeverity.SUCCESS, 0L)
+        );
+        root.put("summary", summary);
+
+        /*  2) Validation items  */
         root.put("validationItems", validationItems);
 
-        // 3) Write to the outputFile with Jackson (pretty-printed)
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
+        /*  3) Write pretty-printed JSON  */
+        ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         try
         {
             mapper.writeValue(outputFile, root);
         }
         catch (IOException e)
         {
-            System.err.println("Failed to write JSON output to " + outputFile.getAbsolutePath() + ": " + e.getMessage());
+            System.err.println("Failed to write JSON output to "
+                    + outputFile.getAbsolutePath() + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
