@@ -64,7 +64,6 @@ import java.util.stream.Stream;
  * </ul>
  * </p>
  */
-
 public class FhirValidator
 {
     private static final String ACTIVITY_DEFINITION_DIR = "src/main/resources/fhir/ActivityDefinition";
