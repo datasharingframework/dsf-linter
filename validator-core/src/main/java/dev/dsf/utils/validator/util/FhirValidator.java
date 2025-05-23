@@ -18,76 +18,106 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * FhirValidator provides static methods to validate and extract relevant values from
- * FHIR resources such as ActivityDefinition and StructureDefinition.
+ * Utility class for validating and analyzing FHIR resource files such as {@code ActivityDefinition},
+ * {@code StructureDefinition}, and {@code Questionnaire} within DSF projects.
  * <p>
- * This class includes methods for:
+ * This class supports both Maven-style and flat directory layouts for locating FHIR resource files.
+ * It provides static methods for:
  * <ul>
- *   <li>Checking for the existence of an ActivityDefinition resource containing a given message name.</li>
- *   <li>Checking for the existence of a StructureDefinition resource containing a given profile (canonical) value.</li>
- *   <li>Extracting all distinct message values from StructureDefinition files.</li>
- *   <li>Verifying that an ActivityDefinition contains a specific message name in its extensions.</li>
- *   <li>Retrieving the canonical value from Task.instantiatesCanonical elements.</li>
- *   <li>Retrieving the fixed string value from Task.input:message-name.value[x] elements.</li>
- *   <li>Checking for the existence of a Questionnaire resource matching a provided formKey.</li>
+ *   <li>Verifying the existence of ActivityDefinition and StructureDefinition resources by canonical reference or content.</li>
+ *   <li>Checking for specific extensions or canonical URLs within resource definitions.</li>
+ *   <li>Locating files that match Task-related metadata such as {@code instantiatesCanonical} and {@code message-name}.</li>
+ *   <li>Evaluating authorization conditions for Task requesters and recipients based on DSF extensions.</li>
  * </ul>
  * </p>
+ *
+ * <h3>Directory support</h3>
+ * <p>
+ * The validator supports both:
+ * <ul>
+ *   <li>Maven-style structure: {@code src/main/resources/fhir/ResourceType/...}</li>
+ *   <li>Flat layout: {@code fhir/ResourceType/...}</li>
+ * </ul>
+ * The search logic is designed to be resilient by falling back to either format when one is not found.
+ * </p>
+ *
+ * <h3>XPath evaluation</h3>
+ * <p>
+ * Many methods use XPath expressions to extract values or validate FHIR structural elements.
+ * This allows inspection of XML resources without depending on specific Java model bindings.
+ * </p>
+ *
+ * <h3>Key responsibilities</h3>
+ * <ul>
+ *   <li>Canonical normalization (removal of version suffixes).</li>
+ *   <li>Content-based validation of ActivityDefinition and StructureDefinition resources.</li>
+ *   <li>Support for instantiatesCanonical and message-name extraction and validation.</li>
+ *   <li>Authorization checking for requester and recipient based on FHIR extensions.</li>
+ *   <li>Dynamic file search across multiple directory structures.</li>
+ * </ul>
  *
  * <p>
  * References:
  * <ul>
  *   <li>HL7 FHIR Standard: <a href="https://www.hl7.org/fhir/">https://www.hl7.org/fhir/</a></li>
- *   <li>HL7 FHIR StructureDefinition:
- *       <a href="https://www.hl7.org/fhir/structuredefinition.html">
- *           https://www.hl7.org/fhir/structuredefinition.html
- *       </a>
- *   </li>
+ *   <li>DSF Specification: <a href="https://github.com/datasharingframework/dsf">https://github.com/datasharingframework/dsf</a></li>
  * </ul>
  * </p>
  */
+
 public class FhirValidator
 {
     private static final String ACTIVITY_DEFINITION_DIR = "src/main/resources/fhir/ActivityDefinition";
     private static final String STRUCTURE_DEFINITION_DIR = "src/main/resources/fhir/StructureDefinition";
     private static final String QUESTIONNAIRE_DIR = "src/main/resources/fhir/Questionnaire";
+    private static final String STRUCTURE_DEFINITION_DIR_FLAT = "fhir/StructureDefinition";
+    private static final String ACTIVITY_DEFINITION_DIR_FLAT  = "fhir/ActivityDefinition";
+    private static final String QUESTIONNAIRE_DIR_FLAT        = "fhir/Questionnaire";
 
     /**
      * Checks if an ActivityDefinition resource matching the given message name exists.
      * <p>
-     * This method searches the {@code ACTIVITY_DEFINITION_DIR} directory under the specified
-     * {@code projectRoot} for any XML file that contains the desired message name within
-     * a recognized FHIR {@code ActivityDefinition} structure.
+     * This method searches both Maven-style and flat directory layouts under the given {@code projectRoot}
+     * for any XML file representing a valid FHIR {@code ActivityDefinition} that contains the given message name
+     * in an appropriate extension structure.
      * </p>
      *
      * @param messageName the message name to search for
-     * @param projectRoot the project root directory (containing the FHIR resources)
-     * @return {@code true} if an ActivityDefinition with the given message name is found;
-     *         {@code false} otherwise
+     * @param projectRoot the root directory of the project containing FHIR resources
+     * @return {@code true} if an ActivityDefinition with the specified message name is found; {@code false} otherwise
      */
-    public static boolean activityDefinitionExists(String messageName, File projectRoot)
+    public static boolean activityDefinitionExists(String messageName,
+                                                   File projectRoot)
     {
-        return isDefinitionByContent(messageName, projectRoot, ACTIVITY_DEFINITION_DIR, true);
+        return  isDefinitionByContent(messageName, projectRoot,
+                ACTIVITY_DEFINITION_DIR,       true)
+                ||  isDefinitionByContent(messageName, projectRoot,
+                ACTIVITY_DEFINITION_DIR_FLAT,  true);
     }
 
     /**
-     * Checks if a StructureDefinition resource matching the given profile value exists.
+     * Checks whether a StructureDefinition resource with the given canonical profile URL exists.
      * <p>
-     * This method first removes any version suffix (e.g., removing the "|1.0" part),
-     * then searches the {@code STRUCTURE_DEFINITION_DIR} directory under the specified
-     * {@code projectRoot} for any XML file that contains the specified profile value
-     * within a recognized FHIR {@code StructureDefinition} structure.
+     * Any version suffix (e.g., "|1.0") is stripped before matching.
+     * The search is performed against both Maven-style and flat folder layouts under {@code projectRoot}.
      * </p>
      *
-     * @param profileValue the canonical or profile reference string (which may contain a version suffix)
-     * @param projectRoot  the project root directory (containing the FHIR resources)
-     * @return {@code true} if a StructureDefinition with the given profile value is found;
-     *         {@code false} otherwise
+     * @param profileValue the canonical URL of the StructureDefinition, optionally including a version suffix
+     * @param projectRoot  the project root folder containing FHIR resources
+     * @return {@code true} if a matching StructureDefinition exists; {@code false} otherwise
      */
-    public static boolean structureDefinitionExists(String profileValue, File projectRoot)
+    public static boolean structureDefinitionExists(String profileValue,
+                                                    File projectRoot)
     {
-        String baseProfile = removeVersionSuffix(profileValue);
-        return isDefinitionByContent(baseProfile, projectRoot, STRUCTURE_DEFINITION_DIR, false);
+        String base = removeVersionSuffix(profileValue);
+
+        // Maven layout OR flat layout
+        return  isDefinitionByContent(base, projectRoot,
+                STRUCTURE_DEFINITION_DIR,     false)
+                ||  isDefinitionByContent(base, projectRoot,
+                STRUCTURE_DEFINITION_DIR_FLAT, false);
     }
+
 
     /**
      * A helper method that checks either ActivityDefinition or StructureDefinition files
@@ -385,7 +415,15 @@ public class FhirValidator
         int pipeIndex = value.indexOf("|");
         return (pipeIndex != -1) ? value.substring(0, pipeIndex) : value;
     }
-
+    /**
+     * Checks if the given ActivityDefinition Document contains a {@code url} element
+     * that matches the supplied canonical value (version removed).
+     *
+     * @param doc            the DOM {@code Document} representing an ActivityDefinition
+     * @param canonicalValue the canonical URL to match
+     * @return {@code true} if the URL is found; {@code false} otherwise
+     * @throws XPathExpressionException if the XPath expression is invalid
+     */
 
     private static boolean activityDefinitionContainsInstantiatesCanonical(Document doc, String canonicalValue)
             throws XPathExpressionException {
@@ -395,6 +433,15 @@ public class FhirValidator
         String xpathExpr = "/*[local-name()='ActivityDefinition']/*[local-name()='url' and @value='" + searchValue + "']";
         return evaluateXPathExists(doc, xpathExpr);
     }
+
+    /**
+     * Verifies if the given XML file contains an ActivityDefinition with a {@code url} element
+     * matching the supplied canonical value (with version suffix removed).
+     *
+     * @param filePath       the path to the XML file
+     * @param canonicalValue the canonical URL to match
+     * @return {@code true} if the canonical URL is found; {@code false} otherwise
+     */
 
     private static boolean fileContainsInstantiatesCanonical(Path filePath, String canonicalValue) {
         try {
@@ -408,72 +455,43 @@ public class FhirValidator
         }
     }
 
-    public static boolean activityDefinitionExistsForInstantiatesCanonical(String canonicalValue, File projectRoot) {
-        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
-        if (!dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
-        try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            List<Path> xmlFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .toList();
-            return xmlFiles.stream().anyMatch(p -> fileContainsInstantiatesCanonical(p, canonicalValue));
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     /**
-     * Finds the first {@code .xml} file under {@link #STRUCTURE_DEFINITION_DIR} that:
-     * <ul>
-     *   <li>Is a FHIR StructureDefinition (root element == "StructureDefinition")</li>
-     *   <li>Has a child <url value="profileValue"/></li>
-     * </ul>
+     * Checks whether an ActivityDefinition resource exists with a matching {@code url}
+     * that corresponds to the supplied {@code instantiatesCanonical} value.
+     * <p>
+     * The version part of the canonical is stripped before lookup. Both structured and flat directories are supported.
+     * </p>
      *
-     * @param profileValue the profile URL to look for, e.g. "http://dsf.dev/fhir/StructureDefinition/task-pong"
-     * @param projectRoot the root directory of the project
-     * @return the {@code File} if found, or {@code null} if not found
+     * @param canonical    the canonical URL string used in Task.instantiatesCanonical
+     * @param projectRoot  the project root containing FHIR resources
+     * @return {@code true} if a corresponding ActivityDefinition is found; {@code false} otherwise
      */
-    public static File findStructureDefinitionFile(String profileValue, File projectRoot)
+    public static boolean activityDefinitionExistsForInstantiatesCanonical(String canonical,
+                                                                           File projectRoot)
     {
-        // Normalize/strip version if needed
-        String baseProfile = removeVersionSuffix(profileValue);
+        String base = removeVersionSuffix(canonical);
 
-        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
-        if (!dir.exists() || !dir.isDirectory())
-            return null;
+        return  findActivityDefinitionFile(base, projectRoot) != null;
+    }
+    /**
+     * Attempts to find a StructureDefinition XML file that matches the provided canonical URL (with version stripped).
+     * <p>
+     * The search is performed in both Maven-structured and flat layouts under the project root.
+     * </p>
+     *
+     * @param profileValue the profile canonical (e.g. "http://example.org/StructureDefinition/task-xyz|1.0")
+     * @param projectRoot  the project root containing FHIR resources
+     * @return the {@code File} of the first matching StructureDefinition, or {@code null} if none is found
+     */
+    public static File findStructureDefinitionFile(String profileValue,
+                                                   File projectRoot)
+    {
+        String base = removeVersionSuffix(profileValue);
 
-        try (Stream<Path> paths = Files.walk(dir.toPath()))
-        {
-            List<Path> xmlFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .toList();
+        File f = tryFindStructureFile(base, projectRoot, STRUCTURE_DEFINITION_DIR);
+        if (f != null) return f;
 
-            for (Path p : xmlFiles)
-            {
-                Document doc = parseXml(p);
-                if (doc == null)
-                    continue;
-
-                // must be a "StructureDefinition"
-                String rootName = doc.getDocumentElement().getLocalName();
-                if (!"StructureDefinition".equals(rootName))
-                    continue;
-
-                // check if there's <url value="baseProfile">
-                if (structureDefinitionHasUrlValue(doc, baseProfile))
-                {
-                    return p.toFile();
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            // Log if needed
-        }
-        return null;
+        return tryFindStructureFile(base, projectRoot, STRUCTURE_DEFINITION_DIR_FLAT);
     }
 
     /**
@@ -581,47 +599,27 @@ public class FhirValidator
     }
 
     /**
-     * Checks if a Questionnaire resource matching the given formKey exists in the questionnaire directory.
-     * This method ignores any version suffix (everything after a "|" character).
+     * Checks whether a Questionnaire resource exists that matches the given formKey (ignoring version suffix).
+     * <p>
+     * This method searches both Maven-style and flat folder layouts for XML Questionnaire resources with a matching URL.
+     * </p>
      *
-     * @param formKey     The formKey from the User Task, possibly containing a version suffix.
-     * @param projectRoot The project root directory containing the FHIR resources.
-     * @return {@code true} if a matching Questionnaire is found, {@code false} otherwise.
+     * @param formKey      the form key used in user tasks, possibly including a "|version" suffix
+     * @param projectRoot  the project root containing FHIR resources
+     * @return {@code true} if a matching Questionnaire is found; {@code false} otherwise
      */
-    public static boolean questionnaireExists(String formKey, File projectRoot) {
-        if (formKey == null || formKey.trim().isEmpty()) {
+    public static boolean questionnaireExists(String formKey,
+                                              File projectRoot)
+    {
+        if (formKey == null || formKey.isBlank())
             return false;
-        }
 
-        // Remove the version part if present using "|" as a delimiter.
-        String baseFormKey = formKey.split("\\|")[0].trim();
+        String baseKey = formKey.split("\\|")[0].trim();
 
-        File dir = new File(projectRoot, QUESTIONNAIRE_DIR);
-        if (!dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
-
-        try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            List<Path> xmlFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
-                    .toList();
-
-            for (Path p : xmlFiles) {
-                Document doc = parseXml(p); // Uses the existing parseXml method.
-                if (doc == null) continue;
-                // Check if the root element is "Questionnaire"
-                if (!"Questionnaire".equals(doc.getDocumentElement().getLocalName())) continue;
-                // Use XPath to check if there's a <url> element with the matching baseFormKey.
-                if (evaluateXPathExists(doc, "//*[local-name()='url' and @value='" + baseFormKey + "']")) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return false;
+        return  questionnaireExistsInDir(baseKey, projectRoot, QUESTIONNAIRE_DIR)
+                || questionnaireExistsInDir(baseKey, projectRoot, QUESTIONNAIRE_DIR_FLAT);
     }
+
     /**
      * Returns the <i>first</i> ActivityDefinition that matches the supplied
      * {@code instantiatesCanonical} string (version suffix ignored).
@@ -767,5 +765,136 @@ public class FhirValidator
         return false;
     }
 
+    /**
+     * Attempts to locate a StructureDefinition file with a matching canonical URL inside the given directory.
+     *
+     * @param profileValue the canonical profile URL to match
+     * @param projectRoot  the root directory containing FHIR resources
+     * @param relDir       the relative subdirectory under {@code projectRoot} to search
+     * @return the matching {@code File}, or {@code null} if none is found
+     */
+    private static File tryFindStructureFile(String profileValue,
+                                             File projectRoot,
+                                             String relDir)
+    {
+        File dir = new File(projectRoot, relDir);
+        if (!dir.isDirectory()) return null;
+
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(p -> fileContainsValue(p, profileValue, /*isActivity=*/false))
+                    .map(Path::toFile)
+                    .findFirst()
+                    .orElse(null);
+        }
+        catch (Exception e) { return null; }
+    }
+    /**
+     * Finds an ActivityDefinition file whose {@code url} element matches the given canonical value (version removed).
+     * <p>
+     * Searches both Maven-style and flat directory layouts.
+     * </p>
+     *
+     * @param canonical    the instantiatesCanonical value to look for
+     * @param projectRoot  the root project directory
+     * @return the first matching ActivityDefinition {@code File}, or {@code null} if not found
+     */
+    private static File findActivityDefinitionFile(String canonical,
+                                                   File projectRoot)
+    {
+        String base = removeVersionSuffix(canonical);
+
+        File f = tryFindActivityFile(base, projectRoot, ACTIVITY_DEFINITION_DIR);
+        if (f != null) return f;
+
+        return tryFindActivityFile(base, projectRoot, ACTIVITY_DEFINITION_DIR_FLAT);
+    }
+
+    /**
+     * Searches a specific subdirectory for an ActivityDefinition file matching the given canonical value.
+     *
+     * @param canonical    the canonical URL to match (without version suffix)
+     * @param projectRoot  the root folder of the project
+     * @param relDir       the relative directory path under {@code projectRoot} to scan
+     * @return the first file that matches, or {@code null} if no match is found
+     */
+    private static File tryFindActivityFile(String canonical,
+                                            File projectRoot,
+                                            String relDir)
+    {
+        File dir = new File(projectRoot, relDir);
+        if (!dir.isDirectory()) return null;
+
+        try (Stream<Path> p = Files.walk(dir.toPath()))
+        {
+            return p.filter(Files::isRegularFile)
+                    .filter(x -> x.toString().toLowerCase().endsWith(".xml"))
+                    .filter(x -> fileContainsInstantiatesCanonical(x, canonical))
+                    .map(Path::toFile)
+                    .findFirst().orElse(null);
+        }
+        catch (Exception e) { return null; }
+    }
+
+    /**
+     * Scans a specific subdirectory under the given {@code projectRoot} for Questionnaire XML files
+     * and checks whether any of them declare a {@code <url>} element matching the provided {@code baseKey}.
+     *
+     * <p>This method supports both Maven-style and flat folder layouts. It validates each file by:
+     * <ol>
+     *   <li>Parsing the XML document</li>
+     *   <li>Verifying that the root element is {@code Questionnaire}</li>
+     *   <li>Checking if a {@code <url>} element has a {@code value} equal to {@code baseKey}</li>
+     * </ol>
+     * </p>
+     *
+     * @param baseKey     the form key to search for (must not include a version suffix)
+     * @param projectRoot the root directory of the project containing FHIR resources
+     * @param relDir      the relative subdirectory path (e.g., {@code fhir/Questionnaire} or {@code src/main/resources/fhir/Questionnaire})
+     * @return {@code true} if a matching Questionnaire is found; {@code false} otherwise
+     */
+    private static boolean questionnaireExistsInDir(String baseKey,
+                                                    File projectRoot,
+                                                    String relDir)
+    {
+        File dir = new File(projectRoot, relDir);
+        if (!dir.isDirectory()) return false;
+
+        try (Stream<Path> paths = Files.walk(dir.toPath()))
+        {
+            return paths.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .anyMatch(p -> {
+                        try {
+                            Document d = parseXml(p);
+                            return d != null
+                                    && "Questionnaire".equals(d.getDocumentElement().getLocalName())
+                                    && questionnaireContainsUrl(d, baseKey);
+                        } catch (Exception e) { return false; }
+                    });
+        }
+        catch (Exception e) { return false; }
+    }
+    /**
+     * Checks whether the given Questionnaire {@link Document} contains a {@code <url>} element
+     * whose {@code value} attribute exactly matches the provided canonical URL.
+     *
+     * <p>This method assumes that the document's root element is {@code Questionnaire}.
+     * It uses XPath to find the {@code <url>} element and compare its {@code value} to the target string.</p>
+     *
+     * @param doc the parsed XML {@link Document} representing a FHIR Questionnaire
+     * @param url the canonical URL to search for (without version suffix)
+     * @return {@code true} if a matching {@code <url value="...">} element exists; {@code false} otherwise
+     * @throws XPathExpressionException if an XPath evaluation error occurs
+     */
+    private static boolean questionnaireContainsUrl(Document doc, String url)
+            throws XPathExpressionException
+    {
+        return evaluateXPathExists(doc,
+                "/*[local-name()='Questionnaire']/*[local-name()='url' and @value='" + url + "']");
+    }
 
 }
