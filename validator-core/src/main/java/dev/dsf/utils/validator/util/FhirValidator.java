@@ -221,27 +221,66 @@ public class FhirValidator
     }
 
     /**
-     * Extract all message values from all StructureDefinition XML files.
+     * Extracts all distinct message name values defined within {@code StructureDefinition} XML resources
+     * found in the given project directory.
      * <p>
-     * Specifically, it searches for elements:
-     * <pre>{@code
-     *   <element id="Task.input:message-name.value[x]">
-     *       <fixedString value="someMessageValue" />
-     *   </element>
-     * }</pre>
-     * and collects the <code>value</code> attributes of any such <code>fixedString</code>.
+     * Specifically, this method looks for FHIR structure elements that represent Task input elements
+     * with the ID {@code Task.input:message-name.value[x]} and a nested {@code fixedString} or {@code valueString}
+     * element containing a {@code value} attribute.
      * </p>
      *
-     * @param projectRoot the project root directory
-     * @return a {@link Set} of all distinct messageName values found (e.g., {"pong", "ping", ...})
+     * <p>
+     * The method supports both Maven-style folder layout (e.g., {@code src/main/resources/fhir/StructureDefinition})
+     * and flat layout (e.g., {@code fhir/StructureDefinition}) as found in CI/CD builds or exploded JARs.
+     * </p>
+     *
+     * <p>
+     * Example matched fragment:
+     * <pre>{@code
+     * <element id="Task.input:message-name.value[x]">
+     *   <fixedString value="dashboardReportSend"/>
+     * </element>
+     * }</pre>
+     * </p>
+     *
+     * @param projectRoot The root directory of the project, which contains the {@code StructureDefinition} XML files.
+     * @return A {@link Set} of all distinct message-name values (e.g., {@code {"ping", "pong", "dashboardReportSend"}}).
      */
     public static Set<String> getAllMessageValuesFromStructureDefinitions(File projectRoot)
     {
         Set<String> messageValues = new HashSet<>();
 
-        File dir = new File(projectRoot, STRUCTURE_DEFINITION_DIR);
-        if (!dir.exists() || !dir.isDirectory())
-            return messageValues;
+        // 1) classic Maven/Gradle layout
+        collectMessageNames(projectRoot, STRUCTURE_DEFINITION_DIR,      messageValues);
+        // 2) flat CI / exploded-JAR layout
+        collectMessageNames(projectRoot, STRUCTURE_DEFINITION_DIR_FLAT, messageValues);
+
+        return messageValues;
+    }
+
+    /**
+     * Helper method that scans a specific subdirectory under the project root for {@code StructureDefinition}
+     * XML files and extracts any message name values defined using {@code fixedString} or {@code valueString}
+     * elements inside {@code Task.input:message-name.value[x]} elements.
+     * <p>
+     * This method is layout-agnostic and does not perform fallback; it assumes the provided path exists
+     * and is valid for the given structure layout (Maven-style or flat).
+     * </p>
+     *
+     * <p>
+     * Any extracted values are added to the supplied {@code messageValues} set, which is mutated in-place.
+     * Invalid or non-parsable XML files are skipped silently.
+     * </p>
+     *
+     * @param projectRoot   The root folder of the project that contains FHIR resource subdirectories.
+     * @param relDir        The relative subdirectory (e.g., {@code src/main/resources/fhir/StructureDefinition}).
+     * @param messageValues A mutable {@link Set} where extracted message-name values are accumulated.
+     */
+    private static void collectMessageNames(File projectRoot, String relDir, Set<String> messageValues)
+    {
+        File dir = new File(projectRoot, relDir);
+        if (!dir.isDirectory())
+            return;
 
         try (Stream<Path> paths = Files.walk(dir.toPath()))
         {
@@ -253,33 +292,30 @@ public class FhirValidator
             for (Path xml : xmlFiles)
             {
                 Document doc = parseXml(xml);
-                if (doc != null)
+                if (doc == null)
+                    continue;
+
+                // <element id="Task.input:message-name.value[x]"> … <fixedString|valueString value="…"/>
+                String xpathExpr =
+                        "//*[local-name()='element' and @id='Task.input:message-name.value[x]']"
+                                + "/*[(local-name()='fixedString' or local-name()='valueString')]/@value";
+
+                NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
+                        .compile(xpathExpr)
+                        .evaluate(doc, XPathConstants.NODESET);
+
+                for (int i = 0; i < nodes.getLength(); i++)
                 {
-                    // XPath: find all <element id="Task.input:message-name.value[x]">
-                    // then <fixedString value="XYZ"/>
-                    String xpathExpr = "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
-                            "/*[local-name()='fixedString']/@value";
-
-                    NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
-                            .compile(xpathExpr)
-                            .evaluate(doc, XPathConstants.NODESET);
-
-                    for (int i = 0; i < nodes.getLength(); i++)
-                    {
-                        String val = nodes.item(i).getTextContent();
-                        if (val != null && !val.isBlank())
-                        {
-                            messageValues.add(val.trim());
-                        }
-                    }
+                    String v = nodes.item(i).getTextContent();
+                    if (v != null && !v.isBlank())
+                        messageValues.add(v.trim());
                 }
             }
         }
-        catch (Exception e)
+        catch (Exception ignored)
         {
-            // handle/log exception if needed
+            // Parsing failures are non-fatal – just skip the offending file
         }
-        return messageValues;
     }
 
     /**
