@@ -18,8 +18,10 @@ import java.io.FileInputStream;
 import java.lang.Error;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The {@code BpmnValidationUtils} class contains common static utility methods used across various BPMN validator classes.
@@ -109,15 +111,38 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Checks if a fully-qualified class name can be loaded from the current context or via a custom class loader.
+     * Checks whether a class with the given fully-qualified name can be successfully loaded.
      * <p>
-     * This method first attempts to load the class using the context class loader. If that fails,
-     * it falls back to a custom {@link URLClassLoader} that includes the project's classes and dependency JARs.
+     * This method attempts to resolve the specified class name using multiple strategies, in order:
+     * </p>
+     * <ol>
+     *   <li>Via the current thread's context class loader</li>
+     *   <li>Via a custom {@link URLClassLoader} constructed from the given {@code projectRoot} directory,
+     *       including common Maven/Gradle build paths and dependency JARs</li>
+     *   <li>By directly checking the file system for a {@code .class} file corresponding to the class</li>
+     * </ol>
+     *
+     * <p>
+     * This layered approach ensures compatibility with typical local builds and CI environments using exploded plugin layouts.
+     * If any strategy successfully resolves the class, the method returns {@code true}.
+     * Otherwise, it logs diagnostic output and returns {@code false}.
      * </p>
      *
-     * @param className   the fully-qualified name of the class to load
-     * @param projectRoot the project root directory to use for creating the custom class loader
-     * @return {@code true} if the class can be loaded; {@code false} otherwise
+     * <p>
+     * For file-based fallback resolution, the method checks the following locations:
+     * </p>
+     * <ul>
+     *   <li>{@code projectRoot/com/example/MyClass.class}</li>
+     *   <li>{@code projectRoot/target/classes/com/example/MyClass.class}</li>
+     *   <li>{@code projectRoot/build/classes/com/example/MyClass.class}</li>
+     * </ul>
+     *
+     * @param className   The fully-qualified class name to check (e.g., {@code com.example.MyClass})
+     * @param projectRoot The root directory of the project or exploded JAR (used to construct custom class loader and file-based fallback)
+     * @return {@code true} if the class is loadable through any of the available mechanisms; {@code false} otherwise
+     *
+     * @see ClassLoader
+     * @see java.net.URLClassLoader
      */
     public static boolean classExists(String className, File projectRoot)
     {
@@ -198,51 +223,80 @@ public class BpmnValidationUtils
                 System.err.println("DEBUG: Exception while custom loading " + className + ": " + e.getMessage());
             }
         }
+        // File‐system fallback: look for the .class file directly
+        if (projectRoot != null) {
+            // Convert FQCN to relative path, e.g. "com.example.MyClass" → "com/example/MyClass.class"
+            String relPath = className.replace('.', '/') + ".class";
+
+            // a) Flat layout under projectRoot (e.g. CI: output/de/…/Listener.class)
+            if (new File(projectRoot, relPath).exists())
+                return true;
+
+            // b) Maven convention: target/classes
+            if (new File(projectRoot, "target/classes/" + relPath).exists())
+                return true;
+
+            // c) Gradle convention: build/classes
+            return new File(projectRoot, "build/classes/" + relPath).exists();
+        }
         return false;
     }
 
-
+    // BpmnValidationUtils.java
     /**
-     * Creates a {@link URLClassLoader} that includes the project's class directories and dependency JARs.
+     * Creates a {@link URLClassLoader} configured to load classes and resources from the project's
+     * build outputs and embedded JARs.
      * <p>
-     * The method checks for the existence of "/target/classes" or "/build/classes" and adds them to the classpath.
-     * Additionally, if a "/target/dependency" directory exists, all JAR files within it are also added.
+     * This method attempts to construct a class loader with the following search paths, in order:
+     * <ol>
+     *   <li>{@code target/classes} – the default Maven output directory</li>
+     *   <li>{@code build/classes} – the default Gradle output directory</li>
+     *   <li>Project root directory – allows loading from exploded JARs or unpacked source trees</li>
+     *   <li>All {@code *.jar} files located directly in the project root – fallback when JARs are manually placed</li>
+     *   <li>{@code target/dependency/*.jar} – conventional Maven dependencies directory (e.g., from copy-dependencies)</li>
+     * </ol>
+     * This makes the method compatible with exploded plugin setups such as those found in CI pipelines,
+     * where the classes reside directly in the root or inside a flat file structure.
      * </p>
      *
-     * @param projectRoot the root directory of the project
-     * @return a {@link URLClassLoader} that loads classes from the specified directories and JARs
-     * @throws Exception if an error occurs while constructing the class loader
+     * @param projectRoot the root directory of the exploded JAR or the Maven/Gradle project
+     * @return a {@link URLClassLoader} that can load project classes and dependencies
+     * @throws Exception if URL conversion or class loader initialization fails
      */
-    private static ClassLoader createProjectClassLoader(File projectRoot)
-            throws Exception
+    private static ClassLoader createProjectClassLoader(File projectRoot) throws Exception
     {
+        List<URL> urls = new ArrayList<>();
+
+        // 1) allow loading exploded classes under the project root
+        urls.add(projectRoot.toURI().toURL());
+
+        // 2) classic Maven/Gradle output dirs
         File classesDir = new File(projectRoot, "target/classes");
         if (!classesDir.exists())
-        {
             classesDir = new File(projectRoot, "build/classes");
-        }
-
-        List<URL> urlList = new java.util.ArrayList<>();
         if (classesDir.exists())
-        {
-            urlList.add(classesDir.toURI().toURL());
-        }
+            urls.add(classesDir.toURI().toURL());
 
-        File dependencyDir = new File(projectRoot, "target/dependency");
-        if (dependencyDir.exists() && dependencyDir.isDirectory())
-        {
-            File[] jars = dependencyDir.listFiles((d, n) -> n.toLowerCase().endsWith(".jar"));
-            if (jars != null)
-            {
-                for (File jar : jars)
-                {
-                    urlList.add(jar.toURI().toURL());
-                }
-            }
-        }
+        // 3) include plugin.jar itself (so you don't even have to unzip it)
+        File pluginJar = new File(projectRoot, "plugin.jar");
+        if (pluginJar.isFile())
+            urls.add(pluginJar.toURI().toURL());
 
-        URL[] urls = urlList.toArray(new URL[0]);
-        return new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
+        // 4) fall back on any other top-level JARs
+        File[] rootJars = projectRoot.listFiles(f -> f.getName().toLowerCase().endsWith(".jar"));
+        if (rootJars != null)
+            for (File jar : rootJars)
+                if (!jar.equals(pluginJar))
+                    urls.add(jar.toURI().toURL());
+
+        // 5) copied dependencies
+        File depDir = new File(projectRoot, "target/dependency");
+        if (depDir.isDirectory())
+            for (File jar : Objects.requireNonNull(depDir.listFiles((d, n) -> n.endsWith(".jar"))))
+                urls.add(jar.toURI().toURL());
+
+        return new URLClassLoader(urls.toArray(new URL[0]),
+                Thread.currentThread().getContextClassLoader());
     }
 
     /**
