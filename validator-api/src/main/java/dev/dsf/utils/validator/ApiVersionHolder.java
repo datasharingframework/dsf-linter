@@ -1,5 +1,5 @@
 // src/main/java/dev/dsf/utils/validator/util/ApiVersionHolder.java
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator;
 
 /**
  * Holds the detected DSF BPE API version for use throughout the validator.

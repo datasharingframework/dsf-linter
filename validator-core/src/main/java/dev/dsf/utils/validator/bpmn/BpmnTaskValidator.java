@@ -6,7 +6,7 @@ import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import dev.dsf.utils.validator.util.FhirValidator;
-import dev.dsf.utils.validator.util.ApiVersionHolder;
+import dev.dsf.utils.validator.ApiVersionHolder;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;

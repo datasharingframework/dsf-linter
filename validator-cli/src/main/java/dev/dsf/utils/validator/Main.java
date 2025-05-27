@@ -4,7 +4,6 @@ import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
 import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;

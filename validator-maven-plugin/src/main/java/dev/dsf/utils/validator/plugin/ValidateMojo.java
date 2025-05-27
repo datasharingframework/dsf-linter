@@ -4,7 +4,7 @@ import dev.dsf.utils.validator.DsfValidatorImpl;
 import dev.dsf.utils.validator.ValidationOutput;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.util.ApiVersionHolder;
+import dev.dsf.utils.validator.ApiVersionHolder;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
