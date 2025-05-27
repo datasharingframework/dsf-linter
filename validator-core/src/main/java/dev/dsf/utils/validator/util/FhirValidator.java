@@ -643,28 +643,42 @@ public class FhirValidator
     }
 
     /**
-     * Returns the <i>first</i> ActivityDefinition that matches the supplied
-     * {@code instantiatesCanonical} string (version suffix ignored).
+     * Attempts to locate a FHIR {@code ActivityDefinition} XML file whose {@code <url>} value
+     * matches the provided {@code instantiatesCanonical} reference (with version suffix removed).
+     *
+     * <p>This method supports both layout styles:</p>
+     * <ul>
+     *   <li><strong>Maven-style layout</strong>: {@code src/main/resources/fhir/ActivityDefinition}</li>
+     *   <li><strong>Flat layout</strong>: {@code fhir/ActivityDefinition}</li>
+     * </ul>
+     *
+     * <p>Only the first matching file is returned. If no match is found in either layout,
+     * this method returns {@code null}.</p>
+     *
+     * <p>Example: Given {@code instantiatesCanonical = "http://example.org/Process/xyz|1.0"}, the method will
+     * look for an ActivityDefinition with:</p>
+     * <pre>{@code
+     *   <ActivityDefinition>
+     *     <url value="http://example.org/Process/xyz"/>
+     *   </ActivityDefinition>
+     * }</pre>
+     *
+     * @param canonical the {@code instantiatesCanonical} reference from the Task (may include version)
+     * @param projectRoot the root directory of the FHIR project (as determined by {@code determineProjectRoot})
+     * @return the first matching {@code ActivityDefinition} file, or {@code null} if none found
      */
     public static File findActivityDefinitionForInstantiatesCanonical(String canonical,
                                                                       File projectRoot)
     {
         String baseCanon = removeVersionSuffix(canonical);
-        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
-        if (!dir.isDirectory()) return null;
 
-        try (Stream<Path> paths = Files.walk(dir.toPath()))
-        {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".xml"))
-                    .filter(p -> fileContainsInstantiatesCanonical(p, baseCanon))
-                    .map(Path::toFile)
-                    .findFirst()
-                    .orElse(null);
-        }
-        catch (Exception ignored) { }
-        return null;
+        // 1) Maven / Gradle workspace
+        File f = tryFindActivityFile(baseCanon, projectRoot, ACTIVITY_DEFINITION_DIR);
+        if (f != null)
+            return f;
+
+        // 2) Flat CI / exploded-JAR layout
+        return tryFindActivityFile(baseCanon, projectRoot, ACTIVITY_DEFINITION_DIR_FLAT);
     }
 
     /**

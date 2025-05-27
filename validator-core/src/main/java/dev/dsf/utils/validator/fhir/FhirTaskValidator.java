@@ -9,6 +9,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -426,23 +427,56 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     }
 
     /**
-     * Determines the project root directory by checking system property, env variable,
-     * or traversing upwards for a src folder.
+     * Attempts to determine the root directory of the project that contains the given FHIR resource file.
+     *
+     * <p>This method supports multiple layout detection strategies to support local builds,
+     * IDE projects, and CI pipelines:</p>
+     *
+     * <ol>
+     *   <li><strong>Explicit configuration</strong>: Checks for system property {@code dsf.projectRoot}
+     *       or environment variable {@code DSF_PROJECT_ROOT}. If either is set and points to a valid
+     *       directory, that path is returned.</li>
+     *
+     *   <li><strong>Implicit discovery – Maven/Gradle</strong>: Walks up the directory tree and returns
+     *       the first parent directory that contains a {@code src/} subdirectory. This layout is typical
+     *       for local development environments and IDEs.</li>
+     *
+     *   <li><strong>Implicit discovery – CI or exploded JAR</strong>: If no {@code src/} folder is found,
+     *       returns the first parent directory that contains a {@code fhir/} folder. This layout is used
+     *       when the plugin JAR is exploded into a flat directory structure in CI environments.</li>
+     * </ol>
+     *
+     * <p>If no valid root can be determined, {@code null} is returned.</p>
+     *
+     * @param res the resource file currently being validated (e.g., a Task XML file)
+     * @return the project root directory, or {@code null} if no suitable folder is found
      */
     private File determineProjectRoot(File res)
+
     {
+        // ① explicit configuration
         String cfg = Optional.ofNullable(System.getProperty("dsf.projectRoot"))
                 .orElse(System.getenv("DSF_PROJECT_ROOT"));
         if (cfg != null && !cfg.isBlank())
         {
             File dir = new File(cfg);
-            if (dir.isDirectory()) return dir;
+            if (dir.isDirectory())
+                return dir;
         }
+
+        // ② / ③ implicit discovery
         for (Path p = res.toPath().getParent(); p != null; p = p.getParent())
-            if (p.resolve("src").toFile().isDirectory())
+        {
+            if (Files.isDirectory(p.resolve("src")))   // classic workspace
                 return p.toFile();
-        return null;
+
+            if (Files.isDirectory(p.resolve("fhir")))  // exploded JAR / CI layout
+                return p.toFile();
+        }
+
+        return null;                                   // couldn’t determine
     }
+
     /*
       Requester/Recipient vs ActivityDefinition check
       */
