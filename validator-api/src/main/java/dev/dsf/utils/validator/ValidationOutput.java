@@ -123,12 +123,12 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
         /*  1) Build JSON root  */
         Map<String, Object> root = new LinkedHashMap<>();   // preserves insertion order
 
-        // 1.1 add API-Version
-        root.put("apiVersion", ApiVersionHolder.getVersion());
-
-        // 1.2 Timestamp
+        // 1.1 Timestamp
         String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         root.put("timestamp", now);
+
+        // 1.2 add API-Version
+        root.put("apiVersion", ApiVersionHolder.getVersion());
 
         // 1.3 Severity summary
         Map<ValidationSeverity, Long> bySeverity =
