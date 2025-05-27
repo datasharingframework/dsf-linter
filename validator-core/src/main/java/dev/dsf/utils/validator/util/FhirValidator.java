@@ -283,24 +283,54 @@ public class FhirValidator
     }
 
     /**
-     * Checks if any ActivityDefinition in the project contains an extension with the given message name.
+     * Checks whether any FHIR {@code ActivityDefinition} resource under the given {@code projectRoot}
+     * contains the specified message name within a {@code <valueString>} or {@code <fixedString>}
+     * inside an {@code <extension url="message-name">}.
      * <p>
-     * This method walks through all XML files under the ACTIVITY_DEFINITION_DIR, parses files that represent an ActivityDefinition,
-     * extracts all <extension url="message-name">/<valueString> elements (by retrieving their "value" attribute),
-     * collects these message names, and finally checks if the provided message is among them.
+     * This method supports both Maven-style directory layouts (e.g.,
+     * {@code src/main/resources/fhir/ActivityDefinition/...}) and flat directory structures
+     * commonly found in CI/CD environments (e.g., {@code fhir/ActivityDefinition/...}).
+     * </p>
      *
-     * @param message     The message name to search for.
-     * @param projectRoot The root folder of the project.
-     * @return {@code true} if the message exists in at least one ActivityDefinition, {@code false} otherwise.
+     * @param message     the message name to search for (e.g., {@code dashboardReportSend})
+     * @param projectRoot the root directory of the project or exploded JAR file structure
+     * @return {@code true} if at least one ActivityDefinition contains the given message name; {@code false} otherwise
      */
-    public static boolean activityDefinitionHasMessageName(String message, File projectRoot) {
-        File dir = new File(projectRoot, ACTIVITY_DEFINITION_DIR);
-        if (!dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
+    public static boolean activityDefinitionHasMessageName(String message, File projectRoot)
+    {
+        // Collect message names from both layouts
+        List<String> allMessageNames = new ArrayList<>();
 
-        // List to collect all message names found in the ActivityDefinition files.
+        allMessageNames.addAll(getMessageNamesFromDir(message, projectRoot, ACTIVITY_DEFINITION_DIR));
+        allMessageNames.addAll(getMessageNamesFromDir(message, projectRoot, ACTIVITY_DEFINITION_DIR_FLAT));
+
+        // Return true if the message is among the collected names
+        return allMessageNames.contains(message);
+    }
+
+    /**
+     * Searches the specified relative directory (under {@code projectRoot}) for FHIR
+     * {@code ActivityDefinition} XML files that declare an {@code extension} element with
+     * {@code url="message-name"} and a nested {@code valueString} or {@code fixedString} with
+     * the specified value.
+     * <p>
+     * This method is directory-specific and does not include layout fallbacks.
+     * It should be called by higher-level methods that apply layout strategies.
+     * </p>
+     *
+     * @param message     the message name to locate (e.g., {@code ping}, {@code pong}, {@code dashboardReportSend})
+     * @param projectRoot the root folder of the project or plugin being validated
+     * @param relDir      the relative subdirectory where ActivityDefinition files are located
+     * @return {@code true} if a matching ActivityDefinition is found; {@code false} otherwise
+     */
+    private static List<String> getMessageNamesFromDir(String message, File projectRoot, String relDir)
+    {
         List<String> foundMessageNames = new ArrayList<>();
+
+        File dir = new File(projectRoot, relDir);
+        if (!dir.exists() || !dir.isDirectory())
+            return foundMessageNames;
+
         try (Stream<Path> paths = Files.walk(dir.toPath())) {
             List<Path> xmlFiles = paths
                     .filter(Files::isRegularFile)
@@ -309,40 +339,33 @@ public class FhirValidator
 
             for (Path xml : xmlFiles) {
                 Document doc = parseXml(xml);
-                if (doc == null) {
-                    continue;
-                }
+                if (doc == null) continue;
 
-                // Must be an ActivityDefinition
-                String rootName = doc.getDocumentElement().getLocalName();
-                if (!"ActivityDefinition".equals(rootName)) {
+                if (!"ActivityDefinition".equals(doc.getDocumentElement().getLocalName()))
                     continue;
-                }
 
-                // Check if there's an <extension url="message-name"><valueString value="message"/>
+                // XPath to find: <extension url="message-name"><valueString value="..." />
                 String xpathExpr = "//*[local-name()='extension' and @url='message-name']" +
-                        "/*[local-name()='valueString' and @value='" + message + "']";
+                        "/*[(local-name()='valueString' or local-name()='fixedString') and @value='" + message + "']";
+
                 NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
                         .compile(xpathExpr)
                         .evaluate(doc, XPathConstants.NODESET);
 
-                if (nodes != null && nodes.getLength() > 0) {
-                    for (int i = 0; i < nodes.getLength(); i++) {
-                        Node node = nodes.item(i);
-                        if (node.getAttributes() != null) {
-                            Node valueAttr = node.getAttributes().getNamedItem("value");
-                            if (valueAttr != null) {
-                                foundMessageNames.add(valueAttr.getNodeValue());
-                            }
+                for (int i = 0; i < nodes.getLength(); i++) {
+                    Node node = nodes.item(i);
+                    if (node.getAttributes() != null) {
+                        Node valueAttr = node.getAttributes().getNamedItem("value");
+                        if (valueAttr != null) {
+                            foundMessageNames.add(valueAttr.getNodeValue());
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            return false;
+            // Log if needed, return collected so far
         }
-        // Return true if the provided message exists in the collected message names.
-        return foundMessageNames.contains(message);
+        return foundMessageNames;
     }
 
     /**
