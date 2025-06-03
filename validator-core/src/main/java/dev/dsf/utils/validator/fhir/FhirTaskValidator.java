@@ -169,8 +169,13 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
         if (blank(status))
             out.add(new FhirTaskMissingStatusValidationItem(f, ref));
-        else
-            out.add(ok(f, ref, "status = '" + status + "'"));
+         else
+            if (!"draft".equals(status))
+                out.add(new FhirTaskStatusNotDraftValidationItem(f, ref,
+                        "status must be 'draft' (found '" + status + "')"));
+             else
+                out.add(ok(f, ref, "status = 'draft'"));
+
 
         //  intent ('order')
         String intent = val(doc, TASK_XP + "/*[local-name()='intent']/@value");
