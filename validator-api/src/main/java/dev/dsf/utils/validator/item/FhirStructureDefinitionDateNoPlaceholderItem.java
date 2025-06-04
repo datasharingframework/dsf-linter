@@ -16,7 +16,7 @@ public class FhirStructureDefinitionDateNoPlaceholderItem extends FhirElementVal
     public FhirStructureDefinitionDateNoPlaceholderItem(File resourceFile, String fhirReference, String actual)
     {
         super(
-                ValidationSeverity.ERROR,
+                ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER,

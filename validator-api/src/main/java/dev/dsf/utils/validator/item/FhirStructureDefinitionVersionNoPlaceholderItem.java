@@ -16,7 +16,7 @@ public class FhirStructureDefinitionVersionNoPlaceholderItem extends FhirElement
     public FhirStructureDefinitionVersionNoPlaceholderItem(File resourceFile, String fhirReference, String actual)
     {
         super(
-                ValidationSeverity.ERROR,
+                ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER,
