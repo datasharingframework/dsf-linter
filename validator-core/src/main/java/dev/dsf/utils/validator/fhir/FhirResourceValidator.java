@@ -61,6 +61,9 @@ public final class FhirResourceValidator
             validators.add(
                     new FhirQuestionnaireValidator()
             );
+            validators.add(
+                    new FhirStructureDefinitionValidator()
+            );
         }
     }
 
