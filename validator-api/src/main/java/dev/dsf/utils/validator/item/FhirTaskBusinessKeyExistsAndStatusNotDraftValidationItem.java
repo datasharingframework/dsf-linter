@@ -26,7 +26,7 @@ public class FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem extends Fh
      */
     public FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem(File resourceFile, String fhirReference, String description)
     {
-        super(ValidationSeverity.INFO,
+        super(ValidationSeverity.ERROR,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.Fhir_TASK_BUSINESS_KEY_PRESENT_AND_STATUS_VALID,
