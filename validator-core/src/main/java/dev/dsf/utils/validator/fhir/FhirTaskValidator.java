@@ -33,9 +33,6 @@ import java.util.*;
  *       <code>correlation-key</code> are also detected.</li>
  *   <li><strong>Duplicate slice detection:</strong> Tracks input slice types using a
  *       <code>Map&lt;String,Integer&gt;</code> and flags duplicates (i.e., where count > 1).</li>
- *   <li><strong>Output slice validation:</strong> Ensures each output entry has a valid
- *       <code>type.coding.code</code> and value. Special rules apply for <code>status=failed</code>,
- *       which requires an <code>error</code> slice.</li>
  *   <li><strong>Terminology checks:</strong> Cross-references all <code>coding</code> elements
  *       against the known DSF CodeSystems using {@link FhirAuthorizationCache}.</li>
  *   <li><strong>Canonical reference resolution:</strong> Automatically resolves the effective resource
@@ -112,9 +109,6 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         checkPlaceholders(doc, resFile, ref, issues);
 
         validateInputs(doc, resFile, ref, issues);
-
-
-        validateOutputs(doc, resFile, ref, issues);
 
         validateTerminology(doc, resFile, ref, issues);
 
@@ -393,50 +387,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     }
 
     /*
-      3) Outputs
-      */
-
-    /**
-     * Validates output slices of the Task.
-     */
-    private void validateOutputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
-    {
-        NodeList outs = xp(doc, OUTPUT_XP);
-        if (outs == null || outs.getLength() == 0)
-            return;
-
-        boolean hasError = false;
-
-        for (int i = 0; i < outs.getLength(); i++)
-        {
-            Node o = outs.item(i);
-            String code = val(o, CODING_CODE_XP);
-            String v    = extractValueX(o);
-
-            if (blank(code))
-            {
-                out.add(new FhirTaskOutputMissingTypeCodingCodeValidationItem(f, ref));
-                continue;
-            }
-
-            if (blank(v))
-                out.add(new FhirTaskOutputMissingValueValidationItem(f, ref,
-                        "Task.output(" + code + ") missing value[x]"));
-            else
-                out.add(ok(f, ref, "output '" + code + "' value='" + v + "'"));
-
-            if ("error".equals(code))
-                hasError = true;
-        }
-
-        String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
-        if ("failed".equals(status) && !hasError)
-            out.add(new FhirTaskMissingErrorOutputValidationItem(f, ref,
-                    "status=failed but 'error' slice missing"));
-    }
-
-    /*
-      4) Terminology
+      3) Terminology
        */
 
     /**
