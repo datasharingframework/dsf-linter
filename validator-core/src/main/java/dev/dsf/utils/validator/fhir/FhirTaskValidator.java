@@ -538,15 +538,16 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                     taskFile, ref));
             return;
         } else {
-            if ("#{organization}".equals(requesterId))
+            if (!"#{organization}".equals(requesterId))
             {
-                out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
+                out.add(new FhirTaskRequesterIdNoPlaceholderValidationItem (
+                        taskFile, ref, "Task.requester.identifier.value: '" + requesterId +"' does not contain the '#{organization}' placeholder, continue to auth check."
+                ));
             }
             else
             {
-                out.add(new FhirTaskRequesterIdNoPlaceholderValidationItem (
-                   taskFile, ref, "Task.requester.identifier.value: '" + requesterId +"' does not contain the '#{organization}' placeholder."
-                ));
+                out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
+                return;
             }
         }
 
