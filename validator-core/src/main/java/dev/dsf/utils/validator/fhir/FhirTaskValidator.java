@@ -243,7 +243,45 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     }
 
     /**
-     * Validates input slices including mandatory, optional, and checks for duplicate entries.
+     * Validates the <code>input</code> elements of a FHIR {@code Task} resource.
+     *
+     * <p>This method performs the following checks for each {@code Task.input}:</p>
+     * <ul>
+     *   <li><strong>Presence:</strong> Fails if no {@code input} elements are found.</li>
+     *   <li><strong>Structure:</strong> Ensures each input has a non-blank coding system and code.</li>
+     *   <li><strong>Value:</strong> Verifies that a value[x] element is present for each input.</li>
+     *   <li><strong>Duplicate detection:</strong> Tracks duplicate combinations of coding system and code.</li>
+     *   <li><strong>Slice type validation:</strong> Recognizes specific slices based on {@code system=...bpmn-message}
+     *       and {@code code}:
+     *     <ul>
+     *       <li>{@code message-name} – mandatory</li>
+     *       <li>{@code business-key} – conditionally required (based on {@code status})</li>
+     *       <li>{@code correlation-key} – <strong>must not be present</strong>; its presence causes a validation error</li>
+     *     </ul>
+     *   </li>
+     *   <li><strong>Status-dependent checks:</strong> Validates {@code business-key} depending on the Task's {@code status}:
+     *     <ul>
+     *       <li>Required for {@code in-progress}, {@code completed}, {@code failed}</li>
+     *       <li>Prohibited for {@code draft}</li>
+     *     </ul>
+     *   </li>
+     * </ul>
+     *
+     * <p>Each condition results in one or more {@link FhirElementValidationItem}s being added to the provided output list.
+     * Valid configurations are reported using {@code ok(...)}.</p>
+     *
+     * @param doc  the DOM representation of the Task resource being validated
+     * @param f    the source file representing the FHIR Task XML file
+     * @param ref  a canonical reference to the resource (typically derived from {@code instantiatesCanonical})
+     * @param out  the list of validation items to which results are appended
+     *
+     * @see dev.dsf.utils.validator.item.FhirTaskInputRequiredCodingSystemAndCodingCodeValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputMissingValueValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputDuplicateSliceValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskRequiredInputWithCodeMessageNameValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskStatusRequiredInputBusinessKeyValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskBusinessKeyExistsValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskCorrelationExistsValidationItem
      */
     private void validateInputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
     {
@@ -329,21 +367,29 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
           Status-dependent rule
           */
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
-
+        boolean statusActive = false;
         if (STATUSES_NEED_BIZKEY.contains(status)) {
             if (!businessKey)
                 out.add(new FhirTaskStatusRequiredInputBusinessKeyValidationItem(
                         f, ref, "status='" + status + "' needs business-key"));
             else
-                out.add(ok(f, ref, "business-key present (required by status)"));
+                out.add(new FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem(
+                        f, ref, "Task.status is not 'draft' and business-key: '" + businessKey +"' input is present as expected."
+                        )
+                );
         }
-        else if ("draft".equals(status))
+        else if ("draft".equals(status)) {
             out.add(ok(f, ref, "status=draft → business-key not required"));
-        else if (businessKey)
-            out.add(ok(f, ref, "optional slice business-key present"));
-
+            statusActive = true;
+        }
+        if (businessKey && statusActive)
+            out.add(new FhirTaskBusinessKeyExistsValidationItem(
+                    f, ref, "businessKey: "+ businessKey +" must not be present."));
         if (correlation)
-            out.add(ok(f, ref, "optional slice correlation-key present"));
+            out.add(new FhirTaskCorrelationExistsValidationItem(
+                    f, ref, "correlation: "+ correlation +" must not be present."));
+        else
+            out.add(ok(f, ref, "correlation input does not exist as expected."));
     }
 
     /*
