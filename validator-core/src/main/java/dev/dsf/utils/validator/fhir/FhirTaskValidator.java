@@ -24,7 +24,7 @@ import java.util.*;
  * <p>The following validation features are supported:</p>
  * <ul>
  *   <li><strong>Meta and core checks:</strong> Verifies that required fields such as
- *       <code>id</code>, <code>instantiatesCanonical</code>, <code>intent</code>, and
+ *       <code>instantiatesCanonical</code>, <code>intent</code>, and
  *       <code>status</code> are present and valid.</li>
  *   <li><strong>Placeholder enforcement:</strong> Ensures that certain fields contain required
  *       template placeholders such as <code>#{date}</code> and <code>#{organization}</code>.</li>
@@ -123,13 +123,6 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
      */
     private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementValidationItem> out)
     {
-        // id
-        String id = val(doc, TASK_XP + "/@id");
-        if (blank(id))
-            out.add(new FhirTaskMissingIdValidationItem(f, ref));
-        else
-            out.add(ok(f, ref, "Task.id present."));
-
         //  meta.profile
         NodeList prof = xp(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
         if (prof == null || prof.getLength() == 0)
