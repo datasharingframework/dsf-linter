@@ -9,19 +9,40 @@ import java.io.File;
 import java.util.*;
 
 /**
- * DSF StructureDefinition validator – validates FHIR StructureDefinition resources
- * according to DSF-specific authoring conventions. Each validation check produces
- * a dedicated {@link dev.dsf.utils.validator.item.FhirElementValidationItem} subclass
- * for fine-grained issue reporting.
- *
- * <p>Checks include:
- * <ul>
- *   <li>Presence and format of meta.profile and read-access tag</li>
- *   <li>Correct usage of placeholders in version and date fields</li>
- *   <li>Existence of a differential section and absence of a snapshot section</li>
- *   <li>Uniqueness of element IDs in the differential</li>
- * </ul>
+ * Validates FHIR {@code StructureDefinition} resources for DSF-specific constraints and authoring rules.
+ * <p>
+ * This validator is part of the DSF validation toolchain and ensures that {@code StructureDefinition} resources
+ * comply with structural, semantic, and naming conventions required by the DSF platform.
+ * The class extends {@link AbstractFhirInstanceValidator} and provides detailed feedback
+ * through instances of {@link dev.dsf.utils.validator.item.FhirElementValidationItem}.
  * </p>
+ *
+ * <h2>Supported Validations</h2>
+ * The validator performs the following checks:
+ * <ul>
+ *   <li><b>Meta Information:</b> Ensures that <code>meta.profile</code> and <code>meta.tag</code> are correctly set.</li>
+ *   <li><b>Placeholders:</b> Validates that <code>version</code> and <code>date</code> fields include the required placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
+ *   <li><b>Differential Integrity:</b> Ensures the presence of a <code>differential</code> section and the absence of a <code>snapshot</code>, and that all element <code>@id</code> values are unique.</li>
+ *   <li><b>Slice Cardinality:</b> Validates slice min/max constraints as defined in <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR §5.1.0.14</a>.</li>
+ * </ul>
+ *
+ * <h2>Example Usage</h2>
+ * <pre>
+ * {@code
+ * Document xml = parseStructureDefinitionXml(...);
+ * List<FhirElementValidationItem> results = new FhirStructureDefinitionValidator().validate(xml, new File("task-structure.xml"));
+ * results.forEach(System.out::println);
+ * }
+ * </pre>
+ *
+ * <h2>Thread Safety</h2>
+ * This class is stateless and thread-safe.
+ *
+ * @author DSF Team
+ * @see <a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a>
+ * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Profiling §5.1.0.14</a>
+ * @see AbstractFhirInstanceValidator
+ * @see dev.dsf.utils.validator.item.FhirElementValidationItem
  */
 public final class FhirStructureDefinitionValidator extends AbstractFhirInstanceValidator
 {
@@ -32,7 +53,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     private static final String ELEMENTS_XP     = DIFFERENTIAL_XP + "/*[local-name()='element']";
     private static final String META_PROFILE_XP = SD_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value";
     private static final String META_TAG_XP     = SD_XP + "/*[local-name()='meta']/*[local-name()='tag']";
-
+    private static final String DIFF_ELEM_XP = DIFFERENTIAL_XP + "/*[local-name()='element']";
     /*  CONSTANTS  */
     private static final String READ_TAG_SYS = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
     private static final String URL_PREFIX   = "http://dsf.dev/fhir/StructureDefinition/";
@@ -65,6 +86,8 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
         /* 3 – differential / snapshot / element IDs */
         checkDifferentialSection(doc, resFile, ref, issues);
 
+        /* 4 - slice-count vs. min/max */
+        checkSliceCardinality(doc, resFile, ref, issues);
         return issues;
     }
 
@@ -165,7 +188,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             out.add(ok(file, ref, "date placeholder present"));
     }
 
-    /* ===================== CHECK 3: DIFF / SNAPSHOT / IDs =================== */
+    /*  CHECK 3: DIFF / SNAPSHOT / IDs  */
     /**
      * Validates the existence of the {@code differential} element, warns if a {@code snapshot}
      * element is found, and checks that all {@code element/@id} values in the differential are
@@ -213,6 +236,161 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
         }
     }
 
+    /**
+     * Validates slice cardinality rules for elements in a StructureDefinition differential,
+     * as specified in the HL7 FHIR profiling standard §5.1.0.14 "Slice Cardinality".
+     * <p>
+     * When an element with a fixed cardinality <code>m..n</code> is sliced into multiple parts (slices),
+     * the following constraints must be validated:
+     * <ul>
+     *   <li>The maximum cardinality of each individual slice MUST NOT exceed <code>n</code>.</li>
+     *   <li>The sum of the maximum cardinalities of all slices MAY exceed <code>n</code>.</li>
+     *   <li>The sum of the minimum cardinalities of all slices MUST be ≤ <code>n</code>.</li>
+     *   <li>Each individual slice MAY declare <code>min = 0</code>, even if <code>m &gt; 0</code>, but:
+     *       <ul>
+     *         <li>The sum of all actual instance elements MUST still satisfy the base element's minimum <code>m</code>.</li>
+     *       </ul>
+     *   </li>
+     * </ul>
+     * <p>
+     * This method parses the base element's min/max cardinality and all first-level slices (direct children),
+     * then performs the following checks:
+     * <ul>
+     *   <li>Verifies that the sum of all slice minimums is ≥ base min (required)</li>
+     *   <li>Verifies that the sum of all slice minimums is ≤ base max (required)</li>
+     *   <li>Verifies that no individual slice exceeds base max (required)</li>
+     * </ul>
+     * <p>
+     * Validation results are reported via {@link FhirElementValidationItem} instances added to the {@code out} list.
+     *
+     * @param doc  the DOM XML document representing the StructureDefinition
+     * @param file the file where the StructureDefinition was loaded from, for traceability in validation results
+     * @param ref  a short string identifying the context (e.g., StructureDefinition URL), used in messages
+     * @param out  list to which validation errors, warnings, and OK confirmations are appended
+     *
+     * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Profiling §5.1.0.14 – Slice Cardinality</a>
+     * @see FhirStructureDefinitionSliceMinTooLowItem
+     * @see FhirStructureDefinitionSliceMaxTooHighItem
+     */
+    private void checkSliceCardinality(Document doc,
+                                       File file,
+                                       String ref,
+                                       List<FhirElementValidationItem> out)
+    {
+        NodeList baseElems = xp(doc, DIFF_ELEM_XP);
+        if (baseElems == null)
+            return;
+
+        for (int i = 0; i < baseElems.getLength(); i++)
+        {
+            /*
+             base element
+              */
+            String baseId = val(baseElems.item(i), "./@id");
+            if (blank(baseId) || baseId.contains(":"))
+                continue;
+
+            int baseMin = parseUnsignedIntOrDefault(
+                    val(baseElems.item(i), "./*[local-name()='min']/@value"), 0);
+
+            String baseMaxRaw = val(baseElems.item(i), "./*[local-name()='max']/@value");
+            int baseMax = "*".equals(baseMaxRaw)
+                    ? Integer.MAX_VALUE
+                    : parseUnsignedIntOrDefault(baseMaxRaw, Integer.MAX_VALUE);
+            boolean baseMinSpecified = val(baseElems.item(i),
+                    "./*[local-name()='min']") != null;
+            boolean baseMaxSpecified = val(baseElems.item(i),
+                    "./*[local-name()='max']") != null;
+
+            /*
+             slice roots
+              */
+            NodeList sliceCandidates = xp(doc, DIFFERENTIAL_XP +
+                    "/*[local-name()='element' and starts-with(@id,'" + baseId + ":')]");
+            if (sliceCandidates == null || sliceCandidates.getLength() == 0)
+                continue;
+
+            int sumSliceMin = 0;
+            int worstSliceMax = 0;
+            String offendingSlice = null;
+
+            for (int j = 0; j < sliceCandidates.getLength(); j++)
+            {
+                String sliceId = val(sliceCandidates.item(j), "./@id");
+                if (sliceId.indexOf('.', baseId.length() + 1) != -1)
+                    continue;
+
+                int sliceMin = parseUnsignedIntOrDefault(
+                        val(sliceCandidates.item(j), "./*[local-name()='min']/@value"), 0);
+
+                String sliceMaxRaw = val(sliceCandidates.item(j),
+                        "./*[local-name()='max']/@value");
+
+                int sliceMax;
+                if (sliceMaxRaw == null || sliceMaxRaw.isEmpty())
+                {
+                    // inherited from base element
+                    sliceMax = baseMax;
+                }
+                else if ("*".equals(sliceMaxRaw))
+                {
+                    sliceMax = Integer.MAX_VALUE;
+                }
+                else
+                {
+                    sliceMax = parseUnsignedIntOrDefault(sliceMaxRaw, Integer.MAX_VALUE);
+                }
+
+                sumSliceMin += sliceMin;
+                if (sliceMax > worstSliceMax)
+                {
+                    worstSliceMax = sliceMax;
+                    offendingSlice = sliceId;
+                }
+            }
+
+            /*
+              MIN rule
+              */
+            if (baseMinSpecified)
+            {
+                if (sumSliceMin < baseMin)
+                    out.add(new FhirStructureDefinitionSliceMinTooLowItem(
+                            file, ref, baseId, baseMin, sumSliceMin));
+                else
+                    out.add(ok(file, ref,
+                            "element '" + baseId + "': Σ min(" + sumSliceMin +
+                                    ") ≥ declared min (" + baseMin + ")"));
+            }
+
+            /*
+              MAX rule
+              */
+            if (baseMaxSpecified && baseMax != Integer.MAX_VALUE)
+            {
+                boolean maxSumViolation = sumSliceMin > baseMax;
+                boolean sliceMaxViolation = worstSliceMax > baseMax;
+
+                if (maxSumViolation || sliceMaxViolation)
+                {
+                    String label = (worstSliceMax == Integer.MAX_VALUE) ? "*" : String.valueOf(worstSliceMax);
+                    out.add(new FhirStructureDefinitionSliceMaxTooHighItem(
+                            file, ref, baseId, baseMax, offendingSlice, label));
+                }
+                else
+                    out.add(ok(file, ref,
+                            "element '" + baseId + "': all slice.max ≤ " + baseMax +
+                                    " and Σ min (" + sumSliceMin + ") ≤ " + baseMax));
+            }
+            else if (baseMax == Integer.MAX_VALUE)
+            {
+                out.add(ok(file, ref,
+                        "element '" + baseId + "': unlimited max → no upper-bound check required"));
+            }
+        }
+    }
+
+
     /*  HELPERS  */
     /**
      * Resolves the canonical reference for issue reporting from the StructureDefinition.
@@ -227,5 +405,29 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     {
         String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
         return blank(url) ? file.getName() : url;
+    }
+
+    /**
+     * Parses the given string as an unsigned integer.
+     * <p>
+     * If the input string is {@code null}, empty, or cannot be parsed as a valid unsigned integer,
+     * the method returns the provided default value.
+     * <p>
+     * This method is useful in situations where integer values are expected from external sources
+     * (e.g. XML attributes) but may be malformed or missing. It provides safe fallback behavior
+     * without throwing an exception.
+     *
+     * @param s the string to parse; may be {@code null} or empty
+     * @param defaultVal the fallback value to return if {@code s} is {@code null},
+     *                   empty, or not a valid unsigned integer
+     * @return the parsed unsigned integer value, or {@code defaultVal} if parsing fails
+     *
+     * @see Integer#parseUnsignedInt(String)
+     */
+    private static int parseUnsignedIntOrDefault(String s, int defaultVal)
+    {
+        if (s == null || s.isEmpty()) return defaultVal;
+        try { return Integer.parseUnsignedInt(s); }
+        catch (NumberFormatException e) { return defaultVal; }
     }
 }
