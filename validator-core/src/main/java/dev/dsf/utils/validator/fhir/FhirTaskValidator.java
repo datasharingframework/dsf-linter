@@ -477,30 +477,35 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
       */
 
     /**
-     * Validates that the {@code Task.requester.identifier.value} is authorized
-     * based on the corresponding {@code ActivityDefinition}'s
-     * {@code extension-process-authorization} declarations.
+     * Validates that the {@code Task.requester.identifier.value} exists, contains the
+     * {@code #{organization}} placeholder, and is authorized according to the referenced
+     * {@code ActivityDefinition}'s {@code extension-process-authorization} declarations.
      *
-     * <p>This method performs a cross-resource validation by locating the
-     * {@code ActivityDefinition} referenced by the {@code Task.instantiatesCanonical}
-     * element. It then verifies whether the requesting organization specified
-     * in the Task is explicitly listed or generically allowed (e.g., via
-     * {@code LOCAL_ALL} or {@code LOCAL_ALL_PRACTITIONER}) in the authorization
-     * rules defined in the ActivityDefinition.</p>
-     *
-     * <p>If the requester identifier contains the development placeholder
-     * {@code #{organization}}, the check is skipped and a successful validation
-     * result is added. This allows developers to validate incomplete resources
-     * during development.</p>
-     *
-     * <p>If the requester is not authorized according to the ActivityDefinition,
-     * a {@link dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem}
-     * is added to the output list.</p>
+     * <p>This method performs a multi-step validation process for the {@code requester.identifier.value} field:</p>
+     * <ul>
+     *   <li><strong>Existence check:</strong> Fails if the value is missing or blank, using
+     *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterIdNotExistValidationItem}.</li>
+     *   <li><strong>Placeholder check:</strong> If the value does not contain the required
+     *       {@code #{organization}} placeholder, a
+     *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterIdNoPlaceholderValidationItem}
+     *       is added.</li>
+     *   <li><strong>Authorization check:</strong> If the value is present and contains the placeholder,
+     *       the method skips authorization (assumes development context) and reports success.
+     *       Otherwise, it verifies that the requester is authorized according to the
+     *       {@code ActivityDefinition} referred to via {@code instantiatesCanonical}.
+     *       If not authorized, a
+     *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem}
+     *       is reported.</li>
+     * </ul>
      *
      * @param taskDoc   the XML DOM representation of the Task resource
-     * @param taskFile  the source file from which the Task was loaded (used for reporting)
-     * @param ref       a canonical reference to the Task (typically from {@code instantiatesCanonical})
+     * @param taskFile  the file from which the Task was loaded (used for context and reporting)
+     * @param ref       a canonical reference to the Task (typically extracted from {@code instantiatesCanonical})
      * @param out       the list of validation items to which results are appended
+     *
+     * @see dev.dsf.utils.validator.item.FhirTaskRequesterIdNotExistValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskRequesterIdNoPlaceholderValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem
      */
     private void validateRequesterAuthorization(Document taskDoc,
                                                 File taskFile,
@@ -527,10 +532,22 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                         + "/*[local-name()='value']/@value");
 
         // Allow the dev placeholder
-        if (requesterId != null && requesterId.contains("#{organization}"))
+        if (requesterId == null || requesterId.isBlank())
         {
-            out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
+            out.add(new FhirTaskRequesterIdNotExistValidationItem(
+                    taskFile, ref));
             return;
+        } else {
+            if ("#{organization}".equals(requesterId))
+            {
+                out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
+            }
+            else
+            {
+                out.add(new FhirTaskRequesterIdNoPlaceholderValidationItem (
+                   taskFile, ref, "Task.requester.identifier.value: '" + requesterId +"' does not contain the '#{organization}' placeholder."
+                ));
+            }
         }
 
         boolean authorised = FhirValidator.isRequesterAuthorised(
