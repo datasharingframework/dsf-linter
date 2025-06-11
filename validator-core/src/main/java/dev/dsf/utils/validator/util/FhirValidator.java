@@ -209,7 +209,7 @@ public class FhirValidator
      * @return a {@link Document} representing the parsed XML, or {@code null} if an error occurs
      * @throws Exception if there is an I/O or parsing error
      */
-    private static Document parseXml(Path filePath) throws Exception
+    public static Document parseXml(Path filePath) throws Exception
     {
         try (FileInputStream fis = new FileInputStream(filePath.toFile()))
         {

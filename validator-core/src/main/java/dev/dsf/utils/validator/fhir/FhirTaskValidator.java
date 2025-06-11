@@ -8,69 +8,75 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
 /**
- * <h2>DSF Task Validator (Profile: dsf-task-base 1.0.0)</h2>
+ * <h2>FHIR Task Validator for DSF – Profile: <code>dsf-task-base</code></h2>
  *
- * <p>This class implements a FHIR validator for Task resources used in the
- * Digital Sample Framework (DSF). It performs validation checks according to
- * the <code>dsf-task-base</code> profile (version 1.0.0), supporting both
- * structural and semantic validation.</p>
+ * <p>This class implements a validator for FHIR {@code Task} resources as used in the
+ * Digital Sample Framework (DSF). It is responsible for ensuring structural correctness,
+ * semantic consistency, and conformance to cardinality rules defined in the DSF base profile
+ * <code>http://dsf.dev/fhir/StructureDefinition/dsf-task-base</code>.</p>
  *
- * <p>The following validation features are supported:</p>
+ * <p>The validator extends {@link AbstractFhirInstanceValidator} and is automatically invoked
+ * during DSF plugin validation, typically from {@link dev.dsf.utils.validator.DsfValidatorImpl}.</p>
+ *
+ * <h3>Supported Validation Features</h3>
  * <ul>
- *   <li><strong>Meta and core checks:</strong> Verifies that required fields such as
- *       <code>instantiatesCanonical</code>, <code>intent</code>, and
- *       <code>status</code> are present and valid.</li>
- *   <li><strong>Placeholder enforcement:</strong> Ensures that certain fields contain required
- *       template placeholders such as <code>#{date}</code> and <code>#{organization}</code>.</li>
- *   <li><strong>Input slice validation:</strong> Validates presence and uniqueness of required input slices
- *       like <code>message-name</code> and <code>business-key</code>. Optional slices like
- *       <code>correlation-key</code> are also detected.</li>
- *   <li><strong>Duplicate slice detection:</strong> Tracks input slice types using a
- *       <code>Map&lt;String,Integer&gt;</code> and flags duplicates (i.e., where count > 1).</li>
- *   <li><strong>Terminology checks:</strong> Cross-references all <code>coding</code> elements
- *       against the known DSF CodeSystems using {@link FhirAuthorizationCache}.</li>
- *   <li><strong>Canonical reference resolution:</strong> Automatically resolves the effective resource
- *       reference using <code>instantiatesCanonical</code> or <code>identifier.value</code>.</li>
- *   <li><strong>Project root discovery:</strong> Determines the root directory of the FHIR project
- *       either via a configuration option (system property or environment variable) or by walking
- *       the parent directory hierarchy.</li>
+ *   <li><strong>Meta validation:</strong>
+ *     Verifies presence of required meta.profile and instantiatesCanonical elements.</li>
+ *   <li><strong>Status and intent checks:</strong>
+ *     Validates the {@code status} must be {@code draft}, and {@code intent} must be {@code order}.</li>
+ *   <li><strong>Input slice validation:</strong>
+ *     Enforces presence and multiplicity rules for {@code Task.input} slices such as:
+ *     {@code message-name}, {@code business-key}, and {@code correlation-key}.</li>
+ *   <li><strong>Cardinality enforcement:</strong>
+ *     Loads {@code min} and {@code max} cardinalities from {@code StructureDefinition} and
+ *     validates both the base and sliced input elements. See
+ *     <a href="https://hl7.org/fhir/profiling.html#slice-cardinality" target="_blank">
+ *     FHIR Profiling Rules §5.1.0.14</a> for background.</li>
+ *   <li><strong>Placeholder checks:</strong>
+ *     Ensures that elements such as {@code authoredOn} and
+ *     {@code requester/restriction.identifier.value} contain expected template variables
+ *     (e.g., {@code #{organization}}, {@code #{date}}).</li>
+ *   <li><strong>Terminology validation:</strong>
+ *     Cross-checks all {@code coding} elements against known value sets and
+ *     {@link FhirAuthorizationCache}.</li>
+ *   <li><strong>Authorization logic:</strong>
+ *     Verifies requester and recipient organizations are authorized for the referenced
+ *     {@code ActivityDefinition}.</li>
  * </ul>
  *
- * <p>Each check results in one of the following validation items:
- * <ul>
- *   <li>{@link FhirElementValidationItemSuccess} for successful validations</li>
- *   <li>Various {@link FhirElementValidationItem} subclasses for validation errors</li>
- * </ul>
- * </p>
+ * <h3>StructureDefinition Integration</h3>
+ * <p>The validator dynamically loads the corresponding {@code StructureDefinition} to evaluate
+ * slice cardinalities. This is used to verify that each required {@code input} slice is present
+ * the correct number of times and that overall input count falls within the base cardinality
+ * limits.</p>
  *
- * <h3>How to Use</h3>
- * The validator is automatically invoked when validating FHIR Task files using the
- * {@code DsfValidatorImpl} class. This class does not require instantiation and is managed by
- * the validation framework.
- *
- * <h3>Configuration</h3>
- * Optionally, the project root can be specified via:
+ * <h3>Development & CI Support</h3>
+ * <p>Project root discovery is supported using either:</p>
  * <ul>
- *   <li>System property <code>dsf.projectRoot</code></li>
- *   <li>Environment variable <code>DSF_PROJECT_ROOT</code></li>
+ *   <li>System property: {@code dsf.projectRoot}</li>
+ *   <li>Environment variable: {@code DSF_PROJECT_ROOT}</li>
  * </ul>
+ * <p>Or by implicit detection of standard folder structures (e.g., {@code src/}, {@code fhir/}).</p>
  *
  * @see dev.dsf.utils.validator.DsfValidatorImpl
- * @see dev.dsf.utils.validator.util.FhirAuthorizationCache
- * @see dev.dsf.utils.validator.util.FhirValidator
+ * @see AbstractFhirInstanceValidator
+ * @see FhirValidator
+ * @see FhirAuthorizationCache
+ * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Slicing and Cardinality Rules §5.1.0.14</a>
  */
 public final class FhirTaskValidator extends AbstractFhirInstanceValidator
 {
     // XPath constants
     private static final String TASK_XP           = "/*[local-name()='Task']";
     private static final String INPUT_XP          = TASK_XP + "/*[local-name()='input']";
-    private static final String OUTPUT_XP         = TASK_XP + "/*[local-name()='output']";
     private static final String CODING_SYS_XP     = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
     private static final String CODING_CODE_XP    = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
 
@@ -79,6 +85,8 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
 
     private static final Set<String> STATUSES_NEED_BIZKEY =
             Set.of("in-progress", "completed", "failed");
+
+
 
     /**
      * Determines whether this validator supports the given document.
@@ -230,49 +238,99 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     }
 
     /**
-     * Validates the <code>input</code> elements of a FHIR {@code Task} resource.
+     * Validates the <code>input</code> elements of a FHIR {@code Task} resource against structure,
+     * value presence, duplication, business rules, and cardinalities defined in its associated
+     * {@code StructureDefinition} profile.
      *
-     * <p>This method performs the following checks for each {@code Task.input}:</p>
+     * <p>This method performs the following validations:</p>
+     *
      * <ul>
-     *   <li><strong>Presence:</strong> Fails if no {@code input} elements are found.</li>
-     *   <li><strong>Structure:</strong> Ensures each input has a non-blank coding system and code.</li>
-     *   <li><strong>Value:</strong> Verifies that a value[x] element is present for each input.</li>
-     *   <li><strong>Duplicate detection:</strong> Tracks duplicate combinations of coding system and code.</li>
-     *   <li><strong>Slice type validation:</strong> Recognizes specific slices based on {@code system=...bpmn-message}
-     *       and {@code code}:
+     *   <li><strong>Presence:</strong>
      *     <ul>
-     *       <li>{@code message-name} – mandatory</li>
-     *       <li>{@code business-key} – conditionally required (based on {@code status})</li>
-     *       <li>{@code correlation-key} – <strong>must not be present</strong>; its presence causes a validation error</li>
+     *       <li>Fails if no {@code Task.input} elements are found.</li>
      *     </ul>
      *   </li>
-     *   <li><strong>Status-dependent checks:</strong> Validates {@code business-key} depending on the Task's {@code status}:
+     *
+     *   <li><strong>Structure:</strong>
      *     <ul>
-     *       <li>Required for {@code in-progress}, {@code completed}, {@code failed}</li>
-     *       <li>Prohibited for {@code draft}</li>
+     *       <li>Ensures that each {@code input} element has both {@code system} and {@code code}.</li>
+     *       <li>Fails if either is missing or blank.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Value presence:</strong>
+     *     <ul>
+     *       <li>Fails if {@code input.value[x]} is missing for a slice.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Duplicate detection:</strong>
+     *     <ul>
+     *       <li>Reports duplicates of {@code system#code} pairs across {@code Task.input} elements.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Slice-type validation:</strong> Based on the coding {@code system=http://dsf.dev/fhir/CodeSystem/bpmn-message}:
+     *     <ul>
+     *       <li>{@code message-name} – <strong>required</strong> and must exist.</li>
+     *       <li>{@code business-key} – <strong>conditionally required</strong> depending on {@code status}.</li>
+     *       <li>{@code correlation-key} – <strong>prohibited</strong> under all conditions.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Status-dependent rules:</strong>
+     *     <ul>
+     *       <li>If {@code status} is {@code in-progress}, {@code completed}, or {@code failed}, {@code business-key} must be present.</li>
+     *       <li>If {@code status} is {@code draft}, {@code business-key} must be absent.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Cardinality check against StructureDefinition:</strong>
+     *     <ul>
+     *       <li>Loads cardinalities from the {@code StructureDefinition} associated with the {@code Task}'s {@code meta.profile}.</li>
+     *       <li>Validates the total number of {@code Task.input} elements against the base element's {@code min} and {@code max}.</li>
+     *       <li>Validates each slice count (e.g., {@code message-name}, {@code business-key}) against their individual {@code min} and {@code max} values.</li>
+     *       <li>If the profile cannot be loaded, a warning is issued and cardinality validation is skipped.</li>
      *     </ul>
      *   </li>
      * </ul>
      *
-     * <p>Each condition results in one or more {@link FhirElementValidationItem}s being added to the provided output list.
-     * Valid configurations are reported using {@code ok(...)}.</p>
+     * <p>All validation findings (errors and OKs) are added to the {@code out} parameter as instances
+     * of {@link FhirElementValidationItem} or its subclasses.</p>
      *
-     * @param doc  the DOM representation of the Task resource being validated
-     * @param f    the source file representing the FHIR Task XML file
-     * @param ref  a canonical reference to the resource (typically derived from {@code instantiatesCanonical})
-     * @param out  the list of validation items to which results are appended
+     * @param doc  the DOM representation of the FHIR {@code Task} resource being validated
+     * @param f    the source XML file of the {@code Task} resource
+     * @param ref  a logical or canonical reference to the resource, often derived from {@code instantiatesCanonical}
+     * @param out  the list of validation items to which results will be appended
      *
+     * @see dev.dsf.utils.validator.item.FhirTaskMissingInputValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskInputRequiredCodingSystemAndCodingCodeValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskInputMissingValueValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskInputDuplicateSliceValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskRequiredInputWithCodeMessageNameValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskStatusRequiredInputBusinessKeyValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskBusinessKeyExistsValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskCorrelationExistsValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputCountTooLowItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputCountTooHighItem
+     * @see dev.dsf.utils.validator.item.FhirTaskSliceMinNotMetItem
+     * @see dev.dsf.utils.validator.item.FhirTaskSliceMaxExceededItem
+     * @see dev.dsf.utils.validator.item.FhirTaskCouldNotLoadProfileValidationItem
      */
     private void validateInputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
     {
         System.out.println(">>> validateInputs called on: " + f.getName());
+
+        // Load cardinality definitions from StructureDefinition
+        String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
+        Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(f), profileUrl);
+
+        if (cards == null)
+        {
+            out.add(new FhirTaskCouldNotLoadProfileValidationItem(
+                    f, ref, "StructureDefinition for profile '" + profileUrl + "' not found → instance-level cardinality check skipped."));
+        }
 
         NodeList ins = xp(doc, INPUT_XP);
         if (ins == null || ins.getLength() == 0)
@@ -284,24 +342,27 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         boolean messageName = false, businessKey = false;
         boolean correlation = false;
 
-        Map<String,Integer> duplicates = new HashMap<>();
+        Map<String, Integer> duplicates = new HashMap<>();
+        Map<String, Integer> sliceCounter = new HashMap<>();
+        int inputCount = 0;
 
         for (int i = 0; i < ins.getLength(); i++)
         {
-            Node in  = ins.item(i);
+            Node in = ins.item(i);
             String sys = val(in, CODING_SYS_XP);
             String code = val(in, CODING_CODE_XP);
-            String v    = extractValueX(in);
+            String v = extractValueX(in);
+            inputCount++;
 
-            /*
-             Duplicate counter
-              */
+            // Duplicate counter
             if (!blank(sys) && !blank(code))
                 duplicates.merge(sys + "#" + code, 1, Integer::sum);
 
-            /*
-             Missing coding data
-              */
+            // Slice counter (by code)
+            if (!blank(code))
+                sliceCounter.merge(code, 1, Integer::sum);
+
+            // Missing coding
             if (blank(sys) || blank(code))
             {
                 out.add(new FhirTaskInputRequiredCodingSystemAndCodingCodeValidationItem(f, ref,
@@ -309,9 +370,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                 continue;
             }
 
-            /*
-            Value present?
-              */
+            // Value check
             if (blank(v))
                 out.add(new FhirTaskInputMissingValueValidationItem(f, ref,
                         "Task.input(" + code + ") missing value[x]"));
@@ -319,65 +378,84 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                 out.add(ok(f, ref,
                         "input '" + code + "' value='" + v + "'"));
 
-            /*
-            Slice types
-              */
+            // Slice detection
             if (SYSTEM_BPMN_MSG.equals(sys))
             {
                 switch (code)
                 {
-                    case "message-name"    -> messageName = true;
-                    case "business-key"    -> businessKey = true;
-                    case "correlation-key" -> correlation  = true;
+                    case "message-name" -> messageName = true;
+                    case "business-key" -> businessKey = true;
+                    case "correlation-key" -> correlation = true;
                 }
             }
         }
 
-        /*
-        Duplicates
-         */
-        duplicates.forEach((k,v) -> {
+        // Duplicates
+        duplicates.forEach((k, v) -> {
             if (v > 1)
                 out.add(new FhirTaskInputDuplicateSliceValidationItem(f, ref,
                         "Duplicate slice '" + k + "' (" + v + "×)"));
         });
 
-        /*
-        Presence checks
-         */
+        // Required presence
         if (messageName)
             out.add(ok(f, ref, "mandatory slice 'message-name' present"));
         else
             out.add(new FhirTaskRequiredInputWithCodeMessageNameValidationItem(f, ref));
 
-        /*
-          Status-dependent rule
-          */
+        // Status-dependent rule
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
         boolean statusActive = false;
+
         if (STATUSES_NEED_BIZKEY.contains(status)) {
             if (!businessKey)
                 out.add(new FhirTaskStatusRequiredInputBusinessKeyValidationItem(
                         f, ref, "status='" + status + "' needs business-key"));
             else
                 out.add(new FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem(
-                        f, ref, "Task.status is not 'draft' and business-key: '" + businessKey +"' input is present as expected."
-                        )
-                );
+                        f, ref, "Task.status is not 'draft' and business-key: '" + businessKey + "' input is present as expected."));
         }
         else if ("draft".equals(status)) {
             out.add(ok(f, ref, "status=draft → business-key not required"));
             statusActive = true;
         }
+
         if (businessKey && statusActive)
             out.add(new FhirTaskBusinessKeyExistsValidationItem(
-                    f, ref, "businessKey: "+ businessKey +" must not be present."));
+                    f, ref, "businessKey: " + businessKey + " must not be present."));
+
         if (correlation)
             out.add(new FhirTaskCorrelationExistsValidationItem(
-                    f, ref, "correlation: "+ correlation +" must not be present."));
+                    f, ref, "correlation: " + correlation + " must not be present."));
         else
             out.add(ok(f, ref, "correlation input does not exist as expected."));
+
+        // Cardinality check
+        if (cards != null)
+        {
+            SliceCard baseCard = cards.get("__BASE__");
+            if (inputCount < baseCard.min())
+                out.add(new FhirTaskInputCountTooLowItem(f, ref, inputCount, baseCard.min()));
+            else if (inputCount > baseCard.max())
+                out.add(new FhirTaskInputCountTooHighItem(f, ref, inputCount, baseCard.max()));
+            else
+                out.add(ok(f, ref, "Task.input count " + inputCount +
+                        " within " + baseCard.min() + "‥" + (baseCard.max() == Integer.MAX_VALUE ? "*" : baseCard.max())));
+
+            // Per-slice cardinality
+            cards.forEach((code, card) -> {
+                if ("__BASE__".equals(code)) return;
+                int cnt = sliceCounter.getOrDefault(code, 0);
+                if (cnt < card.min())
+                    out.add(new FhirTaskSliceMinNotMetItem(f, ref, code, cnt, card.min()));
+                else if (cnt > card.max())
+                    out.add(new FhirTaskSliceMaxExceededItem(f, ref, code, cnt, card.max()));
+                else
+                    out.add(ok(f, ref, "slice '" + code + "' count " + cnt + " OK"));
+            });
+        }
     }
+
 
     /*
       3) Terminology
@@ -625,6 +703,49 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                     "Organisation '" + recipientId
                             + "' is not authorised according to ActivityDefinition "
                             + actFile.getName()));
+    }
+
+    /* utils inside FhirTaskValidator ----------------------------------------- */
+    private static record SliceCard(int min, int max) {}
+
+    /** Parses the SD and builds cardinality maps for Task.input and its slices */
+    private Map<String,SliceCard> loadInputCardinality(File projectRoot, String profileUrl)
+    {
+        File sdFile = FhirValidator.findStructureDefinitionFile(profileUrl, projectRoot);
+        if (sdFile == null) return null;
+
+        try {
+            Document sd = FhirValidator.parseXml(sdFile.toPath());
+            Map<String,SliceCard> map = new HashMap<>();
+
+            // base element ----------------------------------------------------
+            String minBase = AbstractFhirInstanceValidator.extractSingleNodeValue(
+                    sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='min']/@value");
+            String maxBase = AbstractFhirInstanceValidator.extractSingleNodeValue(
+                    sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value");
+            int baseMin = (minBase != null) ? Integer.parseInt(minBase) : 0;
+            int baseMax = (maxBase == null || "*".equals(maxBase))
+                    ? Integer.MAX_VALUE : Integer.parseInt(maxBase);
+            map.put("__BASE__", new SliceCard(baseMin, baseMax));
+
+            // direct slice roots ---------------------------------------------
+            NodeList slices = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') "
+                            + "and not(contains(@id,'.'))]")
+                    .evaluate(sd, XPathConstants.NODESET);
+
+            for (int i=0;i<slices.getLength();i++) {
+                Node n = slices.item(i);
+                String sliceName = n.getAttributes().getNamedItem("id")
+                        .getNodeValue().substring("Task.input:".length());
+                String mi = AbstractFhirInstanceValidator.extractSingleNodeValue(n, "./*[local-name()='min']/@value");
+                String ma = AbstractFhirInstanceValidator.extractSingleNodeValue(n, "./*[local-name()='max']/@value");
+                int sMin = (mi!=null)?Integer.parseInt(mi):0;
+                int sMax = (ma==null||"*".equals(ma)) ? baseMax : Integer.parseInt(ma);
+                map.put(sliceName, new SliceCard(sMin, sMax));
+            }
+            return map;
+        } catch(Exception e){ return null; }
     }
 
 }
