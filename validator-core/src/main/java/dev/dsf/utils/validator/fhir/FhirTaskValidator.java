@@ -238,70 +238,78 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     }
 
     /**
-     * Validates the <code>input</code> elements of a FHIR {@code Task} resource against structure,
-     * value presence, duplication, business rules, and cardinalities defined in its associated
-     * {@code StructureDefinition} profile.
+     * Validates the <code>Task.input</code> elements of a FHIR {@code Task} resource.
+     * The validation covers structure, required fields, business rules, duplicate detection,
+     * slice-specific rules, and cardinality constraints defined in the associated {@code StructureDefinition}.
      *
-     * <p>This method performs the following validations:</p>
+     * <p>This method performs the following validation checks:</p>
      *
      * <ul>
-     *   <li><strong>Presence:</strong>
+     *   <li><strong>Presence Check:</strong>
      *     <ul>
-     *       <li>Fails if no {@code Task.input} elements are found.</li>
+     *       <li>Fails if the {@code Task.input} list is empty or missing.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Structure:</strong>
+     *   <li><strong>Structural Validation:</strong>
      *     <ul>
-     *       <li>Ensures that each {@code input} element has both {@code system} and {@code code}.</li>
-     *       <li>Fails if either is missing or blank.</li>
+     *       <li>Each {@code Task.input} element must contain a coding system and code.</li>
+     *       <li>If either is missing or blank, an error is reported.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Value presence:</strong>
+     *   <li><strong>Value Presence Check:</strong>
      *     <ul>
-     *       <li>Fails if {@code input.value[x]} is missing for a slice.</li>
+     *       <li>Each {@code Task.input} element must contain a {@code value[x]} field (e.g., {@code valueString}, {@code valueReference}).</li>
+     *       <li>If missing, an error is reported.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Duplicate detection:</strong>
+     *   <li><strong>Duplicate Detection:</strong>
      *     <ul>
-     *       <li>Reports duplicates of {@code system#code} pairs across {@code Task.input} elements.</li>
+     *       <li>Detects and reports duplicate {@code Task.input} entries based on the combination {@code system#code}.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Slice-type validation:</strong> Based on the coding {@code system=http://dsf.dev/fhir/CodeSystem/bpmn-message}:
+     *   <li><strong>BPMN Slice Checks:</strong> (system = {@code http://dsf.dev/fhir/CodeSystem/bpmn-message})
      *     <ul>
-     *       <li>{@code message-name} – <strong>required</strong> and must exist.</li>
-     *       <li>{@code business-key} – <strong>conditionally required</strong> depending on {@code status}.</li>
-     *       <li>{@code correlation-key} – <strong>prohibited</strong> under all conditions.</li>
+     *       <li>{@code message-name} – required: must be present.</li>
+     *       <li>{@code business-key} – conditionally required depending on {@code Task.status}.</li>
+     *       <li>{@code correlation-key} – allowed or prohibited depending on slice cardinality in the profile.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Status-dependent rules:</strong>
+     *   <li><strong>Status-based Business Rules:</strong>
      *     <ul>
-     *       <li>If {@code status} is {@code in-progress}, {@code completed}, or {@code failed}, {@code business-key} must be present.</li>
-     *       <li>If {@code status} is {@code draft}, {@code business-key} must be absent.</li>
+     *       <li>If {@code status} ∈ {in-progress, completed, failed}, {@code business-key} is required.</li>
+     *       <li>If {@code status} = draft, {@code business-key} must be absent.</li>
      *     </ul>
      *   </li>
      *
-     *   <li><strong>Cardinality check against StructureDefinition:</strong>
+     *   <li><strong>Correlation Input Check:</strong>
      *     <ul>
-     *       <li>Loads cardinalities from the {@code StructureDefinition} associated with the {@code Task}'s {@code meta.profile}.</li>
-     *       <li>Validates the total number of {@code Task.input} elements against the base element's {@code min} and {@code max}.</li>
-     *       <li>Validates each slice count (e.g., {@code message-name}, {@code business-key}) against their individual {@code min} and {@code max} values.</li>
-     *       <li>If the profile cannot be loaded, a warning is issued and cardinality validation is skipped.</li>
+     *       <li>If correlation input is present, its allowance is verified based on profile cardinality.</li>
+     *       <li>If missing, but required (min > 0), an error is reported.</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li><strong>Cardinality Validation:</strong>
+     *     <ul>
+     *       <li>Loads cardinalities from the {@code StructureDefinition} specified in {@code meta.profile}.</li>
+     *       <li>Checks the total number of {@code Task.input} elements against the base element's {@code min} and {@code max} values.</li>
+     *       <li>Checks each slice (by code) against its individual {@code min} and {@code max} values.</li>
+     *       <li>If the profile is not found, a warning is emitted and cardinality checks are skipped.</li>
      *     </ul>
      *   </li>
      * </ul>
      *
-     * <p>All validation findings (errors and OKs) are added to the {@code out} parameter as instances
-     * of {@link FhirElementValidationItem} or its subclasses.</p>
+     * <p>All results (errors and successful validations) are added to the {@code out} list as
+     * {@link FhirElementValidationItem} instances or subclasses.</p>
      *
-     * @param doc  the DOM representation of the FHIR {@code Task} resource being validated
-     * @param f    the source XML file of the {@code Task} resource
-     * @param ref  a logical or canonical reference to the resource, often derived from {@code instantiatesCanonical}
-     * @param out  the list of validation items to which results will be appended
+     * @param doc  the XML DOM representing the {@code Task} resource to be validated
+     * @param f    the source XML file containing the {@code Task} resource
+     * @param ref  a logical or canonical reference string for use in result output (e.g., {@code instantiatesCanonical})
+     * @param out  the list of validation items to append results to
      *
      * @see dev.dsf.utils.validator.item.FhirTaskMissingInputValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskInputRequiredCodingSystemAndCodingCodeValidationItem
@@ -312,10 +320,11 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
      * @see dev.dsf.utils.validator.item.FhirTaskBusinessKeyExistsValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskBusinessKeyExistsAndStatusNotDraftValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskCorrelationExistsValidationItem
-     * @see dev.dsf.utils.validator.item.FhirTaskInputCountTooLowItem
-     * @see dev.dsf.utils.validator.item.FhirTaskInputCountTooHighItem
-     * @see dev.dsf.utils.validator.item.FhirTaskSliceMinNotMetItem
-     * @see dev.dsf.utils.validator.item.FhirTaskSliceMaxExceededItem
+     * @see dev.dsf.utils.validator.item.FhirTaskCorrelationMissingButRequiredValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputInstanceCountBelowMinItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputInstanceCountExceedsMaxItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputSliceCountBelowSliceMinItem
+     * @see dev.dsf.utils.validator.item.FhirTaskInputSliceCountExceedsSliceMaxItem
      * @see dev.dsf.utils.validator.item.FhirTaskCouldNotLoadProfileValidationItem
      */
     private void validateInputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
@@ -424,20 +433,34 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             out.add(new FhirTaskBusinessKeyExistsValidationItem(
                     f, ref, "businessKey: " + businessKey + " must not be present."));
 
-        if (correlation)
-            out.add(new FhirTaskCorrelationExistsValidationItem(
-                    f, ref, "correlation: " + correlation + " must not be present."));
-        else
-            out.add(ok(f, ref, "correlation input does not exist as expected."));
+        boolean corrAllowed = isCorrelationAllowed(cards);
+
+        if (correlation) {
+            if (corrAllowed)
+                out.add(ok(f, ref,
+                        "correlation input present and permitted by StructureDefinition"));
+            else
+                out.add(new FhirTaskCorrelationExistsValidationItem(
+                        f, ref, "correlation input is not allowed by StructureDefinition"));
+        } else {
+            // missing ↔ only an error when the slice min > 0
+            SliceCard corrCard = (cards != null) ? cards.get("correlation-key") : null;
+            if (corrCard != null && corrCard.min() > 0)
+                out.add(new FhirTaskCorrelationMissingButRequiredValidationItem(
+                        f, ref, "correlation input missing but slice min-cardinality is "
+                        + corrCard.min()));
+            else
+                out.add(ok(f, ref, "correlation input absent as expected"));
+        }
 
         // Cardinality check
         if (cards != null)
         {
             SliceCard baseCard = cards.get("__BASE__");
             if (inputCount < baseCard.min())
-                out.add(new FhirTaskInputCountTooLowItem(f, ref, inputCount, baseCard.min()));
+                out.add(new FhirTaskInputInstanceCountBelowMinItem(f, ref, inputCount, baseCard.min()));
             else if (inputCount > baseCard.max())
-                out.add(new FhirTaskInputCountTooHighItem(f, ref, inputCount, baseCard.max()));
+                out.add(new FhirTaskInputInstanceCountExceedsMaxItem(f, ref, inputCount, baseCard.max()));
             else
                 out.add(ok(f, ref, "Task.input count " + inputCount +
                         " within " + baseCard.min() + "‥" + (baseCard.max() == Integer.MAX_VALUE ? "*" : baseCard.max())));
@@ -447,20 +470,18 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                 if ("__BASE__".equals(code)) return;
                 int cnt = sliceCounter.getOrDefault(code, 0);
                 if (cnt < card.min())
-                    out.add(new FhirTaskSliceMinNotMetItem(f, ref, code, cnt, card.min()));
+                    out.add(new FhirTaskInputSliceCountBelowSliceMinItem(f, ref, code, cnt, card.min()));
                 else if (cnt > card.max())
-                    out.add(new FhirTaskSliceMaxExceededItem(f, ref, code, cnt, card.max()));
+                    out.add(new FhirTaskInputSliceCountExceedsSliceMaxItem(f, ref, code, cnt, card.max()));
                 else
                     out.add(ok(f, ref, "slice '" + code + "' count " + cnt + " OK"));
             });
         }
     }
 
-
     /*
       3) Terminology
        */
-
     /**
      * Validates all coding elements against known DSF CodeSystems.
      */
@@ -747,5 +768,14 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             return map;
         } catch(Exception e){ return null; }
     }
+
+    // helper to decide if correlation slice is allowed
+    private boolean isCorrelationAllowed(Map<String, SliceCard> cards) {
+        if (cards == null)                // profile could not be loaded
+            return false;                 // fall back to old “forbidden” behaviour
+        SliceCard c = cards.get("correlation-key");   // slice code == correlation-key
+        return c != null && c.max() != 0;             // defined and max > 0 ⇒ allowed
+    }
+
 
 }
