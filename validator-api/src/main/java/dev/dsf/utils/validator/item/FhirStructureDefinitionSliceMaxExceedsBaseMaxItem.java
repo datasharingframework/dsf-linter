@@ -14,7 +14,7 @@ import java.io.File;
  *
  * <p>This issue corresponds to {@link ValidationType#STRUCTURE_DEFINITION_SLICE_MAX_TOO_HIGH}.</p>
  */
-public class FhirStructureDefinitionSliceMaxTooHighItem extends FhirElementValidationItem
+public class FhirStructureDefinitionSliceMaxExceedsBaseMaxItem extends FhirElementValidationItem
 {
     /**
      * Constructs a validation item for a slice maximum violation.
@@ -26,7 +26,7 @@ public class FhirStructureDefinitionSliceMaxTooHighItem extends FhirElementValid
      * @param offendingSliceId  the slice element whose {@code max} exceeds the base max
      * @param sliceMaxLabel     the offending slice's {@code max} value (e.g. "2" or "*")
      */
-    public FhirStructureDefinitionSliceMaxTooHighItem(File resourceFile,
+    public FhirStructureDefinitionSliceMaxExceedsBaseMaxItem(File resourceFile,
                                                       String fhirReference,
                                                       String elementId,
                                                       int baseMax,

@@ -239,50 +239,50 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     /**
      * Validates slice cardinality rules for elements in a StructureDefinition differential,
      * as specified in the HL7 FHIR profiling standard §5.1.0.14 "Slice Cardinality".
-     * <p>
-     * When an element with a fixed cardinality <code>m..n</code> is sliced into multiple parts (slices),
-     * the following constraints must be validated:
+     *
+     * <p>When an element with a fixed cardinality <code>m..n</code> is sliced into multiple parts (slices),
+     * the following constraints are enforced or recommended by the specification:
+     *
      * <ul>
-     *   <li>The maximum cardinality of each individual slice MUST NOT exceed <code>n</code>.</li>
-     *   <li>The sum of the maximum cardinalities of all slices MAY exceed <code>n</code>.</li>
-     *   <li>The sum of the minimum cardinalities of all slices MUST be ≤ <code>n</code>.</li>
-     *   <li>Each individual slice MAY declare <code>min = 0</code>, even if <code>m &gt; 0</code>, but:
-     *       <ul>
-     *         <li>The sum of all actual instance elements MUST still satisfy the base element's minimum <code>m</code>.</li>
-     *       </ul>
-     *   </li>
+     *   <li><strong>MUST:</strong> The <strong>maximum cardinality of each individual slice</strong> must not exceed <code>n</code>.</li>
+     *   <li><strong>MAY:</strong> The <strong>sum of all slice maximums</strong> may exceed <code>n</code> (not an error).</li>
+     *   <li><strong>MUST:</strong> The <strong>sum of all slice minimums</strong> must be less than or equal to <code>n</code>.</li>
+     *   <li><strong>SHOULD:</strong> The <strong>sum of all slice minimums</strong> should be less than or equal to <code>m</code>.</li>
+     *   <li><strong>Allowed:</strong> Individual slices may declare <code>min = 0</code> even if <code>m &gt; 0</code>,
+     *       but the total number of actual elements in an instance must still satisfy <code>m</code>.</li>
      * </ul>
-     * <p>
-     * This method parses the base element's min/max cardinality and all first-level slices (direct children),
-     * then performs the following checks:
+     *
+     * <p>This method parses the base element's <code>min</code>/<code>max</code> cardinalities and all first-level slice definitions
+     * (ignoring nested child paths), and performs the following rule checks:
+     *
      * <ul>
-     *   <li>Verifies that the sum of all slice minimums is ≥ base min (required)</li>
-     *   <li>Verifies that the sum of all slice minimums is ≤ base max (required)</li>
-     *   <li>Verifies that no individual slice exceeds base max (required)</li>
+     *   <li><strong>Recommended (SHOULD):</strong> Verifies that the sum of all <code>slice.min</code> values is ≤ <code>base.min</code></li>
+     *   <li><strong>Required (MUST):</strong> Verifies that the sum of all <code>slice.min</code> values is ≤ <code>base.max</code></li>
+     *   <li><strong>Required (MUST):</strong> Verifies that no individual <code>slice.max</code> exceeds <code>base.max</code></li>
      * </ul>
-     * <p>
-     * Validation results are reported via {@link FhirElementValidationItem} instances added to the {@code out} list.
+     *
+     * <p>All validation results (errors, informational messages, and OK confirmations) are reported via
+     * {@link dev.dsf.utils.validator.item.FhirElementValidationItem} instances added to the provided output list.
      *
      * @param doc  the DOM XML document representing the StructureDefinition
      * @param file the file where the StructureDefinition was loaded from, for traceability in validation results
-     * @param ref  a short string identifying the context (e.g., StructureDefinition URL), used in messages
-     * @param out  list to which validation errors, warnings, and OK confirmations are appended
+     * @param ref  a short string identifying the validation context (e.g., StructureDefinition URL), used in result messages
+     * @param out  list to which validation results (errors, warnings, OKs) are appended
      *
-     * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Profiling §5.1.0.14 – Slice Cardinality</a>
-     * @see FhirStructureDefinitionSliceMinTooLowItem
-     * @see FhirStructureDefinitionSliceMaxTooHighItem
+     * @see <a href="https://hl7.org/fhir/profiling.html#slicing">FHIR Profiling §5.1.0.14 – Slice Cardinality</a>
+     * @see FhirStructureDefinitionSliceMinSumAboveBaseMinItem
+     * @see FhirStructureDefinitionSliceMinSumExceedsMaxItem
+     * @see FhirStructureDefinitionSliceMaxExceedsBaseMaxItem
      */
     private void checkSliceCardinality(Document doc,
                                        File file,
                                        String ref,
-                                       List<FhirElementValidationItem> out)
-    {
+                                       List<FhirElementValidationItem> out) {
         NodeList baseElems = xp(doc, DIFF_ELEM_XP);
         if (baseElems == null)
             return;
 
-        for (int i = 0; i < baseElems.getLength(); i++)
-        {
+        for (int i = 0; i < baseElems.getLength(); i++) {
             /*
              base element
               */
@@ -314,8 +314,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             int worstSliceMax = 0;
             String offendingSlice = null;
 
-            for (int j = 0; j < sliceCandidates.getLength(); j++)
-            {
+            for (int j = 0; j < sliceCandidates.getLength(); j++) {
                 String sliceId = val(sliceCandidates.item(j), "./@id");
                 if (sliceId.indexOf('.', baseId.length() + 1) != -1)
                     continue;
@@ -327,23 +326,17 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
                         "./*[local-name()='max']/@value");
 
                 int sliceMax;
-                if (sliceMaxRaw == null || sliceMaxRaw.isEmpty())
-                {
+                if (sliceMaxRaw == null || sliceMaxRaw.isEmpty()) {
                     // inherited from base element
                     sliceMax = baseMax;
-                }
-                else if ("*".equals(sliceMaxRaw))
-                {
+                } else if ("*".equals(sliceMaxRaw)) {
                     sliceMax = Integer.MAX_VALUE;
-                }
-                else
-                {
+                } else {
                     sliceMax = parseUnsignedIntOrDefault(sliceMaxRaw, Integer.MAX_VALUE);
                 }
 
                 sumSliceMin += sliceMin;
-                if (sliceMax > worstSliceMax)
-                {
+                if (sliceMax > worstSliceMax) {
                     worstSliceMax = sliceMax;
                     offendingSlice = sliceId;
                 }
@@ -352,46 +345,48 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             /*
               MIN rule
               */
-            if (baseMinSpecified)
-            {
-                if (sumSliceMin < baseMin)
-                    out.add(new FhirStructureDefinitionSliceMinTooLowItem(
+            if (baseMinSpecified) {
+                if (sumSliceMin > baseMin)
+                    out.add(new FhirStructureDefinitionSliceMinSumAboveBaseMinItem(
                             file, ref, baseId, baseMin, sumSliceMin));
                 else
                     out.add(ok(file, ref,
                             "element '" + baseId + "': Σ min(" + sumSliceMin +
-                                    ") ≥ declared min (" + baseMin + ")"));
+                                    ") ≤ declared min (" + baseMin + ")"));
             }
 
             /*
               MAX rule
               */
-            if (baseMaxSpecified && baseMax != Integer.MAX_VALUE)
-            {
+            if (baseMaxSpecified && baseMax != Integer.MAX_VALUE) {
                 boolean maxSumViolation = sumSliceMin > baseMax;
                 boolean sliceMaxViolation = worstSliceMax > baseMax;
 
-                if (maxSumViolation || sliceMaxViolation)
-                {
+                if (sliceMaxViolation) {
                     String label = (worstSliceMax == Integer.MAX_VALUE) ? "*" : String.valueOf(worstSliceMax);
-                    out.add(new FhirStructureDefinitionSliceMaxTooHighItem(
+                    out.add(new FhirStructureDefinitionSliceMaxExceedsBaseMaxItem(
                             file, ref, baseId, baseMax, offendingSlice, label));
-                }
-                else
+                } else {
                     out.add(ok(file, ref,
-                            "element '" + baseId + "': all slice.max ≤ " + baseMax +
-                                    " and Σ min (" + sumSliceMin + ") ≤ " + baseMax));
-            }
-            else if (baseMax == Integer.MAX_VALUE)
-            {
+                            "element '" + baseId + "': all slice.max ≤ " + baseMax));
+                }
+
+                if (maxSumViolation) {
+                    out.add(new FhirStructureDefinitionSliceMinSumExceedsMaxItem
+                            (
+                                    file, ref, baseId, baseMax, sumSliceMin));
+                } else {
+                    out.add(ok(file, ref,
+                            "element '" + baseId + "': Σ slice.min (" + sumSliceMin + ") ≤ declared max (" + baseMax + ")"));
+                }
+            } else if (baseMax == Integer.MAX_VALUE) {
                 out.add(ok(file, ref,
                         "element '" + baseId + "': unlimited max → no upper-bound check required"));
             }
+
         }
     }
-
-
-    /*  HELPERS  */
+            /*  HELPERS  */
     /**
      * Resolves the canonical reference for issue reporting from the StructureDefinition.
      * If the {@code url} element is present, it is used as reference; otherwise,
