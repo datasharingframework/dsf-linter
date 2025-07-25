@@ -32,8 +32,8 @@ import java.util.*;
  *       {@code http://dsf.dev/fhir/CodeSystem/}.</li>
  *   <li><strong>Concept validation:</strong>
  *       <ul>
- *         <li>Every <code>concept</code> needs <code>code</code> and <code>display</code>.</li>
- *         <li>All codes must be unique inside the resource.</li>
+ *         <li>Every <code>concept</code> may has  <code>code</code> and <code>display</code>.</li>
+ *         <li>All codes should be unique inside the resource.</li>
  *       </ul></li>
  * </ul>
  *

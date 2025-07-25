@@ -10,7 +10,7 @@ import java.io.File;
  * any {@code <concept>} elements.
  *
  * <p>According to the DSF CodeSystem base profile, at least one {@code concept}
- * entry is required to define the set of codes provided by the system.</p>
+ * entry may is defined the set of codes provided by the system.</p>
  *
  * <p>This issue corresponds to {@link ValidationType#CODE_SYSTEM_MISSING_CONCEPT}.</p>
  */
@@ -41,7 +41,7 @@ public class FhirCodeSystemMissingConceptValidationItem extends FhirElementValid
                                                       String description,
                                                       boolean custom)
     {
-        super(ValidationSeverity.ERROR,
+        super(ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.CODE_SYSTEM_MISSING_CONCEPT,
