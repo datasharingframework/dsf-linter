@@ -20,7 +20,7 @@ import java.util.*;
  * <h2>Supported Validations</h2>
  * The validator performs the following checks:
  * <ul>
- *   <li><b>Meta Information:</b> Ensures that <code>meta.profile</code> and <code>meta.tag</code> are correctly set.</li>
+ *   <li><b>Meta Information:</b> Ensures that <code>meta.tag</code> are correctly set.</li>
  *   <li><b>Placeholders:</b> Validates that <code>version</code> and <code>date</code> fields include the required placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
  *   <li><b>Differential Integrity:</b> Ensures the presence of a <code>differential</code> section and the absence of a <code>snapshot</code>, and that all element <code>@id</code> values are unique.</li>
  *   <li><b>Slice Cardinality:</b> Validates slice min/max constraints as defined in <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR §5.1.0.14</a>.</li>
@@ -51,7 +51,6 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     private static final String DIFFERENTIAL_XP = SD_XP + "/*[local-name()='differential']";
     private static final String SNAPSHOT_XP     = SD_XP + "/*[local-name()='snapshot']";
     private static final String ELEMENTS_XP     = DIFFERENTIAL_XP + "/*[local-name()='element']";
-    private static final String META_PROFILE_XP = SD_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value";
     private static final String META_TAG_XP     = SD_XP + "/*[local-name()='meta']/*[local-name()='tag']";
     private static final String DIFF_ELEM_XP = DIFFERENTIAL_XP + "/*[local-name()='element']";
     /*  CONSTANTS  */
@@ -91,7 +90,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
         return issues;
     }
 
-    /* CHECK 1: META & BASICS  */
+    /* CHECK 1: BASICS  */
     /**
      * Validates the presence and correctness of key metadata elements including:
      * <ul>
@@ -111,15 +110,6 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
                                     String ref,
                                     List<FhirElementValidationItem> out)
     {
-        /* meta.profile */
-        String profile = val(doc, META_PROFILE_XP);
-        if (blank(profile))
-            out.add(new FhirStructureDefinitionMissingMetaProfileItem(file, ref));
-        else if (!profile.startsWith(URL_PREFIX))
-            out.add(new FhirStructureDefinitionInvalidMetaProfileItem(file, ref, profile));
-        else
-            out.add(ok(file, ref, "meta.profile present and DSF-conformant"));
-
         /* read-access tag */
         boolean tagOk = false;
         NodeList tags = xp(doc, META_TAG_XP);
