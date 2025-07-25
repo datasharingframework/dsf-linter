@@ -168,14 +168,14 @@ public final class FhirCodeSystemValidator extends AbstractFhirInstanceValidator
     private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementValidationItem> out)
     {
         String version = val(doc, CS_XP + "/*[local-name()='version']/@value");
-        if (version != null && !version.contains("#{version}"))
+        if (version != null && !version.equals("#{version}"))
             out.add(new FhirCodeSystemVersionNoPlaceholderValidationItem(f, ref,
                     "<version> must contain '#{version}'"));
         else
             out.add(ok(f, ref, "<version> placeholder OK"));
 
         String date = val(doc, CS_XP + "/*[local-name()='date']/@value");
-        if (date != null && !date.contains("#{date}"))
+        if (date != null && !date.equals("#{date}"))
             out.add(new FhirCodeSystemDateNoPlaceholderValidationItem(f, ref,
                     "<date> must contain '#{date}'"));
         else
