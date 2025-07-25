@@ -8,9 +8,8 @@ import java.io.File;
 /**
  * Validation item indicating that a Questionnaire contains no {@code <item>} elements.
  *
- * <p>According to the DSF Questionnaire template, each Questionnaire must contain
- * one or more {@code <item>} elements defining the structure of the expected user input.
- * An empty item block means the Questionnaire cannot function as intended.</p>
+ * <p>According to the DSF Questionnaire template, each Questionnaire should contain
+ * one or more {@code <item>} elements defining the structure of the expected user input.</p>
  *
  * <p>This issue corresponds to {@link ValidationType#QUESTIONNAIRE_MISSING_ITEM} and
  * is reported as a structural {@link ValidationSeverity#ERROR}.</p>
@@ -43,7 +42,7 @@ public class FhirQuestionnaireMissingItemValidationItem extends FhirElementValid
                                                       boolean custom)
     {
         super(
-                ValidationSeverity.ERROR,
+                ValidationSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 ValidationType.QUESTIONNAIRE_MISSING_ITEM,
