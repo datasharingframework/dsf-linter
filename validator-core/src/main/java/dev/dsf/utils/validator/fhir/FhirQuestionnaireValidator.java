@@ -141,13 +141,13 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
                                    List<FhirElementValidationItem> out)
     {
         String version = val(doc, Q_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.contains("#{version}"))
+        if (version == null || !version.equals("#{version}"))
             out.add(new FhirQuestionnaireVersionNoPlaceholderValidationItem(file, ref));
         else
             out.add(ok(file, ref, "version placeholder present"));
 
         String date = val(doc, Q_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.contains("#{date}"))
+        if (date == null || !date.equals("#{date}"))
             out.add(new FhirQuestionnaireDateNoPlaceholderValidationItem(file, ref));
         else
             out.add(ok(file, ref, "date placeholder present"));
