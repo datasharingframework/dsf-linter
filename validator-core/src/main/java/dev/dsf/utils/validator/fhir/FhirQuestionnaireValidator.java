@@ -8,36 +8,37 @@ import org.w3c.dom.NodeList;
 
 import java.io.File;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
- * <h2>DSF Questionnaire Validator (Profile: dsf-questionnaire 1.5.0)</h2>
+ * <h2>DSF Questionnaire Validator (Profile: dsf-questionnaire 1.5.0)</h2>
  *
- * <p>Validates FHIR {@code Questionnaire} resources that implement the
+ * <p>Validates FHIR {@code Questionnaire} resources that implement the
  * DSF profile <code>http://dsf.dev/fhir/StructureDefinition/questionnaire|1.5.0</code>.
  * The validator checks structural integrity, DSF‑specific conventions and
  * placeholder usage that is later resolved by the BPE.</p>
  *
  * <h3>Validation features</h3>
  * <ul>
- *   <li><strong>Meta &amp; basic checks</strong> – presence/accuracy of <code>meta.profile</code>,
- *       <code>meta.tag[read-access-tag]</code>, <code>url</code>, <code>version</code>,
- *       <code>date</code> and <code>status</code>.</li>
- *   <li><strong>Placeholder enforcement</strong> – verifies that
- *       <code>version</code> and <code>date</code> still contain the development
- *       placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
- *   <li><strong>Item validation</strong> – ensures the mandatory items
- *       <code>business-key</code> and <code>user-task-id</code> exist, have
- *       type <em>string</em> and are flagged <em>required=true</em>.
- *       Checks that every other item contains the mandatory attributes
- *       <code>linkId</code>, <code>type</code> and <code>text</code>, that
- *       linkIds are unique, and warns on non‑conformant linkId patterns.</li>
- *   <li><strong>Duplicate linkId detection</strong>.</li>
- *   <li><strong>Success reporting</strong> – mirrors the “success item”
- *       approach of {@link FhirTaskValidator} for a consistent report layout.</li>
+ * <li><strong>Meta &amp; basic checks</strong> – presence/accuracy of <code>meta.profile</code>,
+ *     <code>meta.tag[read-access-tag]</code>, <code>url</code>, <code>version</code>,
+ *     <code>date</code> and <code>status</code>.</li>
+ * <li><strong>Placeholder enforcement</strong> – verifies that
+ *     <code>version</code> and <code>date</code> still contain the development
+ *     placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
+ * <li><strong>Item validation</strong> – ensures the mandatory items
+ *     <code>business-key</code> and <code>user-task-id</code> exist, have
+ *     type <em>string</em> and are flagged <em>required=true</em>.
+ *     Checks that every other item contains the mandatory attributes
+ *     <code>linkId</code>, <code>type</code> and <code>text</code>, that
+ *     linkIds are unique, and warns on non‑conformant linkId patterns.</li>
+ * <li><strong>Duplicate linkId detection</strong>.</li>
+ * <li><strong>Success reporting</strong> – mirrors the “success item”
+ *      approach of {@link FhirTaskValidator} for a consistent report layout.</li>
  * </ul>
  *
  * <p><strong>Important:</strong>  The BPMN validator already makes sure that
- * for every <em>camunda:formKey</em> used in a User Task a matching
+ * for every <em>camunda:formKey</em> used in a User Task a matching
  * Questionnaire file exists. Therefore this class does <em>not</em> repeat
  * that existence check.</p>
  *
@@ -45,8 +46,8 @@ import java.util.*;
 public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValidator
 {
     /*
-      XPath constants
-      */
+     XPath constants
+     */
     private static final String Q_XP        = "/*[local-name()='Questionnaire']";
     private static final String ITEM_XP     = Q_XP + "/*[local-name()='item']";
     private static final String META_PRO_XP = Q_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value";
@@ -56,13 +57,18 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     private static final String PROFILE_URI   = "http://dsf.dev/fhir/StructureDefinition/questionnaire";
     private static final String URL_PREFIX    = "http://dsf.dev/fhir/Questionnaire/";
 
+    // Regex for the profile URI to ensure it strictly matches "http://dsf.dev/fhir/StructureDefinition/questionnaire|X.Y.Z"
+    // where X.Y.Z is a version number.
+    private static final Pattern PROFILE_URI_PATTERN = Pattern.compile("^" + Pattern.quote(PROFILE_URI) + "\\|\\d+\\.\\d+\\.\\d+$");
+
+
     /* Mandatory items defined by the DSF template */
     private static final String LINKID_BIZKEY   = "business-key";
     private static final String LINKID_USERTASK = "user-task-id";
 
     /*
-      Entry points
-    */
+     Entry points
+     */
 
     @Override
     public boolean canValidate(Document document)
@@ -84,8 +90,8 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     }
 
     /*
-      1) meta & basic elements
-     */
+     1) meta & basic elements
+    */
 
     private void checkMetaAndBasics(Document doc, File file, String ref,
                                     List<FhirElementValidationItem> out)
@@ -94,7 +100,8 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
         String profile = val(doc, META_PRO_XP);
         if (blank(profile))
             out.add(new FhirQuestionnaireMissingMetaProfileValidationItem(file, ref));
-        else if (!profile.startsWith(PROFILE_URI))
+            // Modified to use regex matching
+        else if (!PROFILE_URI_PATTERN.matcher(profile).matches())
             out.add(new FhirQuestionnaireInvalidMetaProfileValidationItem(file, ref, profile));
         else
             out.add(ok(file, ref, "meta.profile present and valid"));
@@ -134,8 +141,8 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     }
 
     /*
-      2) placeholder validation
-     */
+     2) placeholder validation
+    */
 
     private void checkPlaceholders(Document doc, File file, String ref,
                                    List<FhirElementValidationItem> out)
@@ -154,8 +161,8 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     }
 
     /*
-      3) item validation
-     */
+     3) item validation
+    */
 
     /**
      * Validates the {@code item} elements of a FHIR {@code Questionnaire} resource.
@@ -254,8 +261,8 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     }
 
     /*
-      4) helper methods
-     */
+     4) helper methods
+    */
 
     /**
      * Computes a reference string for the FHIR resource.
@@ -287,7 +294,7 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
      * @param name the name of the primitive field to extract (e.g., {@code linkId}, {@code type})
      * @return the string value of the primitive field, or {@code null} if not found
      */
-    private  String primitive(Node item, String name) {
+    private String primitive(Node item, String name) {
         String v = val(item, "./*[local-name()='" + name + "']/@value");
         return blank(v) ? val(item, "./@" + name) : v;
     }
