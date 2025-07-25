@@ -239,7 +239,7 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
                 out.add(new FhirQuestionnaireDuplicateLinkIdValidationItem(file, ref, linkId));
 
             /* warn on unusual pattern  */
-            if (!linkId.matches("[a-z0-9\\-]+"))
+            if (!linkId.matches("^[a-z0-9]+(?:-[a-z0-9]+)*$"))
                 out.add(new FhirQuestionnaireUnusualLinkIdValidationItem(file, ref, linkId));
 
             /* mandatory items  */
