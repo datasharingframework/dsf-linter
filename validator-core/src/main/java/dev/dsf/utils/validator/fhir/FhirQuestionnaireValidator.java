@@ -67,6 +67,11 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
     private static final String LINKID_USERTASK = "user-task-id";
 
     /*
+    valid values for system code
+     */
+    private static final Set<String> VALID_READ_ACCESS_CODES =
+            Set.of("ALL", "LOCAL", "ORGANIZATION", "ROLE");
+    /*
      Entry points
      */
 
@@ -113,7 +118,7 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
             for (int i = 0; i < tags.getLength(); i++) {
                 String sys  = val(tags.item(i), "./*[local-name()='system']/@value");
                 String code = val(tags.item(i), "./*[local-name()='code']/@value");
-                if (READ_TAG_SYS.equals(sys) && "ALL".equals(code)) {
+                if (READ_TAG_SYS.equals(sys) && VALID_READ_ACCESS_CODES.contains(code)){
                     tagOk = true; break;
                 }
             }
