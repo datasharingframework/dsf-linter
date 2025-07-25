@@ -175,14 +175,14 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     {
         /* version */
         String version = val(doc, SD_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.contains("#{version}"))
+        if (version == null || !version.equals("#{version}"))
             out.add(new FhirStructureDefinitionVersionNoPlaceholderItem(file, ref, version));
         else
             out.add(ok(file, ref, "version placeholder present"));
 
         /* date */
         String date = val(doc, SD_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.contains("#{date}"))
+        if (date == null || !date.equals("#{date}"))
             out.add(new FhirStructureDefinitionDateNoPlaceholderItem(file, ref, date));
         else
             out.add(ok(file, ref, "date placeholder present"));
