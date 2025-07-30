@@ -102,7 +102,7 @@ public final class FhirAuthorizationCache
                 "REMOTE_ALL", "REMOTE_ORGANIZATION", "REMOTE_ROLE"));
 
         register(CS_READ_ACCESS, Set.of(
-                "ALL", "LOCAL", "ORGANIZATION", "ROLE", "PRACTITIONER", "ROLE_PRACTITIONER"));
+                "ALL", "LOCAL", "ORGANIZATION", "ROLE"));
 
         register(CS_PRACT_ROLE, Set.of(
                 "DSF_ADMIN", "UAC_USER", "COS_USER", "CRR_USER", "DIC_USER", "DMS_USER",
