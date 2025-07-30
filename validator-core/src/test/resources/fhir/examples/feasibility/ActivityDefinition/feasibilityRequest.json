@@ -1,0 +1,208 @@
+{
+  "status": "unknown",
+  "extension": [
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "feasibilityRequestMessage"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-task-request|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "medizininformatik-initiative.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "HRP",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role-practitioner",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "medizininformatik-initiative.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "HRP",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  },
+                  {
+                    "url": "practitioner-role",
+                    "valueCoding": {
+                      "code": "DSF_ADMIN",
+                      "system": "http://dsf.dev/fhir/CodeSystem/practitioner-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE_PRACTITIONER",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "medizininformatik-initiative.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "HRP",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    },
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "feasibilitySingleDicResultMessage"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-task-single-dic-result|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "medizininformatik-initiative.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "DIC",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "REMOTE_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "medizininformatik-initiative.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "HRP",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    }
+  ],
+  "publisher": "MII",
+  "name": "FeasibilityRequest",
+  "kind": "Task",
+  "description": "Process to start a feasibility query, process sends messages to all DICs, receives result from all DICs",
+  "contact": [
+    {
+      "name": "MII",
+      "telecom": [
+        {
+          "value": "akiel@life.uni-leipzig.de",
+          "system": "email"
+        }
+      ]
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "ActivityDefinition",
+  "date": "2022-06-07",
+  "title": "Feasibility Request",
+  "url": "http://medizininformatik-initiative.de/bpe/Process/feasibilityRequest",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "subtitle": "Feasibility Request Process"
+}

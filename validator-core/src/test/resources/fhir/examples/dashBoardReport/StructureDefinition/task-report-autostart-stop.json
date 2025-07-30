@@ -1,0 +1,60 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportAutostart|#{version}",
+        "path": "Task.instantiatesCanonical"
+      },
+      {
+        "min": 1,
+        "id": "Task.input",
+        "max": "2",
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "message-name",
+        "id": "Task.input:message-name",
+        "path": "Task.input"
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "dashboardReportAutostartStop",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "sliceName": "business-key",
+        "id": "Task.input:business-key",
+        "min": 0,
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "correlation-key",
+        "id": "Task.input:correlation-key",
+        "max": "0",
+        "path": "Task.input"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "TaskReportAutostartStop",
+  "derivation": "constraint",
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "type": "Task",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/task-report-autostart-stop",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}"
+}

@@ -1,0 +1,43 @@
+{
+  "status": "unknown",
+  "publisher": "DSF",
+  "name": "DSF_Pong_Status",
+  "description": "ValueSet with pong status values",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://dsf.dev/fhir/CodeSystem/ping-status",
+        "concept": [
+          {
+            "display": "Not allowed",
+            "code": "not-allowed"
+          },
+          {
+            "display": "Not reachable",
+            "code": "not-reachable"
+          },
+          {
+            "display": "Pong send",
+            "code": "pong-send"
+          }
+        ]
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://dsf.dev/fhir/ValueSet/pong-status",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "DSF Pong Status"
+}

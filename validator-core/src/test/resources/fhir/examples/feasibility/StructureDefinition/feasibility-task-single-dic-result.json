@@ -1,0 +1,151 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://medizininformatik-initiative.de/bpe/Process/feasibilityRequest|#{version}",
+        "path": "Task.instantiatesCanonical"
+      },
+      {
+        "min": 4,
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "path": "Task.input",
+        "max": "4",
+        "id": "Task.input"
+      },
+      {
+        "sliceName": "message-name",
+        "id": "Task.input:message-name",
+        "path": "Task.input",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "feasibilitySingleDicResultMessage",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "min": 1,
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "business-key",
+        "path": "Task.input",
+        "id": "Task.input:business-key"
+      },
+      {
+        "min": 1,
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "correlation-key",
+        "path": "Task.input",
+        "id": "Task.input:correlation-key"
+      },
+      {
+        "min": 1,
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "measure-report",
+        "path": "Task.input",
+        "max": "1",
+        "id": "Task.input:measure-report"
+      },
+      {
+        "id": "Task.input:measure-report.type",
+        "binding": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-bindingName",
+              "valueString": "TaskInputParameterType"
+            }
+          ],
+          "valueSet": "http://medizininformatik-initiative.de/fhir/ValueSet/feasibility",
+          "strength": "required"
+        },
+        "path": "Task.input.type"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:measure-report.type.coding",
+        "max": "1",
+        "path": "Task.input.type.coding"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:measure-report.type.coding.system",
+        "path": "Task.input.type.coding.system",
+        "fixedUri": "http://medizininformatik-initiative.de/fhir/CodeSystem/feasibility"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:measure-report.type.coding.code",
+        "fixedCode": "measure-report-reference",
+        "path": "Task.input.type.coding.code"
+      },
+      {
+        "id": "Task.input:measure-report.value[x]",
+        "type": [
+          {
+            "targetProfile": [
+              "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-measure-report"
+            ],
+            "code": "Reference"
+          }
+        ],
+        "path": "Task.input.value[x]"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:measure-report.value[x].reference",
+        "path": "Task.input.value[x].reference"
+      },
+      {
+        "max": "0",
+        "id": "Task.input:measure-report.value[x].identifier",
+        "path": "Task.input.value[x].identifier"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "FeasibilityTaskSingleDicResult",
+  "derivation": "constraint",
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "type": "Task",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-task-single-dic-result",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "2022-06-07"
+}

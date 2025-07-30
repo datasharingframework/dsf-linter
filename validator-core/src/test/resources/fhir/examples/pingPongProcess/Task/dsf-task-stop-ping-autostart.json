@@ -1,0 +1,49 @@
+{
+  "status": "draft",
+  "authoredOn": "#{date}",
+  "identifier": [
+    {
+      "value": "http://dsf.dev/bpe/Process/pingAutostart/#{version}/task-stop-ping-autostart",
+      "system": "http://dsf.dev/sid/task-identifier"
+    }
+  ],
+  "intent": "order",
+  "resourceType": "Task",
+  "input": [
+    {
+      "valueString": "stopPingAutostart",
+      "type": {
+        "coding": [
+          {
+            "code": "message-name",
+            "system": "http://dsf.dev/fhir/CodeSystem/bpmn-message"
+          }
+        ]
+      }
+    }
+  ],
+  "restriction": {
+    "recipient": [
+      {
+        "identifier": {
+          "value": "#{organization}",
+          "system": "http://dsf.dev/sid/organization-identifier"
+        },
+        "type": "Organization"
+      }
+    ]
+  },
+  "requester": {
+    "identifier": {
+      "value": "#{organization}",
+      "system": "http://dsf.dev/sid/organization-identifier"
+    },
+    "type": "Organization"
+  },
+  "meta": {
+    "profile": [
+      "http://dsf.dev/fhir/StructureDefinition/task-stop-ping-autostart|#{version}"
+    ]
+  },
+  "instantiatesCanonical": "http://dsf.dev/bpe/Process/pingAutostart|#{version}"
+}

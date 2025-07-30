@@ -1,0 +1,72 @@
+{
+  "fhirVersion": "4.0.1",
+  "version": "#{version}",
+  "url": "http://dsf.dev/fhir/StructureDefinition/task-stop-ping-autostart",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "abstract": false,
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "derivation": "constraint",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "path": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://dsf.dev/bpe/Process/pingAutostart|#{version}"
+      },
+      {
+        "id": "Task.input",
+        "max": "2",
+        "min": 1,
+        "path": "Task.input",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "path": "Task.input",
+        "id": "Task.input:message-name",
+        "sliceName": "message-name",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "stopPingAutostart",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "correlation-key",
+        "path": "Task.input",
+        "max": "0",
+        "id": "Task.input:correlation-key"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "type": "Task",
+  "experimental": false,
+  "status": "unknown",
+  "name": "TaskStopPingAutostart"
+}

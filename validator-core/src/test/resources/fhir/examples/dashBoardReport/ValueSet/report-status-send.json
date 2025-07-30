@@ -1,0 +1,51 @@
+{
+  "status": "unknown",
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "name": "NUM_Dashboard_Report_Status_Send",
+  "description": "ValueSet with values for the report send status",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report-status",
+        "concept": [
+          {
+            "display": "Not allowed",
+            "code": "not-allowed"
+          },
+          {
+            "display": "Not reachable",
+            "code": "not-reachable"
+          },
+          {
+            "display": "Receipt missing",
+            "code": "receipt-missing"
+          },
+          {
+            "display": "Receipt ok",
+            "code": "receipt-ok"
+          },
+          {
+            "display": "Receipt error",
+            "code": "receipt-error"
+          }
+        ]
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report-status-send",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report Status Send"
+}

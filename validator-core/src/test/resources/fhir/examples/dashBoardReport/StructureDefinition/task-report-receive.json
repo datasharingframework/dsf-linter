@@ -1,0 +1,144 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportSend|#{version}",
+        "path": "Task.instantiatesCanonical"
+      },
+      {
+        "min": 3,
+        "id": "Task.input",
+        "max": "3",
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "message-name",
+        "id": "Task.input:message-name",
+        "path": "Task.input"
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "dashboardReportReceive",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "sliceName": "business-key",
+        "id": "Task.input:business-key",
+        "min": 1,
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "correlation-key",
+        "id": "Task.input:correlation-key",
+        "max": "0",
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "report-status",
+        "id": "Task.input:report-status",
+        "min": 1,
+        "path": "Task.input"
+      },
+      {
+        "slicing": {
+          "discriminator": [
+            {
+              "path": "url",
+              "type": "value"
+            }
+          ],
+          "rules": "open"
+        },
+        "id": "Task.input:report-status.extension",
+        "path": "Task.input.extension"
+      },
+      {
+        "min": 0,
+        "type": [
+          {
+            "profile": [
+              "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/extension-report-status-error|#{version}"
+            ],
+            "code": "Extension"
+          }
+        ],
+        "sliceName": "extension-report-status-error",
+        "path": "Task.input.extension",
+        "max": "1",
+        "id": "Task.input:report-status.extension:extension-report-status-error"
+      },
+      {
+        "id": "Task.input:report-status.type",
+        "binding": {
+          "valueSet": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.input.type"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:report-status.type.coding",
+        "max": "1",
+        "path": "Task.input.type.coding"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:report-status.type.coding.system",
+        "path": "Task.input.type.coding.system",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:report-status.type.coding.code",
+        "fixedCode": "report-status",
+        "path": "Task.input.type.coding.code"
+      },
+      {
+        "id": "Task.input:report-status.value[x]",
+        "type": [
+          {
+            "code": "Coding"
+          }
+        ],
+        "path": "Task.input.value[x]"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:report-status.value[x].system",
+        "path": "Task.input.value[x].system",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report-status"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:report-status.value[x].code",
+        "binding": {
+          "valueSet": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report-status-send|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.input.value[x].code"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "TaskReportReceive",
+  "derivation": "constraint",
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "type": "Task",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/task-report-receive",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}"
+}

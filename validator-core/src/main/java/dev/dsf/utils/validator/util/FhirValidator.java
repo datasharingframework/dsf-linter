@@ -146,12 +146,12 @@ public class FhirValidator
 
         try (Stream<Path> paths = Files.walk(dir.toPath()))
         {
-            List<Path> xmlFiles = paths
+            List<Path> fhirFiles = paths
                     .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .toList();
 
-            return xmlFiles.stream().anyMatch(p -> fileContainsValue(p, value, isActivityDefinition));
+            return fhirFiles.stream().anyMatch(p -> fileContainsValue(p, value, isActivityDefinition));
         }
         catch (Exception e)
         {
@@ -179,7 +179,7 @@ public class FhirValidator
     {
         try
         {
-            Document doc = parseXml(filePath);
+            Document doc = parseFhirFile(filePath);  // Use the new method that supports both XML and JSON
             if (doc == null) return false;
 
             String rootName = doc.getDocumentElement().getLocalName();
@@ -218,6 +218,46 @@ public class FhirValidator
             DocumentBuilder db = dbf.newDocumentBuilder();
             return db.parse(fis);
         }
+    }
+
+    /**
+     * Parses either an XML or JSON FHIR file into a DOM Document.
+     * For JSON files, it converts them to XML first using the same logic as FhirResourceValidator.
+     *
+     * @param filePath the path to the XML or JSON file
+     * @return a {@link Document} representing the parsed content, or {@code null} if an error occurs
+     */
+    public static Document parseFhirFile(Path filePath) throws Exception
+    {
+        String fileName = filePath.toString().toLowerCase();
+
+        if (fileName.endsWith(".xml")) {
+            return parseXml(filePath);
+        } else if (fileName.endsWith(".json")) {
+            return parseJsonToXml(filePath);
+        } else {
+            throw new IllegalArgumentException("Unsupported file type: " + fileName + " (only .xml and .json are supported)");
+        }
+    }
+
+    /**
+     * Parses a JSON FHIR file and converts it to a DOM Document by first converting to XML.
+     * Uses the same JSON-to-XML conversion logic as FhirResourceValidator.
+     */
+    public static Document parseJsonToXml(Path filePath) throws Exception
+    {
+        // Use Jackson to parse JSON
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(filePath.toFile());
+
+        // Convert JSON to XML string using utility class
+        String xmlString = JsonXmlConverter.convertJsonToXml(jsonNode);
+
+        // Parse the XML string to create a DOM Document
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        return db.parse(new org.xml.sax.InputSource(new java.io.StringReader(xmlString)));
     }
 
     /**
@@ -284,14 +324,14 @@ public class FhirValidator
 
         try (Stream<Path> paths = Files.walk(dir.toPath()))
         {
-            List<Path> xmlFiles = paths
+            List<Path> fhirFiles = paths
                     .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .toList();
 
-            for (Path xml : xmlFiles)
+            for (Path fhirFile : fhirFiles)
             {
-                Document doc = parseXml(xml);
+                Document doc = parseFhirFile(fhirFile);
                 if (doc == null)
                     continue;
 
@@ -368,13 +408,13 @@ public class FhirValidator
             return foundMessageNames;
 
         try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            List<Path> xmlFiles = paths
+            List<Path> fhirFiles = paths
                     .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .toList();
 
-            for (Path xml : xmlFiles) {
-                Document doc = parseXml(xml);
+            for (Path fhirFile : fhirFiles) {
+                Document doc = parseFhirFile(fhirFile);
                 if (doc == null) continue;
 
                 if (!"ActivityDefinition".equals(doc.getDocumentElement().getLocalName()))
@@ -503,7 +543,7 @@ public class FhirValidator
 
     private static boolean fileContainsInstantiatesCanonical(Path filePath, String canonicalValue) {
         try {
-            Document doc = parseXml(filePath);
+            Document doc = parseFhirFile(filePath);  // Use the new method that supports both XML and JSON
             if (doc == null) return false;
             String rootName = doc.getDocumentElement().getLocalName();
             if (!"ActivityDefinition".equals(rootName)) return false;
@@ -550,25 +590,6 @@ public class FhirValidator
         if (f != null) return f;
 
         return tryFindStructureFile(base, projectRoot, STRUCTURE_DEFINITION_DIR_FLAT);
-    }
-
-    /**
-     * Checks if the provided StructureDefinition {@link Document} contains a <code>&lt;url&gt;</code>
-     * element with a value matching the given profile value.
-     * <p>
-     * This method uses an XPath expression to search for a <code>&lt;url&gt;</code> element with the specified value.
-     * </p>
-     *
-     * @param doc          the XML {@link Document} of the StructureDefinition
-     * @param profileValue the profile value to search for
-     * @return {@code true} if a matching <code>&lt;url&gt;</code> element is found; {@code false} otherwise
-     * @throws XPathExpressionException if the XPath evaluation fails
-     */
-    private static boolean structureDefinitionHasUrlValue(Document doc, String profileValue)
-            throws XPathExpressionException
-    {
-        String xpathExpr = "//*[local-name()='url' and @value='" + profileValue + "']";
-        return evaluateXPathExists(doc, xpathExpr);
     }
 
 
@@ -808,7 +829,7 @@ public class FhirValidator
             String genericXpath =
                     "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']"
                             + "/*[local-name()='extension' and @url='recipient']"
-                            + "/*[local-name()='valueCoding']/*[local-name()='code']"
+                            + "/*[local-name()='valueCoding'] /*[local-name()='code']"
                             + "[@value='LOCAL_ALL' or @value='LOCAL_ALL_PRACTITIONER']";
             if (evaluateXPathExists(doc, genericXpath))
                 return true;
@@ -856,7 +877,7 @@ public class FhirValidator
         {
             return paths
                     .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .filter(p -> fileContainsValue(p, profileValue, /*isActivity=*/false))
                     .map(Path::toFile)
                     .findFirst()
@@ -903,7 +924,7 @@ public class FhirValidator
         try (Stream<Path> p = Files.walk(dir.toPath()))
         {
             return p.filter(Files::isRegularFile)
-                    .filter(x -> x.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .filter(x -> fileContainsInstantiatesCanonical(x, canonical))
                     .map(Path::toFile)
                     .findFirst().orElse(null);
@@ -938,10 +959,10 @@ public class FhirValidator
         try (Stream<Path> paths = Files.walk(dir.toPath()))
         {
             return paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                    .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .anyMatch(p -> {
                         try {
-                            Document d = parseXml(p);
+                            Document d = parseFhirFile(p);
                             return d != null
                                     && "Questionnaire".equals(d.getDocumentElement().getLocalName())
                                     && questionnaireContainsUrl(d, baseKey);

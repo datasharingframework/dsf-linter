@@ -1,0 +1,146 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "min": 1,
+        "id": "Library.url",
+        "mustSupport": true,
+        "path": "Library.url"
+      },
+      {
+        "mustSupport": true,
+        "id": "Library.status",
+        "fixedCode": "active",
+        "path": "Library.status"
+      },
+      {
+        "id": "Library.type",
+        "mustSupport": true,
+        "path": "Library.type"
+      },
+      {
+        "slicing": {
+          "ordered": false,
+          "discriminator": [
+            {
+              "path": "code",
+              "type": "value"
+            }
+          ],
+          "rules": "closed"
+        },
+        "id": "Library.type.coding",
+        "min": 1,
+        "path": "Library.type.coding"
+      },
+      {
+        "min": 1,
+        "mustSupport": true,
+        "sliceName": "logic-library",
+        "path": "Library.type.coding",
+        "max": "1",
+        "id": "Library.type.coding:logic-library"
+      },
+      {
+        "min": 1,
+        "id": "Library.type.coding:logic-library.code",
+        "fixedCode": "logic-library",
+        "path": "Library.type.coding.code"
+      },
+      {
+        "min": 2,
+        "slicing": {
+          "ordered": false,
+          "discriminator": [
+            {
+              "path": "contentType",
+              "type": "value"
+            }
+          ],
+          "rules": "closed"
+        },
+        "path": "Library.content",
+        "mustSupport": true,
+        "id": "Library.content"
+      },
+      {
+        "min": 1,
+        "mustSupport": true,
+        "sliceName": "cql",
+        "path": "Library.content",
+        "max": "1",
+        "id": "Library.content:cql"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:cql.contentType",
+        "fixedCode": "text/cql",
+        "path": "Library.content.contentType"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:cql.data",
+        "path": "Library.content.data"
+      },
+      {
+        "min": 1,
+        "mustSupport": true,
+        "sliceName": "structured-query",
+        "path": "Library.content",
+        "max": "1",
+        "id": "Library.content:structured-query"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:structured-query.contentType",
+        "fixedCode": "application/json",
+        "path": "Library.content.contentType"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:structured-query.data",
+        "path": "Library.content.data"
+      },
+      {
+        "min": 0,
+        "mustSupport": true,
+        "sliceName": "fhir-search",
+        "path": "Library.content",
+        "max": "1",
+        "id": "Library.content:fhir-search"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:fhir-search.contentType",
+        "fixedCode": "application/x-fhir-query",
+        "path": "Library.content.contentType"
+      },
+      {
+        "min": 1,
+        "id": "Library.content:fhir-search.data",
+        "path": "Library.content.data"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "Library",
+  "derivation": "constraint",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Library",
+  "type": "Library",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-library",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "2022-06-07"
+}

@@ -1,0 +1,55 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "min": 0,
+        "id": "Extension",
+        "max": "1",
+        "path": "Extension"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/extension-report-status-error"
+      },
+      {
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "path": "Extension.value[x]",
+        "min": 1,
+        "id": "Extension.value[x]"
+      }
+    ]
+  },
+  "derivation": "constraint",
+  "abstract": false,
+  "name": "ReportStatusError",
+  "context": [
+    {
+      "expression": "Task.input | Task.output",
+      "type": "fhirpath"
+    }
+  ],
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "type": "Extension",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "complex-type",
+  "fhirVersion": "4.0.1",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/extension-report-status-error",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}"
+}

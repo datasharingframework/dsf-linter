@@ -1,0 +1,112 @@
+{
+  "version": "#{version}",
+  "url": "http://dsf.dev/bpe/Process/ping",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "description": "Process to send PING messages to remote Organizations and to receive corresponding PONG messages",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "value": "pmo@dsf.dev",
+          "system": "email"
+        }
+      ],
+      "name": "DSF"
+    }
+  ],
+  "resourceType": "ActivityDefinition",
+  "kind": "Task",
+  "extension": [
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "startPing"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-start-ping|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-practitioner",
+                "valueCoding": {
+                  "code": "DSF_ADMIN",
+                  "system": "http://dsf.dev/fhir/CodeSystem/practitioner-role"
+                }
+              }
+            ],
+            "code": "LOCAL_ALL_PRACTITIONER",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    },
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "pong"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-pong|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "REMOTE_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    }
+  ],
+  "publisher": "DSF",
+  "experimental": false,
+  "status": "unknown",
+  "subtitle": "Communication Testing Process",
+  "title": "PING process",
+  "name": "Ping"
+}

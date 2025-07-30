@@ -1,0 +1,160 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "min": 1,
+        "id": "Measure.url",
+        "mustSupport": true,
+        "path": "Measure.url"
+      },
+      {
+        "mustSupport": true,
+        "id": "Measure.status",
+        "fixedCode": "active",
+        "path": "Measure.status"
+      },
+      {
+        "max": "1",
+        "mustSupport": true,
+        "type": [
+          {
+            "targetProfile": [
+              "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-library"
+            ],
+            "code": "canonical"
+          }
+        ],
+        "path": "Measure.library",
+        "min": 1,
+        "id": "Measure.library"
+      },
+      {
+        "min": 1,
+        "id": "Measure.scoring",
+        "mustSupport": true,
+        "path": "Measure.scoring"
+      },
+      {
+        "slicing": {
+          "ordered": false,
+          "discriminator": [
+            {
+              "path": "code",
+              "type": "value"
+            }
+          ],
+          "rules": "closed"
+        },
+        "id": "Measure.scoring.coding",
+        "min": 1,
+        "path": "Measure.scoring.coding"
+      },
+      {
+        "min": 1,
+        "mustSupport": true,
+        "sliceName": "cohort",
+        "path": "Measure.scoring.coding",
+        "max": "1",
+        "id": "Measure.scoring.coding:cohort"
+      },
+      {
+        "min": 1,
+        "id": "Measure.scoring.coding:cohort.code",
+        "fixedCode": "cohort",
+        "path": "Measure.scoring.coding.code"
+      },
+      {
+        "max": "1",
+        "mustSupport": true,
+        "path": "Measure.group",
+        "min": 1,
+        "id": "Measure.group"
+      },
+      {
+        "max": "1",
+        "mustSupport": true,
+        "path": "Measure.group.population",
+        "min": 1,
+        "id": "Measure.group.population"
+      },
+      {
+        "min": 1,
+        "id": "Measure.group.population.code",
+        "mustSupport": true,
+        "path": "Measure.group.population.code"
+      },
+      {
+        "slicing": {
+          "ordered": false,
+          "discriminator": [
+            {
+              "path": "code",
+              "type": "value"
+            }
+          ],
+          "rules": "closed"
+        },
+        "id": "Measure.group.population.code.coding",
+        "min": 1,
+        "path": "Measure.group.population.code.coding"
+      },
+      {
+        "min": 1,
+        "sliceName": "initial-population",
+        "path": "Measure.group.population.code.coding",
+        "max": "1",
+        "id": "Measure.group.population.code.coding:initial-population"
+      },
+      {
+        "min": 1,
+        "id": "Measure.group.population.code.coding:initial-population.code",
+        "fixedCode": "initial-population",
+        "path": "Measure.group.population.code.coding.code"
+      },
+      {
+        "id": "Measure.group.population.criteria",
+        "mustSupport": true,
+        "path": "Measure.group.population.criteria"
+      },
+      {
+        "mustSupport": true,
+        "id": "Measure.group.population.criteria.language",
+        "fixedCode": "text/cql",
+        "path": "Measure.group.population.criteria.language"
+      },
+      {
+        "min": 1,
+        "mustSupport": true,
+        "path": "Measure.group.population.criteria.expression",
+        "id": "Measure.group.population.criteria.expression",
+        "fixedString": "InInitialPopulation"
+      },
+      {
+        "max": "0",
+        "id": "Measure.group.stratifier",
+        "path": "Measure.group.stratifier"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "Measure",
+  "derivation": "constraint",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Measure",
+  "type": "Measure",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-measure",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "2022-06-07"
+}

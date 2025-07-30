@@ -10,12 +10,18 @@ import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.*;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑05)</h2>
  *
@@ -32,6 +38,7 @@ import java.util.stream.Stream;
  *       {@code src/main/resources/fhir/CodeSystem} directories</li>
  *   <li>Supports fast lookup of known codes per system for validation use cases</li>
  *   <li>Offers utilities to register, clear, and debug the contents of the cache</li>
+ *   <li>Loads both XML and JSON CodeSystem definitions</li>
  * </ul>
  *
  * <h3>Concurrency</h3>
@@ -163,7 +170,7 @@ public final class FhirAuthorizationCache
     /**
      * Recursively scans the given project root directory for directories named
      * {@code src/main/resources/fhir/CodeSystem} or {@code fhir/CodeSystem} and loads
-     * all {@code *.xml} files found within them.
+     * all {@code *.xml} and {@code *.json} files found within them.
      *
      * <p>
      * This method supports both Maven-style resource layouts and flat directory
@@ -201,7 +208,7 @@ public final class FhirAuthorizationCache
         {
             walk.filter(Files::isDirectory) // cheap test first
                     .filter(p -> p.endsWith(MAVEN_LAYOUT) || p.endsWith(FLAT_LAYOUT))
-                    .forEach(FhirAuthorizationCache::loadAllXmlInDirectory);
+                    .forEach(FhirAuthorizationCache::loadAllFhirInDirectory);
         }
         catch (IOException e)
         {
@@ -213,16 +220,21 @@ public final class FhirAuthorizationCache
     }
 
     /**
-     * Loads all XML files in the specified directory and registers any valid CodeSystems.
+     * Loads all FHIR CodeSystem files (XML and JSON) in the specified directory and registers any valid CodeSystems.
      *
-     * @param dir the directory containing {@code CodeSystem} XML files
+     * @param dir the directory containing {@code CodeSystem} XML and JSON files
      */
-    private static void loadAllXmlInDirectory(Path dir)
+    private static void loadAllFhirInDirectory(Path dir)
     {
         try (Stream<Path> files = Files.list(dir)) {
-            files.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".xml"))
-                    .forEach(FhirAuthorizationCache::loadSingleCodeSystem);
+            files.filter(Files::isRegularFile).forEach(p -> {
+                String name = p.getFileName().toString().toLowerCase();
+                if (name.endsWith(".xml")) {
+                    loadSingleCodeSystem(p);
+                } else if (name.endsWith(".json")) {
+                    loadJsonFile(p);
+                }
+            });
         }
         catch (IOException ignore) { /* directory not readable */ }
     }
@@ -265,6 +277,65 @@ public final class FhirAuthorizationCache
                         xml.getFileName(), system, codes.size());
         }
         catch (Exception ignore) { /* invalid or non-parsable XML */ }
+    }
+
+    /**
+     * Parses a single {@code CodeSystem} JSON file and registers its system and code elements
+     * if valid and well-formed.
+     *
+     * @param json the path to the JSON file
+     */
+    private static void loadJsonFile(Path json)
+    {
+        try (InputStream in = Files.newInputStream(json)) {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(in);
+
+            if (root == null || !"CodeSystem".equals(root.path("resourceType").asText())) return;
+
+            String systemUrl = root.path("url").asText();
+            if (systemUrl == null || systemUrl.isBlank()) return;
+
+            // Collect all codes from concept (including nested concepts)
+            Set<String> codes = new HashSet<>();
+            collectJsonConceptCodes(root.path("concept"), codes);
+
+            if (!codes.isEmpty()) {
+                register(systemUrl, codes);
+
+                if (DEBUG) {
+                    System.out.printf("[Cache‑DEBUG] JSON loaded %s → %s (%,d codes)%n",
+                            json.getFileName(), systemUrl, codes.size());
+                }
+            }
+        }
+        catch (Exception e) {
+            if (DEBUG) {
+                System.err.println("[CodeSystem-Cache] Failed to parse JSON " + json + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Recursively extracts code values from JSON concept nodes.
+     *
+     * @param node the JSON node containing concept definitions
+     * @param out  the set to collect code values into
+     */
+    private static void collectJsonConceptCodes(JsonNode node, Set<String> out)
+    {
+        if (node == null || node.isNull()) return;
+
+        if (node.isArray()) {
+            for (JsonNode concept : node) {
+                JsonNode code = concept.get("code");
+                if (code != null && code.isValueNode() && !code.asText().isBlank()) {
+                    out.add(code.asText());
+                }
+                // Recurse into nested concepts, if present
+                collectJsonConceptCodes(concept.get("concept"), out);
+            }
+        }
     }
 
     /**

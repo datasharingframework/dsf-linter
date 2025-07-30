@@ -1,0 +1,88 @@
+{
+  "status": "draft",
+  "authoredOn": "#{date}",
+  "identifier": [
+    {
+      "value": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportAutostart/#{version}/dashboardReportAutostartStart",
+      "system": "http://dsf.dev/sid/task-identifier"
+    }
+  ],
+  "intent": "order",
+  "resourceType": "Task",
+  "input": [
+    {
+      "valueString": "dashboardReportAutostartStart",
+      "type": {
+        "coding": [
+          {
+            "code": "message-name",
+            "system": "http://dsf.dev/fhir/CodeSystem/bpmn-message"
+          }
+        ]
+      }
+    },
+    {
+      "valueString": "P7D",
+      "type": {
+        "coding": [
+          {
+            "code": "timer-interval",
+            "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+          }
+        ]
+      }
+    },
+    {
+      "valueTime": "04:00:00",
+      "type": {
+        "coding": [
+          {
+            "code": "first-execution",
+            "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+          }
+        ]
+      }
+    },
+    {
+      "valueReference": {
+        "identifier": {
+          "value": "#{organization}",
+          "system": "http://dsf.dev/sid/organization-identifier"
+        },
+        "type": "Organization"
+      },
+      "type": {
+        "coding": [
+          {
+            "code": "hrp-identifier",
+            "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+          }
+        ]
+      }
+    }
+  ],
+  "restriction": {
+    "recipient": [
+      {
+        "identifier": {
+          "value": "#{organization}",
+          "system": "http://dsf.dev/sid/organization-identifier"
+        },
+        "type": "Organization"
+      }
+    ]
+  },
+  "requester": {
+    "identifier": {
+      "value": "#{organization}",
+      "system": "http://dsf.dev/sid/organization-identifier"
+    },
+    "type": "Organization"
+  },
+  "meta": {
+    "profile": [
+      "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/task-report-autostart-start|#{version}"
+    ]
+  },
+  "instantiatesCanonical": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportAutostart|#{version}"
+}

@@ -1,0 +1,56 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "caseSensitive": true,
+  "name": "NUM_Dashboard_Report",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "report-status",
+      "definition": "Report status of local organization",
+      "display": "Report Status"
+    },
+    {
+      "code": "search-bundle-response-reference",
+      "definition": "Reference to a response search Bundle containing the report",
+      "display": "Search Bundle Response Reference"
+    },
+    {
+      "code": "timer-interval",
+      "definition": "Interval between two autostart of the report process",
+      "display": "Timer Interval"
+    },
+    {
+      "code": "first-execution",
+      "definition": "First time execution of send process at given time",
+      "display": "First Execution"
+    },
+    {
+      "code": "hrp-identifier",
+      "definition": "Identifier of the HRP where the report should be sent",
+      "display": "HRP Identifier"
+    },
+    {
+      "code": "backend-type",
+      "definition": "Identifier of the Backend where the report should be sent to",
+      "display": "Backend-Type"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with standard values for the report process",
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report"
+}

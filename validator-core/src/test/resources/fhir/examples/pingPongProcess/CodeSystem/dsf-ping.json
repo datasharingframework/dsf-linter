@@ -1,0 +1,51 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "DSF",
+  "caseSensitive": true,
+  "name": "DSF_Ping",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "ping-status",
+      "definition": "Ping status of target organization",
+      "display": "Ping Status"
+    },
+    {
+      "code": "pong-status",
+      "definition": "Pong status of target organization",
+      "display": "Pong Status"
+    },
+    {
+      "code": "endpoint-identifier",
+      "definition": "Identifier of endpoint expecting pong (response) message",
+      "display": "Endpoint Identifier"
+    },
+    {
+      "code": "target-endpoints",
+      "definition": "Ping target endpoints, search query resulting in match or include results with Endpoint resources",
+      "display": "Target Endpoints"
+    },
+    {
+      "code": "timer-interval",
+      "definition": "Interval between two autostarts of the ping process",
+      "display": "Timer Interval"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with standard values for the process ping/pong",
+  "date": "#{date}",
+  "url": "http://dsf.dev/fhir/CodeSystem/ping",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "DSF Ping"
+}

@@ -1,0 +1,84 @@
+{
+  "fhirVersion": "4.0.1",
+  "version": "#{version}",
+  "url": "http://dsf.dev/fhir/StructureDefinition/task-pong",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "abstract": false,
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "derivation": "constraint",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "path": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://dsf.dev/bpe/Process/ping|#{version}"
+      },
+      {
+        "id": "Task.input",
+        "max": "3",
+        "min": 3,
+        "path": "Task.input",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "path": "Task.input",
+        "id": "Task.input:message-name",
+        "sliceName": "message-name",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "pong",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "business-key",
+        "min": 1,
+        "path": "Task.input",
+        "id": "Task.input:business-key"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "correlation-key",
+        "min": 1,
+        "path": "Task.input",
+        "id": "Task.input:correlation-key"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "type": "Task",
+  "experimental": false,
+  "status": "unknown",
+  "name": "TaskPong"
+}

@@ -164,12 +164,12 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
         if (blank(status))
             out.add(new FhirTaskMissingStatusValidationItem(f, ref));
-         else
-            if (!"draft".equals(status))
-                out.add(new FhirTaskStatusNotDraftValidationItem(f, ref,
-                        "status must be 'draft' (found '" + status + "')"));
-             else
-                out.add(ok(f, ref, "status = 'draft'"));
+        else
+        if (!"draft".equals(status))
+            out.add(new FhirTaskStatusNotDraftValidationItem(f, ref,
+                    "status must be 'draft' (found '" + status + "')"));
+        else
+            out.add(ok(f, ref, "status = 'draft'"));
 
 
         //  intent ('order')
@@ -729,44 +729,80 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
     /* utils inside FhirTaskValidator ----------------------------------------- */
     private static record SliceCard(int min, int max) {}
 
-    /** Parses the SD and builds cardinality maps for Task.input and its slices */
-    private Map<String,SliceCard> loadInputCardinality(File projectRoot, String profileUrl)
-    {
+    /**
+     * Loads the cardinality settings from the StructureDefinition for a given Task profile.
+     * Tries parsing as XML first; if that fails, falls back to converting JSON to XML.
+     *
+     * @param projectRoot the root folder of the FHIR definitions
+     * @param profileUrl  the canonical URL of the Task profile
+     * @return a map of slice names to their cardinality, or null if no SD file is found or an error occurs
+     */
+    private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
         File sdFile = FhirValidator.findStructureDefinitionFile(profileUrl, projectRoot);
-        if (sdFile == null) return null;
+        if (sdFile == null) {
+            return null;
+        }
 
         try {
-            Document sd = FhirValidator.parseXml(sdFile.toPath());
-            Map<String,SliceCard> map = new HashMap<>();
+            // parseXml, or if that fails parseJsonToXml
+            Document sd;
+            try {
+                sd = FhirValidator.parseXml(sdFile.toPath());
+            } catch (Exception e) {
+                sd = FhirValidator.parseJsonToXml(sdFile.toPath());
+            }
+
+            Map<String, SliceCard> map = new HashMap<>();
 
             // base element ----------------------------------------------------
             String minBase = AbstractFhirInstanceValidator.extractSingleNodeValue(
-                    sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='min']/@value");
+                    sd,
+                    "//*[local-name()='element' and @id='Task.input']/*[local-name()='min']/@value"
+            );
             String maxBase = AbstractFhirInstanceValidator.extractSingleNodeValue(
-                    sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value");
+                    sd,
+                    "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value"
+            );
             int baseMin = (minBase != null) ? Integer.parseInt(minBase) : 0;
             int baseMax = (maxBase == null || "*".equals(maxBase))
-                    ? Integer.MAX_VALUE : Integer.parseInt(maxBase);
+                    ? Integer.MAX_VALUE
+                    : Integer.parseInt(maxBase);
             map.put("__BASE__", new SliceCard(baseMin, baseMax));
 
             // direct slice roots ---------------------------------------------
             NodeList slices = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') "
-                            + "and not(contains(@id,'.'))]")
+                    .compile(
+                            "//*[local-name()='element' and starts-with(@id,'Task.input:') " +
+                                    "and not(contains(@id,'.'))]"
+                    )
                     .evaluate(sd, XPathConstants.NODESET);
 
-            for (int i=0;i<slices.getLength();i++) {
+            for (int i = 0; i < slices.getLength(); i++) {
                 Node n = slices.item(i);
-                String sliceName = n.getAttributes().getNamedItem("id")
-                        .getNodeValue().substring("Task.input:".length());
-                String mi = AbstractFhirInstanceValidator.extractSingleNodeValue(n, "./*[local-name()='min']/@value");
-                String ma = AbstractFhirInstanceValidator.extractSingleNodeValue(n, "./*[local-name()='max']/@value");
-                int sMin = (mi!=null)?Integer.parseInt(mi):0;
-                int sMax = (ma==null||"*".equals(ma)) ? baseMax : Integer.parseInt(ma);
+                String sliceName = n.getAttributes()
+                        .getNamedItem("id")
+                        .getNodeValue()
+                        .substring("Task.input:".length());
+
+                String mi = AbstractFhirInstanceValidator.extractSingleNodeValue(
+                        n,
+                        "./*[local-name()='min']/@value"
+                );
+                String ma = AbstractFhirInstanceValidator.extractSingleNodeValue(
+                        n,
+                        "./*[local-name()='max']/@value"
+                );
+                int sMin = (mi != null) ? Integer.parseInt(mi) : 0;
+                int sMax = (ma == null || "*".equals(ma)) ? baseMax : Integer.parseInt(ma);
+
                 map.put(sliceName, new SliceCard(sMin, sMax));
             }
+
             return map;
-        } catch(Exception e){ return null; }
+        } catch (Exception e) {
+            // fallback: profile could not be loaded or parsed
+            return null;
+        }
     }
 
     // helper to decide if correlation slice is allowed

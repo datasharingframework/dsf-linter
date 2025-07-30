@@ -1,0 +1,114 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "mustSupport": true,
+        "id": "MeasureReport.status",
+        "fixedCode": "complete",
+        "path": "MeasureReport.status"
+      },
+      {
+        "mustSupport": true,
+        "id": "MeasureReport.type",
+        "fixedCode": "summary",
+        "path": "MeasureReport.type"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.date",
+        "mustSupport": true,
+        "path": "MeasureReport.date"
+      },
+      {
+        "id": "MeasureReport.period",
+        "mustSupport": true,
+        "path": "MeasureReport.period"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.period.start",
+        "path": "MeasureReport.period.start"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.period.end",
+        "path": "MeasureReport.period.end"
+      },
+      {
+        "max": "1",
+        "mustSupport": true,
+        "path": "MeasureReport.group",
+        "min": 1,
+        "id": "MeasureReport.group"
+      },
+      {
+        "max": "1",
+        "mustSupport": true,
+        "path": "MeasureReport.group.population",
+        "min": 1,
+        "id": "MeasureReport.group.population"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.group.population.code",
+        "mustSupport": true,
+        "path": "MeasureReport.group.population.code"
+      },
+      {
+        "slicing": {
+          "ordered": false,
+          "discriminator": [
+            {
+              "path": "code",
+              "type": "value"
+            }
+          ],
+          "rules": "closed"
+        },
+        "id": "MeasureReport.group.population.code.coding",
+        "min": 1,
+        "path": "MeasureReport.group.population.code.coding"
+      },
+      {
+        "min": 1,
+        "sliceName": "initial-population",
+        "path": "MeasureReport.group.population.code.coding",
+        "max": "1",
+        "id": "MeasureReport.group.population.code.coding:initial-population"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.group.population.code.coding:initial-population.code",
+        "fixedCode": "initial-population",
+        "path": "MeasureReport.group.population.code.coding.code"
+      },
+      {
+        "min": 1,
+        "id": "MeasureReport.group.population.count",
+        "mustSupport": true,
+        "path": "MeasureReport.group.population.count"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "MeasureReport",
+  "derivation": "constraint",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/MeasureReport",
+  "type": "MeasureReport",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://medizininformatik-initiative.de/fhir/StructureDefinition/feasibility-measure-report",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "2022-06-07"
+}

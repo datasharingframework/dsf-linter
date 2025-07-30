@@ -1,0 +1,41 @@
+{
+  "version": "#{version}",
+  "resourceType": "Questionnaire",
+  "item": [
+    {
+      "text": "The business-key of the process execution",
+      "type": "string",
+      "linkId": "business-key",
+      "required": true
+    },
+    {
+      "text": "The user-task-id of the process execution",
+      "type": "string",
+      "linkId": "user-task-id",
+      "required": true
+    },
+    {
+      "linkId": "binary-question",
+      "type": "display"
+    },
+    {
+      "required": true,
+      "type": "boolean",
+      "linkId": "vote"
+    }
+  ],
+  "url": "http://ukbonn.de/fhir/Questionnaire/approve-dashboard-binary",
+  "status": "unknown",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ],
+    "profile": [
+      "http://dsf.dev/fhir/StructureDefinition/questionnaire|1.5.0"
+    ]
+  },
+  "date": "#{date}"
+}

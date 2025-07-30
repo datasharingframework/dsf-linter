@@ -1,0 +1,61 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "caseSensitive": true,
+  "name": "NUM_Dashboard_Report_Status",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "not-allowed",
+      "definition": "Not allowed to send report to HRP",
+      "display": "Not allowed"
+    },
+    {
+      "code": "not-reachable",
+      "definition": "HRP cannot be reached",
+      "display": "Not reachable"
+    },
+    {
+      "code": "receipt-missing",
+      "definition": "No receipt received from HRP",
+      "display": "Receipt missing"
+    },
+    {
+      "code": "receipt-ok",
+      "definition": "Ok received from HRP",
+      "display": "Receipt ok"
+    },
+    {
+      "code": "receipt-error",
+      "definition": "Error received from HRP",
+      "display": "Receipt error"
+    },
+    {
+      "code": "receive-ok",
+      "definition": "Report received from DIC",
+      "display": "Receive ok"
+    },
+    {
+      "code": "receive-error",
+      "definition": "Error receiving report from DIC",
+      "display": "Receive error"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with standard values for the report process status",
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report-status",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report Status"
+}

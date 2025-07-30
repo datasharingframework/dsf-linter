@@ -1,0 +1,238 @@
+{
+  "fhirVersion": "4.0.1",
+  "version": "#{version}",
+  "url": "http://dsf.dev/fhir/StructureDefinition/task-ping",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "abstract": false,
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "derivation": "constraint",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "path": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://dsf.dev/bpe/Process/pong|#{version}"
+      },
+      {
+        "id": "Task.input",
+        "max": "4",
+        "min": 4,
+        "path": "Task.input",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "path": "Task.input",
+        "id": "Task.input:message-name",
+        "sliceName": "message-name",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "ping",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "business-key",
+        "min": 1,
+        "path": "Task.input",
+        "id": "Task.input:business-key"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "correlation-key",
+        "min": 1,
+        "path": "Task.input",
+        "id": "Task.input:correlation-key"
+      },
+      {
+        "id": "Task.input:endpoint-identifier",
+        "sliceName": "endpoint-identifier",
+        "min": 1,
+        "path": "Task.input",
+        "max": "1"
+      },
+      {
+        "id": "Task.input:endpoint-identifier.type",
+        "binding": {
+          "valueSet": "http://dsf.dev/fhir/ValueSet/ping|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.input.type"
+      },
+      {
+        "path": "Task.input.type.coding",
+        "id": "Task.input:endpoint-identifier.type.coding",
+        "max": "1",
+        "min": 1
+      },
+      {
+        "path": "Task.input.type.coding.system",
+        "id": "Task.input:endpoint-identifier.type.coding.system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping",
+        "min": 1
+      },
+      {
+        "fixedCode": "endpoint-identifier",
+        "id": "Task.input:endpoint-identifier.type.coding.code",
+        "path": "Task.input.type.coding.code",
+        "min": 1
+      },
+      {
+        "type": [
+          {
+            "targetProfile": [
+              "http://dsf.dev/fhir/StructureDefinition/endpoint"
+            ],
+            "code": "Reference"
+          }
+        ],
+        "id": "Task.input:endpoint-identifier.value[x]",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "id": "Task.input:endpoint-identifier.value[x].reference",
+        "path": "Task.input.value[x].reference",
+        "min": 0
+      },
+      {
+        "fixedUri": "Endpoint",
+        "id": "Task.input:endpoint-identifier.value[x].type",
+        "max": "1",
+        "path": "Task.input.value[x].type"
+      },
+      {
+        "id": "Task.input:endpoint-identifier.value[x].identifier",
+        "max": "1",
+        "path": "Task.input.value[x].identifier"
+      },
+      {
+        "path": "Task.input.value[x].identifier.system",
+        "id": "Task.input:endpoint-identifier.value[x].identifier.system",
+        "fixedUri": "http://dsf.dev/sid/endpoint-identifier",
+        "min": 1
+      },
+      {
+        "id": "Task.input:endpoint-identifier.value[x].identifier.value",
+        "path": "Task.input.value[x].identifier.value",
+        "min": 1
+      },
+      {
+        "id": "Task.output:pong-status",
+        "sliceName": "pong-status",
+        "path": "Task.output"
+      },
+      {
+        "id": "Task.output:pong-status.extension",
+        "path": "Task.output.extension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Task.output:pong-status.extension:pong-status-extension",
+        "sliceName": "pong-status-extension",
+        "min": 1,
+        "type": [
+          {
+            "profile": [
+              "http://dsf.dev/fhir/StructureDefinition/extension-ping-status|#{version}"
+            ],
+            "code": "Extension"
+          }
+        ],
+        "path": "Task.output.extension"
+      },
+      {
+        "id": "Task.output:pong-status.type",
+        "binding": {
+          "valueSet": "http://dsf.dev/fhir/ValueSet/ping|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.output.type"
+      },
+      {
+        "path": "Task.output.type.coding",
+        "id": "Task.output:pong-status.type.coding",
+        "max": "1",
+        "min": 1
+      },
+      {
+        "path": "Task.output.type.coding.system",
+        "id": "Task.output:pong-status.type.coding.system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping",
+        "min": 1
+      },
+      {
+        "fixedCode": "pong-status",
+        "id": "Task.output:pong-status.type.coding.code",
+        "path": "Task.output.type.coding.code",
+        "min": 1
+      },
+      {
+        "type": [
+          {
+            "code": "Coding"
+          }
+        ],
+        "id": "Task.output:pong-status.value[x]",
+        "path": "Task.output.value[x]"
+      },
+      {
+        "path": "Task.output.value[x].system",
+        "id": "Task.output:pong-status.value[x].system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping-status",
+        "min": 1
+      },
+      {
+        "binding": {
+          "valueSet": "http://dsf.dev/fhir/ValueSet/pong-status|#{version}",
+          "strength": "required"
+        },
+        "id": "Task.output:pong-status.value[x].code",
+        "path": "Task.output.value[x].code",
+        "min": 1
+      }
+    ]
+  },
+  "date": "#{date}",
+  "type": "Task",
+  "experimental": false,
+  "status": "unknown",
+  "name": "TaskPing"
+}

@@ -8,6 +8,7 @@ import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
 import dev.dsf.utils.validator.util.FhirAuthorizationCache;
+import dev.dsf.utils.validator.util.FhirFileUtils;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
@@ -275,17 +276,19 @@ public class DsfValidatorImpl implements DsfValidator
         successFolder.mkdirs();
         otherFolder.mkdirs();
 
-        // 2) Collect FHIR files (.xml or .json as needed; here we use .xml)
+        // 2) Collect FHIR files using centralized detection logic
         File fhirRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/fhir");
         if (fhirRoot == null)
         {
             System.err.println("WARNING: 'src/main/resources/fhir' not found in " + projectDir.getAbsolutePath());
             return Collections.emptyList();
         }
-        List<File> fhirFiles = findFilesWithExtensionRecursively(fhirRoot.toPath(), ".xml");
+
+        List<File> fhirFiles = findFhirFilesRecursively(fhirRoot.toPath());
+
         if (fhirFiles.isEmpty())
         {
-            System.err.println("No .xml FHIR files in " + fhirRoot.getAbsolutePath());
+            System.err.println("No .xml or .json FHIR files in " + fhirRoot.getAbsolutePath());
             return Collections.emptyList();
         }
 
@@ -552,6 +555,48 @@ public class DsfValidatorImpl implements DsfValidator
 
     /**
      * <p>
+     * Recursively finds all FHIR files under the given {@code rootPath} using the centralized
+     * file type detection from {@link FhirFileUtils}.
+     * </p>
+     *
+     * @param rootPath  The root path to traverse
+     * @return a list of {@link File} objects that are valid FHIR files (XML or JSON)
+     */
+    private List<File> findFhirFilesRecursively(Path rootPath)
+    {
+        List<File> result = new ArrayList<>();
+        Deque<Path> stack = new ArrayDeque<>();
+        stack.push(rootPath);
+
+        while (!stack.isEmpty())
+        {
+            Path currentDir = stack.pop();
+            if (Files.isDirectory(currentDir))
+            {
+                try
+                {
+                    Files.list(currentDir).forEach(child -> {
+                        if (Files.isDirectory(child))
+                        {
+                            stack.push(child);
+                        }
+                        else if (FhirFileUtils.isFhirFile(child))  // Use utility class
+                        {
+                            result.add(child.toFile());
+                        }
+                    });
+                }
+                catch (IOException e)
+                {
+                    // ignore
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * <p>
      * Recursively finds all files under the given {@code rootPath} that match the specified extension.
      * </p>
      *
@@ -635,14 +680,14 @@ public class DsfValidatorImpl implements DsfValidator
 
     /**
      * <p>
-     * Validates a single file based on its file extension.
+     * Validates a single file based on its file extension using centralized file type detection.
      * </p>
      *
      * <p>
      * Supported file types:
      * <ul>
      *   <li><strong>BPMN files</strong> – Files ending with {@code .bpmn} will be validated using the BPMN validation logic.</li>
-     *   <li><strong>FHIR files</strong> – Files ending with {@code .xml} or {@code .json} will be validated using the FHIR validation logic (to be implemented).</li>
+     *   <li><strong>FHIR files</strong> – Files that pass {@link FhirFileUtils#isXmlFile(Path)} or {@link FhirFileUtils#isJsonFile(Path)} will be validated using the FHIR validation logic.</li>
      * </ul>
      * </p>
      *
@@ -658,7 +703,7 @@ public class DsfValidatorImpl implements DsfValidator
 
         if (fn.endsWith(".bpmn"))
             return validateBpmn(file);
-        else if (fn.endsWith(".xml") || fn.endsWith(".json"))
+        else if (FhirFileUtils.isFhirFile(file))  // Use utility class
             return validateFhir(file);
         else {
             System.err.println("Unrecognized extension for: " + file);

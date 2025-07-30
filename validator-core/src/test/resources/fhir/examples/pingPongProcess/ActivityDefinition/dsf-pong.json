@@ -1,0 +1,69 @@
+{
+  "version": "#{version}",
+  "url": "http://dsf.dev/bpe/Process/pong",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "description": "Process startet by PING messages and to send corresponding PONG messages back to remote Organizations",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "value": "pmo@dsf.dev",
+          "system": "email"
+        }
+      ],
+      "name": "DSF"
+    }
+  ],
+  "resourceType": "ActivityDefinition",
+  "kind": "Task",
+  "extension": [
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "ping"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-ping|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "REMOTE_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    }
+  ],
+  "publisher": "DSF",
+  "experimental": false,
+  "status": "unknown",
+  "subtitle": "Communication Testing Process",
+  "title": "PONG process",
+  "name": "Pong"
+}

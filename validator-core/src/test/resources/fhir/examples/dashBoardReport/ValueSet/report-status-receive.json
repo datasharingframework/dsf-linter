@@ -1,0 +1,39 @@
+{
+  "status": "unknown",
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "name": "NUM_Dashboard_Report_Status_Receive",
+  "description": "ValueSet with values for the report receive status",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report-status",
+        "concept": [
+          {
+            "display": "Receive ok",
+            "code": "receive-ok"
+          },
+          {
+            "display": "Receive error",
+            "code": "receive-error"
+          }
+        ]
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report-status-receive",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report Status Receive"
+}

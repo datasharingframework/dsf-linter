@@ -1,0 +1,71 @@
+{
+  "status": "draft",
+  "authoredOn": "#{date}",
+  "identifier": [
+    {
+      "value": "http://dsf.dev/bpe/Process/pingAutostart/#{version}/task-start-ping-autostart",
+      "system": "http://dsf.dev/sid/task-identifier"
+    }
+  ],
+  "intent": "order",
+  "resourceType": "Task",
+  "input": [
+    {
+      "valueString": "startPingAutostart",
+      "type": {
+        "coding": [
+          {
+            "code": "message-name",
+            "system": "http://dsf.dev/fhir/CodeSystem/bpmn-message"
+          }
+        ]
+      }
+    },
+    {
+      "valueString": "Endpoint?status=active&identifier=http://dsf.dev/sid/endpoint-identifier|",
+      "type": {
+        "coding": [
+          {
+            "code": "target-endpoints",
+            "system": "http://dsf.dev/fhir/CodeSystem/ping"
+          }
+        ]
+      }
+    },
+    {
+      "valueString": "PT24H",
+      "type": {
+        "coding": [
+          {
+            "code": "timer-interval",
+            "system": "http://dsf.dev/fhir/CodeSystem/ping"
+          }
+        ]
+      }
+    }
+  ],
+  "restriction": {
+    "recipient": [
+      {
+        "identifier": {
+          "value": "#{organization}",
+          "system": "http://dsf.dev/sid/organization-identifier"
+        },
+        "type": "Organization"
+      }
+    ]
+  },
+  "requester": {
+    "identifier": {
+      "value": "#{organization}",
+      "system": "http://dsf.dev/sid/organization-identifier"
+    },
+    "type": "Organization"
+  },
+  "meta": {
+    "profile": [
+      "http://dsf.dev/fhir/StructureDefinition/task-start-ping-autostart|#{version}"
+    ]
+  },
+  "instantiatesCanonical": "http://dsf.dev/bpe/Process/pingAutostart|#{version}"
+}

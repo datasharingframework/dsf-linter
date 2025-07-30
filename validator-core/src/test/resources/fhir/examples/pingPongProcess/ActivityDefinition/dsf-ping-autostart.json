@@ -1,0 +1,121 @@
+{
+  "version": "#{version}",
+  "url": "http://dsf.dev/bpe/Process/pingAutostart",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "description": "Process to autostart sending PING messages to remote Organizations and to receive corresponding PONG messages in a predefined interval",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "value": "pmo@dsf.dev",
+          "system": "email"
+        }
+      ],
+      "name": "DSF"
+    }
+  ],
+  "resourceType": "ActivityDefinition",
+  "kind": "Task",
+  "extension": [
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "startPingAutostart"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-start-ping-autostart|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-practitioner",
+                "valueCoding": {
+                  "code": "DSF_ADMIN",
+                  "system": "http://dsf.dev/fhir/CodeSystem/practitioner-role"
+                }
+              }
+            ],
+            "code": "LOCAL_ALL_PRACTITIONER",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    },
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "stopPingAutostart"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-stop-ping-autostart|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-practitioner",
+                "valueCoding": {
+                  "code": "DSF_ADMIN",
+                  "system": "http://dsf.dev/fhir/CodeSystem/practitioner-role"
+                }
+              }
+            ],
+            "code": "LOCAL_ALL_PRACTITIONER",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "code": "LOCAL_ALL",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    }
+  ],
+  "publisher": "DSF",
+  "experimental": false,
+  "status": "unknown",
+  "subtitle": "Autostart Communication Testing Process",
+  "title": "PING Autostart process",
+  "name": "PingAutostart"
+}

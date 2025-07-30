@@ -339,7 +339,7 @@ public class BpmnFieldInjectionValidator {
         if (structureFile == null) return; // Warn already added earlier.
 
         try {
-            var doc = BpmnValidationUtils.parseXml(structureFile);
+            var doc = FhirValidator.parseFhirFile(structureFile.toPath());
 
             if (!BpmnValidationUtils.isEmpty(instantiatesVal)) {
                 String fixedCanonical = FhirValidator.getTaskInstantiatesCanonicalValue(doc);

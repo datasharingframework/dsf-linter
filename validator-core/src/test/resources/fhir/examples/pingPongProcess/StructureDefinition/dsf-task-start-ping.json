@@ -1,0 +1,208 @@
+{
+  "fhirVersion": "4.0.1",
+  "version": "#{version}",
+  "url": "http://dsf.dev/fhir/StructureDefinition/task-start-ping",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "abstract": false,
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "derivation": "constraint",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "path": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://dsf.dev/bpe/Process/ping|#{version}"
+      },
+      {
+        "id": "Task.input",
+        "max": "3",
+        "min": 1,
+        "path": "Task.input",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "path": "Task.input",
+        "id": "Task.input:message-name",
+        "sliceName": "message-name",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ]
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "startPing",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "correlation-key",
+        "path": "Task.input",
+        "max": "0",
+        "id": "Task.input:correlation-key"
+      },
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-explicit-type-name",
+            "valueString": "Parameter"
+          }
+        ],
+        "sliceName": "target-endpoints",
+        "min": 0,
+        "path": "Task.input",
+        "max": "1",
+        "id": "Task.input:target-endpoints"
+      },
+      {
+        "id": "Task.input:target-endpoints.type",
+        "binding": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-bindingName",
+              "valueString": "TaskInputParameterType"
+            }
+          ],
+          "valueSet": "http://dsf.dev/fhir/ValueSet/ping|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.input.type"
+      },
+      {
+        "path": "Task.input.type.coding",
+        "id": "Task.input:target-endpoints.type.coding",
+        "max": "1",
+        "min": 1
+      },
+      {
+        "path": "Task.input.type.coding.system",
+        "id": "Task.input:target-endpoints.type.coding.system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping",
+        "min": 1
+      },
+      {
+        "fixedCode": "target-endpoints",
+        "id": "Task.input:target-endpoints.type.coding.code",
+        "path": "Task.input.type.coding.code",
+        "min": 1
+      },
+      {
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "id": "Task.input:target-endpoints.value[x]",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "id": "Task.output:ping-status",
+        "sliceName": "ping-status",
+        "path": "Task.output"
+      },
+      {
+        "id": "Task.output:ping-status.extension",
+        "path": "Task.output.extension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Task.output:ping-status.extension:ping-status-extension",
+        "sliceName": "ping-status-extension",
+        "min": 1,
+        "type": [
+          {
+            "profile": [
+              "http://dsf.dev/fhir/StructureDefinition/extension-ping-status|#{version}"
+            ],
+            "code": "Extension"
+          }
+        ],
+        "path": "Task.output.extension"
+      },
+      {
+        "id": "Task.output:ping-status.type",
+        "binding": {
+          "valueSet": "http://dsf.dev/fhir/ValueSet/ping|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.output.type"
+      },
+      {
+        "path": "Task.output.type.coding",
+        "id": "Task.output:ping-status.type.coding",
+        "max": "1",
+        "min": 1
+      },
+      {
+        "path": "Task.output.type.coding.system",
+        "id": "Task.output:ping-status.type.coding.system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping",
+        "min": 1
+      },
+      {
+        "fixedCode": "ping-status",
+        "id": "Task.output:ping-status.type.coding.code",
+        "path": "Task.output.type.coding.code",
+        "min": 1
+      },
+      {
+        "type": [
+          {
+            "code": "Coding"
+          }
+        ],
+        "id": "Task.output:ping-status.value[x]",
+        "path": "Task.output.value[x]"
+      },
+      {
+        "path": "Task.output.value[x].system",
+        "id": "Task.output:ping-status.value[x].system",
+        "fixedUri": "http://dsf.dev/fhir/CodeSystem/ping-status",
+        "min": 1
+      },
+      {
+        "binding": {
+          "valueSet": "http://dsf.dev/fhir/ValueSet/ping-status|#{version}",
+          "strength": "required"
+        },
+        "id": "Task.output:ping-status.value[x].code",
+        "path": "Task.output.value[x].code",
+        "min": 1
+      }
+    ]
+  },
+  "date": "#{date}",
+  "type": "Task",
+  "experimental": false,
+  "status": "unknown",
+  "name": "TaskStartPing"
+}

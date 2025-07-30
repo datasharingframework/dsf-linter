@@ -1,0 +1,46 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "MII",
+  "caseSensitive": true,
+  "name": "Feasibility",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "measure-reference",
+      "definition": "Measure reference to define the feasibility query",
+      "display": "Measure Reference"
+    },
+    {
+      "code": "measure-report-reference",
+      "definition": "MeasureReport reference to specify the feasibility query result",
+      "display": "MeasureReport Reference"
+    },
+    {
+      "code": "single",
+      "definition": "The MeasureReport group represents the result from a single DIC.",
+      "display": "Single DIC Result"
+    },
+    {
+      "code": "aggregated",
+      "definition": "The MeasureReport group represents the aggregated result from multiple DICs.",
+      "display": "Aggregated Result"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with standard values for feasibility processes",
+  "date": "2022-06-07",
+  "url": "http://medizininformatik-initiative.de/fhir/CodeSystem/feasibility",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "Feasibility"
+}

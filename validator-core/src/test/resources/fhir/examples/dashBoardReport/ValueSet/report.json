@@ -1,0 +1,29 @@
+{
+  "status": "unknown",
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "name": "NUM_Dashboard_Report",
+  "description": "ValueSet with standard values for the report process",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report"
+}

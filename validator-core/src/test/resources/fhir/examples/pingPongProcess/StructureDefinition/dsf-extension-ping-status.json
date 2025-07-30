@@ -1,0 +1,167 @@
+{
+  "fhirVersion": "4.0.1",
+  "version": "#{version}",
+  "url": "http://dsf.dev/fhir/StructureDefinition/extension-ping-status",
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "abstract": false,
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "derivation": "constraint",
+  "resourceType": "StructureDefinition",
+  "kind": "complex-type",
+  "differential": {
+    "element": [
+      {
+        "min": 3,
+        "id": "Extension.extension",
+        "path": "Extension.extension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Extension.extension:correlation-key",
+        "sliceName": "correlation-key",
+        "min": 1,
+        "path": "Extension.extension",
+        "max": "1"
+      },
+      {
+        "id": "Extension.extension:correlation-key.url",
+        "fixedUri": "correlation-key",
+        "path": "Extension.extension.url"
+      },
+      {
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "id": "Extension.extension:correlation-key.value[x]",
+        "path": "Extension.extension.value[x]",
+        "min": 1
+      },
+      {
+        "id": "Extension.extension:organization-identifier",
+        "sliceName": "organization-identifier",
+        "min": 1,
+        "path": "Extension.extension",
+        "max": "1"
+      },
+      {
+        "id": "Extension.extension:organization-identifier.url",
+        "fixedUri": "organization-identifier",
+        "path": "Extension.extension.url"
+      },
+      {
+        "type": [
+          {
+            "code": "Identifier"
+          }
+        ],
+        "id": "Extension.extension:organization-identifier.value[x]",
+        "path": "Extension.extension.value[x]",
+        "min": 1
+      },
+      {
+        "path": "Extension.extension.value[x].system",
+        "id": "Extension.extension:organization-identifier.value[x].system",
+        "fixedUri": "http://dsf.dev/sid/organization-identifier",
+        "min": 1
+      },
+      {
+        "id": "Extension.extension:organization-identifier.value[x].value",
+        "path": "Extension.extension.value[x].value",
+        "min": 1
+      },
+      {
+        "id": "Extension.extension:endpoint-identifier",
+        "sliceName": "endpoint-identifier",
+        "min": 1,
+        "path": "Extension.extension",
+        "max": "1"
+      },
+      {
+        "id": "Extension.extension:endpoint-identifier.url",
+        "fixedUri": "endpoint-identifier",
+        "path": "Extension.extension.url"
+      },
+      {
+        "type": [
+          {
+            "code": "Identifier"
+          }
+        ],
+        "id": "Extension.extension:endpoint-identifier.value[x]",
+        "path": "Extension.extension.value[x]",
+        "min": 1
+      },
+      {
+        "path": "Extension.extension.value[x].system",
+        "id": "Extension.extension:endpoint-identifier.value[x].system",
+        "fixedUri": "http://dsf.dev/sid/endpoint-identifier",
+        "min": 1
+      },
+      {
+        "id": "Extension.extension:endpoint-identifier.value[x].value",
+        "path": "Extension.extension.value[x].value",
+        "min": 1
+      },
+      {
+        "id": "Extension.extension:error-message",
+        "sliceName": "error-message",
+        "min": 0,
+        "path": "Extension.extension",
+        "max": "1"
+      },
+      {
+        "id": "Extension.extension:error-message.url",
+        "fixedUri": "error-message",
+        "path": "Extension.extension.url"
+      },
+      {
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "id": "Extension.extension:error-message.value[x]",
+        "path": "Extension.extension.value[x]",
+        "min": 1
+      },
+      {
+        "id": "Extension.url",
+        "fixedUri": "http://dsf.dev/fhir/StructureDefinition/extension-ping-status",
+        "path": "Extension.url"
+      },
+      {
+        "id": "Extension.value[x]",
+        "max": "0",
+        "path": "Extension.value[x]"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "context": [
+    {
+      "type": "element",
+      "expression": "Task.output"
+    }
+  ],
+  "type": "Extension",
+  "experimental": false,
+  "status": "unknown",
+  "name": "PingResponse"
+}

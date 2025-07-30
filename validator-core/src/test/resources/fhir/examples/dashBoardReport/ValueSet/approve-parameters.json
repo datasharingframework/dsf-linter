@@ -1,0 +1,39 @@
+{
+  "status": "unknown",
+  "publisher": "UKB",
+  "name": "Approve Parameters",
+  "description": "ValueSet with values for task input/output parameter names for tasks related to approve.",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "concept": [
+          {
+            "code": "binary-question"
+          },
+          {
+            "code": "vote"
+          },
+          {
+            "code": "voting-result"
+          }
+        ],
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/approve-process"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/approve-parameters",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "Approve Parameters ValueSet"
+}

@@ -1,0 +1,198 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "id": "Task.instantiatesCanonical",
+        "fixedCanonical": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportSend|#{version}",
+        "path": "Task.instantiatesCanonical"
+      },
+      {
+        "min": 1,
+        "id": "Task.input",
+        "max": "3",
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "message-name",
+        "id": "Task.input:message-name",
+        "path": "Task.input"
+      },
+      {
+        "id": "Task.input:message-name.value[x]",
+        "fixedString": "dashboardReportSendStart",
+        "path": "Task.input.value[x]"
+      },
+      {
+        "sliceName": "business-key",
+        "id": "Task.input:business-key",
+        "min": 0,
+        "path": "Task.input"
+      },
+      {
+        "sliceName": "correlation-key",
+        "id": "Task.input:correlation-key",
+        "max": "0",
+        "path": "Task.input"
+      },
+      {
+        "min": 0,
+        "sliceName": "hrp-identifier",
+        "path": "Task.input",
+        "max": "1",
+        "id": "Task.input:hrp-identifier"
+      },
+      {
+        "id": "Task.input:hrp-identifier.type",
+        "binding": {
+          "valueSet": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.input.type"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:hrp-identifier.type.coding",
+        "max": "1",
+        "path": "Task.input.type.coding"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:hrp-identifier.type.coding.system",
+        "path": "Task.input.type.coding.system",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:hrp-identifier.type.coding.code",
+        "fixedCode": "hrp-identifier",
+        "path": "Task.input.type.coding.code"
+      },
+      {
+        "id": "Task.input:hrp-identifier.value[x]",
+        "type": [
+          {
+            "targetProfile": [
+              "http://dsf.dev/fhir/StructureDefinition/organization"
+            ],
+            "code": "Reference"
+          }
+        ],
+        "path": "Task.input.value[x]"
+      },
+      {
+        "max": "0",
+        "id": "Task.input:hrp-identifier.value[x].reference",
+        "path": "Task.input.value[x].reference"
+      },
+      {
+        "min": 1,
+        "id": "Task.input:hrp-identifier.value[x].identifier",
+        "path": "Task.input.value[x].identifier"
+      },
+      {
+        "sliceName": "response-status",
+        "id": "Task.output:response-status",
+        "path": "Task.output"
+      },
+      {
+        "slicing": {
+          "discriminator": [
+            {
+              "path": "url",
+              "type": "value"
+            }
+          ],
+          "rules": "open"
+        },
+        "id": "Task.output:response-status.extension",
+        "path": "Task.output.extension"
+      },
+      {
+        "min": 0,
+        "type": [
+          {
+            "profile": [
+              "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/extension-report-status-error"
+            ],
+            "code": "Extension"
+          }
+        ],
+        "sliceName": "extension-report-status-error",
+        "path": "Task.output.extension",
+        "max": "1",
+        "id": "Task.output:response-status.extension:extension-report-status-error"
+      },
+      {
+        "id": "Task.output:response-status.type",
+        "binding": {
+          "valueSet": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.output.type"
+      },
+      {
+        "min": 1,
+        "id": "Task.output:report-status.type.coding",
+        "max": "1",
+        "path": "Task.output.type.coding"
+      },
+      {
+        "min": 1,
+        "id": "Task.output:report-status.type.coding.system",
+        "path": "Task.output.type.coding.system",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report"
+      },
+      {
+        "min": 1,
+        "id": "Task.output:report-status.type.coding.code",
+        "fixedCode": "report-status",
+        "path": "Task.output.type.coding.code"
+      },
+      {
+        "id": "Task.output:report-status.value[x]",
+        "type": [
+          {
+            "code": "Coding"
+          }
+        ],
+        "path": "Task.output.value[x]"
+      },
+      {
+        "min": 1,
+        "id": "Task.output:report-status.value[x].system",
+        "path": "Task.output.value[x].system",
+        "fixedUri": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/report-status"
+      },
+      {
+        "min": 1,
+        "id": "Task.output:report-status.value[x].code",
+        "binding": {
+          "valueSet": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/report-status-send|#{version}",
+          "strength": "required"
+        },
+        "path": "Task.output.value[x].code"
+      }
+    ]
+  },
+  "abstract": false,
+  "name": "TaskReportSendStart",
+  "derivation": "constraint",
+  "baseDefinition": "http://dsf.dev/fhir/StructureDefinition/task-base",
+  "type": "Task",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "resource",
+  "fhirVersion": "4.0.1",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/task-report-send-start",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "#{date}"
+}

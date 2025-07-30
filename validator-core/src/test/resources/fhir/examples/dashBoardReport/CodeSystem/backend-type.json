@@ -1,0 +1,41 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "caseSensitive": true,
+  "name": "NUM_Dashboard_Backend_Type",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "PROD",
+      "definition": "Send report to productive Dashboard-Backend",
+      "display": "Productive"
+    },
+    {
+      "code": "DEV",
+      "definition": "Send report to development Dashboard-Backend",
+      "display": "Development"
+    },
+    {
+      "code": "TEST",
+      "definition": "Send report to test Dashboard-Backend",
+      "display": "Test"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with possible values for the backend types",
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/backend-type",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Backend Type"
+}

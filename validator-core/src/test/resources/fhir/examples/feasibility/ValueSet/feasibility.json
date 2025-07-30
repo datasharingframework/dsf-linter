@@ -1,0 +1,28 @@
+{
+  "status": "unknown",
+  "publisher": "MII",
+  "name": "Feasibility",
+  "description": "ValueSet with standard values for feasibility processes",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "system": "http://medizininformatik-initiative.de/fhir/CodeSystem/feasibility"
+      }
+    ]
+  },
+  "date": "2022-06-07",
+  "url": "http://medizininformatik-initiative.de/fhir/ValueSet/feasibility",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "Feasibility"
+}

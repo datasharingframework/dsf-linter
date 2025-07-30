@@ -1,0 +1,61 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "UKB",
+  "caseSensitive": true,
+  "name": "Approve Process",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "binary-question",
+      "definition": "A question which can be answered either by 'yes' or 'no' for the purposes of the voting process.",
+      "display": "Binary Question"
+    },
+    {
+      "code": "vote",
+      "definition": "A voting response to a binary question which can either have a value of 'true' or 'false'.",
+      "display": "Vote"
+    },
+    {
+      "code": "voting-result",
+      "definition": "The result of an instance's voting decision in task.output.",
+      "display": "Voting Result"
+    },
+    {
+      "code": "yes",
+      "definition": "Positive response to a binary question.",
+      "display": "Yes"
+    },
+    {
+      "code": "no",
+      "definition": "Negative response to a binary question.",
+      "display": "No"
+    },
+    {
+      "code": "timeout",
+      "definition": "Voting process timed out.",
+      "display": "Timeout"
+    },
+    {
+      "code": "result-bundle",
+      "definition": "Link to Bundle containing voting results",
+      "display": "Result Bundle"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with values for the approve processes",
+  "date": "#{date}",
+  "url": "http://ukbonn.de/fhir/CodeSystem/approve-process",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "Approve Process CodeSystem"
+}

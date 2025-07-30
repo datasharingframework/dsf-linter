@@ -1,0 +1,29 @@
+{
+  "status": "unknown",
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "name": "NUM_Dashboard_Report_Backend_Type",
+  "description": "ValueSet with standard values for the backendtypes",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/backend-type"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/backend-type",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "NUM Dashboard Report Backend Type"
+}

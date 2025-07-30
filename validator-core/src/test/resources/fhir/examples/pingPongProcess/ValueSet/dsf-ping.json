@@ -1,0 +1,29 @@
+{
+  "status": "unknown",
+  "publisher": "DSF",
+  "name": "DSF_Ping",
+  "description": "ValueSet with standard values for the process ping/pong",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "version": "#{version}",
+        "system": "http://dsf.dev/fhir/CodeSystem/ping"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://dsf.dev/fhir/ValueSet/ping",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "DSF Ping"
+}

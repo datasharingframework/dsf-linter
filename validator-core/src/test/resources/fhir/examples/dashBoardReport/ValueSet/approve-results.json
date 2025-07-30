@@ -1,0 +1,42 @@
+{
+  "status": "unknown",
+  "publisher": "UKB",
+  "name": "Approve Result",
+  "description": "ValueSet with values for approve results.",
+  "immutable": true,
+  "version": "#{version}",
+  "resourceType": "ValueSet",
+  "compose": {
+    "include": [
+      {
+        "concept": [
+          {
+            "code": "yes"
+          },
+          {
+            "code": "no"
+          },
+          {
+            "code": "timeout"
+          },
+          {
+            "code": "result-bundle"
+          }
+        ],
+        "system": "http://netzwerk-universitaetsmedizin.de/fhir/CodeSystem/approve-process"
+      }
+    ]
+  },
+  "date": "#{date}",
+  "url": "http://netzwerk-universitaetsmedizin.de/fhir/ValueSet/approve-results",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "Approve Result ValueSet"
+}

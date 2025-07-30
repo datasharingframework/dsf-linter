@@ -1,0 +1,51 @@
+{
+  "status": "unknown",
+  "versionNeeded": false,
+  "publisher": "DSF",
+  "caseSensitive": true,
+  "name": "DSF_Ping_Status",
+  "hierarchyMeaning": "grouped-by",
+  "content": "complete",
+  "concept": [
+    {
+      "code": "not-allowed",
+      "definition": "Not allowed to start pong-process at target organization",
+      "display": "Not allowed"
+    },
+    {
+      "code": "not-reachable",
+      "definition": "Ping could not be sent to target organization",
+      "display": "Not reachable"
+    },
+    {
+      "code": "pong-missing",
+      "definition": "No pong received from target organization",
+      "display": "Pong missing"
+    },
+    {
+      "code": "pong-received",
+      "definition": "Pong received from target organization",
+      "display": "Pong received"
+    },
+    {
+      "code": "pong-send",
+      "definition": "Pong successfully sent to target organization",
+      "display": "Pong send"
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "CodeSystem",
+  "description": "CodeSystem with ping/pong status values",
+  "date": "#{date}",
+  "url": "http://dsf.dev/fhir/CodeSystem/ping-status",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "title": "DSF Ping Status"
+}

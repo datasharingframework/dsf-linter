@@ -1,0 +1,132 @@
+{
+  "status": "unknown",
+  "extension": [
+    {
+      "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
+      "extension": [
+        {
+          "url": "message-name",
+          "valueString": "dashboardReportSend"
+        },
+        {
+          "url": "task-profile",
+          "valueCanonical": "http://netzwerk-universitaetsmedizin.de/fhir/StructureDefinition/task-report-send|#{version}"
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "netzwerk-universitaetsmedizin.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "DIC",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "REMOTE_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "requester",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "netzwerk-universitaetsmedizin.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "DIC",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        },
+        {
+          "url": "recipient",
+          "valueCoding": {
+            "extension": [
+              {
+                "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role",
+                "extension": [
+                  {
+                    "url": "parent-organization",
+                    "valueIdentifier": {
+                      "value": "netzwerk-universitaetsmedizin.de",
+                      "system": "http://dsf.dev/sid/organization-identifier"
+                    }
+                  },
+                  {
+                    "url": "organization-role",
+                    "valueCoding": {
+                      "code": "HRP",
+                      "system": "http://dsf.dev/fhir/CodeSystem/organization-role"
+                    }
+                  }
+                ]
+              }
+            ],
+            "code": "LOCAL_ROLE",
+            "system": "http://dsf.dev/fhir/CodeSystem/process-authorization"
+          }
+        }
+      ]
+    }
+  ],
+  "publisher": "Netzwerk-Universitaetsmedizin",
+  "name": "Dashboard Report Receive",
+  "kind": "Task",
+  "description": "Process to receive current FHIR store implementation progress of DICs at a HRP",
+  "contact": [
+    {
+      "name": "Netzwerk-Universitaetsmedizin",
+      "telecom": [
+        {
+          "value": "info@netzwerk-universitaetsmedizin.de",
+          "system": "email"
+        }
+      ]
+    }
+  ],
+  "version": "#{version}",
+  "resourceType": "ActivityDefinition",
+  "date": "#{date}",
+  "title": "Dashboard Report Receive Process",
+  "url": "http://netzwerk-universitaetsmedizin.de/bpe/Process/reportReceive",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "subtitle": "Process to receive reports of current FHIR store implementation progress of DICs at a HRP"
+}

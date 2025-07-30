@@ -1,0 +1,86 @@
+{
+  "status": "unknown",
+  "differential": {
+    "element": [
+      {
+        "definition": "Used to denote the dic organizations from which the results originate.",
+        "id": "Extension",
+        "short": "Dic",
+        "path": "Extension"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://medizininformatik-initiative.de/fhir/StructureDefinition/dic"
+      },
+      {
+        "min": 1,
+        "definition": "Organization reference to denote the dic organizations from which the results originate.",
+        "type": [
+          {
+            "targetProfile": [
+              "http://dsf.dev/fhir/StructureDefinition/highmed-organization"
+            ],
+            "code": "Reference"
+          }
+        ],
+        "path": "Extension.value[x]",
+        "id": "Extension.value[x]",
+        "short": "Dic"
+      },
+      {
+        "max": "0",
+        "id": "Extension.value[x].reference",
+        "path": "Extension.value[x].reference"
+      },
+      {
+        "min": 1,
+        "id": "Extension.value[x].type",
+        "path": "Extension.value[x].type",
+        "fixedUri": "Organization"
+      },
+      {
+        "min": 1,
+        "id": "Extension.value[x].identifier",
+        "path": "Extension.value[x].identifier"
+      },
+      {
+        "min": 1,
+        "id": "Extension.value[x].identifier.system",
+        "path": "Extension.value[x].identifier.system",
+        "fixedUri": "http://dsf.dev/sid/organization-identifier"
+      },
+      {
+        "min": 1,
+        "id": "Extension.value[x].identifier.value",
+        "path": "Extension.value[x].identifier.value"
+      }
+    ]
+  },
+  "derivation": "constraint",
+  "abstract": false,
+  "name": "Dic",
+  "context": [
+    {
+      "expression": "Task.output",
+      "type": "element"
+    }
+  ],
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "type": "Extension",
+  "version": "#{version}",
+  "resourceType": "StructureDefinition",
+  "kind": "complex-type",
+  "fhirVersion": "4.0.1",
+  "url": "http://medizininformatik-initiative.de/fhir/StructureDefinition/dic",
+  "experimental": false,
+  "meta": {
+    "tag": [
+      {
+        "code": "ALL",
+        "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag"
+      }
+    ]
+  },
+  "date": "2021-08-22"
+}
