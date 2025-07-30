@@ -55,7 +55,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
     private static final String DIFF_ELEM_XP = DIFFERENTIAL_XP + "/*[local-name()='element']";
     /*  CONSTANTS  */
     private static final String READ_TAG_SYS = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
-    private static final String URL_PREFIX   = "http://dsf.dev/fhir/StructureDefinition/";
+
 
     /*  PUBLIC API  */
     /**
@@ -135,8 +135,6 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
         String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
         if (blank(url))
             out.add(new FhirStructureDefinitionMissingUrlItem(file, ref));
-        else if (!url.startsWith(URL_PREFIX))
-            out.add(new FhirStructureDefinitionInvalidUrlItem(file, ref, url));
         else
             out.add(ok(file, ref, "url looks good"));
 

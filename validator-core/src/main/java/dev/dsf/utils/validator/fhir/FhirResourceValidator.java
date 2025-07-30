@@ -167,12 +167,6 @@ public final class FhirResourceValidator {
             // Convert JSON to XML string using utility class
             String xmlString = JsonXmlConverter.convertJsonToXml(jsonNode);
 
-            // ─── DEBUG: print the entire converted XML to console ───
-            System.out.println("----- DEBUG: Converted XML from "
-                    + file.getName() + " -----");
-            System.out.println(xmlString);
-            System.out.println("----- END DEBUG -----");
-
             // Parse the XML string to create a DOM Document
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
