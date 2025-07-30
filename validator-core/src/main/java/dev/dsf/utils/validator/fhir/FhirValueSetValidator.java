@@ -155,7 +155,7 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 
         // date → #{date}
         String date = val(doc, VS_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.contains("#{date}"))
+        if (date == null || !date.equals("#{date}"))
             out.add(new FhirValueSetDateNoPlaceholderValidationItem(res, ref,
                     "<date> must contain '#{date}'."));
         else
@@ -191,7 +191,7 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 
             // version placeholder
             String incVersion = val(inc, INCLUDE_VERSION_XP);
-            if (incVersion == null || !incVersion.contains("#{version}"))
+            if (incVersion == null || !incVersion.equals("#{version}"))
                 out.add(new FhirValueSetIncludeVersionPlaceholderValidationItem(res, ref,
                         "include(version) should contain '#{version}'"));
             else
