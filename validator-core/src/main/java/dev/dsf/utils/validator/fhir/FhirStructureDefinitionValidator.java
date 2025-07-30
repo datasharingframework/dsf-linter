@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.fhir;
 
+import dev.dsf.utils.validator.util.FhirAuthorizationCache;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
 import org.w3c.dom.Document;
@@ -110,7 +111,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
                                     String ref,
                                     List<FhirElementValidationItem> out)
     {
-        /* read-access tag */
+        /* read‑access tag: must be system=READ_TAG_SYS and code ∈ registered CS_READ_ACCESS */
         boolean tagOk = false;
         NodeList tags = xp(doc, META_TAG_XP);
         if (tags != null)
@@ -119,7 +120,9 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             {
                 String sys  = val(tags.item(i), "./*[local-name()='system']/@value");
                 String code = val(tags.item(i), "./*[local-name()='code']/@value");
-                if (READ_TAG_SYS.equals(sys) && "ALL".equals(code))
+                if (READ_TAG_SYS.equals(sys)
+                 && !FhirAuthorizationCache.isUnknown(
+                        FhirAuthorizationCache.CS_READ_ACCESS, code))
                 {
                     tagOk = true;
                     break;
@@ -129,7 +132,7 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
         if (!tagOk)
             out.add(new FhirStructureDefinitionMissingReadAccessTagItem(file, ref));
         else
-            out.add(ok(file, ref, "read-access tag (ALL) present"));
+            out.add(ok(file, ref, "meta.tag read‑access‑tag OK (" + tags.getLength() + " tag(s))"));
 
         /* url */
         String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
