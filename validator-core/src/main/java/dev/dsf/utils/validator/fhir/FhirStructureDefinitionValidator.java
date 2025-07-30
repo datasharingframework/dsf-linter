@@ -281,17 +281,15 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             if (blank(baseId) || baseId.contains(":"))
                 continue;
 
-            int baseMin = parseUnsignedIntOrDefault(
-                    val(baseElems.item(i), "./*[local-name()='min']/@value"), 0);
+            String baseMinRaw = val(baseElems.item(i), "./*[local-name()='min']/@value");
+            boolean baseMinSpecified = baseMinRaw != null;
+            int baseMin = parseUnsignedIntOrDefault(baseMinRaw, 0);
 
             String baseMaxRaw = val(baseElems.item(i), "./*[local-name()='max']/@value");
+            boolean baseMaxSpecified = baseMaxRaw != null;
             int baseMax = "*".equals(baseMaxRaw)
                     ? Integer.MAX_VALUE
                     : parseUnsignedIntOrDefault(baseMaxRaw, Integer.MAX_VALUE);
-            boolean baseMinSpecified = val(baseElems.item(i),
-                    "./*[local-name()='min']") != null;
-            boolean baseMaxSpecified = val(baseElems.item(i),
-                    "./*[local-name()='max']") != null;
 
             /*
              slice roots
