@@ -1,4 +1,3 @@
-
 package dev.dsf.utils.validator.fhir;
 
 import dev.dsf.utils.validator.item.*;
@@ -8,20 +7,23 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.util.*;
 
 /**
  * <h2>DSF ValueSet Validator (Profile: dsf-valueset-base 1.0.0)</h2>
  *
- * <p>Validates <code>ValueSet</code> resources that are part of Digital Sample Framework (DSF)
+ * <p>Validates <code>ValueSet</code> resources that are part of Digital Sample Framework (DSF)
  * processes. The checks implemented here are aligned with the DSF template for ValueSets
  * that are loaded by the BPE server.</p>
  *
  * <p><b>Supported validation aspects</b></p>
  * <ul>
  *   <li><strong>Meta tag check</strong> – ensures <code>meta.tag</code> with system
- *       <code>http://dsf.dev/fhir/CodeSystem/read-access-tag</code> and code <code>ALL</code> is present.</li>
+ *       <code>http://dsf.dev/fhir/CodeSystem/read-access-tag</code> and code <code>ALL</code> or <code>LOCAL</code> is present.</li>
+ *   <li><strong>Organization role code validation</strong> – checks that any parent-organization-role extension codes are valid according to the DSF CodeSystem.</li>
  *   <li><strong>Core elements</strong> – verifies presence of <code>url</code>, <code>name</code>,
  *       <code>title</code>, <code>publisher</code> and <code>description</code>.</li>
  *   <li><strong>Placeholder enforcement</strong> – enforces required template placeholders
@@ -52,27 +54,38 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /*  XPath shortcuts  */
 
     private static final String VS_XP             = "/*[local-name()='ValueSet']";
-    private static final String META_TAG_SYS_XP   = VS_XP + "/*[local-name()='meta']/*[local-name()='tag']" +
-            "/*[local-name()='system']/@value";
-    private static final String META_TAG_CODE_XP  = VS_XP + "/*[local-name()='meta']/*[local-name()='tag']" +
-            "/*[local-name()='code']/@value";
 
     private static final String COMPOSE_INCLUDE_XP           = VS_XP + "/*[local-name()='compose']/*[local-name()='include']";
-    private static final String INCLUDE_SYS_XP               = "./@value | ./@system"; // compatibility
     private static final String INCLUDE_VERSION_XP           = "./*[local-name()='version']/@value";
     private static final String INCLUDE_CONCEPT_XP           = "./*[local-name()='concept']";
     private static final String CONCEPT_CODE_XP              = "./*[local-name()='code']/@value";
 
     private static final String TAG_SYSTEM_READ_ACCESS       = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
+    private static final String EXT_PARENT_ORG_ROLE_URL      = "http://dsf.dev/fhir/StructureDefinition/extension-read-access-parent-organization-role";
+
+    private static final XPathFactory XPATH_FACTORY = XPathFactory.newInstance();
 
     /* --- API  */
 
+    /**
+     * Checks if the given XML document represents a FHIR ValueSet resource.
+     *
+     * @param d the XML document to check
+     * @return true if the document's root element is "ValueSet", false otherwise
+     */
     @Override
     public boolean canValidate(Document d)
     {
         return "ValueSet".equals(d.getDocumentElement().getLocalName());
     }
 
+    /**
+     * Validates the provided ValueSet resource according to DSF requirements.
+     *
+     * @param doc the XML document representing the ValueSet
+     * @param resFile the file from which the document was loaded (for reference)
+     * @return a list of validation items describing all found issues and successes
+     */
     @Override
     public List<FhirElementValidationItem> validate(Document doc, File resFile)
     {
@@ -88,19 +101,51 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 
     /*  1) Meta & Basics  */
 
+    /**
+     * Checks for required meta tags, organization role codes, and core elements (url, name, title, publisher, description).
+     *
+     * @param doc the ValueSet XML document
+     * @param res the file reference
+     * @param ref a human-readable reference for reporting
+     * @param out the list to which validation results are added
+     */
     private void checkMetaAndBasic(Document doc,
                                    File res,
                                    String ref,
                                    List<FhirElementValidationItem> out)
     {
-        // meta.tag
-        String tagSystem = val(doc, META_TAG_SYS_XP);
-        String tagCode   = val(doc, META_TAG_CODE_XP);
-        if (!TAG_SYSTEM_READ_ACCESS.equals(tagSystem) || !"ALL".equals(tagCode))
-            out.add(new FhirValueSetMissingReadAccessTagValidationItem(res, ref,
-                    "meta.tag must contain system='" + TAG_SYSTEM_READ_ACCESS + "', code='ALL'"));
-        else
-            out.add(ok(res, ref, "meta.tag read‑access‑tag OK."));
+        //  new: must have at least one read-access-tag with code ALL or LOCAL
+        final String META_TAGS_XP = VS_XP
+            + "/*[local-name()='meta']/*[local-name()='tag']";
+        try {
+            NodeList tagElements = (NodeList) XPATH_FACTORY.newXPath()
+                .evaluate(META_TAGS_XP, doc, XPathConstants.NODESET);
+            boolean hasAllOrLocal = false;
+            for (int i = 0; i < tagElements.getLength(); i++)
+            {
+                Node tag = tagElements.item(i);
+                String sys  = val(tag, "./*[local-name()='system']/@value");
+                String code = val(tag, "./*[local-name()='code']/@value");
+                if (TAG_SYSTEM_READ_ACCESS.equals(sys)
+                    && ("ALL".equals(code) || "LOCAL".equals(code)))
+                {
+                    hasAllOrLocal = true;
+                    break;
+                }
+            }
+            if (!hasAllOrLocal)
+                out.add(new FhirValueSetMissingReadAccessTagAllOrLocalValidationItem(res, ref,
+                    "meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
+            else
+                out.add(ok(res, ref,
+                    "meta.tag read-access-tag contains ALL or LOCAL – OK."));
+        } catch (Exception e) {
+            out.add(new FhirValueSetMissingReadAccessTagAllOrLocalValidationItem(res, ref,
+                "Failed to evaluate meta.tag read-access validation: " + e.getMessage()));
+        }
+
+        // Validate organization role codes
+        validateOrganizationRoleCodes(doc, res, ref, out);
 
         // url
         String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
@@ -138,8 +183,61 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
             out.add(ok(res, ref, "description OK"));
     }
 
+    /**
+     * Validates any parent-organization-role codes against FhirAuthorizationCache.
+     * Checks that organization-role extension codes are valid according to the CS_ORG_ROLE CodeSystem.
+     *
+     * @param doc the ValueSet XML document
+     * @param res the file reference
+     * @param ref a human-readable reference for reporting
+     * @param out the list to which validation results are added
+     */
+    private void validateOrganizationRoleCodes(Document doc,
+                                               File res,
+                                               String ref,
+                                               List<FhirElementValidationItem> out)
+    {
+        final String META_PARENT_ORG_ROLE_CODE_XP = VS_XP
+            + "/*[local-name()='meta']/*[local-name()='tag']"
+            + "/*[local-name()='extension' and @url='" + EXT_PARENT_ORG_ROLE_URL + "']"
+            + "/*[local-name()='extension' and @url='organization-role']"
+            + "/*[local-name()='valueCoding']/*[local-name()='code']/@value";
+
+        try {
+            NodeList orgRoleCodes = (NodeList) XPATH_FACTORY.newXPath()
+                .evaluate(META_PARENT_ORG_ROLE_CODE_XP, doc, XPathConstants.NODESET);
+            for (int i = 0; i < orgRoleCodes.getLength(); i++)
+            {
+                String roleCode = orgRoleCodes.item(i).getNodeValue();
+                if (FhirAuthorizationCache.isUnknown(
+                        FhirAuthorizationCache.CS_ORG_ROLE, roleCode))
+                {
+                    out.add(new FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem(
+                            res, ref,
+                            "Invalid organization-role code '" + roleCode + "'"));
+                }
+                else
+                {
+                    out.add(ok(res, ref,
+                            "meta.tag parent-organization-role code '" + roleCode + "' OK."));
+                }
+            }
+        } catch (Exception e) {
+            out.add(new FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem(res, ref,
+                "Failed to evaluate parent-organization-role validation: " + e.getMessage()));
+        }
+    }
+
     /*  2) Placeholder checks  */
 
+    /**
+     * Checks for required placeholders in version and date fields.
+     *
+     * @param doc the ValueSet XML document
+     * @param res the file reference
+     * @param ref a human-readable reference for reporting
+     * @param out the list to which validation results are added
+     */
     private void checkPlaceholders(Document doc,
                                    File res,
                                    String ref,
@@ -164,6 +262,15 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 
     /*  3) Compose/include  */
 
+    /**
+     * Validates all compose/include elements for required system, version placeholder, and concept codes.
+     * Also checks for duplicate codes and unknown codes in the DSF terminology.
+     *
+     * @param doc the ValueSet XML document
+     * @param res the file reference
+     * @param ref a human-readable reference for reporting
+     * @param out the list to which validation results are added
+     */
     private void validateComposeIncludes(Document doc,
                                          File res,
                                          String ref,
@@ -248,6 +355,10 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /**
      * Determines a human‑readable reference for logging/issue reporting. Prefers the
      * <code>url</code> element of the ValueSet; falls back to the file name.
+     *
+     * @param doc the ValueSet XML document
+     * @param file the file reference
+     * @return the ValueSet url or the file name if url is not present
      */
     private String computeReference(Document doc, File file)
     {

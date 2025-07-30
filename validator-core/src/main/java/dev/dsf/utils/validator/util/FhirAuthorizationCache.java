@@ -110,6 +110,9 @@ public final class FhirAuthorizationCache
 
         register(CS_ORG_ROLE, Set.of(
                 "COORDINATOR", "DATA_PROVIDER", "TTP", "RESEARCH_STUDY", "HRP", "QA"));
+
+        register(CS_ORG_ROLE, Set.of( "UAC", "COS", "CRR", "DIC", "DMS", "DTS", "HRP",
+                "TTP", "AMS"));
     }
 
     private FhirAuthorizationCache() { /* Utility class – no instantiation */ }
