@@ -49,13 +49,6 @@ import java.util.concurrent.Callable;
  *   <li>The validator uses Maven to run {@code clean package dependency:copy-dependencies} before validation.</li>
  * </ul>
  *
- * <h3>Dependencies</h3>
- * <ul>
- *   <li><strong>Picocli</strong> – CLI parsing framework</li>
- *   <li><strong>JGit</strong> – Git client for Java (used for repository cloning)</li>
- *   <li><strong>Apache Maven</strong> – Used to build the project before validation</li>
- * </ul>
- *
  * <h3>Report Output</h3>
  * <p>
  * Validation results are written to the {@code report/} directory,
