@@ -4,12 +4,18 @@ import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.repo.RepositoryManager;
 import dev.dsf.utils.validator.util.MavenUtil;
 import dev.dsf.utils.validator.util.ApiVersionDetector;
+import dev.dsf.utils.validator.util.ApiRegistrationValidationSupport;
+
+import dev.dsf.utils.validator.item.AbstractValidationItem;
+
 import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
@@ -31,6 +37,8 @@ import java.util.concurrent.Callable;
  *   <li>Parses command-line arguments using <a href="https://picocli.info/">Picocli</a>.</li>
  *   <li>Clones a remote Git repository if {@code --remoteRepo} is specified.</li>
  *   <li>Builds the project using <a href="https://maven.apache.org/">Apache Maven</a>.</li>
+ *   <li>Runs pre- and post-build checks for ServiceLoader registration of
+ *       {@code dev.dsf.bpe.v2.ProcessPluginDefinition} using {@link ApiRegistrationValidationSupport}.</li>
  *   <li>Validates all BPMN and FHIR files in the project using {@link DsfValidatorImpl}.</li>
  *   <li>Generates JSON-based validation reports in the {@code report/} directory.</li>
  *   <li>Detects the DSF BPE API version and prints it after validation.</li>
@@ -47,6 +55,7 @@ import java.util.concurrent.Callable;
  *   <li>Exactly one of {@code --localPath} or {@code --remoteRepo} must be provided.</li>
  *   <li>If Maven is not found on the system PATH, validation will fail.</li>
  *   <li>The validator uses Maven to run {@code clean package dependency:copy-dependencies} before validation.</li>
+ *   <li>If the {@code ProcessPluginDefinition} is not registered via ServiceLoader, a validation error is shown.</li>
  * </ul>
  *
  * <h3>Report Output</h3>
@@ -54,14 +63,16 @@ import java.util.concurrent.Callable;
  * Validation results are written to the {@code report/} directory,
  * structured by resource type (BPMN / FHIR) and severity (success / other).
  * A summary report is also generated at {@code report/aggregated.json}.
+ * Additionally, plugin-related items (ServiceLoader checks) are written under {@code report/pluginReports/}
+ * and included in the top-level {@code aggregated.json}.
  * </p>
  *
  * @see DsfValidatorImpl
  * @see MavenBuilder
  * @see RepositoryManager
  * @see ApiVersionDetector
+ * @see ApiRegistrationValidationSupport
  * @see ValidationOutput
- *
  */
 @Command(
         name = "Main",
@@ -70,23 +81,15 @@ import java.util.concurrent.Callable;
 )
 public class Main implements Callable<Integer>
 {
-    /**
-     * Path to a local project directory to be validated.
-     */
+    /** Path to a local project directory to be validated. */
     @Option(names = "--localPath", description = "Path to a local project directory.")
     private File localPath;
 
-    /**
-     * URL of a remote Git repository to be cloned and validated.
-     */
+    /** URL of a remote Git repository to be cloned and validated. */
     @Option(names = "--remoteRepo", description = "URL of a remote Git repository to be cloned.")
     private String remoteRepoUrl;
 
-    /**
-     * Main method that initializes command-line processing with Picocli.
-     *
-     * @param args command-line arguments
-     */
+    /** Main method that initializes command-line processing with Picocli. */
     public static void main(String[] args)
     {
         int exitCode = new CommandLine(new Main()).execute(args);
@@ -94,8 +97,8 @@ public class Main implements Callable<Integer>
     }
 
     /**
-     * Method executed after command-line parsing is completed.
-     * Handles validation process including cloning (if necessary), building with Maven, and running validations.
+     * Handles validation process including cloning (if necessary), building with Maven,
+     * ServiceLoader preflight checks, plugin report writing, and running BPMN/FHIR validations.
      *
      * @return exit code (0 if successful, non-zero otherwise)
      * @throws Exception if an unexpected error occurs
@@ -122,6 +125,12 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
+        // Create DsfValidatorImpl instance
+        DsfValidatorImpl validator = new DsfValidatorImpl();
+
+        // Optional: quick pre-build check on the source tree for developer feedback.
+        validator.runServiceLoaderCheck("Pre-build check", projectDir.toPath());
+
         // Locate Maven executable and build the project.
         MavenBuilder builder = new MavenBuilder();
         String mavenExecutable = MavenUtil.locateMavenExecutable();
@@ -137,25 +146,58 @@ public class Main implements Callable<Integer>
             return 1;
         }
 
-        // Prepare clean report directory
-        File reportRoot = new File("report");
+        // Post-build check: verify ServiceLoader registration is packaged into build outputs.
+        validator.runServiceLoaderCheck("Post-build check", projectDir.toPath());
 
-        // Detect and store API version before any validation
-        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
+        // Detect and store API version (best-effort; may be null if inconclusive)
+        String apiVersion = new ApiVersionDetector().detectByFallback(projectDir.toPath());
         ApiVersionHolder.setVersion(apiVersion);
 
-        // Validate the project files (BPMN and FHIR).
-        DsfValidatorImpl validator = new DsfValidatorImpl();
+        //  Plugin reporting (write under configurable report root)
+        File reportRoot = new File(System.getProperty("dsf.report.dir", "report"));
+        File pluginRoot = new File(reportRoot, "pluginReports");
+
+        // Prepare/clean report directory before writing any reports
+        dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory(reportRoot);
+
+        // Collect plugin items and write plugin reports
+        List<AbstractValidationItem> pluginItems = validator.collectPluginItems(projectDir.toPath());
+
+        // Log plugin items found
+        System.out.println("\n=== Plugin Validation Results ===");
+        if (pluginItems.isEmpty()) {
+            System.out.println("No plugin validation items found.");
+        } else {
+            System.out.println("Found " + pluginItems.size() + " plugin validation item(s):");
+            for (AbstractValidationItem item : pluginItems) {
+                System.out.println(" - " + item.getSeverity() + ": " + item.getClass().getSimpleName());
+            }
+        }
+
+        validator.writePluginReports(pluginItems, pluginRoot);
+
+        // === Run BPMN/FHIR validation as before ===============================
         ValidationOutput output = validator.validate(projectDir.toPath());
 
-        System.out.printf("%nValidation finished – %d issue(s) found.%n", output.validationItems().size());
-        System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
+        // === Overwrite top-level aggregated.json to include plugin items =======
+        List<AbstractValidationItem> combined = new ArrayList<>(output.validationItems());
+        combined.addAll(pluginItems);
+        new ValidationOutput(combined).writeResultsAsJson(new File(reportRoot, "aggregated.json"));
 
-        // Print detected API version in red
+        System.out.printf("%nValidation finished – %d issue(s) found (%d BPMN/FHIR + %d plugin).%n",
+                combined.size(), output.validationItems().size(), pluginItems.size());
+        System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
+        System.out.println("Plugin reports written to: " + pluginRoot.getAbsolutePath());
+
+        // Print detected API version in red (or 'unknown' if null).
         System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + apiVersion + "\u001B[0m");
+                + (apiVersion != null ? apiVersion : "unknown") + "\u001B[0m");
         return 0;
     }
+
+    //
+    // Repository cloning
+    //
 
     /**
      * Clones a remote Git repository into a temporary directory under the system's temp folder.

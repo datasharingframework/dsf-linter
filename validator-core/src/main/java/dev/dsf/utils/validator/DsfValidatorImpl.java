@@ -7,8 +7,12 @@ import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
+import dev.dsf.utils.validator.item.PluginValidationItem;
+import dev.dsf.utils.validator.item.PluginValidationItemSuccess;
+import dev.dsf.utils.validator.item.MissingServiceLoaderRegistrationValidationItem;
 import dev.dsf.utils.validator.util.FhirAuthorizationCache;
 import dev.dsf.utils.validator.util.FhirFileUtils;
+import dev.dsf.utils.validator.util.ApiRegistrationValidationSupport;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
@@ -46,22 +50,18 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
  * <pre>
  * report/
  * ├── bpmnReports/
- * │   ├── success/
- * │   │   ├── bpmn_issues_*.json
- * │   │   └── bpmn_success_aggregated.json
- * │   ├── other/
- * │   │   ├── bpmn_issues_*.json
- * │   │   └── bpmn_other_aggregated.json
+ * │   ├── success/                             ← Individual and aggregated BPMN success items
+ * │   ├── other/                               ← BPMN items with warnings/errors
  * │   └── bpmn_issues_aggregated.json
  * ├── fhirReports/
- * │   ├── success/
- * │   │   ├── fhir_issues_*.json
- * │   │   └── fhir_success_aggregated.json
- * │   ├── other/
- * │   │   ├── fhir_issues_*.json
- * │   │   └── fhir_other_aggregated.json
+ * │   ├── success/                             ← Individual and aggregated FHIR success items
+ * │   ├── other/                               ← FHIR items with warnings/errors
  * │   └── fhir_issues_aggregated.json
- * └── aggregated.json
+ * ├── pluginReports/                           ← Plugin validation directory
+ * │   ├── success/                             ← Contains only PluginValidationItemSuccess
+ * │   ├── other/                               ← Contains PluginValidationItems excluding success
+ * │   └── plugin_issues_aggregated.json        ← All PluginValidationItems (success + others)
+ * └── aggregated.json                          ← Combined BPMN + FHIR + Plugin validation results
  * </pre>
  *
  * <p>
@@ -115,8 +115,7 @@ public class DsfValidatorImpl implements DsfValidator
         FhirAuthorizationCache.seedFromProjectFolder(projectRoot);
         // A) ProjectFolder
         if (Files.isDirectory(path)) {
-            File reportRoot = new File("report");
-            prepareCleanReportDirectory(reportRoot);
+            File reportRoot = new File(System.getProperty("dsf.report.dir", "report"));
 
             List<AbstractValidationItem> bpmnItems =
                     validateAllBpmnFilesSplitNewStructure(path.toFile(), reportRoot);
@@ -739,5 +738,150 @@ public class DsfValidatorImpl implements DsfValidator
             System.err.println("WARNING: Could not create 'report' folder at: " + reportDir.getAbsolutePath());
         }
         return reportDir;
+    }
+
+    /**
+     * Runs ServiceLoader validation using {@link ApiRegistrationValidationSupport} and prints results to console.
+     *
+     * <p>This method is called twice: once before and once after the Maven build to give feedback
+     * about whether the {@code ProcessPluginDefinition} registration is detectable in both source and compiled outputs.</p>
+     *
+     * @param label label to prefix output (e.g., "Pre-build check", "Post-build check")
+     * @param root  project root directory to validate
+     * @throws IOException if directory traversal fails
+     */
+    public void runServiceLoaderCheck(String label, Path root) throws IOException
+    {
+        List<AbstractValidationItem> raw = new ArrayList<>();
+        ApiRegistrationValidationSupport.validate(root, raw);
+
+        if (!raw.isEmpty())
+        {
+            System.out.println("\n[" + label + "] ServiceLoader registration results:");
+            for (AbstractValidationItem it : raw)
+            {
+                System.out.println(" - " + it.getSeverity() + ": ServiceLoader registration check found an item; verify META-INF/services for dev.dsf.bpe.v2/v1.ProcessPluginDefinition.");
+            }
+        }
+    }
+
+    /**
+     * Collects plugin validation items (ServiceLoader registration checks) for the given project root.
+     *
+     * @param root the project root
+     * @return a list of plugin validation items as {@link PluginValidationItem}
+     * @throws IOException if traversal fails
+     */
+    public List<AbstractValidationItem> collectPluginItems(Path root) throws IOException
+    {
+        List<AbstractValidationItem> raw = new ArrayList<>();
+        ApiRegistrationValidationSupport.validate(root, raw);
+
+        // Convert raw items to proper PluginValidationItem types
+        List<AbstractValidationItem> pluginItems = new ArrayList<>();
+
+        // Use only the directory name for the "file" property
+        String projectName = root.toFile().getName();
+
+        if (raw.isEmpty()) {
+            // No registration found - create missing service item
+            pluginItems.add(new MissingServiceLoaderRegistrationValidationItem(
+                new File(projectName),
+                "META-INF/services",
+                "No ProcessPluginDefinition service registration found"
+            ));
+        } else {
+            // Convert existing items to plugin validation items
+            for (AbstractValidationItem item : raw) {
+                if (item.getSeverity() == ValidationSeverity.SUCCESS) {
+                    pluginItems.add(new PluginValidationItemSuccess(
+                        new File(projectName),
+                        "META-INF/services",
+                        "ProcessPluginDefinition service registration found"
+                    ));
+                } else {
+                    pluginItems.add(new MissingServiceLoaderRegistrationValidationItem(
+                        new File(projectName),
+                        "META-INF/services",
+                        "ProcessPluginDefinition service registration issue: " + item.getSeverity()
+                    ));
+                }
+            }
+        }
+
+        return pluginItems;
+    }
+
+    /**
+     * Writes plugin validation items under:
+     * <pre>
+     * report/pluginReports/
+     *   ├── plugin_issues_aggregated.json
+     *   ├── success/
+     *   │     ├── plugin_success_aggregated.json
+     *   │     └── plugin_issue_success_XXX.json
+     *   └── other/
+     *         ├── plugin_other_aggregated.json
+     *         └── plugin_issue_other_XXX.json
+     * </pre>
+     *
+     * @param items      plugin items to write
+     * @param pluginRoot the plugin report root directory (e.g., {@code new File("report", "pluginReports")})
+     * @throws IOException if writing fails
+     */
+    public void writePluginReports(List<AbstractValidationItem> items, File pluginRoot) throws IOException
+    {
+        if (!pluginRoot.isDirectory() && !pluginRoot.mkdirs())
+            throw new IOException("Could not create directory: " + pluginRoot.getAbsolutePath());
+
+        // Split by severity
+        List<AbstractValidationItem> success = new ArrayList<>();
+        List<AbstractValidationItem> other   = new ArrayList<>();
+        for (AbstractValidationItem it : items)
+        {
+            if (it instanceof PluginValidationItemSuccess)
+                success.add(it);
+            else
+                other.add(it);
+        }
+
+        // Root-level aggregated
+        new ValidationOutput(items)
+                .writeResultsAsJson(new File(pluginRoot, "plugin_issues_aggregated.json"));
+
+        // Success folder (individual + aggregated)
+        File successDir = new File(pluginRoot, "success");
+        if (!successDir.isDirectory() && !successDir.mkdirs())
+            throw new IOException("Could not create directory: " + successDir.getAbsolutePath());
+        writePerItem(success, successDir, "plugin_issue_success_%03d.json");
+        new ValidationOutput(success)
+                .writeResultsAsJson(new File(successDir, "plugin_success_aggregated.json"));
+
+        // Other folder (individual + aggregated)
+        File otherDir = new File(pluginRoot, "other");
+        if (!otherDir.isDirectory() && !otherDir.mkdirs())
+            throw new IOException("Could not create directory: " + otherDir.getAbsolutePath());
+        writePerItem(other, otherDir, "plugin_issue_other_%03d.json");
+        new ValidationOutput(other)
+                .writeResultsAsJson(new File(otherDir, "plugin_other_aggregated.json"));
+    }
+
+    /**
+     * Writes one JSON file per item into the given folder using the given filename pattern.
+     *
+     * @param items    items to serialize
+     * @param dir      target folder
+     * @param pattern  file name pattern (e.g., {@code "plugin_issue_success_%03d.json"})
+     * @throws IOException if writing fails
+     */
+    private void writePerItem(List<AbstractValidationItem> items, File dir, String pattern) throws IOException
+    {
+        for (int i = 0; i < items.size(); i++)
+        {
+            AbstractValidationItem it = items.get(i);
+            String fileName = String.format(pattern, i + 1);
+            new ValidationOutput(new ArrayList<>(List.of(it)))
+                    .writeResultsAsJson(new File(dir, fileName));
+        }
     }
 }

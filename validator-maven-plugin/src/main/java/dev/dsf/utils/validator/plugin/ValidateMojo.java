@@ -3,16 +3,20 @@ package dev.dsf.utils.validator.plugin;
 import dev.dsf.utils.validator.DsfValidatorImpl;
 import dev.dsf.utils.validator.ValidationOutput;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
+import dev.dsf.utils.validator.item.MissingServiceLoaderRegistrationValidationItem;
 import dev.dsf.utils.validator.util.ApiVersionDetector;
 import dev.dsf.utils.validator.ApiVersionHolder;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 
+
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -21,77 +25,66 @@ import java.util.List;
 import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
- * <h2>DSF Maven Plugin: Validator Mojo</h2>
+ * <h2>DSF Validator Maven Plugin – Mojo: verify</h2>
  *
  * <p>
- * This Mojo provides an integration point for running the DSF Validator directly from a Maven build.
- * It validates both BPMN and FHIR resources located in the DSF project source tree and writes JSON-formatted reports
- * to a dedicated output directory inside the Maven {@code target} folder.
+ * This Mojo executes the Digital Sample Framework (DSF) validation during the Maven lifecycle
+ * (default phase: {@code verify}). It performs structural and semantic validation of BPMN and FHIR
+ * artifacts within a DSF process plugin and reports the results as structured JSON.
  * </p>
  *
- * <h3>Key Features</h3>
+ * <h3>Core Responsibilities</h3>
  * <ul>
- *   <li>Runs automatically during the Maven {@code verify} phase</li>
- *   <li>Supports validation of:
- *     <ul>
- *       <li>BPMN process models under {@code src/main/resources/bpe}</li>
- *       <li>FHIR resource files under {@code src/main/resources/fhir}</li>
- *     </ul>
- *   </li>
- *   <li>Writes categorized report files into:
- *     <code>${project.build.directory}/dsf-validation-reports</code>
- *   </li>
- *   <li>Prints a summary and detected DSF BPE API version to the console</li>
+ *   <li>Builds a classloader from {@code target/classes} and compile/runtime dependencies</li>
+ *   <li>Checks ServiceLoader registration of {@code dev.dsf.bpe.v2.ProcessPluginDefinition}</li>
+ *   <li>Runs DSF BPMN and FHIR validations using {@link dev.dsf.utils.validator.DsfValidatorImpl}</li>
+ *   <li>Writes categorized JSON reports to {@code ${project.build.directory}/dsf-validation-reports}</li>
+ *   <li>Detects the DSF BPE API version and makes it available via {@link dev.dsf.utils.validator.ApiVersionHolder}</li>
  * </ul>
  *
- * <h3>Usage Instructions</h3>
- *
- * <h4>CLI Execution</h4>
+ * <h3>Command-line Usage</h3>
  * <pre>{@code
  * mvn dev.dsf.utils.validator:validator-maven-plugin:verify
  * }</pre>
  *
- * <h4>POM Integration</h4>
- * <pre>{@code
- * <plugin>
- *   <groupId>dev.dsf.utils.validator</groupId>
- *   <artifactId>validator-maven-plugin</artifactId>
- *   <version>1.2</version>
- *   <executions>
- *     <execution>
- *       <phase>verify</phase>
- *       <goals>
- *         <goal>verify</goal>
- *       </goals>
- *     </execution>
- *   </executions>
- * </plugin>
- * }</pre>
+ * <h3>Configuration Options</h3>
+ * <ul>
+ *   <li><strong>-Ddsf.skip=true</strong> – Skips validator execution entirely</li>
+ *   <li><strong>-Ddsf.failOnMissingService=false</strong> – Do not fail build on missing ServiceLoader registration (warn only)</li>
+ * </ul>
  *
  * <h3>Report Output Structure</h3>
  * <pre>
- * target/dsf-validation-reports/
+ * ${project.build.directory}/dsf-validation-reports/
+ * ├── service-loader.json                      ← Results of ServiceLoader registration checks
  * ├── bpmnReports/
- * │   ├── success/ → Individual and aggregated BPMN success reports
- * │   ├── other/   → Individual and aggregated BPMN error/warning reports
+ * │   ├── success/                             ← Individual and aggregated BPMN success items
+ * │   ├── other/                               ← BPMN items with warnings/errors
  * │   └── bpmn_issues_aggregated.json
  * ├── fhirReports/
- * │   ├── success/ → Individual and aggregated FHIR success reports
- * │   ├── other/   → Individual and aggregated FHIR error/warning reports
+ * │   ├── success/                             ← Individual and aggregated FHIR success items
+ * │   ├── other/                               ← FHIR items with warnings/errors
  * │   └── fhir_issues_aggregated.json
- * └── aggregated.json (combined BPMN + FHIR report)
+ * ├── pluginReports/                           ← Plugin validation directory
+ * │   ├── success/                             ← Contains only PluginValidationItemSuccess
+ * │   ├── other/                               ← Contains PluginValidationItems excluding success
+ * │   └── plugin_issues_aggregated.json        ← All PluginValidationItems (success + others)
+ * └── aggregated.json                          ← Combined BPMN + FHIR + Plugin validation results
  * </pre>
  *
  * <h3>Requirements</h3>
  * <ul>
- *   <li>Assumes the Maven project is correctly structured and compiled</li>
- *   <li>Requires the project classpath to be resolvable at runtime</li>
+ *   <li>A compiled DSF plugin project (typically {@code mvn compile} is already executed)</li>
+ *   <li>A proper ServiceLoader entry in {@code META-INF/services/dev.dsf.bpe.v2.ProcessPluginDefinition}</li>
  * </ul>
  *
  * @author Khalil Malla
  * @version 1.2
  * @since 1.0.0
+ *
  * @see dev.dsf.utils.validator.DsfValidatorImpl
+ * @see dev.dsf.utils.validator.util.ApiRegistrationValidationSupport
+ * @see dev.dsf.utils.validator.ApiVersionHolder
  * @see org.apache.maven.plugin.AbstractMojo
  * @see <a href="https://maven.apache.org/developers/mojo-api.html">Maven Mojo API</a>
  */
@@ -103,6 +96,10 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
 )
 public class ValidateMojo extends AbstractMojo
 {
+
+    @Parameter(defaultValue = "${project.basedir}", readonly = true)
+    private File baseDirectory;
+
     /**
      * The build directory of the project (typically the {@code target} folder).
      * The report folder will be placed inside this directory under "dsf-validation-reports".
@@ -122,66 +119,140 @@ public class ValidateMojo extends AbstractMojo
     @Parameter(defaultValue = "${project.compileClasspathElements}", readonly = true, required = true)
     private List<String> classpathElements;
 
+    /** Fail the build if ServiceLoader registration is missing. */
+    @Parameter(property = "dsf.failOnMissingService", defaultValue = "true")
+    private boolean failOnMissingService;
+
+    /** Allow skipping the plugin goal entirely. */
+    @Parameter(property = "dsf.skip", defaultValue = "false")
+    private boolean skip;
+
     /**
-     * Executes the BPMN and FHIR validation process.
+     * Executes the BPMN and FHIR validation process with ServiceLoader checks.
      */
     @Override
-    @SuppressWarnings("deprecation")
-    public void execute() throws MojoExecutionException
+    public void execute() throws MojoExecutionException, MojoFailureException
     {
-        // Assume Maven is executed from the project's root directory.
-        File projectDir = new File(".");
-
-        // Prepare a ClassLoader that includes project classes and dependencies
-        try
+        if (skip)
         {
-            List<URL> urls = new ArrayList<>();
-            urls.add(new File(classesDirectory).toURI().toURL());
-            for (String element : classpathElements)
-            {
-                urls.add(new File(element).toURI().toURL());
-            }
-            URLClassLoader projectClassLoader = new URLClassLoader(
-                    urls.toArray(new URL[0]),
-                    Thread.currentThread().getContextClassLoader()
-            );
-            Thread.currentThread().setContextClassLoader(projectClassLoader);
-        }
-        catch (Exception e)
-        {
-            throw new MojoExecutionException("Failed to set up project classloader", e);
+            System.out.println("DSF validation is skipped (dsf.skip=true).");
+            return;
         }
 
-        // Create a new DSF Validator implementation instance.
+        // 1. Determine project directory
+        final File projectDir = (baseDirectory != null) ? baseDirectory : new File(".");
+
+        // 2. Create validator
         DsfValidatorImpl validator = new DsfValidatorImpl();
 
-        // Define the "dsf-validation-reports" folder within the project's build directory.
-        File reportRoot = new File(buildDirectory, "dsf-validation-reports");
-        prepareCleanReportDirectory(reportRoot);
+        // 3. Pre-build ServiceLoader check (optional, for developer feedback)
+        try {
+            validator.runServiceLoaderCheck("Pre-build check", projectDir.toPath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-        // Detect and store API version before any validation
-        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
+        // 4. (Maven build step is skipped since Mojo runs during build)
+
+        // 5. Post-build ServiceLoader check
+        try {
+            validator.runServiceLoaderCheck("Post-build check", projectDir.toPath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // 6. Detect and store API version
+        String apiVersion = new ApiVersionDetector().detectByFallback(projectDir.toPath());
         ApiVersionHolder.setVersion(apiVersion);
 
-        // 1) Validate BPMN files
-        List<AbstractValidationItem> allBpmnItems = validator.validateAllBpmnFilesSplitNewStructure(projectDir, reportRoot);
+        // 7. Prepare/clean report directory
+        File reportRoot = new File(buildDirectory, "dsf-validation-reports");
+        prepareCleanReportDirectory(reportRoot);
+        File pluginRoot = new File(reportRoot, "pluginReports");
 
-        // 2) Validate FHIR files
-        List<AbstractValidationItem> allFhirItems = validator.validateAllFhirResourcesSplitNewStructure(projectDir, reportRoot);
+        // 8. Collect plugin items and write plugin reports
+        List<AbstractValidationItem> pluginItems;
+        try {
+            pluginItems = validator.collectPluginItems(projectDir.toPath());
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to collect plugin items", e);
+        }
 
-        // 3) Combine BPMN and FHIR validation items into a global aggregated report
-        List<AbstractValidationItem> globalItems = new ArrayList<>();
-        globalItems.addAll(allBpmnItems);
-        globalItems.addAll(allFhirItems);
-        ValidationOutput globalOutput = new ValidationOutput(globalItems);
-        File globalJson = new File(reportRoot, "aggregated.json");
-        globalOutput.writeResultsAsJson(globalJson);
+        // Log plugin items found
+        System.out.println("\n=== Plugin Validation Results ===");
+        if (pluginItems.isEmpty()) {
+            System.out.println("No plugin validation items found.");
+        } else {
+            System.out.println("Found " + pluginItems.size() + " plugin validation item(s):");
+            for (AbstractValidationItem item : pluginItems) {
+                System.out.println(" - " + item.getSeverity() + ": " + item.getClass().getSimpleName());
+            }
+        }
 
-        // Log the completion message.
-        getLog().info("Validation completed. See folder: " + reportRoot.getAbsolutePath());
+        try {
+            validator.writePluginReports(pluginItems, pluginRoot);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write plugin validation reports", e);
+        }
 
-        // Print detected API version in red
+        // 9. BPMN/FHIR validation (with ClassLoader setup)
+        List<AbstractValidationItem> allBpmnItems;
+        List<AbstractValidationItem> allFhirItems;
+
+        try (URLClassLoader projectClassLoader = new URLClassLoader(
+                buildClasspathUrls(classesDirectory, classpathElements).toArray(URL[]::new),
+                getClass().getClassLoader()))
+        {
+            final Thread current = Thread.currentThread();
+            final ClassLoader prev = current.getContextClassLoader();
+            current.setContextClassLoader(projectClassLoader);
+
+            try {
+                allBpmnItems = validator.validateAllBpmnFilesSplitNewStructure(projectDir, reportRoot);
+                allFhirItems = validator.validateAllFhirResourcesSplitNewStructure(projectDir, reportRoot);
+            } finally {
+                current.setContextClassLoader(prev);
+            }
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed during BPMN/FHIR validation", e);
+        }
+
+        // 10. Write aggregated report (BPMN + FHIR + Plugin)
+        List<AbstractValidationItem> combined = new ArrayList<>(allBpmnItems);
+        combined.addAll(allFhirItems);
+        combined.addAll(pluginItems);
+        new ValidationOutput(combined).writeResultsAsJson(new File(reportRoot, "aggregated.json"));
+
+        System.out.println(String.format("%nValidation finished – %d issue(s) found (%d BPMN/FHIR + %d plugin).",
+                combined.size(), allBpmnItems.size() + allFhirItems.size(), pluginItems.size()));
+        System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
+        System.out.println("Plugin reports written to: " + pluginRoot.getAbsolutePath());
+
         System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + apiVersion + "\u001B[0m");
+                + (apiVersion != null ? apiVersion : "unknown") + "\u001B[0m");
+
+        // 11. Fail build if missing ServiceLoader registration and failOnMissingService=true
+        boolean hasMissingService = pluginItems.stream()
+                .anyMatch(i -> i instanceof MissingServiceLoaderRegistrationValidationItem);
+
+        if (hasMissingService && failOnMissingService)
+        {
+            throw new MojoFailureException(
+                    "Missing ServiceLoader registration for ProcessPluginDefinition. " +
+                            "See pluginReports/ or aggregated.json under " + reportRoot.getAbsolutePath());
+        }
     }
+
+
+    /** Build URLs for project classes and compile classpath. */
+    private static List<URL> buildClasspathUrls(String classesDir, List<String> elements)
+            throws IOException
+    {
+        List<URL> urls = new ArrayList<>();
+        urls.add(new File(classesDir).toURI().toURL());
+        for (String e : elements) urls.add(new File(e).toURI().toURL());
+        return urls;
+    }
+
+
 }
