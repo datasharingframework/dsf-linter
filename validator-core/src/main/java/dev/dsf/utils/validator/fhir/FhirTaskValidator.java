@@ -221,7 +221,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String reqIdVal = val(doc,
                 TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']" +
                         "/*[local-name()='value']/@value");
-        if (reqIdVal == null || !reqIdVal.contains("#{organization}"))
+        if (reqIdVal == null || !reqIdVal.equals("#{organization}"))
             out.add(new FhirTaskRequesterOrganizationNoPlaceholderValidationItem(f, ref,
                     "requester.identifier.value must contain '#{organization}'."));
         else
@@ -230,7 +230,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String recIdVal = val(doc,
                 TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']" +
                         "/*[local-name()='identifier']/*[local-name()='value']/@value");
-        if (recIdVal == null || !recIdVal.contains("#{organization}"))
+        if (recIdVal == null || !recIdVal.equals("#{organization}"))
             out.add(new FhirTaskRecipientOrganizationNoPlaceholderValidationItem(f, ref,
                     "restriction.recipient.identifier.value must contain '#{organization}'."));
         else
