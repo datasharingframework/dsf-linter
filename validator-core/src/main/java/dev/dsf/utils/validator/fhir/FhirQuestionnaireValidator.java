@@ -26,9 +26,9 @@ import java.util.regex.Pattern;
  * <li><strong>Placeholder enforcement</strong> – verifies that
  *     <code>version</code> and <code>date</code> still contain the development
  *     placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
- * <li><strong>Item validation</strong> – ensures the mandatory items
- *     <code>business-key</code> and <code>user-task-id</code> exist, have
- *     type <em>string</em> and are flagged <em>required=true</em>.
+ * <li><strong>Item validation</strong> – ensures the mandatory item
+ *     <code>user-task-id</code> exists, has
+ *     type <em>string</em> and is flagged <em>required=true</em>.
  *     Checks that every other item contains the mandatory attributes
  *     <code>linkId</code>, <code>type</code> and <code>text</code>, that
  *     linkIds are unique, and warns on non‑conformant linkId patterns.</li>
@@ -243,9 +243,7 @@ public final class FhirQuestionnaireValidator extends AbstractFhirInstanceValida
                 out.add(new FhirQuestionnaireUnusualLinkIdValidationItem(file, ref, linkId));
 
             /* mandatory items  */
-            if (LINKID_BIZKEY.equals(linkId)) {
-                validateMandatoryItem(file, ref, out, linkId, type, required);
-            } else if (LINKID_USERTASK.equals(linkId)) {
+            if (LINKID_USERTASK.equals(linkId)) {
                 validateMandatoryItem(file, ref, out, linkId, type, required);
             } else {
                 out.add(ok(file, ref, "item '" + linkId + "' looks good"));
