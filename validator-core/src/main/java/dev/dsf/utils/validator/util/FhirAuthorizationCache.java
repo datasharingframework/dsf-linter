@@ -89,6 +89,11 @@ public final class FhirAuthorizationCache
      */
     public static final String CS_RESOURCE_TYPE = "http://dsf.dev/fhir/CodeSystem/resource-type";
 
+    /**
+     * FHIR Task URI for Task status values.
+     */
+    public static final String CS_TASK_STATUS = "http://hl7.org/fhir/task-status";
+
     private static final boolean DEBUG = Boolean.getBoolean("dsf.debug.codesystem");
 
     private static final Map<String, Set<String>> CODES_BY_SYSTEM = new ConcurrentHashMap<>();
@@ -113,6 +118,11 @@ public final class FhirAuthorizationCache
 
         register(CS_ORG_ROLE, Set.of( "UAC", "COS", "CRR", "DIC", "DMS", "DTS", "HRP",
                 "TTP", "AMS"));
+
+        register(CS_TASK_STATUS, Set.of(
+                "draft", "requested", "received", "accepted", "rejected", "ready",
+                "cancelled", "in-progress", "on-hold", "failed", "completed", "entered-in-error"));
+
     }
 
     private FhirAuthorizationCache() { /* Utility class – no instantiation */ }
