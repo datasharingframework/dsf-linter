@@ -734,7 +734,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
                         + "/*[local-name()='identifier']/*[local-name()='value']/@value");
 
         /* Allow development placeholder */
-        if (recipientId != null && recipientId.contains("#{organization}"))
+        if (recipientId != null && recipientId.equals("#{organization}"))
         {
             out.add(ok(taskFile, ref, "recipient placeholder – skipped auth check"));
             return;
