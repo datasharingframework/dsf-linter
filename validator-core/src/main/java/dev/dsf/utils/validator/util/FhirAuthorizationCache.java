@@ -27,7 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * <p>
  * This class implements a centralized, thread-safe cache for known FHIR {@code CodeSystem} codes
- * used throughout the DSF (Digital Sample Framework) validation process. It is used by multiple
+ * used throughout the DSF (Data Sharing Framework) validation process. It is used by multiple
  * validators to verify whether a referenced {@code Coding} is declared and recognized.
  * </p>
  *

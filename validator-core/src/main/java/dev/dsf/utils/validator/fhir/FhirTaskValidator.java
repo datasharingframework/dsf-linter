@@ -19,7 +19,7 @@ import java.util.*;
  * <h2>FHIR Task Validator for DSF – Profile: <code>dsf-task-base</code></h2>
  *
  * <p>This class implements a validator for FHIR {@code Task} resources as used in the
- * Digital Sample Framework (DSF). It is responsible for ensuring structural correctness,
+ * Data Sharing Framework (DSF). It is responsible for ensuring structural correctness,
  * semantic consistency, and conformance to cardinality rules defined in the DSF base profile
  * <code>http://dsf.dev/fhir/StructureDefinition/dsf-task-base</code>.</p>
  *

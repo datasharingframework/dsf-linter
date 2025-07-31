@@ -15,7 +15,7 @@ import java.util.*;
 /**
  * <h2>DSF ValueSet Validator (Profile: dsf-valueset-base 1.0.0)</h2>
  *
- * <p>Validates <code>ValueSet</code> resources that are part of Digital Sample Framework (DSF)
+ * <p>Validates <code>ValueSet</code> resources that are part of Data Sharing Framework (DSF)
  * processes. The checks implemented here are aligned with the DSF template for ValueSets
  * that are loaded by the BPE server.</p>
  *
