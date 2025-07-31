@@ -145,6 +145,15 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         else
         {
             out.add(ok(f, ref, "instantiatesCanonical found."));
+
+            // Check for placeholders - warn if NO placeholders found
+            if (instCanon.contains("#{version}")) {
+                out.add(ok(f, ref, "instantiatesCanonical contains placeholders as expected."));
+            } else {
+                out.add(new FhirTaskInstantiatesCanonicalPlaceholderValidationItem(f, ref,
+                        "instantiatesCanonical missing placeholder: '" + instCanon + "'"));
+            }
+
             // Existence-Check
             File root = determineProjectRoot(f);
             if (root != null)
