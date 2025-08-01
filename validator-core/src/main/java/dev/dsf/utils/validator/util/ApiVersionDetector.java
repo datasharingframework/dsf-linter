@@ -74,6 +74,7 @@ public final class ApiVersionDetector
 
     /**
      * Best-effort fallback by scanning for class names that hint at the DSF BPE API version.
+     * Uses a single walk with try-with-resources for efficiency. Prefers v2 if both are found.
      * This never throws.
      *
      * @param root project root to scan
@@ -88,29 +89,26 @@ public final class ApiVersionDetector
                 ? root.resolve("build/classes/java/main")
                 : root);
 
-        try
-        {
-            try (var stream = Files.walk(start))
-            {
-                boolean hasV2 = stream.anyMatch(p ->
-                        p.getFileName() != null &&
-                                p.getFileName().toString().startsWith("dev.dsf.bpe.v2"));
-                if (hasV2) return "v2";
-            }
-
-            try (var stream = Files.walk(start))
-            {
-                boolean hasV1 = stream.anyMatch(p ->
-                        p.getFileName() != null &&
-                                p.getFileName().toString().startsWith("dev.dsf.bpe.v1"));
-                if (hasV1) return "v1";
-            }
-        }
-        catch (IOException ignored)
-        {
-
+        boolean[] seen = new boolean[2]; // [0]=v1, [1]=v2
+        try (var stream = Files.walk(start)) {
+            stream.forEach(p -> {
+                if (p.getFileName() != null) {
+                    String name = p.getFileName().toString();
+                    if (name.startsWith("dev.dsf.bpe.v2")) {
+                        seen[1] = true;
+                    } else if (name.startsWith("dev.dsf.bpe.v1")) {
+                        seen[0] = true;
+                    }
+                }
+            });
+        } catch (IOException e) {
+            // Log instead of ignoring - could use logger here in future
+            System.err.println("Warning: Failed to walk directory " + start + " for API version detection: " + e.getMessage());
         }
 
+        // Prefer v2 if both are present
+        if (seen[1]) return "v2";
+        if (seen[0]) return "v1";
         return null;
     }
 

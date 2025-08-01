@@ -16,6 +16,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 /**
@@ -119,11 +120,16 @@ public class Main implements Callable<Integer>
         }
 
         // Determine the project directory (either local or cloned).
-        File projectDir = (remoteRepoUrl != null) ? cloneRepository(remoteRepoUrl) : localPath;
-        if (projectDir == null)
+        Optional<File> projectDirOpt = (remoteRepoUrl != null)
+            ? cloneRepository(remoteRepoUrl)
+            : Optional.ofNullable(localPath);
+
+        if (projectDirOpt.isEmpty())
         {
             return 1;
         }
+
+        File projectDir = projectDirOpt.get();
 
         // Create DsfValidatorImpl instance
         DsfValidatorImpl validator = new DsfValidatorImpl();
@@ -203,9 +209,9 @@ public class Main implements Callable<Integer>
      * Clones a remote Git repository into a temporary directory under the system's temp folder.
      *
      * @param remoteUrl the remote repository URL
-     * @return a {@link File} representing the cloned repository's directory, or {@code null} if cloning fails
+     * @return an {@link Optional} containing the cloned repository's directory, or empty if cloning fails
      */
-    private File cloneRepository(String remoteUrl)
+    private Optional<File> cloneRepository(String remoteUrl)
     {
         String repositoryName = remoteUrl.substring(remoteUrl.lastIndexOf('/') + 1);
         File cloneDir = new File(System.getProperty("java.io.tmpdir"), repositoryName);
@@ -213,12 +219,13 @@ public class Main implements Callable<Integer>
         RepositoryManager repoManager = new RepositoryManager();
         try
         {
-            return repoManager.getRepository(remoteUrl, cloneDir);
+            File result = repoManager.getRepository(remoteUrl, cloneDir);
+            return Optional.ofNullable(result);
         }
         catch (GitAPIException e)
         {
             System.err.println("ERROR: Failed to clone repository: " + e.getMessage());
-            return null;
+            return Optional.empty();
         }
     }
 }

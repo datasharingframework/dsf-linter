@@ -20,10 +20,9 @@ import org.camunda.bpm.model.bpmn.instance.Process;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.PathMatcher;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
  * <h2>DSF Validator Implementation</h2>
@@ -137,6 +136,36 @@ public class DsfValidatorImpl implements DsfValidator
         return validateSingleFile(path);
     }
 
+    /**
+     * Validates a single file by determining its type based on file extension.
+     *
+     * @param path the file to validate
+     * @return validation output with results, or empty output if file type is unsupported
+     */
+    private ValidationOutput validateSingleFile(Path path) {
+        if (path == null || !Files.exists(path)) {
+            System.err.println("Error: File does not exist: " + path);
+            return new ValidationOutput(Collections.emptyList());
+        }
+
+        String fileName = path.getFileName().toString().toLowerCase();
+
+        if (fileName.endsWith(".bpmn")) {
+            return validateBpmn(path);
+        } else if (fileName.endsWith(".xml") || fileName.endsWith(".json")) {
+            // Check if it's actually a FHIR file
+            if (FhirFileUtils.isFhirFile(path)) {
+                return validateFhir(path);
+            } else {
+                System.err.println("Warning: File " + fileName + " has XML/JSON extension but is not a valid FHIR file");
+                return new ValidationOutput(Collections.emptyList());
+            }
+        } else {
+            System.err.println("Warning: Unsupported file type: " + fileName + ". Supported types: .bpmn, .xml (FHIR), .json (FHIR)");
+            return new ValidationOutput(Collections.emptyList());
+        }
+    }
+
 
 
     // BPMN (Split with sub-aggregators)
@@ -159,14 +188,9 @@ public class DsfValidatorImpl implements DsfValidator
     {
         // 1) Setup subfolders
         File bpmnFolder = new File(reportRoot, "bpmnReports");
-        File successFolder = new File(bpmnFolder, "success");
-        File otherFolder = new File(bpmnFolder, "other");
-
         bpmnFolder.mkdirs();
-        successFolder.mkdirs();
-        otherFolder.mkdirs();
 
-        // 2) Collect BPMN files
+        // 2) Collect BPMN files using unified finder
         File bpeRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
         if (bpeRoot == null)
         {
@@ -187,7 +211,12 @@ public class DsfValidatorImpl implements DsfValidator
 
         BPMNValidator validator = new BPMNValidator();
 
-        // 3) Validate each BPMN file
+        // 3) Validate each BPMN file and write individual reports
+        File successFolder = new File(bpmnFolder, "success");
+        File otherFolder = new File(bpmnFolder, "other");
+        successFolder.mkdirs();
+        otherFolder.mkdirs();
+
         for (File bpmnFile : bpmnFiles)
         {
             System.out.println("Validating BPMN file: " + bpmnFile.getName());
@@ -206,17 +235,14 @@ public class DsfValidatorImpl implements DsfValidator
             successAggregator.addAll(successItems);
             otherAggregator.addAll(otherItems);
 
-            // We pick the processId or fallback to filename
+            // Write individual file reports
             String pid = out.getProcessId();
             if (pid.isBlank())
             {
                 pid = bpmnFile.getName().replace(".bpmn", "");
             }
-
-            // Determine containing folder name (e.g. “ping” or “pong”)
             String parentFolder = bpmnFile.getParentFile().getName();
 
-            // Write success JSON if relevant
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
@@ -225,7 +251,6 @@ public class DsfValidatorImpl implements DsfValidator
                 so.writeResultsAsJson(outFile);
             }
 
-            // Write other JSON if relevant
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
@@ -235,21 +260,12 @@ public class DsfValidatorImpl implements DsfValidator
             }
         }
 
-        // 4+5) Write aggregated BPMN sub-reports
-        writeAggregatedReport("bpmn_success", successAggregator, successFolder);
-        writeAggregatedReport("bpmn_other",   otherAggregator,   otherFolder);
-        // 6) Write aggregated BPMN (all items)
-        if (!allBpmnItems.isEmpty())
-        {
-            ValidationOutput agg = new ValidationOutput(allBpmnItems);
-            File allFile = new File(bpmnFolder, "bpmn_issues_aggregated.json");
-            agg.writeResultsAsJson(allFile);
-        }
+        // 4) Write unified sub-reports using common method
+        writeSubReports("bpmn", successAggregator, otherAggregator, bpmnFolder);
 
         return allBpmnItems;
     }
 
-    // FHIR (Split with sub-aggregators)
     /**
      * <p>
      * Validates all FHIR files in <code>src/main/resources/fhir</code> and writes them to:
@@ -268,14 +284,9 @@ public class DsfValidatorImpl implements DsfValidator
     {
         // 1) Setup subfolders
         File fhirFolder = new File(reportRoot, "fhirReports");
-        File successFolder = new File(fhirFolder, "success");
-        File otherFolder = new File(fhirFolder, "other");
-
         fhirFolder.mkdirs();
-        successFolder.mkdirs();
-        otherFolder.mkdirs();
 
-        // 2) Collect FHIR files using centralized detection logic
+        // 2) Collect FHIR files using unified finder
         File fhirRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/fhir");
         if (fhirRoot == null)
         {
@@ -296,7 +307,12 @@ public class DsfValidatorImpl implements DsfValidator
         List<AbstractValidationItem> successAggregator = new ArrayList<>();
         List<AbstractValidationItem> otherAggregator = new ArrayList<>();
 
-        // 3) Validate each FHIR file
+        // 3) Validate each FHIR file and write individual reports
+        File successFolder = new File(fhirFolder, "success");
+        File otherFolder = new File(fhirFolder, "other");
+        successFolder.mkdirs();
+        otherFolder.mkdirs();
+
         for (File f : fhirFiles)
         {
             System.out.println("Validating FHIR file: " + f.getName());
@@ -315,17 +331,15 @@ public class DsfValidatorImpl implements DsfValidator
             successAggregator.addAll(successItems);
             otherAggregator.addAll(otherItems);
 
-            // base name
+            // Write individual file reports
             String baseName = f.getName();
             int idx = baseName.lastIndexOf('.');
             if (idx > 0)
             {
                 baseName = baseName.substring(0, idx);
             }
-
-            // Determine containing folder name (the last segment under “fhir”)
             String parentFolder = f.getParentFile().getName();
-            // success
+
             if (!successItems.isEmpty())
             {
                 ValidationOutput so = new ValidationOutput(successItems);
@@ -333,7 +347,7 @@ public class DsfValidatorImpl implements DsfValidator
                         "fhir_issues_" + parentFolder + "_" + baseName + ".json");
                 so.writeResultsAsJson(outFile);
             }
-            // other
+
             if (!otherItems.isEmpty())
             {
                 ValidationOutput oo = new ValidationOutput(otherItems);
@@ -343,17 +357,8 @@ public class DsfValidatorImpl implements DsfValidator
             }
         }
 
-        // 4+5) Write aggregated FHIR sub-reports
-        writeAggregatedReport("fhir_success", successAggregator, successFolder);
-        writeAggregatedReport("fhir_other",   otherAggregator,   otherFolder);
-
-        // 6) Write aggregated FHIR (all items)
-        if (!allFhirItems.isEmpty())
-        {
-            ValidationOutput aggFhir = new ValidationOutput(allFhirItems);
-            File allFile = new File(fhirFolder, "fhir_issues_aggregated.json");
-            aggFhir.writeResultsAsJson(allFile);
-        }
+        // 4) Write unified sub-reports using common method
+        writeSubReports("fhir", successAggregator, otherAggregator, fhirFolder);
 
         return allFhirItems;
     }
@@ -449,6 +454,7 @@ public class DsfValidatorImpl implements DsfValidator
     {
         return !Files.isReadable(path);
     }
+
     /**
      * Attempts to locate the root directory of a Maven project by traversing up the directory tree
      * from the given file path until a {@code pom.xml} file is found.
@@ -551,6 +557,32 @@ public class DsfValidatorImpl implements DsfValidator
         return null;
     }
 
+    /**
+     * Unified file finder using NIO PathMatcher for flexible file filtering.
+     * Uses try-with-resources for automatic stream management.
+     *
+     * @param root the root directory to search
+     * @param glob the glob pattern
+     * @return list of matching files
+     */
+    private List<File> findFiles(Path root, String glob)
+    {
+        if (!Files.isDirectory(root)) {
+            return Collections.emptyList();
+        }
+
+        PathMatcher matcher = root.getFileSystem().getPathMatcher(glob);
+        try (var stream = Files.walk(root)) {
+            return stream
+                .filter(Files::isRegularFile)
+                .filter(matcher::matches)
+                .map(Path::toFile)
+                .collect(Collectors.toList());
+        } catch (IOException e) {
+            System.err.println("Error walking directory " + root + ": " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
 
     /**
      * <p>
@@ -563,35 +595,9 @@ public class DsfValidatorImpl implements DsfValidator
      */
     private List<File> findFhirFilesRecursively(Path rootPath)
     {
-        List<File> result = new ArrayList<>();
-        Deque<Path> stack = new ArrayDeque<>();
-        stack.push(rootPath);
-
-        while (!stack.isEmpty())
-        {
-            Path currentDir = stack.pop();
-            if (Files.isDirectory(currentDir))
-            {
-                try
-                {
-                    Files.list(currentDir).forEach(child -> {
-                        if (Files.isDirectory(child))
-                        {
-                            stack.push(child);
-                        }
-                        else if (FhirFileUtils.isFhirFile(child))  // Use utility class
-                        {
-                            result.add(child.toFile());
-                        }
-                    });
-                }
-                catch (IOException e)
-                {
-                    // ignore
-                }
-            }
-        }
-        return result;
+        return findFiles(rootPath, "glob:**/*.{xml,json}").stream()
+            .filter(f -> FhirFileUtils.isFhirFile(f.toPath()))
+            .collect(Collectors.toList());
     }
 
     /**
@@ -605,110 +611,51 @@ public class DsfValidatorImpl implements DsfValidator
      */
     private List<File> findFilesWithExtensionRecursively(Path rootPath, String extension)
     {
-        List<File> result = new ArrayList<>();
-        Deque<Path> stack = new ArrayDeque<>();
-        stack.push(rootPath);
-
-        while (!stack.isEmpty())
-        {
-            Path currentDir = stack.pop();
-            if (Files.isDirectory(currentDir))
-            {
-                try
-                {
-                    Files.list(currentDir).forEach(child -> {
-                        if (Files.isDirectory(child))
-                        {
-                            stack.push(child);
-                        }
-                        else if (child.getFileName().toString().toLowerCase().endsWith(extension))
-                        {
-                            result.add(child.toFile());
-                        }
-                    });
-                }
-                catch (IOException e)
-                {
-                    // ignore
-                }
-            }
-        }
-        return result;
+        String cleanExt = extension.startsWith(".") ? extension.substring(1) : extension;
+        return findFiles(rootPath, "glob:**/*." + cleanExt);
     }
+
     /**
-     * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
-     * validates them, and returns a combined {@link ValidationOutput} of all issues.
-     * <p>
-     * This method is primarily intended for testing, so that tests can assert
-     * against the aggregated {@link ValidationOutput}.
+     * Common reporter to write validation items split by success/other with aggregated reports.
+     * Creates the necessary directory structure and writes individual and aggregated JSON files.
      *
-     * @param projectDir the root project directory
-     * @return a {@link ValidationOutput} containing all accumulated BPMN validation items
+     * @param prefix the file prefix (e.g., "bpmn", "fhir", "plugin")
+     * @param success list of successful validation items
+     * @param other list of non-successful validation items
+     * @param targetDir the target directory for reports
      */
-    public ValidationOutput validateAllBpmnFilesForTest(File projectDir)
+    private void writeSubReports(String prefix,
+                                List<AbstractValidationItem> success,
+                                List<AbstractValidationItem> other,
+                                File targetDir)
     {
-        File bpmnRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
-        if (bpmnRoot == null)
-        {
-            System.err.println("WARNING: Could not find 'src/main/resources/bpe' in " + projectDir.getAbsolutePath());
-            // No BPMN files => return an empty ValidationOutput
-            return new ValidationOutput(Collections.emptyList());
+        File successDir = new File(targetDir, "success");
+        File otherDir = new File(targetDir, "other");
+        successDir.mkdirs();
+        otherDir.mkdirs();
+
+        // Write success reports
+        if (!success.isEmpty()) {
+            new ValidationOutput(success).writeResultsAsJson(
+                new File(successDir, prefix + "_success_aggregated.json"));
         }
 
-        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpmnRoot.toPath(), ".bpmn");
-        if (bpmnFiles.isEmpty())
-        {
-            System.err.println("No BPMN files found under: " + bpmnRoot.getAbsolutePath());
-            // No BPMN files => return an empty ValidationOutput
-            return new ValidationOutput(Collections.emptyList());
+        // Write other reports
+        if (!other.isEmpty()) {
+            new ValidationOutput(other).writeResultsAsJson(
+                new File(otherDir, prefix + "_other_aggregated.json"));
         }
 
-        // Use the BPMNValidator for each file
-        List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
-        BPMNValidator bpmnValidator = new BPMNValidator();
-
-        for (File file : bpmnFiles)
-        {
-            // Validate this single BPMN file
-            ValidationOutput output = bpmnValidator.validateBpmnFile(file.toPath());
-            allBpmnItems.addAll(output.validationItems());
-        }
-
-        return new ValidationOutput(allBpmnItems);
-    }
-
-    /**
-     * <p>
-     * Validates a single file based on its file extension using centralized file type detection.
-     * </p>
-     *
-     * <p>
-     * Supported file types:
-     * <ul>
-     *   <li><strong>BPMN files</strong> – Files ending with {@code .bpmn} will be validated using the BPMN validation logic.</li>
-     *   <li><strong>FHIR files</strong> – Files that pass {@link FhirFileUtils#isXmlFile(Path)} or {@link FhirFileUtils#isJsonFile(Path)} will be validated using the FHIR validation logic.</li>
-     * </ul>
-     * </p>
-     *
-     * <p>
-     * If the file extension is not recognized, an empty {@link ValidationOutput} will be returned, and an error message will be printed.
-     * </p>
-     *
-     * @param file the {@link Path} of the file to validate
-     * @return a {@link ValidationOutput} containing validation results; empty if the file type is unsupported
-     */
-    private ValidationOutput validateSingleFile(Path file) {
-        String fn = file.getFileName().toString().toLowerCase();
-
-        if (fn.endsWith(".bpmn"))
-            return validateBpmn(file);
-        else if (FhirFileUtils.isFhirFile(file))  // Use utility class
-            return validateFhir(file);
-        else {
-            System.err.println("Unrecognized extension for: " + file);
-            return new ValidationOutput(List.of());
+        // Write combined aggregated report
+        List<AbstractValidationItem> all = new ArrayList<>(success.size() + other.size());
+        all.addAll(success);
+        all.addAll(other);
+        if (!all.isEmpty()) {
+            new ValidationOutput(all).writeResultsAsJson(
+                new File(targetDir, prefix + "_issues_aggregated.json"));
         }
     }
+
     /**
      * Writes an aggregated JSON file named "<prefix>_aggregated.json" in das gegebene Verzeichnis.
      *
@@ -786,24 +733,24 @@ public class DsfValidatorImpl implements DsfValidator
         if (raw.isEmpty()) {
             // No registration found - create missing service item
             pluginItems.add(new MissingServiceLoaderRegistrationValidationItem(
-                new File(projectName),
-                "META-INF/services",
-                "No ProcessPluginDefinition service registration found"
+                    new File(projectName),
+                    "META-INF/services",
+                    "No ProcessPluginDefinition service registration found"
             ));
         } else {
             // Convert existing items to plugin validation items
             for (AbstractValidationItem item : raw) {
                 if (item.getSeverity() == ValidationSeverity.SUCCESS) {
                     pluginItems.add(new PluginValidationItemSuccess(
-                        new File(projectName),
-                        "META-INF/services",
-                        "ProcessPluginDefinition service registration found"
+                            new File(projectName),
+                            "META-INF/services",
+                            "ProcessPluginDefinition service registration found"
                     ));
                 } else {
                     pluginItems.add(new MissingServiceLoaderRegistrationValidationItem(
-                        new File(projectName),
-                        "META-INF/services",
-                        "ProcessPluginDefinition service registration issue: " + item.getSeverity()
+                            new File(projectName),
+                            "META-INF/services",
+                            "ProcessPluginDefinition service registration issue: " + item.getSeverity()
                     ));
                 }
             }
