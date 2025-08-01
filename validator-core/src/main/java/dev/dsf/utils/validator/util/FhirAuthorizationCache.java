@@ -84,10 +84,6 @@ public final class FhirAuthorizationCache
      */
     public static final String CS_ORG_ROLE = "http://dsf.dev/fhir/CodeSystem/organization-role";
 
-    /**
-     * DSF CodeSystem URI for FHIR resource types (heuristic check).
-     */
-    public static final String CS_RESOURCE_TYPE = "http://dsf.dev/fhir/CodeSystem/resource-type";
 
     /**
      * FHIR Task URI for Task status values.
@@ -155,8 +151,6 @@ public final class FhirAuthorizationCache
         if (system == null || code == null || code.isBlank()) return false;
         Set<String> known = CODES_BY_SYSTEM.get(system);
         if (known != null) return !known.contains(code);
-        if (CS_RESOURCE_TYPE.equals(system))
-            return !Character.isUpperCase(code.charAt(0)); // heuristic
         return true;
     }
 
