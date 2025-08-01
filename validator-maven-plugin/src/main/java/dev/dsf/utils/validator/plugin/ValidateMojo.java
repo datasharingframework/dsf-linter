@@ -1,11 +1,10 @@
 package dev.dsf.utils.validator.plugin;
 
 import dev.dsf.utils.validator.DsfValidatorImpl;
-import dev.dsf.utils.validator.ValidationOutput;
+import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.MissingServiceLoaderRegistrationValidationItem;
-import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.ApiVersionHolder;
+import dev.dsf.utils.validator.util.*;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -21,6 +20,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
@@ -39,7 +39,7 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
  *   <li>Checks ServiceLoader registration of {@code dev.dsf.bpe.v2.ProcessPluginDefinition}</li>
  *   <li>Runs DSF BPMN and FHIR validations using {@link dev.dsf.utils.validator.DsfValidatorImpl}</li>
  *   <li>Writes categorized JSON reports to {@code ${project.build.directory}/dsf-validation-reports}</li>
- *   <li>Detects the DSF BPE API version and makes it available via {@link dev.dsf.utils.validator.ApiVersionHolder}</li>
+ *   <li>Detects and reports the DSF BPE API version used in the project</li>
  * </ul>
  *
  * <h3>Command-line Usage</h3>
@@ -84,7 +84,6 @@ import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirec
  *
  * @see dev.dsf.utils.validator.DsfValidatorImpl
  * @see dev.dsf.utils.validator.util.ApiRegistrationValidationSupport
- * @see dev.dsf.utils.validator.ApiVersionHolder
  * @see org.apache.maven.plugin.AbstractMojo
  * @see <a href="https://maven.apache.org/developers/mojo-api.html">Maven Mojo API</a>
  */
@@ -131,8 +130,7 @@ public class ValidateMojo extends AbstractMojo
      * Executes the BPMN and FHIR validation process with ServiceLoader checks.
      */
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException
-    {
+    public void execute() throws MojoExecutionException, MojoFailureException {
         if (skip)
         {
             System.out.println("DSF validation is skipped (dsf.skip=true).");
@@ -145,36 +143,49 @@ public class ValidateMojo extends AbstractMojo
         // 2. Create validator
         DsfValidatorImpl validator = new DsfValidatorImpl();
 
-        // 3. Pre-build ServiceLoader check (optional, for developer feedback)
+        // 3. Clear any previous validation state
+        ApiRegistrationValidationSupport.clearReportedCache();
+
+        // 4. Pre-build ServiceLoader check (optional, for developer feedback)
         try {
             validator.runServiceLoaderCheck("Pre-build check", projectDir.toPath());
-        } catch (IOException e) {
+        } catch (IOException | MissingServiceRegistrationException e) {
             throw new RuntimeException(e);
         }
 
-        // 4. (Maven build step is skipped since Mojo runs during build)
+        // 5. (Maven build step is skipped since Mojo runs during build)
 
-        // 5. Post-build ServiceLoader check
+        // 6. Post-build ServiceLoader check
         try {
             validator.runServiceLoaderCheck("Post-build check", projectDir.toPath());
-        } catch (IOException e) {
+        } catch (IOException | MissingServiceRegistrationException e) {
             throw new RuntimeException(e);
         }
 
-        // 6. Detect and store API version
-        String apiVersion = new ApiVersionDetector().detectByFallback(projectDir.toPath());
-        ApiVersionHolder.setVersion(apiVersion);
+        // 7. Detect and store API version using new enum-based approach
+        ApiVersionDetector detector = new ApiVersionDetector();
+        Optional<DetectedVersion> detectedOpt;
+        try {
+            detectedOpt = detector.detect(projectDir.toPath());
+        } catch (MissingServiceRegistrationException e) {
+            throw new RuntimeException(e);
+        }
+        if (detectedOpt.isPresent()) {
+            ApiVersionHolder.setVersion(detectedOpt.get().version());
+        } else {
+            ApiVersionHolder.setVersion(ApiVersion.UNKNOWN);
+        }
 
-        // 7. Prepare/clean report directory
+        // 8. Prepare/clean report directory
         File reportRoot = new File(buildDirectory, "dsf-validation-reports");
         prepareCleanReportDirectory(reportRoot);
         File pluginRoot = new File(reportRoot, "pluginReports");
 
-        // 8. Collect plugin items and write plugin reports
+        // 9. Collect plugin items and write plugin reports
         List<AbstractValidationItem> pluginItems;
         try {
             pluginItems = validator.collectPluginItems(projectDir.toPath());
-        } catch (IOException e) {
+        } catch (IOException | MissingServiceRegistrationException e) {
             throw new MojoExecutionException("Failed to collect plugin items", e);
         }
 
@@ -195,7 +206,7 @@ public class ValidateMojo extends AbstractMojo
             throw new MojoExecutionException("Failed to write plugin validation reports", e);
         }
 
-        // 9. BPMN/FHIR validation (with ClassLoader setup)
+        // 10. BPMN/FHIR validation (with ClassLoader setup)
         List<AbstractValidationItem> allBpmnItems;
         List<AbstractValidationItem> allFhirItems;
 
@@ -217,7 +228,7 @@ public class ValidateMojo extends AbstractMojo
             throw new MojoExecutionException("Failed during BPMN/FHIR validation", e);
         }
 
-        // 10. Write aggregated report (BPMN + FHIR + Plugin)
+        // 11. Write aggregated report (BPMN + FHIR + Plugin)
         List<AbstractValidationItem> combined = new ArrayList<>(allBpmnItems);
         combined.addAll(allFhirItems);
         combined.addAll(pluginItems);
@@ -228,10 +239,16 @@ public class ValidateMojo extends AbstractMojo
         System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
         System.out.println("Plugin reports written to: " + pluginRoot.getAbsolutePath());
 
-        System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + (apiVersion != null ? apiVersion : "unknown") + "\u001B[0m");
+        // Print detected API version in red using new enum-based approach
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
+        String versionStr = switch (apiVersion) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+        System.out.println("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
 
-        // 11. Fail build if missing ServiceLoader registration and failOnMissingService=true
+        // 12. Fail build if missing ServiceLoader registration and failOnMissingService=true
         boolean hasMissingService = pluginItems.stream()
                 .anyMatch(i -> i instanceof MissingServiceLoaderRegistrationValidationItem);
 

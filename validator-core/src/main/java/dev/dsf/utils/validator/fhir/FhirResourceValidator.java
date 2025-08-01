@@ -1,6 +1,6 @@
 package dev.dsf.utils.validator.fhir;
 
-import dev.dsf.utils.validator.ValidationOutput;
+import dev.dsf.utils.validator.util.ValidationOutput;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
 import dev.dsf.utils.validator.util.JsonXmlConverter;
@@ -32,7 +32,7 @@ import java.util.stream.Stream;
  *       walks a directory tree and returns a single aggregated {@link ValidationOutput}.</li>
  *   <li> Validators are now discovered lazily through {@link ServiceLoader} to avoid
  *       manual maintenance of the list in this class.</li>
- *   <li> Uses {@link java.nio.file.Files#walk} & Java Streams for concise IO logic.</li>
+ *   <li> Uses {@link java.nio.file.Files#walk} & JavaStreams for concise IO logic.</li>
  * </ul>
  */
 public final class FhirResourceValidator {

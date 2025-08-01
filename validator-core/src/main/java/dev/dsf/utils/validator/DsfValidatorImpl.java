@@ -2,6 +2,7 @@ package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
+import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
@@ -10,9 +11,7 @@ import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
 import dev.dsf.utils.validator.item.PluginValidationItem;
 import dev.dsf.utils.validator.item.PluginValidationItemSuccess;
 import dev.dsf.utils.validator.item.MissingServiceLoaderRegistrationValidationItem;
-import dev.dsf.utils.validator.util.FhirAuthorizationCache;
-import dev.dsf.utils.validator.util.FhirFileUtils;
-import dev.dsf.utils.validator.util.ApiRegistrationValidationSupport;
+import dev.dsf.utils.validator.util.*;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
@@ -78,12 +77,11 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>{@link BPMNValidator}</li>
  *   <li>{@link FhirResourceValidator}</li>
- *   <li>{@link dev.dsf.utils.validator.ValidationOutput}</li>
+ *   <li>{@link ValidationOutput}</li>
  * </ul>
  *
  */
 public class DsfValidatorImpl implements DsfValidator
-
 {
     private final FhirResourceValidator fhirResourceValidator;
 
@@ -693,21 +691,22 @@ public class DsfValidatorImpl implements DsfValidator
      * <p>This method is called twice: once before and once after the Maven build to give feedback
      * about whether the {@code ProcessPluginDefinition} registration is detectable in both source and compiled outputs.</p>
      *
-     * @param label label to prefix output (e.g., "Pre-build check", "Post-build check")
+     * @param scope scope label to prefix output (e.g., "Pre-build", "Post-build")
      * @param root  project root directory to validate
      * @throws IOException if directory traversal fails
      */
-    public void runServiceLoaderCheck(String label, Path root) throws IOException
-    {
+    public void runServiceLoaderCheck(String scope, Path root) throws IOException, MissingServiceRegistrationException {
         List<AbstractValidationItem> raw = new ArrayList<>();
-        ApiRegistrationValidationSupport.validate(root, raw);
+        ApiRegistrationValidationSupport support = new ApiRegistrationValidationSupport();
+        support.run(scope, root, raw);
 
         if (!raw.isEmpty())
         {
-            System.out.println("\n[" + label + "] ServiceLoader registration results:");
+            System.out.println("\n[" + scope + "] ServiceLoader registration results:");
             for (AbstractValidationItem it : raw)
             {
-                System.out.println(" - " + it.getSeverity() + ": ServiceLoader registration check found an item; verify META-INF/services for dev.dsf.bpe.v2/v1.ProcessPluginDefinition.");
+                System.out.println(" - " + it.getSeverity() + ": " +
+                    (it instanceof PluginValidationItemSuccess ? "Registration found" : "Registration missing"));
             }
         }
     }
@@ -719,10 +718,10 @@ public class DsfValidatorImpl implements DsfValidator
      * @return a list of plugin validation items as {@link PluginValidationItem}
      * @throws IOException if traversal fails
      */
-    public List<AbstractValidationItem> collectPluginItems(Path root) throws IOException
-    {
+    public List<AbstractValidationItem> collectPluginItems(Path root) throws IOException, MissingServiceRegistrationException {
         List<AbstractValidationItem> raw = new ArrayList<>();
-        ApiRegistrationValidationSupport.validate(root, raw);
+        ApiRegistrationValidationSupport support = new ApiRegistrationValidationSupport();
+        support.run("Plugin collection", root, raw);
 
         // Convert raw items to proper PluginValidationItem types
         List<AbstractValidationItem> pluginItems = new ArrayList<>();
@@ -738,22 +737,8 @@ public class DsfValidatorImpl implements DsfValidator
                     "No ProcessPluginDefinition service registration found"
             ));
         } else {
-            // Convert existing items to plugin validation items
-            for (AbstractValidationItem item : raw) {
-                if (item.getSeverity() == ValidationSeverity.SUCCESS) {
-                    pluginItems.add(new PluginValidationItemSuccess(
-                            new File(projectName),
-                            "META-INF/services",
-                            "ProcessPluginDefinition service registration found"
-                    ));
-                } else {
-                    pluginItems.add(new MissingServiceLoaderRegistrationValidationItem(
-                            new File(projectName),
-                            "META-INF/services",
-                            "ProcessPluginDefinition service registration issue: " + item.getSeverity()
-                    ));
-                }
-            }
+            // Use the items directly from the support class
+            pluginItems.addAll(raw);
         }
 
         return pluginItems;

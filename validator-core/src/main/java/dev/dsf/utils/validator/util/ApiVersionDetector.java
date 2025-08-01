@@ -1,128 +1,153 @@
-// src/main/java/dev/dsf/utils/validator/util/ApiVersionDetector.java
 package dev.dsf.utils.validator.util;
 
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * Detects whether the exploded / source tree uses DSF BPE API v1 or v2.
+ * <h2>DSF API Version Detection Utility</h2>
  *
- * <p><strong>Primary rule:</strong> We require a ServiceLoader registration for
- * {@code ProcessPluginDefinition}. If none is found in any recognized
- * {@code META-INF/services} location, {@link MissingServiceRegistrationException}
- * is thrown so callers can turn this into a validation item.</p>
+ * <p>
+ * This utility class detects whether a given plugin project uses the
+ * <strong>Data Sharing Framework (DSF)</strong> BPE API version {@code v1} or {@code v2}.
+ * It works by inspecting known ServiceLoader registration directories or,
+ * if necessary, by scanning class paths as a fallback.
+ * </p>
  *
- * <p><strong>Helpers:</strong> For best-effort detection you can use
- * {@link #detectFromServiceLoader(Path)} (non-throwing) or {@link #detectByFallback(Path)}
- * to infer the API version from class names when you want to continue validation.</p>
+ * <h3>Detection Strategy</h3>
+ * <ol>
+ *   <li><strong>Primary:</strong> Search for ServiceLoader configuration files
+ *       ({@code META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition} or
+ *       {@code ...v2...}) in common Maven/Gradle layouts.</li>
+ *   <li><strong>Fallback:</strong> If ServiceLoader config files are missing,
+ *       perform a directory walk to identify class files or resources with known DSF API package names.</li>
+ * </ol>
+ *
+ * <h3>Usage Recommendations</h3>
+ * <ul>
+ *   <li>Use {@link #detect(Path)} for a non-throwing best-effort version detection.</li>
+ *   <li>Use {@link #detectOrThrow(Path)} to enforce registration presence (e.g., in validation workflows).</li>
+ * </ul>
+ *
+ * <p>
+ * This class is stateless and safe for concurrent use.
+ * </p>
+ *
+ * @see dev.dsf.utils.validator.util.ApiRegistrationValidationSupport
+ * @see dev.dsf.utils.validator.util.DetectedVersion
+ * @see dev.dsf.utils.validator.util.ApiVersion
  */
 public final class ApiVersionDetector
 {
     /**
-     * Detects the API version by locating a ServiceLoader provider-configuration file.
-     * Throws if none is found so the caller can surface a validation error.
-     *
-     * @param root project root to scan
-     * @return "v1" or "v2"
-     * @throws MissingServiceRegistrationException if no ServiceLoader registration is found
+     * List of known locations (relative to the project root) where ServiceLoader configuration files might reside.
+     * These cover common layouts for Maven and Gradle builds.
      */
-    public String detectOrThrow(Path root) throws MissingServiceRegistrationException
+    private static final List<String> SERVICE_DIRS = List.of(
+            "META-INF/services",                            // generic
+            "src/main/resources/META-INF/services",         // source tree
+            "target/classes/META-INF/services",             // Maven
+            "build/resources/main/META-INF/services",       // Gradle resources
+            "build/classes/java/main/META-INF/services"     // Gradle classes
+    );
+
+    private static final String V2_FILE = "dev.dsf.bpe.v2.ProcessPluginDefinition";
+    private static final String V1_FILE = "dev.dsf.bpe.v1.ProcessPluginDefinition";
+
+    /**
+     * Attempts to detect the DSF BPE API version by scanning known ServiceLoader paths
+     * for provider configuration files. If none are found, a fallback scan is performed.
+     * This method does not throw and returns an empty {@link Optional} if the version
+     * cannot be determined.
+     *
+     * @param root the project root directory to scan
+     * @return an {@link Optional} containing the detected version and file path, or empty if none found
+     */
+    public Optional<DetectedVersion> detect(Path root) throws MissingServiceRegistrationException
     {
-        String version = detectFromServiceLoader(root);
-        if (version == null)
+        // Step 1: ServiceLoader-based detection
+        for (String rel : SERVICE_DIRS)
         {
-            throw new MissingServiceRegistrationException(
-                    "No ProcessPluginDefinition ServiceLoader registration found. " +
-                            "Please add a provider-configuration file " +
-                            "\"META-INF/services/dev.dsf.bpe.v2.ProcessPluginDefinition\" " +
-                            "(or the v1 equivalent) to your plugin JAR.");
+            Path dir = root.resolve(rel);
+            if (Files.isRegularFile(dir.resolve(V2_FILE)))
+                return Optional.of(new DetectedVersion(ApiVersion.V2, dir.resolve(V2_FILE), DetectionSource.SERVICE_FILE));
+            if (Files.isRegularFile(dir.resolve(V1_FILE)))
+                return Optional.of(new DetectedVersion(ApiVersion.V1, dir.resolve(V1_FILE), DetectionSource.SERVICE_FILE));
         }
-        return version;
+
+        // Step 2: Fallback scan for class/package names
+        return detectByFallbackOptional(root);
     }
 
     /**
-     * Attempts to detect the API version by checking common ServiceLoader locations.
-     * Returns {@code null} if no registration is found.
+     * Detects the DSF API version and throws a {@link MissingServiceRegistrationException}
+     * if no ServiceLoader registration file is found in any known location.
      *
-     * @param root project root to scan
-     * @return "v1", "v2", or {@code null} if not found
+     * <p>This method should be used when ServiceLoader registration is considered mandatory.</p>
+     *
+     * @param root the project root directory to scan
+     * @return the detected version with its origin
+     * @throws MissingServiceRegistrationException if no valid ServiceLoader file is found
      */
-    public String detectFromServiceLoader(Path root)
+    public DetectedVersion detectOrThrow(Path root) throws MissingServiceRegistrationException
     {
-        // Typical Maven output
-        String v = findInServicesDir(root.resolve("target/classes/META-INF/services"));
-        if (v != null) return v;
-
-        // Typical Gradle outputs (resources & classes)
-        v = findInServicesDir(root.resolve("build/resources/main/META-INF/services"));
-        if (v != null) return v;
-        v = findInServicesDir(root.resolve("build/classes/java/main/META-INF/services"));
-        if (v != null) return v;
-
-        // Source-tree check (useful during development)
-        v = findInServicesDir(root.resolve("src/main/resources/META-INF/services"));
-        if (v != null) return v;
-
-        // Flat/exploded layout
-        v = findInServicesDir(root.resolve("META-INF/services"));
-        if (v != null) return v;
-
-        return null;
+        return detect(root).orElseThrow(() ->
+                new MissingServiceRegistrationException("No ServiceLoader registration found under META-INF/services"));
     }
 
     /**
-     * Best-effort fallback by scanning for class names that hint at the DSF BPE API version.
-     * Uses a single walk with try-with-resources for efficiency. Prefers v2 if both are found.
-     * This never throws.
+     * Performs a fallback scan by walking the file tree below common compiled output directories
+     * (e.g., {@code target/classes} or {@code build/classes/java/main}) to detect files
+     * that reference DSF BPE API package names.
      *
-     * @param root project root to scan
-     * @return "v1", "v2", or {@code null} if inconclusive
+     * <p>This method prefers API version {@code v2} over {@code v1} if both are detected.</p>
+     *
+     * @param root the project root directory to scan
+     * @return an {@link Optional} containing the detected version and path if found; otherwise empty
      */
-    public String detectByFallback(Path root)
+    private Optional<DetectedVersion> detectByFallbackOptional(Path root) throws MissingServiceRegistrationException
     {
-        // Prefer compiled outputs; otherwise walk from root
+        // Prefer compiled outputs; otherwise walk from project root
         Path start = Files.isDirectory(root.resolve("target/classes"))
                 ? root.resolve("target/classes")
                 : (Files.isDirectory(root.resolve("build/classes/java/main"))
                 ? root.resolve("build/classes/java/main")
                 : root);
 
-        boolean[] seen = new boolean[2]; // [0]=v1, [1]=v2
-        try (var stream = Files.walk(start)) {
-            stream.forEach(p -> {
-                if (p.getFileName() != null) {
-                    String name = p.getFileName().toString();
-                    if (name.startsWith("dev.dsf.bpe.v2")) {
-                        seen[1] = true;
-                    } else if (name.startsWith("dev.dsf.bpe.v1")) {
-                        seen[0] = true;
-                    }
+        try (var stream = Files.walk(start))
+        {
+            final boolean[] seen = new boolean[2]; // [0]=v1, [1]=v2
+            final Path[] firstSeen = new Path[2];
+
+            stream.forEach(p ->
+            {
+                String name = p.getFileName() != null ? p.getFileName().toString() : "";
+                if (!seen[1] && name.startsWith("dev.dsf.bpe.v2"))
+                {
+                    seen[1] = true;
+                    firstSeen[1] = p;
+                }
+                else if (!seen[0] && name.startsWith("dev.dsf.bpe.v1"))
+                {
+                    seen[0] = true;
+                    firstSeen[0] = p;
                 }
             });
-        } catch (IOException e) {
-            // Log instead of ignoring - could use logger here in future
-            System.err.println("Warning: Failed to walk directory " + start + " for API version detection: " + e.getMessage());
+
+            if (seen[1])
+                return Optional.of(new DetectedVersion(ApiVersion.V2, firstSeen[1], DetectionSource.FALLBACK_SCAN));
+            if (seen[0])
+                return Optional.of(new DetectedVersion(ApiVersion.V1, firstSeen[0], DetectionSource.FALLBACK_SCAN));
+
+            return Optional.empty();
         }
-
-        // Prefer v2 if both are present
-        if (seen[1]) return "v2";
-        if (seen[0]) return "v1";
-        return null;
-    }
-
-    //  helpers
-
-    private String findInServicesDir(Path servicesDir)
-    {
-        if (!Files.isDirectory(servicesDir)) return null;
-
-        // Prefer v2 if both exist
-        if (Files.isRegularFile(servicesDir.resolve("dev.dsf.bpe.v2.ProcessPluginDefinition")))
-            return "v2";
-        if (Files.isRegularFile(servicesDir.resolve("dev.dsf.bpe.v1.ProcessPluginDefinition")))
-            return "v1";
-        return null;
+        catch (IOException e)
+        {
+            detectOrThrow(root);
+            return Optional.empty();
+        }
     }
 }

@@ -6,7 +6,8 @@ import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import dev.dsf.utils.validator.util.FhirValidator;
-import dev.dsf.utils.validator.ApiVersionHolder;
+import dev.dsf.utils.validator.util.ApiVersionHolder;
+import dev.dsf.utils.validator.util.ApiVersion;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
@@ -90,7 +91,7 @@ public class BpmnTaskValidator
             String processId)
     {
         String elementId = task.getId();
-        String apiVersion = ApiVersionHolder.getVersion();
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
         // Validate the task name.
         if (BpmnValidationUtils.isEmpty(task.getName()))
         {
@@ -125,7 +126,7 @@ public class BpmnTaskValidator
             }
             else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
-                if ("v1".equals(apiVersion))
+                if (apiVersion == ApiVersion.V1)
                   issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
@@ -267,7 +268,7 @@ public class BpmnTaskValidator
             String processId)
     {
         String elementId = sendTask.getId();
-        String apiVersion = ApiVersionHolder.getVersion();
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
 
         // Validate the task name.
         if (BpmnValidationUtils.isEmpty(sendTask.getName()))
@@ -301,7 +302,7 @@ public class BpmnTaskValidator
             else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
                 // only report this issue for v1
-                if ("v1".equals(apiVersion))
+                if (apiVersion == ApiVersion.V1)
                 {
                     issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
                             elementId, bpmnFile, processId, implClass));

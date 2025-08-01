@@ -1,4 +1,6 @@
-package dev.dsf.utils.validator;
+package dev.dsf.utils.validator.util;
+import dev.dsf.utils.validator.ValidationSeverity;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -45,12 +47,6 @@ import java.util.stream.Collectors;
  * </pre>
  * <p>The output includes a timestamp in {@code yyyy-MM-dd HH:mm:ss} format and a list of sorted items.</p>
  *
- * <h3>References:</h3>
- * <ul>
- *   <li><a href="https://github.com/FasterXML/jackson-databind">Jackson Databind</a></li>
- *   <li><a href="https://picocli.info/">picocli</a></li>
- *   <li><a href="https://maven.apache.org/">Apache Maven</a></li>
- * </ul>
  */
 public record ValidationOutput(List<AbstractValidationItem> validationItems)
 {
@@ -127,8 +123,14 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
         String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         root.put("timestamp", now);
 
-        // 1.2 add API-Version
-        root.put("apiVersion", ApiVersionHolder.getVersion());
+        // 1.2 add API-Version using new enum
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
+        String versionStr = switch (apiVersion) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+        root.put("apiVersion", versionStr);
 
         // 1.3 Severity summary
         Map<ValidationSeverity, Long> bySeverity =

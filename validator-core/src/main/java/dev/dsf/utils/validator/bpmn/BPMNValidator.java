@@ -1,7 +1,7 @@
 package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.DsfValidatorImpl;
-import dev.dsf.utils.validator.ValidationOutput;
+import dev.dsf.utils.validator.util.ValidationOutput;
 
 import java.nio.file.Path;
 
