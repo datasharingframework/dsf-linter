@@ -654,22 +654,6 @@ public class DsfValidatorImpl implements DsfValidator
         }
     }
 
-    /**
-     * Writes an aggregated JSON file named "<prefix>_aggregated.json" in das gegebene Verzeichnis.
-     *
-     * @param prefix   z. B. "bpmn_success", "bpmn_other", "fhir_success", "fhir_other"
-     * @param items    die List<AbstractValidationItem> zum Aggregieren
-     * @param folder   das Ziel-Verzeichnis
-     */
-    private void writeAggregatedReport(String prefix,
-                                       List<AbstractValidationItem> items,
-                                       File folder) {
-        if (items.isEmpty()) return;
-        ValidationOutput output = new ValidationOutput(items);
-        File outFile = new File(folder, prefix + "_aggregated.json");
-        output.writeResultsAsJson(outFile);
-    }
-
 
     /**
      * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
