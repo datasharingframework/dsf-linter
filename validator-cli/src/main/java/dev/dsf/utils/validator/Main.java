@@ -2,9 +2,7 @@ package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.build.MavenBuilder;
 import dev.dsf.utils.validator.repo.RepositoryManager;
-import dev.dsf.utils.validator.util.MavenUtil;
-import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.util.ApiRegistrationValidationSupport;
+import dev.dsf.utils.validator.util.*;
 
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 
@@ -134,8 +132,11 @@ public class Main implements Callable<Integer>
         // Create DsfValidatorImpl instance
         DsfValidatorImpl validator = new DsfValidatorImpl();
 
+        // Clear any previous validation state
+        ApiRegistrationValidationSupport.clearReportedCache();
+
         // Optional: quick pre-build check on the source tree for developer feedback.
-        validator.runServiceLoaderCheck("Pre-build check", projectDir.toPath());
+        validator.runServiceLoaderCheck("Pre-build", projectDir.toPath());
 
         // Locate Maven executable and build the project.
         MavenBuilder builder = new MavenBuilder();
@@ -153,11 +154,16 @@ public class Main implements Callable<Integer>
         }
 
         // Post-build check: verify ServiceLoader registration is packaged into build outputs.
-        validator.runServiceLoaderCheck("Post-build check", projectDir.toPath());
+        validator.runServiceLoaderCheck("Post-build", projectDir.toPath());
 
-        // Detect and store API version (best-effort; may be null if inconclusive)
-        String apiVersion = new ApiVersionDetector().detectByFallback(projectDir.toPath());
-        ApiVersionHolder.setVersion(apiVersion);
+        // Detect and store API version using new enum-based approach
+        ApiVersionDetector detector = new ApiVersionDetector();
+        var detectedOpt = detector.detect(projectDir.toPath());
+        if (detectedOpt.isPresent()) {
+            ApiVersionHolder.setVersion(detectedOpt.get().version());
+        } else {
+            ApiVersionHolder.setVersion(ApiVersion.UNKNOWN);
+        }
 
         //  Plugin reporting (write under configurable report root)
         File reportRoot = new File(System.getProperty("dsf.report.dir", "report"));
@@ -195,9 +201,14 @@ public class Main implements Callable<Integer>
         System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
         System.out.println("Plugin reports written to: " + pluginRoot.getAbsolutePath());
 
-        // Print detected API version in red (or 'unknown' if null).
-        System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + (apiVersion != null ? apiVersion : "unknown") + "\u001B[0m");
+        // Print detected API version in red (or 'unknown' if not detected).
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
+        String versionStr = switch (apiVersion) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+        System.out.println("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
         return 0;
     }
 
