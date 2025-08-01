@@ -245,7 +245,7 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     {
         // version → #{version}
         String version = val(doc, VS_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.contains("#{version}"))
+        if (version == null || !version.equals("#{version}"))
             out.add(new FhirValueSetVersionNoPlaceholderValidationItem(res, ref,
                     "<version> must contain '#{version}'."));
         else
