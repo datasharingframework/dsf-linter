@@ -48,21 +48,37 @@ import java.util.*;
  *   <li>Various {@link FhirElementValidationItem} subclasses for validation errors</li>
  * </ul>
  * </p>
+ *
+ * @author Data Sharing Framework Team
+ * @version 1.0.0
+ * @since 1.0.0
  */
 public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
 {
     /*  XPath shortcuts  */
 
+    /** XPath expression to select the ValueSet root element. */
     private static final String VS_XP             = "/*[local-name()='ValueSet']";
 
+    /** XPath expression to select all compose/include elements within a ValueSet. */
     private static final String COMPOSE_INCLUDE_XP           = VS_XP + "/*[local-name()='compose']/*[local-name()='include']";
+
+    /** XPath expression to select the version attribute of an include element (relative to include context). */
     private static final String INCLUDE_VERSION_XP           = "./*[local-name()='version']/@value";
+
+    /** XPath expression to select all concept elements within an include (relative to include context). */
     private static final String INCLUDE_CONCEPT_XP           = "./*[local-name()='concept']";
+
+    /** XPath expression to select the code attribute of a concept element (relative to concept context). */
     private static final String CONCEPT_CODE_XP              = "./*[local-name()='code']/@value";
 
+    /** The system URI for DSF read-access-tag CodeSystem. */
     private static final String TAG_SYSTEM_READ_ACCESS       = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
+
+    /** The URL for the DSF parent-organization-role extension. */
     private static final String EXT_PARENT_ORG_ROLE_URL      = "http://dsf.dev/fhir/StructureDefinition/extension-read-access-parent-organization-role";
 
+    /** Shared XPath factory instance for creating XPath expressions. */
     private static final XPathFactory XPATH_FACTORY = XPathFactory.newInstance();
 
     /* --- API  */
@@ -70,7 +86,7 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /**
      * Checks if the given XML document represents a FHIR ValueSet resource.
      *
-     * @param d the XML document to check
+     * @param d the XML document to check, must not be null
      * @return true if the document's root element is "ValueSet", false otherwise
      */
     @Override
@@ -82,9 +98,16 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /**
      * Validates the provided ValueSet resource according to DSF requirements.
      *
-     * @param doc the XML document representing the ValueSet
-     * @param resFile the file from which the document was loaded (for reference)
-     * @return a list of validation items describing all found issues and successes
+     * <p>This method performs comprehensive validation including:</p>
+     * <ul>
+     *   <li>Meta tags and core element validation</li>
+     *   <li>Placeholder enforcement for version and date fields</li>
+     *   <li>Compose/include structure and content validation</li>
+     * </ul>
+     *
+     * @param doc the XML document representing the ValueSet, must not be null
+     * @param resFile the file from which the document was loaded (for reference), must not be null
+     * @return a list of validation items describing all found issues and successes, never null
      */
     @Override
     public List<FhirElementValidationItem> validate(Document doc, File resFile)
@@ -104,10 +127,17 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /**
      * Checks for required meta tags, organization role codes, and core elements (url, name, title, publisher, description).
      *
-     * @param doc the ValueSet XML document
-     * @param res the file reference
-     * @param ref a human-readable reference for reporting
-     * @param out the list to which validation results are added
+     * <p>This method validates:</p>
+     * <ul>
+     *   <li>Presence of read-access-tag with code 'ALL' or 'LOCAL'</li>
+     *   <li>Validity of organization role codes</li>
+     *   <li>Presence of required core elements: url, name, title, publisher, description</li>
+     * </ul>
+     *
+     * @param doc the ValueSet XML document to validate, must not be null
+     * @param res the file reference for error reporting, must not be null
+     * @param ref a human-readable reference for reporting, must not be null
+     * @param out the list to which validation results are added, must not be null
      */
     private void checkMetaAndBasic(Document doc,
                                    File res,
@@ -187,10 +217,13 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
      * Validates any parent-organization-role codes against FhirAuthorizationCache.
      * Checks that organization-role extension codes are valid according to the CS_ORG_ROLE CodeSystem.
      *
-     * @param doc the ValueSet XML document
-     * @param res the file reference
-     * @param ref a human-readable reference for reporting
-     * @param out the list to which validation results are added
+     * <p>This method examines all parent-organization-role extensions in meta tags and
+     * validates that the organization-role codes are known to the DSF authorization system.</p>
+     *
+     * @param doc the ValueSet XML document to validate, must not be null
+     * @param res the file reference for error reporting, must not be null
+     * @param ref a human-readable reference for reporting, must not be null
+     * @param out the list to which validation results are added, must not be null
      */
     private void validateOrganizationRoleCodes(Document doc,
                                                File res,
@@ -233,10 +266,19 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
     /**
      * Checks for required placeholders in version and date fields.
      *
-     * @param doc the ValueSet XML document
-     * @param res the file reference
-     * @param ref a human-readable reference for reporting
-     * @param out the list to which validation results are added
+     * <p>Validates that:</p>
+     * <ul>
+     *   <li>The version element contains exactly '#{version}'</li>
+     *   <li>The date element contains exactly '#{date}'</li>
+     * </ul>
+     *
+     * <p>These placeholders are required by the DSF template system and will be
+     * replaced with actual values during deployment.</p>
+     *
+     * @param doc the ValueSet XML document to validate, must not be null
+     * @param res the file reference for error reporting, must not be null
+     * @param ref a human-readable reference for reporting, must not be null
+     * @param out the list to which validation results are added, must not be null
      */
     private void checkPlaceholders(Document doc,
                                    File res,
@@ -266,10 +308,19 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
      * Validates all compose/include elements for required system, version placeholder, and concept codes.
      * Also checks for duplicate codes and unknown codes in the DSF terminology.
      *
-     * @param doc the ValueSet XML document
-     * @param res the file reference
-     * @param ref a human-readable reference for reporting
-     * @param out the list to which validation results are added
+     * <p>This method performs the following validations:</p>
+     * <ul>
+     *   <li>Ensures at least one compose/include element exists</li>
+     *   <li>Validates that each include has a system attribute</li>
+     *   <li>Checks that include version contains the '#{version}' placeholder</li>
+     *   <li>For includes with concepts: validates code presence, uniqueness, and DSF knowledge</li>
+     *   <li>Detects duplicate concept codes within the same include</li>
+     * </ul>
+     *
+     * @param doc the ValueSet XML document to validate, must not be null
+     * @param res the file reference for error reporting, must not be null
+     * @param ref a human-readable reference for reporting, must not be null
+     * @param out the list to which validation results are added, must not be null
      */
     private void validateComposeIncludes(Document doc,
                                          File res,
@@ -356,9 +407,12 @@ public final class FhirValueSetValidator extends AbstractFhirInstanceValidator
      * Determines a human‑readable reference for logging/issue reporting. Prefers the
      * <code>url</code> element of the ValueSet; falls back to the file name.
      *
-     * @param doc the ValueSet XML document
-     * @param file the file reference
-     * @return the ValueSet url or the file name if url is not present
+     * <p>This method extracts the ValueSet's canonical URL for use in validation
+     * messages. If no URL is present, it uses the filename as a fallback identifier.</p>
+     *
+     * @param doc the ValueSet XML document, must not be null
+     * @param file the file reference, must not be null
+     * @return the ValueSet url or the file name if url is not present, never null
      */
     private String computeReference(Document doc, File file)
     {
