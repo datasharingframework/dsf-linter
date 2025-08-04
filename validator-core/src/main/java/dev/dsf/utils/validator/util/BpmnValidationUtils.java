@@ -53,14 +53,17 @@ import java.util.Objects;
  */
 public class BpmnValidationUtils
 {
-
     /**
      * List of all DSF task-related interface class names supported for validation purposes.
      * <p>
      * This array includes:
      * <ul>
      *   <li><b>API v1:</b> {@code org.camunda.bpm.engine.delegate.JavaDelegate}</li>
-     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.task.ServiceTask}, {@code TaskMessageSend}, {@code TaskMessageReceive}, and {@code UserTaskListener}</li>
+     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.activity.ServiceTask},
+     *       {@code dev.dsf.bpe.v2.activity.MessageSendTask},
+     *       {@code dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent},
+     *       {@code dev.dsf.bpe.v2.activity.MessageEndEvent},
+     *       as well as {@code dev.dsf.bpe.v2.activity.UserTaskListener}</li>
      * </ul>
      * These interfaces define valid implementations for service tasks, message events, and user task listeners
      * in both legacy and modern DSF process definitions.
@@ -70,11 +73,13 @@ public class BpmnValidationUtils
             /* API v1 */
             "org.camunda.bpm.engine.delegate.JavaDelegate",
             /* API v2 */
-            "dev.dsf.bpe.v2.task.ServiceTask",
-            "dev.dsf.bpe.v2.task.TaskMessageSend",
-            "dev.dsf.bpe.v2.task.TaskMessageReceive",
-            "dev.dsf.bpe.v2.task.UserTaskListener"
+            "dev.dsf.bpe.v2.activity.ServiceTask",
+            "dev.dsf.bpe.v2.activity.MessageSendTask",
+            "dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent",
+            "dev.dsf.bpe.v2.activity.MessageEndEvent",
+            "dev.dsf.bpe.v2.activity.UserTaskListener"
     };
+
     /**
      * Checks if the given string is null or empty (after trimming).
      *
@@ -417,14 +422,31 @@ public class BpmnValidationUtils
                 issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
+            if("v2".equals(apiVersion))
+            {
+                issues.add(new BpmnEndOrIntermediateThrowEventMissingInterfaceValidationItem(
+                        elementId, bpmnFile, processId, implClass,
+                        "Implementation class '" + implClass
+                                + "' does not implement a supported DSF task interface."));
+            }
         }
         else
         {
-            // Success: the implementation class is non-empty, exists, and implements
-            issues.add(new BpmnElementValidationItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Implementation class '" + implClass
-                            + "' exists and implements a supported DSF task interface."));
+            if("v1".equals(apiVersion))
+                // Success: the implementation class exists and implements JavaDelegate.
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Implementation class '" + implClass + "' exists and implements JavaDelegate."
+                ));
+            if("v2".equals(apiVersion))
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Implementation class '" + implClass + "' exists and implements a supported DSF task interface."
+                ));
         }
     }
 

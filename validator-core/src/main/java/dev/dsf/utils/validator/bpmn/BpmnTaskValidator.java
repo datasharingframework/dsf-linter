@@ -129,16 +129,32 @@ public class BpmnTaskValidator
                 if (apiVersion == ApiVersion.V1)
                   issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
                         elementId, bpmnFile, processId, implClass));
+
+                if(apiVersion == ApiVersion.V2)
+                {
+                    issues.add(new BpmnServiceTaskNoInterfaceClassImplementingValidationItem(
+                            elementId, bpmnFile, processId,
+                            "ServiceTask implementation class '" + implClass
+                                    + "' exists but does not implement a supported DSF task interface."));
+                }
             }
             else
             {
-                // Success: the implementation class exists and implements JavaDelegate.
-                issues.add(new BpmnElementValidationItemSuccess(
-                        elementId,
-                        bpmnFile,
-                        processId,
-                        "ServiceTask implementation class '" + implClass + "' exists and implements JavaDelegate."
-                ));
+                if(apiVersion == ApiVersion.V1)
+                    // Success: the implementation class exists and implements JavaDelegate.
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "ServiceTask implementation class '" + implClass + "' exists and implements JavaDelegate."
+                    ));
+                if(apiVersion == ApiVersion.V2)
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "ServiceTask implementation class '" + implClass + "' exists and implements a supported DSF task interface."
+                    ));
             }
         }
     }
@@ -301,19 +317,35 @@ public class BpmnTaskValidator
             }
             else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
-                // only report this issue for v1
                 if (apiVersion == ApiVersion.V1)
                 {
                     issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
                             elementId, bpmnFile, processId, implClass));
                 }
+                if(apiVersion == ApiVersion.V2){
+                    issues.add(new BpmnSendTaskNoInterfaceClassImplementingValidationItem(
+                            elementId, bpmnFile, processId,
+                            "Implementation class '" + implClass
+                                    + "' exists but does not implement a supported DSF task interface."));
+                }
             }
             else
             {
-                issues.add(new BpmnElementValidationItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "Implementation class '" + implClass
-                                + "' exists and implements a supported DSF task interface."));
+                if(apiVersion == ApiVersion.V1)
+                    // Success: the implementation class exists and implements JavaDelegate.
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "SendTask implementation class '" + implClass + "' exists and implements JavaDelegate."
+                    ));
+                if(apiVersion == ApiVersion.V2)
+                    issues.add(new BpmnElementValidationItemSuccess(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "SendTask implementation class '" + implClass + "' exists and implements a supported DSF task interface."
+                    ));
             }
         }
 
