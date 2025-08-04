@@ -172,10 +172,10 @@ public class FhirValidator
      *
      * @param filePath       the path to the XML file
      * @param value          the string value to look for
-     * @param isDefinition   {@code true} if searching in an ActivityDefinition, {@code false} if searching in a StructureDefinition
+     * @param whichDefinition   {@code true} if searching in an ActivityDefinition, {@code false} if searching in a StructureDefinition
      * @return {@code true} if the file contains the specified value, {@code false} otherwise
      */
-    private static boolean fileContainsValue(Path filePath, String value, boolean isDefinition)
+    private static boolean fileContainsValue(Path filePath, String value, boolean whichDefinition)
     {
         try
         {
@@ -183,11 +183,11 @@ public class FhirValidator
             if (doc == null) return false;
 
             String rootName = doc.getDocumentElement().getLocalName();
-            if (isDefinition && !"ActivityDefinition".equals(rootName)) return false;
-            if (!isDefinition && !"StructureDefinition".equals(rootName)) return false;
+            if (whichDefinition && !"ActivityDefinition".equals(rootName)) return false;
+            if (!whichDefinition && !"StructureDefinition".equals(rootName)) return false;
 
             // Use the existing method to search either the ActivityDefinition or the StructureDefinition:
-            if (isDefinition)
+            if (whichDefinition)
                 return activityDefinitionContainsMessageName(doc, value);
             else
                 return structureDefinitionContainsValue(doc, value);
