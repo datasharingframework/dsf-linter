@@ -800,4 +800,18 @@ public class DsfValidatorImpl implements DsfValidator
                     .writeResultsAsJson(new File(dir, fileName));
         }
     }
+
+    /**
+     * Prints the detected DSF BPE API version to the console with red formatting.
+     * This method should be called after validation is complete to display the version at the end.
+     */
+    public void printDetectedApiVersion() {
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
+        String versionStr = switch (apiVersion) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+        System.out.println("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
+    }
 }

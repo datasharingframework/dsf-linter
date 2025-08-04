@@ -202,15 +202,11 @@ public class Main implements Callable<Integer>
         System.out.println("Plugin reports written to: " + pluginRoot.getAbsolutePath());
 
         // Print detected API version in red (or 'unknown' if not detected).
-        ApiVersion apiVersion = ApiVersionHolder.getVersion();
-        String versionStr = switch (apiVersion) {
-            case V1 -> "v1";
-            case V2 -> "v2";
-            case UNKNOWN -> "unknown";
-        };
-        System.out.println("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
+        validator.printDetectedApiVersion();
         return 0;
     }
+
+
 
     //
     // Repository cloning
