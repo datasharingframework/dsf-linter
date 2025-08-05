@@ -583,23 +583,36 @@ public class BpmnValidationUtils
 
 
     /**
-     * Checks if a BPMN user task has any {@link CamundaTaskListener} with an implementation class
-     * that cannot be found on the classpath.
-     * <p>
-     * The method inspects the extension elements of the {@link UserTask} for task listeners and verifies
-     * the existence of their specified implementation classes. For each listener:
-     * <ul>
-     *   <li>If the listener's implementation class is specified and cannot be found, an error item is added.</li>
-     *   <li>If the listener's implementation class is specified and is found, a success item is recorded.</li>
-     * </ul>
-     * </p>
+     * Validates {@code <camunda:taskListener>} definitions on a {@link UserTask} element.
      *
-     * @param userTask    the {@link UserTask} to check
-     * @param elementId   the identifier of the BPMN element being validated
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
-     * @param bpmnFile    the BPMN file under validation
-     * @param processId   the identifier of the BPMN process containing the task
-     * @param projectRoot the project root directory used for class loading
+     * <p>
+     * This method performs the following validations for each {@code <camunda:taskListener>}:
+     * </p>
+     * <ul>
+     *   <li><b>Missing class attribute:</b> If no {@code class} attribute is provided, a
+     *       {@link BpmnUserTaskListenerMissingClassAttributeValidationItem} is added.</li>
+     *   <li><b>Class existence:</b> If the class name is present but not found on the classpath, a
+     *       {@link BpmnUserTaskListenerJavaClassNotFoundValidationItem} is added. If it exists, a success item is registered.</li>
+     *   <li><b>API-specific inheritance/interface check:</b>
+     *     <ul>
+     *       <li>For API version {@code V1}, the listener class must either
+     *           <b>extend</b> {@code dev.dsf.bpe.v1.activity.DefaultUserTaskListener}
+     *           or <b>implement</b> {@code org.camunda.bpm.engine.delegate.TaskListener}.</li>
+     *       <li>For API version {@code V2}, the listener class must either
+     *           <b>extend</b> {@code dev.dsf.bpe.v2.activity.DefaultUserTaskListener}
+     *           or <b>implement</b> {@code dev.dsf.bpe.v2.activity.UserTaskListener}.</li>
+     *       <li>If neither requirement is met, a {@link BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem}
+     *           is registered.</li>
+     *     </ul>
+     *   </li>
+     * </ul>
+     *
+     * @param userTask   the {@link UserTask} element to validate
+     * @param elementId  the BPMN element ID
+     * @param issues     the list of validation items to collect results
+     * @param bpmnFile   the BPMN file being validated
+     * @param processId  the ID of the BPMN process definition
+     * @param projectRoot the root directory of the project, used for class loading
      */
     public static void checkTaskListenerClasses(
             UserTask userTask,
@@ -609,36 +622,84 @@ public class BpmnValidationUtils
             String processId,
             File projectRoot)
     {
-        if (userTask.getExtensionElements() != null)
+        if (userTask.getExtensionElements() == null) return;
+
+        Collection<CamundaTaskListener> listeners = userTask.getExtensionElements()
+                .getElementsQuery()
+                .filterByType(CamundaTaskListener.class)
+                .list();
+
+        for (CamundaTaskListener listener : listeners)
         {
-            Collection<CamundaTaskListener> listeners =
-                    userTask.getExtensionElements().getElementsQuery()
-                            .filterByType(CamundaTaskListener.class)
-                            .list();
-            for (CamundaTaskListener listener : listeners)
+            String implClass = listener.getCamundaClass();
+
+            // 1) Missing class attribute
+            if (isEmpty(implClass))
             {
-                String implClass = listener.getCamundaClass();
-                if (!BpmnValidationUtils.isEmpty(implClass))
-                {
-                    if (!BpmnValidationUtils.classExists(implClass, projectRoot))
-                    {
-                        issues.add(new BpmnFloatingElementValidationItem(
-                                elementId, bpmnFile, processId,
-                                "Task listener class not found: " + implClass,
-                                ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                                ValidationSeverity.ERROR,
-                                FloatingElementType.TASK_LISTENER_CLASS_NOT_FOUND
-                        ));
-                    }
-                    else
-                    {
-                        issues.add(new BpmnElementValidationItemSuccess(
-                                elementId, bpmnFile, processId,
-                                "Task listener class found: " + implClass
-                        ));
-                    }
-                }
+                issues.add(new BpmnUserTaskListenerMissingClassAttributeValidationItem(elementId, bpmnFile, processId));
+                continue;
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "UserTask listener declares a class attribute: '" + implClass + "'"));
+            }
+
+            // 2) Class existence
+            if (!classExists(implClass, projectRoot))
+            {
+                issues.add(new BpmnUserTaskListenerJavaClassNotFoundValidationItem(
+                        elementId, bpmnFile, processId, implClass));
+                continue;
+            }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "UserTask listener class '" + implClass + "' was found on the project classpath"));
+            }
+
+            // 3) API-specific checks with Either-Or logic
+            ApiVersion apiVersion = ApiVersionHolder.getVersion();
+
+            if (apiVersion == ApiVersion.UNKNOWN) {
+            System.err.println("DEBUG: Unknown API version for UserTask listener validation: " + apiVersion + ". No specific checks applied.");
+            }
+
+            else if (apiVersion == ApiVersion.V2)
+            {
+                String defaultSuperClass = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
+                String requiredInterface = "dev.dsf.bpe.v2.activity.UserTaskListener";
+
+                extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
+            }
+            else if (apiVersion == ApiVersion.V1)
+            {
+                String defaultSuperClass = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
+                String requiredInterface = "org.camunda.bpm.engine.delegate.TaskListener";
+
+                extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
+            }
+        }
+    }
+
+    private static void extendsDefault(String elementId, List<BpmnElementValidationItem> issues, File bpmnFile, String processId, File projectRoot, String implClass, String defaultSuperClass, String requiredInterface) {
+        boolean extendsDefault = isSubclassOf(implClass, defaultSuperClass, projectRoot);
+        boolean implementsInterface = implementsInterface(implClass, requiredInterface, projectRoot);
+
+        String inheritanceDescription = extendsDefault ? "extends " + defaultSuperClass : "implements " + requiredInterface;
+        if (extendsDefault || implementsInterface)
+        {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "UserTask listener '" + implClass +  "' extend or implement the required interface class: '" + inheritanceDescription + "'"));
+        }
+        else {
+            issues.add(new BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem (
+                    elementId, bpmnFile, processId, implClass,
+                    "UserTask listener '" + implClass + "' does not extend the default class '" + defaultSuperClass
+                            + "' or implement the required interface '" + requiredInterface + "'."));
         }
     }
 
@@ -1161,4 +1222,58 @@ public class BpmnValidationUtils
         return false;
     }
 
+    /**
+     * Checks if the given class implements the given interface.
+     *
+     * @param className     fully-qualified name of the candidate class
+     * @param interfaceName fully-qualified name of the required interface
+     * @param projectRoot   project root used to assemble a class loader
+     * @return true if {@code className} implements {@code interfaceName}, false otherwise
+     */
+    public static boolean implementsInterface(String className, String interfaceName, File projectRoot)
+    {
+        try
+        {
+            ClassLoader cl = createProjectClassLoader(projectRoot);
+            Class<?> candidate = Class.forName(className, false, cl);
+            Class<?> iface = Class.forName(interfaceName, false, cl);
+            return iface.isAssignableFrom(candidate);
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: implementsInterface failed for " + className + " -> " + interfaceName + ": " + t.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Checks if the given class is a subclass (directly or indirectly) of the given superclass name.
+     *
+     * @param className       fully-qualified name of the candidate class
+     * @param superClassName  fully-qualified name of the required superclass
+     * @param projectRoot     project root used to assemble a class loader
+     * @return true if {@code className} extends (directly or indirectly) {@code superClassName}, false otherwise
+     */
+    public static boolean isSubclassOf(String className, String superClassName, File projectRoot)
+    {
+        try
+        {
+            ClassLoader cl = createProjectClassLoader(projectRoot);
+            Class<?> target = Class.forName(className, false, cl);
+            Class<?> required = Class.forName(superClassName, false, cl);
+
+            Class<?> current = target.getSuperclass();
+            while (current != null)
+            {
+                if (current.equals(required))
+                    return true;
+                current = current.getSuperclass();
+            }
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: isSubclassOf failed for " + className + " -> " + superClassName + ": " + t.getMessage());
+        }
+        return false;
+    }
 }
