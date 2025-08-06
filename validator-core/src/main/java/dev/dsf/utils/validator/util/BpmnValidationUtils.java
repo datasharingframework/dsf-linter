@@ -301,35 +301,6 @@ public class BpmnValidationUtils
         return new URLClassLoader(urls.toArray(new URL[0]),
                 Thread.currentThread().getContextClassLoader());
     }
-    /**
-     * old
-     * Checks if the class with the given name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
-     * <p>
-     * The check is performed by loading both the candidate class and the {@code JavaDelegate} interface using
-     * a custom class loader, then verifying assignability.
-     * </p>
-     * new
-     * Methode is not anymore used after the new version von DSF (API 2)
-     * @param className   the fully-qualified class name to check
-     * @param projectRoot the project root directory used to create the custom class loader
-     * @return {@code true} if the candidate class implements {@code JavaDelegate}; {@code false} otherwise
-     */
-    @Deprecated
-    public static boolean implementsJavaDelegate(String className, File projectRoot)
-    {
-        try
-        {
-            ClassLoader customCl = createProjectClassLoader(projectRoot);
-            Class<?> candidateClass = Class.forName(className, true, customCl);
-            Class<?> delegateInterface = Class.forName("org.camunda.bpm.engine.delegate.JavaDelegate", true, customCl);
-            return delegateInterface.isAssignableFrom(candidateClass);
-        }
-        catch (Throwable t)
-        {
-            System.err.println("DEBUG: Exception in implementsJavaDelegate for " + className + ": " + t.getMessage());
-            return false;
-        }
-    }
 
     /**
      * Extracts the implementation class specified on a BPMN element.
