@@ -27,7 +27,7 @@ class BpmnGatewayAndFlowValidatorTest {
     private File mockBpmnFile;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         validator = new BpmnGatewayAndFlowValidator(new File("mockProjectRoot"));
         mockBpmnFile = new File("testProcess.bpmn");
     }
@@ -37,7 +37,7 @@ class BpmnGatewayAndFlowValidatorTest {
      * when the gateway has multiple outgoing flows but no name.
      */
     @Test
-    void testValidateExclusiveGateway_EmptyName_MultipleOutgoing() {
+    public void testValidateExclusiveGateway_EmptyName_MultipleOutgoing() {
         // Arrange
         ExclusiveGateway gateway = mock(ExclusiveGateway.class);
         when(gateway.getId()).thenReturn("exclusiveGwId");
@@ -63,7 +63,7 @@ class BpmnGatewayAndFlowValidatorTest {
      * where the source FlowNode has multiple outgoing flows but the tested sequence flow has no condition.
      */
     @Test
-    void testValidateSequenceFlow_NoCondition_MultipleOutgoing() {
+    public void testValidateSequenceFlow_NoCondition_MultipleOutgoing() {
         // Arrange
         SequenceFlow sequenceFlow = mock(SequenceFlow.class);
         when(sequenceFlow.getId()).thenReturn("sequenceFlowId");
@@ -92,7 +92,7 @@ class BpmnGatewayAndFlowValidatorTest {
      * checking for nonexistent classes.
      */
     @Test
-    void testValidateEventBasedGateway_Basic() {
+    public void testValidateEventBasedGateway_Basic() {
         // Arrange
         EventBasedGateway gateway = mock(EventBasedGateway.class);
         when(gateway.getId()).thenReturn("eventBasedGwId");

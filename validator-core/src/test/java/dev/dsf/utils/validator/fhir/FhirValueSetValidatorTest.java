@@ -34,7 +34,7 @@ class FhirValueSetValidatorTest {
      * Initializes the validator and test file before each test.
      */
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         validator = new FhirValueSetValidator();
         testFile = new File("test-valueSet.json");
     }
@@ -46,7 +46,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if file parsing or validation fails
      */
     @Test
-    void testValidateResourceFilesWithALLTag() throws Exception {
+    public void testValidateResourceFilesWithALLTag() throws Exception {
         // Use relative paths from test resources
         String[] resourcePaths = {
             "src/test/resources/fhir/examples/dashBoardReport/ValueSet/approve-parameters.json",
@@ -97,7 +97,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithValidALLTag() throws Exception {
+    public void testValueSetWithValidALLTag() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -137,7 +137,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithValidLOCALTag() throws Exception {
+    public void testValueSetWithValidLOCALTag() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -177,7 +177,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithMissingReadAccessTag() throws Exception {
+    public void testValueSetWithMissingReadAccessTag() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -218,7 +218,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithWrongCode() throws Exception {
+    public void testValueSetWithWrongCode() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -259,7 +259,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithMultipleTags() throws Exception {
+    public void testValueSetWithMultipleTags() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -307,7 +307,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithNoMetaSection() throws Exception {
+    public void testValueSetWithNoMetaSection() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -341,7 +341,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithEmptyMetaSection() throws Exception {
+    public void testValueSetWithEmptyMetaSection() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -378,7 +378,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithValidOrganizationRoleCode() throws Exception {
+    public void testValueSetWithValidOrganizationRoleCode() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -427,7 +427,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithInvalidOrganizationRoleCode() throws Exception {
+    public void testValueSetWithInvalidOrganizationRoleCode() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -476,7 +476,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithMultipleOrganizationRoleCodes() throws Exception {
+    public void testValueSetWithMultipleOrganizationRoleCodes() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">
@@ -537,7 +537,7 @@ class FhirValueSetValidatorTest {
      * @throws Exception if XML parsing or validation fails
      */
     @Test
-    void testValueSetWithoutOrganizationRoleExtensions() throws Exception {
+    public void testValueSetWithoutOrganizationRoleExtensions() throws Exception {
         String xmlContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <ValueSet xmlns="http://hl7.org/fhir">

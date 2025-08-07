@@ -22,13 +22,13 @@ import static org.mockito.Mockito.*;
  * SendTask, and ReceiveTask elements.
  * </p>
  */
-class BpmnTaskValidatorTest {
+public class BpmnTaskValidatorTest {
 
     private BpmnTaskValidator validator;
     private File mockBpmnFile;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         validator = new BpmnTaskValidator(new File("mockProjectRoot"));
         mockBpmnFile = new File("testProcess.bpmn");
     }
@@ -38,7 +38,7 @@ class BpmnTaskValidatorTest {
      * when the task has an empty name.
      */
     @Test
-    void testValidateServiceTask_EmptyName() {
+    public void testValidateServiceTask_EmptyName() {
         // Arrange
         ServiceTask serviceTask = mock(ServiceTask.class);
         when(serviceTask.getId()).thenReturn("serviceTaskId");
@@ -61,7 +61,7 @@ class BpmnTaskValidatorTest {
      * with an empty formKey.
      */
     @Test
-    void testValidateUserTask_EmptyFormKey() {
+    public void testValidateUserTask_EmptyFormKey() {
         // Arrange
         UserTask userTask = mock(UserTask.class);
         when(userTask.getId()).thenReturn("userTaskId");
@@ -82,7 +82,7 @@ class BpmnTaskValidatorTest {
      * name but no implementation class.
      */
     @Test
-    void testValidateSendTask_NoImplementationClass() {
+    public void testValidateSendTask_NoImplementationClass() {
         // Arrange
         SendTask sendTask = mock(SendTask.class);
         when(sendTask.getId()).thenReturn("sendTaskId");
@@ -104,7 +104,7 @@ class BpmnTaskValidatorTest {
      * when the message name is empty.
      */
     @Test
-    void testValidateReceiveTask_EmptyMessageName() {
+    public void testValidateReceiveTask_EmptyMessageName() {
         // Arrange
         ReceiveTask receiveTask = mock(ReceiveTask.class);
         when(receiveTask.getId()).thenReturn("receiveTaskId");

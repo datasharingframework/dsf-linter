@@ -25,7 +25,7 @@ class BpmnSubProcessValidatorTest {
     private File mockBpmnFile;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         validator = new BpmnSubProcessValidator(new File("mockProjectRoot"));
         mockBpmnFile = new File("testProcess.bpmn");
     }
@@ -35,7 +35,7 @@ class BpmnSubProcessValidatorTest {
      * with a multi-instance loop characteristic that does not set camunda:asyncBefore=true.
      */
     @Test
-    void testValidateSubProcess_MultiInstance_NoAsyncBefore() {
+    public void testValidateSubProcess_MultiInstance_NoAsyncBefore() {
         // Arrange
         SubProcess subProcess = mock(SubProcess.class);
         when(subProcess.getId()).thenReturn("subProcessId");

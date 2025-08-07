@@ -1,8 +1,7 @@
-package dev.dsf.utils.validator.fhir;
+package dev.dsf.utils.validator.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.dsf.utils.validator.util.JsonXmlConverter;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 

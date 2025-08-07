@@ -45,7 +45,7 @@ class BpmnValidationUtilsTaskListenerTest {
     private List<BpmnElementValidationItem> issues;
 
     @BeforeEach
-    void setUp() throws IOException {
+    public void setUp() throws IOException {
         projectRoot = tempDir.toFile();
         bpmnFile = tempDir.resolve("test.bpmn").toFile();
         Files.createFile(bpmnFile.toPath());
@@ -56,7 +56,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should not report issues for UserTask without extension elements")
-    void testUserTaskWithNoExtensionElements() {
+    public void testUserTaskWithNoExtensionElements() {
         // Given
         UserTask userTask = mock(UserTask.class);
         when(userTask.getExtensionElements()).thenReturn(null);
@@ -70,7 +70,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should not report issues for UserTask with empty extension elements")
-    void testUserTaskWithEmptyExtensionElements() {
+    public void testUserTaskWithEmptyExtensionElements() {
         // Given
         UserTask userTask = mock(UserTask.class);
         ExtensionElements extensionElements = mock(ExtensionElements.class);
@@ -88,7 +88,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report missing class attribute when task listener has null class")
-    void testTaskListenerWithMissingClassAttribute() {
+    public void testTaskListenerWithMissingClassAttribute() {
         // Given
         UserTask userTask = createUserTaskWithTaskListener(null);
 
@@ -102,7 +102,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report missing class attribute when task listener has empty class")
-    void testTaskListenerWithEmptyClassAttribute() {
+    public void testTaskListenerWithEmptyClassAttribute() {
         // Given
         UserTask userTask = createUserTaskWithTaskListener("");
 
@@ -116,7 +116,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report missing class attribute when task listener has whitespace-only class")
-    void testTaskListenerWithWhitespaceOnlyClassAttribute() {
+    public void testTaskListenerWithWhitespaceOnlyClassAttribute() {
         // Given
         UserTask userTask = createUserTaskWithTaskListener("   ");
 
@@ -130,7 +130,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report class not found when task listener class does not exist")
-    void testTaskListenerWithNonExistingClass() {
+    public void testTaskListenerWithNonExistingClass() {
         // Given
         String className = "com.example.NonExistentListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -152,7 +152,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate task listener extending DefaultUserTaskListener (API v2)")
-    void testTaskListenerExtendsDefaultV2() {
+    public void testTaskListenerExtendsDefaultV2() {
         // Given
         String className = "com.example.ExtendingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -179,7 +179,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate task listener extending DefaultUserTaskListener (API v1)")
-    void testTaskListenerExtendsDefaultV1() {
+    public void testTaskListenerExtendsDefaultV1() {
         // Given
         String className = "com.example.ExtendingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -206,7 +206,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate task listener implementing UserTaskListener (API v2)")
-    void testTaskListenerImplementsInterfaceV2() {
+    public void testTaskListenerImplementsInterfaceV2() {
         // Given
         String className = "com.example.ImplementingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -233,7 +233,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate task listener implementing TaskListener (API v1)")
-    void testTaskListenerImplementsInterfaceV1() {
+    public void testTaskListenerImplementsInterfaceV1() {
         // Given
         String className = "com.example.ImplementingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -260,7 +260,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report interface error when task listener class exists but doesn't implement UserTaskListener (API v2)")
-    void testTaskListenerWithExistingClassWrongInterfaceV2() {
+    public void testTaskListenerWithExistingClassWrongInterfaceV2() {
         // Given
         String className = "com.example.InvalidListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -288,7 +288,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should report error when task listener class exists but doesn't extend or implement required classes (API v1)")
-    void testTaskListenerWithExistingClassWrongSubclassV1() {
+    public void testTaskListenerWithExistingClassWrongSubclassV1() {
         // Given
         String className = "com.example.InvalidListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -315,7 +315,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should only check class attribute and existence for unknown API version")
-    void testTaskListenerWithUnknownApiVersion() {
+    public void testTaskListenerWithUnknownApiVersion() {
         // Given
         String className = "com.example.SomeListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
@@ -340,7 +340,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate multiple task listeners with different validation outcomes")
-    void testTaskListenerWithMultipleListeners() {
+    public void testTaskListenerWithMultipleListeners() {
         // Given
         UserTask userTask = createUserTaskWithMultipleTaskListeners(
             "com.example.ValidListener",
@@ -377,7 +377,7 @@ class BpmnValidationUtilsTaskListenerTest {
 
     @Test
     @DisplayName("Should validate task listeners from real BPMN file (merge.BPMN)")
-    void testWithRealBpmnFileFromResources() throws IOException {
+    public void testWithRealBpmnFileFromResources() throws IOException {
         // Given - Load the actual merge.BPMN file
         File mergeBpmnFile = new File("src/test/resources/bpmn/merge.BPMN");
         if (mergeBpmnFile.exists()) {

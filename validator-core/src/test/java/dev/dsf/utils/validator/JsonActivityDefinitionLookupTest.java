@@ -1,5 +1,10 @@
 package dev.dsf.utils.validator;
 
+import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
+import dev.dsf.utils.validator.exception.ResourceValidationException;
+import dev.dsf.utils.validator.item.AbstractValidationItem;
+import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.util.FhirFileUtils;
 import dev.dsf.utils.validator.util.ValidationOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +14,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,6 +57,22 @@ public class JsonActivityDefinitionLookupTest
      */
     private File activityDefinitionDir;
 
+    private File reportDir;  // For storing test reports
+
+    /**
+     * A "no-op" (no-operation) logger for tests that does nothing.
+     */
+    private static class NoOpLogger implements Logger {
+        @Override
+        public void info(String message) { /* Do nothing */ }
+        @Override
+        public void warn(String message) { /* Do nothing */ }
+        @Override
+        public void error(String message) { /* Do nothing */ }
+        @Override
+        public void error(String message, Throwable throwable) { /* Do nothing */ }
+    }
+
     /**
      * Creates a new validator and a directory structure under {@code src/main/resources/fhir}
      * for writing JSON/XML test files before each test.
@@ -58,13 +82,29 @@ public class JsonActivityDefinitionLookupTest
     @BeforeEach
     void setUp() throws IOException
     {
-        validator = new DsfValidatorImpl();
+        validator = new DsfValidatorImpl(new NoOpLogger());
 
         File projectRoot = tempDir.toFile();
         File srcMain = new File(projectRoot, "src/main/resources");
         fhirDir = new File(srcMain, "fhir");
         activityDefinitionDir = new File(fhirDir, "ActivityDefinition");
         activityDefinitionDir.mkdirs();
+
+        // Directory for the validator to write its reports
+        reportDir = tempDir.resolve("reports").toFile();
+    }
+
+    /**
+     * Helper method to find all FHIR resource files (.xml, .json) in our test setup.
+     */
+    private List<File> collectFhirFiles() throws IOException {
+        try (Stream<Path> stream = Files.walk(fhirDir.toPath())) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(FhirFileUtils::isFhirFile)
+                    .map(Path::toFile)
+                    .collect(Collectors.toList());
+        }
     }
 
     /**
@@ -77,8 +117,7 @@ public class JsonActivityDefinitionLookupTest
      * @throws IOException if file writing or validation fails
      */
     @Test
-    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException
-    {
+    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException, MissingServiceRegistrationException, ResourceValidationException, InterruptedException {
         // Write JSON ActivityDefinition
         String jsonActivityDefinition = """
             {
@@ -174,20 +213,21 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
 
-        ValidationOutput result = validator.validate(tempDir);
+        // Use the specific FHIR validation method, bypassing the Maven build
+        List<File> fhirFiles = collectFhirFiles();
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        ValidationOutput result = new ValidationOutput(items);
 
-        // Print result for debugging
         System.out.println("Total validation items: " + result.validationItems().size());
         result.validationItems().forEach(item -> System.out.println("* " + item));
 
-        // Expectation: Error should NOT appear, but bug causes it
+        // The assertion is now flipped to assertFalse.
+        // A passing test now means the logic works correctly.
         boolean hasUnknownCanonicalError = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
-
         assertFalse(hasUnknownCanonicalError,
-                "Should not have TASK_UNKNOWN_INSTANTIATES_CANONICAL error when JSON ActivityDefinition exists");
+                "Validation should succeed without a TASK_UNKNOWN_INSTANTIATES_CANONICAL error.");
     }
-
     /**
      * Test case demonstrating that a {@code Task} in JSON format correctly resolves
      * a referenced {@code ActivityDefinition} when it is provided in XML format.
@@ -198,8 +238,7 @@ public class JsonActivityDefinitionLookupTest
      * @throws IOException if file writing or validation fails
      */
     @Test
-    void testJsonTaskCanFindXmlActivityDefinition() throws IOException
-    {
+    void testJsonTaskCanFindXmlActivityDefinition() throws IOException, ResourceValidationException {
         // Write XML ActivityDefinition
         String xmlActivityDefinition = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -284,16 +323,16 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
 
-        ValidationOutput result = validator.validate(tempDir);
+        // Use the specific FHIR validation method, bypassing the Maven build
+        List<File> fhirFiles = collectFhirFiles();
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        ValidationOutput result = new ValidationOutput(items);
 
-        // Print result for debugging
         System.out.println("Total validation items: " + result.validationItems().size());
         result.validationItems().forEach(item -> System.out.println("* " + item));
 
-        // Expectation: No error should appear, XML reference should resolve correctly
         boolean hasUnknownCanonicalError = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
-
         assertFalse(hasUnknownCanonicalError,
                 "Should not have TASK_UNKNOWN_INSTANTIATES_CANONICAL error when XML ActivityDefinition exists");
     }

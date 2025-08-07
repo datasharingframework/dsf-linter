@@ -66,7 +66,7 @@ class TestBpmnModelValidator {
                 .endEvent("end")
                 .done();
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
 
         // We expect at least one issue (e.g., "no name", "no implementation class")
         assertFalse(issues.isEmpty(), "Expected validation issues for a ServiceTask with no name / no impl");
@@ -95,7 +95,7 @@ class TestBpmnModelValidator {
             msgDef.getMessage().setName("");
         }
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
         assertFalse(issues.isEmpty(), "We expect an issue for a message start event with empty message name");
     }
 
@@ -129,7 +129,7 @@ class TestBpmnModelValidator {
             }
         }
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
         assertFalse(issues.isEmpty(), "Should have an issue about missing error code on boundary event");
     }
 
@@ -153,7 +153,7 @@ class TestBpmnModelValidator {
                 .endEvent("end2")
                 .done();
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
 
         // We expect multiple flows from the ExclusiveGateway to trigger warnings for unnamed flows
         assertFalse(issues.isEmpty(),
@@ -229,7 +229,7 @@ class TestBpmnModelValidator {
         subProcess.addChildElement(subFlow);
 
         // Validate the model and check for multi-instance misconfiguration
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
 
         // Typically, we expect an issue regarding the multi-instance SubProcess not having asyncBefore enabled
         assertFalse(issues.isEmpty(),
@@ -252,7 +252,7 @@ class TestBpmnModelValidator {
                 .endEvent("end")
                 .done();
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
 
         // We expect at least one issue for the missing name on the UserTask
         assertFalse(issues.isEmpty(), "Expect a missing name issue");
@@ -274,7 +274,7 @@ class TestBpmnModelValidator {
                 .endEvent("end")
                 .done();
 
-        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile, dummyProcessId);
+        List<BpmnElementValidationItem> issues = validator.validateModel(model, dummyBpmnFile);
 
         // We expect an issue regarding the missing name on the SendTask
         assertFalse(issues.isEmpty(), "Should mention that sendTaskNoName has no name");

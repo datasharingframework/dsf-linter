@@ -58,7 +58,7 @@ public class BpmnFieldInjectionValidatorTest
      * before any tests are run.
      */
     @BeforeAll
-    static void init()
+    public static void init()
     {
         bpmnFile = Paths.get("dummy-process.bpmn").toFile();
         projectRoot = Paths.get("dummy-project-root").toFile();
@@ -69,7 +69,7 @@ public class BpmnFieldInjectionValidatorTest
      */
     @Test
     @DisplayName("Test no camunda:field elements => no issues")
-    void testNoFieldsNoIssues()
+    public void testNoFieldsNoIssues()
     {
         // Build a minimal BPMN model
         BpmnModelInstance model = Bpmn
@@ -95,7 +95,7 @@ public class BpmnFieldInjectionValidatorTest
      */
     @Test
     @DisplayName("Test camunda:field with expression => triggers NotStringLiteral issue")
-    void testFieldWithExpressionTriggersError()
+    public void testFieldWithExpressionTriggersError()
     {
         // Build a BPMN model with a ServiceTask that has a <camunda:field name="profile" camunda:expression="..."/>
         BpmnModelInstance model = Bpmn
@@ -137,7 +137,7 @@ public class BpmnFieldInjectionValidatorTest
      */
     @Test
     @DisplayName("Test camunda:field with literal => no NotStringLiteral issue, but may trigger others if empty")
-    void testFieldWithLiteral()
+    public void testFieldWithLiteral()
     {
         // Build a BPMN model with a ServiceTask that has a <camunda:field name="messageName"><camunda:string></camunda:string></camunda:field>
         BpmnModelInstance model = Bpmn
@@ -182,7 +182,7 @@ public class BpmnFieldInjectionValidatorTest
      */
     @Test
     @DisplayName("Test unknown field name => triggers an unknown field injection issue")
-    void testUnknownFieldName()
+    public void testUnknownFieldName()
     {
         // Build a BPMN model with a ServiceTask that has a <camunda:field name="someUnknownName" camunda:stringValue="test"/>
         BpmnModelInstance model = Bpmn
@@ -220,7 +220,7 @@ public class BpmnFieldInjectionValidatorTest
      */
     @Test
     @DisplayName("Test EndEvent with MessageEventDefinition => fields get validated")
-    void testEndEventMessageFields()
+    public void testEndEventMessageFields()
     {
         // Build a BPMN model that ends with a MessageEventDefinition
         BpmnModelInstance model = Bpmn
