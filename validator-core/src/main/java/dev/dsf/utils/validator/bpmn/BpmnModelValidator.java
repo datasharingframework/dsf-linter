@@ -3,11 +3,13 @@ package dev.dsf.utils.validator.bpmn;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.*;
+import org.camunda.bpm.model.bpmn.instance.Process;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * <p>
@@ -111,17 +113,17 @@ public class BpmnModelValidator {
      *         the BPMN model to validate
      * @param bpmnFile
      *         the source {@code .bpmn} file (used only for logging in the validation items)
-     * @param processId
-     *         the BPMN process identifier (also used for logging in validation items)
      * @return a list of validation items representing all discovered issues
      */
     public List<BpmnElementValidationItem> validateModel(
             BpmnModelInstance model,
-            File bpmnFile,
-            String processId) {
+            File bpmnFile) {
 
         List<BpmnElementValidationItem> issues = new ArrayList<>();
         Collection<FlowElement> flowElements = model.getModelElementsByType(FlowElement.class);
+
+        // The processId is now extracted internally, simplifying the method call.
+        String processId = extractProcessId(model);
 
         // Initialize sub-validators with the project root
         BpmnTaskValidator taskValidator = new BpmnTaskValidator(projectRoot);
@@ -185,4 +187,20 @@ public class BpmnModelValidator {
         }
         return issues;
     }
+
+    /**
+     * Extracts the ID from the first process definition found in the model.
+     *
+     * @param model The BpmnModelInstance to search within.
+     * @return The process ID as a string, or an empty string if not found.
+     */
+    private String extractProcessId(BpmnModelInstance model) {
+        return model.getModelElementsByType(Process.class)
+                .stream()
+                .map(Process::getId)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("");
+    }
 }
+
