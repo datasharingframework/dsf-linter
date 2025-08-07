@@ -266,7 +266,7 @@ public class BpmnValidationUtils
      * @return a {@link URLClassLoader} that can load project classes and dependencies
      * @throws Exception if URL conversion or class loader initialization fails
      */
-    private static ClassLoader createProjectClassLoader(File projectRoot) throws Exception
+    public static ClassLoader createProjectClassLoader(File projectRoot) throws Exception
     {
         List<URL> urls = new ArrayList<>();
 
