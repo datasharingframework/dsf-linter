@@ -246,18 +246,23 @@ public class FhirValidator
      */
     public static Document parseJsonToXml(Path filePath) throws Exception
     {
-        // Use Jackson to parse JSON
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(filePath.toFile());
+        try {
+            // Use Jackson to parse JSON
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(filePath.toFile());
 
-        // Convert JSON to XML string using utility class
-        String xmlString = JsonXmlConverter.convertJsonToXml(jsonNode);
+            // Convert JSON to XML string using utility class
+            String xmlString = JsonXmlConverter.convertJsonToXml(jsonNode);
 
-        // Parse the XML string to create a DOM Document
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(true);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        return db.parse(new org.xml.sax.InputSource(new java.io.StringReader(xmlString)));
+            // Parse the XML string to create a DOM Document
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            return db.parse(new org.xml.sax.InputSource(new java.io.StringReader(xmlString)));
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            // Jackson not available, return null or throw more specific exception
+            throw new UnsupportedOperationException("JSON parsing requires Jackson library on classpath", e);
+        }
     }
 
     /**
