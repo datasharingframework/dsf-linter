@@ -1,20 +1,15 @@
 package dev.dsf.utils.validator;
 
+import dev.dsf.utils.validator.build.MavenBuilder;
+import dev.dsf.utils.validator.exception.ResourceValidationException;
+import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery;
+import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
-import dev.dsf.utils.validator.bpmn.BpmnModelValidator;
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
-import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.item.BpmnElementValidationItem;
-import dev.dsf.utils.validator.item.FhirElementValidationItem;
-import dev.dsf.utils.validator.item.UnparsableBpmnFileValidationItem;
-import dev.dsf.utils.validator.item.PluginValidationItem;
-import dev.dsf.utils.validator.item.PluginValidationItemSuccess;
-import dev.dsf.utils.validator.item.MissingServiceLoaderRegistrationValidationItem;
 import dev.dsf.utils.validator.util.*;
-import org.camunda.bpm.model.bpmn.Bpmn;
-import org.camunda.bpm.model.bpmn.BpmnModelInstance;
-import org.camunda.bpm.model.bpmn.instance.Process;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,144 +19,185 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * <h2>DSF Validator Implementation</h2>
+ * <h1>DSF Validator Implementation</h1>
  *
  * <p>
- * This class provides a full implementation of the {@link DsfValidator} interface and supports
- * validation of both BPMN and FHIR resources within a DSF project.
- * The validator determines the type of file (BPMN or FHIR) based on its extension and applies
- * appropriate validation logic. It also supports recursive validation of entire project directories.
+ * This class is the primary implementation of the {@link DsfValidator} interface, orchestrating a
+ * robust, definition-driven validation process for DSF-compliant projects. Unlike a simple
+ * file-scanner, this implementation uses the project's {@code ProcessPluginDefinition} as the
+ * single source of truth, ensuring that only relevant and referenced resources are validated.
  * </p>
  *
- * <h3>Validation Modes</h3>
- * <ul>
- *   <li><b>Single File Validation</b> – Supports individual BPMN (.bpmn) and FHIR (.xml/.json) files</li>
- *   <li><b>Project Folder Validation</b> – Recursively validates all BPMN and FHIR resources
- *       under <code>src/main/resources/bpe</code> and <code>src/main/resources/fhir</code></li>
- * </ul>
- *
- * <h3>Report Output Structure</h3>
+ * <h2>Core Validation Workflow</h2>
  * <p>
- * The validator writes its output to the {@code report/} folder using the following structure:
+ * The validation process follows a strict, sequential workflow designed to fail fast on critical errors:
  * </p>
+ * <ol>
+ * <li><b>Maven Build:</b> The project is first built using Maven to ensure all classes are compiled
+ * and dependencies are available for class-loading.</li>
+ * <li><b>Plugin Discovery:</b> It discovers the unique {@code ProcessPluginDefinition} implementation
+ * within the project. The process aborts if zero or multiple definitions are found.</li>
+ * <li><b>Referenced Resource Validation:</b> It validates <em>only</em> the BPMN and FHIR files
+ * explicitly listed in the discovered plugin definition. The process aborts on the first
+ * file that fails to parse, indicating a syntax error.</li>
+ * <li><b>Leftover File Detection:</b> The validator scans the project's resource directories
+ * (e.g., {@code src/main/resources/bpe}) and compares the found files against the list from the
+ * plugin definition. Any file that exists on disk but is not referenced is reported as a "leftover" warning.</li>
+ * <li><b>ServiceLoader Registration Check:</b> It verifies that the {@code ProcessPluginDefinition}
+ * is correctly registered in {@code META-INF/services} for Java's ServiceLoader mechanism.</li>
+ * <li><b>Structured Report Generation:</b> All findings (successes, warnings, errors) are aggregated and
+ * written to a detailed, structured report in the {@code /report} directory.</li>
+ * </ol>
  *
+ * <h2>Report Output Structure</h2>
+ * <p>
+ * The validator generates a comprehensive set of JSON reports under the {@code report/} folder:
+ * </p>
  * <pre>
  * report/
  * ├── bpmnReports/
- * │   ├── success/                             ← Individual and aggregated BPMN success items
- * │   ├── other/                               ← BPMN items with warnings/errors
+ * │   ├── success/
+ * │   ├── other/
  * │   └── bpmn_issues_aggregated.json
  * ├── fhirReports/
- * │   ├── success/                             ← Individual and aggregated FHIR success items
- * │   ├── other/                               ← FHIR items with warnings/errors
+ * │   ├── success/
+ * │   ├── other/
  * │   └── fhir_issues_aggregated.json
- * ├── pluginReports/                           ← Plugin validation directory
- * │   ├── success/                             ← Contains only PluginValidationItemSuccess
- * │   ├── other/                               ← Contains PluginValidationItems excluding success
- * │   └── plugin_issues_aggregated.json        ← All PluginValidationItems (success + others)
- * └── aggregated.json                          ← Combined BPMN + FHIR + Plugin validation results
+ * ├── pluginReports/
+ * │   ├── success/
+ * │   ├── other/
+ * │   └── plugin_issues_aggregated.json
+ * └── aggregated.json  (A combined report of all findings)
  * </pre>
  *
+ * <h2>Error Handling</h2>
  * <p>
- * Each individual report file contains a list of {@link dev.dsf.utils.validator.item.AbstractValidationItem}
- * with timestamps and categorized validation results.
+ * The process is designed to be strict and will terminate immediately under the following conditions:
+ * <ul>
+ * <li>A fatal Maven build failure occurs.</li>
+ * <li>A unique {@code ProcessPluginDefinition} cannot be discovered.</li>
+ * <li>A referenced BPMN or FHIR resource file cannot be parsed due to syntax errors.</li>
+ * </ul>
  * </p>
  *
- * <h3>Usage Example</h3>
- * <pre>{@code
- * DsfValidator validator = new DsfValidatorImpl();
- * ValidationOutput result = validator.validate(Path.of("src/main/resources/fhir"));
- * }</pre>
- *
- * <h3>See Also</h3>
- * <ul>
- *   <li>{@link BPMNValidator}</li>
- *   <li>{@link FhirResourceValidator}</li>
- *   <li>{@link ValidationOutput}</li>
- * </ul>
- *
+ * @see DsfValidator
+ * @see PluginDefinitionDiscovery
+ * @see ValidationOutput
+ * @author Gemini
  */
 public class DsfValidatorImpl implements DsfValidator
 {
     private final FhirResourceValidator fhirResourceValidator;
-
+    private final Logger logger;
     /**
      * Constructs a default {@code DsfValidatorImpl} that includes a
      * {@link FhirResourceValidator} for validating FHIR resources.
      */
-    public DsfValidatorImpl()
+    public DsfValidatorImpl(Logger logger)
     {
+        this.logger = logger;
         this.fhirResourceValidator = new FhirResourceValidator();
     }
 
     /**
-     * Determines whether to validate as BPMN or FHIR based on file extension:
-     * <ul>
-     *   <li>.bpmn => BPMN</li>
-     *   <li>.xml/.json => FHIR</li>
-     *   <li>otherwise => returns {@code null}</li>
-     * </ul>
+     * Orchestrates the entire validation workflow for a given project directory.
+     * This method executes the core logic as described in the class documentation.
+     *
+     * @param path The path to the root of the project directory to be validated.
+     * @return A {@link ValidationOutput} object containing the complete, aggregated results of the run.
+     * @throws ResourceValidationException if a referenced resource file contains a syntax error.
+     * @throws IllegalStateException if a unique {@code ProcessPluginDefinition} cannot be discovered.
+     * @throws IOException if a file system error occurs during report writing or file discovery.
+     * @throws InterruptedException if the Maven build process is interrupted.
+     * @throws MissingServiceRegistrationException if the ServiceLoader check fails.
      */
     @Override
-    public ValidationOutput validate(Path path) {
+    public ValidationOutput validate(Path path) throws ResourceValidationException, IllegalStateException, IOException, InterruptedException, MissingServiceRegistrationException {
+        if (!Files.isDirectory(path))
+        {
+            logger.error("ERROR: This validation workflow only supports project directories.");
+            return ValidationOutput.empty();
+        }
+
+        File projectDir = path.toFile();
+
+        // Step 2.1: Build the project with Maven
+        MavenBuilder builder = new MavenBuilder();
+        String mavenExecutable = MavenUtil.locateMavenExecutable();
+        if (mavenExecutable == null)
+        {
+            throw new IllegalStateException("Maven executable not found in PATH.");
+        }
+        if (!builder.buildProject(projectDir, mavenExecutable,
+                "-B", "-DskipTests", "-Dformatter.skip=true", "-Dexec.skip=true", "clean", "package", "dependency:copy-dependencies"))
+        {
+            throw new RuntimeException("Maven 'package' phase failed.");
+        }
+
+        // Step 2.2: Find plugin definition (throws IllegalStateException on error)
+        PluginAdapter pluginAdapter = PluginDefinitionDiscovery.discoverSingle(projectDir);
+        logger.info("Discovered ProcessPluginDefinition: " + pluginAdapter.sourceClass().getName());
+
+        // Detect API version
+        ApiVersionDetector detector = new ApiVersionDetector();
+        detector.detect(path).ifPresent(v -> ApiVersionHolder.setVersion(v.version()));
 
         // add DSF‑CodeSystem‑Cache
-        File projectRoot = Files.isDirectory(path)
-                ? path.toFile()
-                : getProjectRoot(path);
-        FhirAuthorizationCache.seedFromProjectFolder(projectRoot);
-        // A) ProjectFolder
-        if (Files.isDirectory(path)) {
-            File reportRoot = new File(System.getProperty("dsf.report.dir", "report"));
+        FhirAuthorizationCache.seedFromProjectFolder(projectDir);
 
-            List<AbstractValidationItem> bpmnItems =
-                    validateAllBpmnFilesSplitNewStructure(path.toFile(), reportRoot);
+        // Step 2.3: Collect referenced files from the plugin definition
+        logger.info("Gathering referenced resources from " + pluginAdapter.sourceClass().getSimpleName() + "...");
+        Set<String> referencedBpmnPaths = new HashSet<>(pluginAdapter.getProcessModels());
+        Set<String> referencedFhirPaths = pluginAdapter.getFhirResourcesByProcessId().values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
 
-            List<AbstractValidationItem> fhirItems =
-                    Optional.ofNullable(
-                            validateAllFhirResourcesSplitNewStructure(path.toFile(), reportRoot)
-                    ).orElse(List.of());                     // ← avoid NPE
+        // Define the correct base path for resources, which is typically src/main/resources
+        File resourcesDir = new File(projectDir, "src/main/resources");
 
-            List<AbstractValidationItem> all = new ArrayList<>(bpmnItems);
-            all.addAll(fhirItems);
+        // Resolve file paths against the resources directory
+        List<File> bpmnFilesToValidate = referencedBpmnPaths.stream()
+                .map(p -> new File(resourcesDir, p)).distinct().collect(Collectors.toList());
 
-            ValidationOutput combined = new ValidationOutput(all);
-            combined.writeResultsAsJson(new File(reportRoot, "aggregated.json"));
-            return combined;
-        }
+        List<File> fhirFilesToValidate = referencedFhirPaths.stream()
+                .map(p -> new File(resourcesDir, p)).distinct().collect(Collectors.toList());
 
-        // B) single file
-        return validateSingleFile(path);
-    }
 
-    /**
-     * Validates a single file by determining its type based on file extension.
-     *
-     * @param path the file to validate
-     * @return validation output with results, or empty output if file type is unsupported
-     */
-    private ValidationOutput validateSingleFile(Path path) {
-        if (path == null || !Files.exists(path)) {
-            System.err.println("Error: File does not exist: " + path);
-            return new ValidationOutput(Collections.emptyList());
-        }
+        // Prepare report directory
+        File reportRoot = new File(System.getProperty("dsf.report.dir", "report"));
+        ReportCleaner.prepareCleanReportDirectory(reportRoot);
 
-        String fileName = path.getFileName().toString().toLowerCase();
+        // Step 2.4: Validate ONLY the referenced files
+        List<AbstractValidationItem> bpmnItems = validateAllBpmnFilesSplitNewStructure(bpmnFilesToValidate, reportRoot, projectDir);
+        List<AbstractValidationItem> fhirItems = validateAllFhirResourcesSplitNewStructure(fhirFilesToValidate, reportRoot, projectDir);
 
-        if (fileName.endsWith(".bpmn")) {
-            return validateBpmn(path);
-        } else if (fileName.endsWith(".xml") || fileName.endsWith(".json")) {
-            // Check if it's actually a FHIR file
-            if (FhirFileUtils.isFhirFile(path)) {
-                return validateFhir(path);
-            } else {
-                System.err.println("Warning: File " + fileName + " has XML/JSON extension but is not a valid FHIR file");
-                return new ValidationOutput(Collections.emptyList());
-            }
-        } else {
-            System.err.println("Warning: Unsupported file type: " + fileName + ". Supported types: .bpmn, .xml (FHIR), .json (FHIR)");
-            return new ValidationOutput(Collections.emptyList());
-        }
+        // Step 2.5: Find and report "leftovers" (unreferenced files)
+        List<AbstractValidationItem> leftoverItems = findAndReportLeftovers(projectDir, resourcesDir, referencedBpmnPaths, referencedFhirPaths);
+
+        // Collect other plugin items (e.g., ServiceLoader checks)
+        List<AbstractValidationItem> serviceLoaderItems = collectPluginItems(path);
+
+        List<AbstractValidationItem> allPluginItems = new ArrayList<>();
+        allPluginItems.addAll(leftoverItems);
+        allPluginItems.addAll(serviceLoaderItems);
+
+        // Step 2.6: Write all reports
+        writePluginReports(allPluginItems, new File(reportRoot, "pluginReports"));
+
+        List<AbstractValidationItem> combined = new ArrayList<>();
+        combined.addAll(bpmnItems);
+        combined.addAll(fhirItems);
+        combined.addAll(allPluginItems);
+        ValidationOutput finalOutput = new ValidationOutput(combined);
+        finalOutput.writeResultsAsJson(new File(reportRoot, "aggregated.json"));
+
+        System.out.printf("%nValidation finished – %d issue(s) found (%d BPMN/FHIR + %d plugin).%n",
+                combined.size(), bpmnItems.size() + fhirItems.size(), allPluginItems.size());
+        logger.info("Reports written to: " + reportRoot.getAbsolutePath());
+
+        printDetectedApiVersion();
+
+        return finalOutput;
     }
 
 
@@ -169,267 +205,256 @@ public class DsfValidatorImpl implements DsfValidator
     // BPMN (Split with sub-aggregators)
 
     /**
-     * <p>
-     * Validates all BPMN files in <code>src/main/resources/bpe</code> and writes them to:
-     * </p>
-     * <ul>
-     *   <li><code>report/bpmnReports/success</code> + an <code>aggregated.json</code> of all successes</li>
-     *   <li><code>report/bpmnReports/other</code> + an <code>aggregated.json</code> of all others</li>
-     *   <li><code>report/bpmnReports/bpmn_issues_aggregated.json</code> for all items (success + other)</li>
-     * </ul>
+     * Validates a list of BPMN files and generates structured reports.
      *
-     * @param projectDir the root project directory
-     * @param reportRoot the "report" folder
-     * @return the full list of BPMN {@link AbstractValidationItem} discovered
+     * <p>This method validates each BPMN file in the provided list, categorizes results into
+     * 'success' and 'other' (errors/warnings), and writes individual and aggregated JSON reports
+     * to the specified directory structure.</p>
+     *
+     * <p>For each file that cannot be found on disk, an error validation item is created.
+     * Files that exist are validated using {@link BPMNValidator}, and parsing failures result
+     * in a {@link ResourceValidationException} that aborts the entire validation process.</p>
+     *
+     * <p>Report structure generated:</p>
+     * <pre>
+     * reportRoot/bpmnReports/
+     * ├── success/
+     * │   ├── bpmn_issues_{parentFolder}_{processId}.json (per file)
+     * │   └── bpmn_success_aggregated.json
+     * ├── other/
+     * │   ├── bpmn_issues_{parentFolder}_{processId}.json (per file)
+     * │   └── bpmn_other_aggregated.json
+     * └── bpmn_issues_aggregated.json (combined)
+     * </pre>
+     *
+     * @param bpmnFiles  The list of BPMN files to validate
+     * @param reportRoot The root directory for report output (e.g., "report/")
+     * @param projectDir The root directory of the project, used as the base for relative paths.
+     * @return A list of all validation items generated during BPMN validation
+     * @throws ResourceValidationException if any BPMN file contains syntax errors that prevent parsing
      */
-    public List<AbstractValidationItem> validateAllBpmnFilesSplitNewStructure(File projectDir, File reportRoot)
+    public List<AbstractValidationItem> validateAllBpmnFilesSplitNewStructure(List<File> bpmnFiles, File reportRoot, File projectDir) throws ResourceValidationException
     {
-        // 1) Setup subfolders
+        // 1) Setup subfolders for BPMN reports
         File bpmnFolder = new File(reportRoot, "bpmnReports");
         bpmnFolder.mkdirs();
+        File successFolder = new File(bpmnFolder, "success");
+        File otherFolder = new File(bpmnFolder, "other");
+        successFolder.mkdirs();
+        otherFolder.mkdirs();
 
-        // 2) Collect BPMN files using unified finder
-        File bpeRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/bpe");
-        if (bpeRoot == null)
-        {
-            System.err.println("WARNING: 'src/main/resources/bpe' not found in " + projectDir.getAbsolutePath());
-            return Collections.emptyList();
-        }
-        List<File> bpmnFiles = findFilesWithExtensionRecursively(bpeRoot.toPath(), ".bpmn");
         if (bpmnFiles.isEmpty())
         {
-            System.err.println("No .bpmn files in " + bpeRoot.getAbsolutePath());
+            logger.info("No referenced .bpmn files to validate.");
             return Collections.emptyList();
         }
 
-        // We'll accumulate success items, other items, and everything
+        // Initialize aggregators for all results
         List<AbstractValidationItem> allBpmnItems = new ArrayList<>();
         List<AbstractValidationItem> successAggregator = new ArrayList<>();
         List<AbstractValidationItem> otherAggregator = new ArrayList<>();
 
         BPMNValidator validator = new BPMNValidator();
 
-        // 3) Validate each BPMN file and write individual reports
-        File successFolder = new File(bpmnFolder, "success");
-        File otherFolder = new File(bpmnFolder, "other");
-        successFolder.mkdirs();
-        otherFolder.mkdirs();
-
+        // 3) Validate each BPMN file from the provided list
         for (File bpmnFile : bpmnFiles)
         {
-            System.out.println("Validating BPMN file: " + bpmnFile.getName());
-            ValidationOutput out = validator.validateBpmnFile(bpmnFile.toPath());
+            if (!bpmnFile.exists()) {
+                logger.warn("Referenced BPMN file not found on disk: " + bpmnFile.getAbsolutePath());
+
+                // FIX: Use projectDir as the base for the relative path
+                BpmnFileReferencedButNotFoundValidationItem notFoundItem = new BpmnFileReferencedButNotFoundValidationItem(
+                        ValidationSeverity.ERROR, bpmnFile, "Referenced BPMN file not found at " + getRelativePath(bpmnFile, projectDir));
+
+                allBpmnItems.add(notFoundItem);
+                otherAggregator.add(notFoundItem); // This ensures it gets into bpmn_other_aggregated.json
+                continue;
+            }
+
+            logger.info("Validating BPMN file: " + bpmnFile.getName());
+            ValidationOutput out;
+            List<AbstractValidationItem> itemsForThisFile;
+            // This call will throw ResourceValidationException on parsing failure
+            out = validator.validateBpmnFile(bpmnFile.toPath());
+            itemsForThisFile = new ArrayList<>(out.validationItems());
+
+            // Add a success item indicating the file was found and is readable
+            String processId = out.getProcessId();
+            if (processId.isBlank()) {
+                processId = "[unknown_process]";
+            }
+
+            itemsForThisFile.add(new BpmnElementValidationItemSuccess(processId, bpmnFile, processId, "Referenced BPMN file found and is readable."));
+
             out.printResults();
 
-            allBpmnItems.addAll(out.validationItems());
+            allBpmnItems.addAll(itemsForThisFile);
 
-            List<AbstractValidationItem> successItems = out.validationItems().stream()
+            List<AbstractValidationItem> successItems = itemsForThisFile.stream()
                     .filter(this::isSuccessItem)
                     .collect(Collectors.toList());
-            List<AbstractValidationItem> otherItems = out.validationItems().stream()
+            List<AbstractValidationItem> otherItems = itemsForThisFile.stream()
                     .filter(x -> !isSuccessItem(x))
                     .collect(Collectors.toList());
 
             successAggregator.addAll(successItems);
             otherAggregator.addAll(otherItems);
 
-            // Write individual file reports
+            // Write individual file reports based on the results
             String pid = out.getProcessId();
             if (pid.isBlank())
             {
                 pid = bpmnFile.getName().replace(".bpmn", "");
             }
-            String parentFolder = bpmnFile.getParentFile().getName();
+            String parentFolderName = bpmnFile.getParentFile().getName();
 
             if (!successItems.isEmpty())
             {
-                ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder,
-                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
-                so.writeResultsAsJson(outFile);
+                new ValidationOutput(successItems).writeResultsAsJson(new File(successFolder,
+                        "bpmn_issues_" + parentFolderName + "_" + pid + ".json"));
             }
 
             if (!otherItems.isEmpty())
             {
-                ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder,
-                        "bpmn_issues_" + parentFolder + "_" + pid + ".json");
-                oo.writeResultsAsJson(outFile);
+                new ValidationOutput(otherItems).writeResultsAsJson(new File(otherFolder,
+                        "bpmn_issues_" + parentFolderName + "_" + pid + ".json"));
             }
         }
 
-        // 4) Write unified sub-reports using common method
+        // 4) Write unified sub-reports for all BPMN files
         writeSubReports("bpmn", successAggregator, otherAggregator, bpmnFolder);
 
         return allBpmnItems;
     }
 
+
     /**
-     * <p>
-     * Validates all FHIR files in <code>src/main/resources/fhir</code> and writes them to:
-     * </p>
-     * <ul>
-     *   <li><code>report/fhirReports/success</code> + an <code>aggregated.json</code> of all successes</li>
-     *   <li><code>report/fhirReports/other</code> + an <code>aggregated.json</code> of all others</li>
-     *   <li><code>report/fhirReports/fhir_issues_aggregated.json</code> for all items (success + other)</li>
-     * </ul>
+     * Validates a list of FHIR resource files and generates structured reports.
      *
-     * @param projectDir the root project directory
-     * @param reportRoot the "report" folder
-     * @return the full list of FHIR {@link AbstractValidationItem} discovered
+     * <p>This method validates each FHIR file in the provided list using {@link FhirResourceValidator},
+     * categorizes results into 'success' and 'other' (errors/warnings), and writes individual and
+     * aggregated JSON reports to the specified directory structure.</p>
+     *
+     * <p>For each file that cannot be found on disk, an error validation item is created.
+     * Files that exist are validated, and parsing failures result in a {@link ResourceValidationException}
+     * that aborts the entire validation process.</p>
+     *
+     * <p>Report structure generated:</p>
+     * <pre>
+     * reportRoot/fhirReports/
+     * ├── success/
+     * │   ├── fhir_issues_{parentFolder}_{baseName}.json (per file)
+     * │   └── fhir_success_aggregated.json
+     * ├── other/
+     * │   ├── fhir_issues_{parentFolder}_{baseName}.json (per file)
+     * │   └── fhir_other_aggregated.json
+     * └── fhir_issues_aggregated.json (combined)
+     * </pre>
+     *
+     * @param fhirFiles  The list of FHIR resource files to validate
+     * @param reportRoot The root directory for report output (e.g., "report/")
+     * @param projectDir The root directory of the project, used as the base for relative paths.
+     * @return A list of all validation items generated during FHIR validation
+     * @throws ResourceValidationException if any FHIR file contains syntax errors that prevent parsing
      */
-    public List<AbstractValidationItem> validateAllFhirResourcesSplitNewStructure(File projectDir, File reportRoot)
+    public List<AbstractValidationItem> validateAllFhirResourcesSplitNewStructure(List<File> fhirFiles, File reportRoot, File projectDir) throws ResourceValidationException
     {
-        // 1) Setup subfolders
+        // 1) Setup subfolders for FHIR reports
         File fhirFolder = new File(reportRoot, "fhirReports");
         fhirFolder.mkdirs();
-
-        // 2) Collect FHIR files using unified finder
-        File fhirRoot = findDirectoryRecursively(projectDir.toPath(), "src/main/resources/fhir");
-        if (fhirRoot == null)
-        {
-            System.err.println("WARNING: 'src/main/resources/fhir' not found in " + projectDir.getAbsolutePath());
-            return Collections.emptyList();
-        }
-
-        List<File> fhirFiles = findFhirFilesRecursively(fhirRoot.toPath());
-
-        if (fhirFiles.isEmpty())
-        {
-            System.err.println("No .xml or .json FHIR files in " + fhirRoot.getAbsolutePath());
-            return Collections.emptyList();
-        }
-
-        // We'll accumulate success, other, and everything
-        List<AbstractValidationItem> allFhirItems = new ArrayList<>();
-        List<AbstractValidationItem> successAggregator = new ArrayList<>();
-        List<AbstractValidationItem> otherAggregator = new ArrayList<>();
-
-        // 3) Validate each FHIR file and write individual reports
         File successFolder = new File(fhirFolder, "success");
         File otherFolder = new File(fhirFolder, "other");
         successFolder.mkdirs();
         otherFolder.mkdirs();
 
-        for (File f : fhirFiles)
+        if (fhirFiles.isEmpty())
         {
-            System.out.println("Validating FHIR file: " + f.getName());
-            ValidationOutput output = fhirResourceValidator.validateSingleFile(f.toPath());
+            logger.info("No referenced FHIR files to validate.");
+            return Collections.emptyList();
+        }
+
+        // Initialize aggregators for all results
+        List<AbstractValidationItem> allFhirItems = new ArrayList<>();
+        List<AbstractValidationItem> successAggregator = new ArrayList<>();
+        List<AbstractValidationItem> otherAggregator = new ArrayList<>();
+
+        // 3) Validate each FHIR file from the provided list
+        for (File fhirFile : fhirFiles)
+        {
+            if (!fhirFile.exists()) {
+                logger.warn(" Referenced FHIR file not found on disk: " + fhirFile.getAbsolutePath());
+
+                // FIX: Use projectDir as the base for the relative path
+                FhirFileReferencedButNotFoundValidationItem notFoundItem = new FhirFileReferencedButNotFoundValidationItem(
+                        "Referenced FHIR file not found at " + getRelativePath(fhirFile, projectDir), ValidationSeverity.ERROR, fhirFile);
+
+                allFhirItems.add(notFoundItem);
+                otherAggregator.add(notFoundItem); // This ensures it gets into fhir_other_aggregated.json
+                continue;
+            }
+
+            logger.info("Validating FHIR file: " + fhirFile.getName());
+            ValidationOutput output;
+            List<AbstractValidationItem> itemsForThisFile;
+            // This call will throw ResourceValidationException on parsing failure
+            output = fhirResourceValidator.validateSingleFile(fhirFile.toPath());
+            itemsForThisFile = new ArrayList<>(output.validationItems());
+
+            // Add a success item indicating the file was found and is readable
+            String fhirReference = itemsForThisFile.stream()
+                    .filter(item -> item instanceof FhirElementValidationItem)
+                    .map(item -> ((FhirElementValidationItem) item).getFhirReference())
+                    .filter(ref -> ref != null && !ref.isBlank())
+                    .findFirst()
+                    .orElse("unknown_reference");
+
+            itemsForThisFile.add(new FhirElementValidationItemSuccess(fhirFile, fhirReference, "Referenced FHIR file found and is readable."));
+
             output.printResults();
 
-            allFhirItems.addAll(output.validationItems());
+            allFhirItems.addAll(itemsForThisFile);
 
-            List<AbstractValidationItem> successItems = output.validationItems().stream()
+            List<AbstractValidationItem> successItems = itemsForThisFile.stream()
                     .filter(this::isSuccessItem)
                     .collect(Collectors.toList());
-            List<AbstractValidationItem> otherItems = output.validationItems().stream()
+            List<AbstractValidationItem> otherItems = itemsForThisFile.stream()
                     .filter(x -> !isSuccessItem(x))
                     .collect(Collectors.toList());
 
             successAggregator.addAll(successItems);
             otherAggregator.addAll(otherItems);
 
-            // Write individual file reports
-            String baseName = f.getName();
+            // Write individual file reports based on the results
+            String baseName = fhirFile.getName();
             int idx = baseName.lastIndexOf('.');
             if (idx > 0)
             {
                 baseName = baseName.substring(0, idx);
             }
-            String parentFolder = f.getParentFile().getName();
+            String parentFolderName = fhirFile.getParentFile().getName();
 
             if (!successItems.isEmpty())
             {
-                ValidationOutput so = new ValidationOutput(successItems);
-                File outFile = new File(successFolder,
-                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
-                so.writeResultsAsJson(outFile);
+                new ValidationOutput(successItems).writeResultsAsJson(new File(successFolder,
+                        "fhir_issues_" + parentFolderName + "_" + baseName + ".json"));
             }
 
             if (!otherItems.isEmpty())
             {
-                ValidationOutput oo = new ValidationOutput(otherItems);
-                File outFile = new File(otherFolder,
-                        "fhir_issues_" + parentFolder + "_" + baseName + ".json");
-                oo.writeResultsAsJson(outFile);
+                new ValidationOutput(otherItems).writeResultsAsJson(new File(otherFolder,
+                        "fhir_issues_" + parentFolderName + "_" + baseName + ".json"));
             }
         }
 
-        // 4) Write unified sub-reports using common method
+        // 4) Write unified sub-reports for all FHIR files
         writeSubReports("fhir", successAggregator, otherAggregator, fhirFolder);
 
         return allFhirItems;
     }
 
-    // Single-file BPMN  validations
-    private ValidationOutput validateBpmn(Path path)
-    {
-        List<AbstractValidationItem> allIssues = new ArrayList<>();
-
-        if (!Files.exists(path))
-        {
-            System.err.println("Error: The file does not exist: " + path);
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return new ValidationOutput(allIssues);
-        }
-
-        if (isFileReadable(path))
-        {
-            System.err.println("Error: The file is not readable: " + path);
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return new ValidationOutput(allIssues);
-        }
-
-        BpmnModelInstance model;
-        try
-        {
-            model = Bpmn.readModelFromFile(path.toFile());
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error reading BPMN file: " + e.getMessage());
-            e.printStackTrace();
-            allIssues.add(new UnparsableBpmnFileValidationItem(ValidationSeverity.ERROR));
-            return new ValidationOutput(allIssues);
-        }
-
-        String processId = extractProcessId(model);
-        File projectRoot = getProjectRoot(path);
-
-        BpmnModelValidator bpmnValidator = new BpmnModelValidator(projectRoot);
-        List<BpmnElementValidationItem> items = bpmnValidator.validateModel(model, path.toFile(), processId);
-        allIssues.addAll(items);
-
-        return new ValidationOutput(allIssues);
-    }
-
-    private ValidationOutput validateFhir(Path path)
-    {
-        List<AbstractValidationItem> allIssues = new ArrayList<>();
-        if (!Files.exists(path))
-        {
-            allIssues.add(new FhirElementValidationItem(
-                    "File not found",
-                    ValidationSeverity.ERROR,
-                    path.getFileName().toString()));
-            return new ValidationOutput(allIssues);
-        }
-        if (isFileReadable(path))
-        {
-            allIssues.add(new FhirElementValidationItem(
-                    "File not readable",
-                    ValidationSeverity.ERROR,
-                    path.getFileName().toString()));
-            return new ValidationOutput(allIssues);
-        }
-
-        ValidationOutput single = fhirResourceValidator.validateSingleFile(path);
-        allIssues.addAll(single.validationItems());
-        return new ValidationOutput(allIssues);
-    }
-
 
     // Common Utility
+
     /**
      * Determines if the validation item is "SUCCESS." Adjust if your success logic differs.
      *
@@ -439,120 +464,6 @@ public class DsfValidatorImpl implements DsfValidator
     private boolean isSuccessItem(AbstractValidationItem item)
     {
         return item.getSeverity() == ValidationSeverity.SUCCESS;
-    }
-
-    /**
-     * Checks if the given file is readable using {@link Files#isReadable(Path)}.
-     * Override or mock in tests for special scenarios.
-     *
-     * @param path the path to check
-     * @return true if readable, false otherwise
-     */
-    protected boolean isFileReadable(Path path)
-    {
-        return !Files.isReadable(path);
-    }
-
-    /**
-     * Attempts to locate the root directory of a Maven project by traversing up the directory tree
-     * from the given file path until a {@code pom.xml} file is found.
-     * <p>
-     * If no {@code pom.xml} is found during the traversal, the method falls back to returning
-     * the parent directory of the given path. If the parent is also {@code null}, it returns
-     * the current working directory ({@code "."}).
-     * </p>
-     *
-     * @param filePath the path to a file or directory from which to start the search
-     * @return the directory containing {@code pom.xml}, or the file's parent directory,
-     *         or the current working directory if neither is found
-     */
-    private File getProjectRoot(Path filePath)
-    {
-        Path current = filePath.getParent();
-        while (current != null)
-        {
-            File pom = new File(current.toFile(), "pom.xml");
-            if (pom.exists()) {
-                return current.toFile();
-            }
-            current = current.getParent();
-        }
-        // fallback
-        if (filePath.getParent() != null)
-        {
-            return filePath.getParent().toFile();
-        }
-        return new File(".");
-    }
-
-    /**
-     * Extracts the ID of the first {@link Process} in the BPMN model.
-     *
-     * @param model the BPMN model instance
-     * @return the process ID if found, or an empty string otherwise
-     */
-    private String extractProcessId(BpmnModelInstance model)
-    {
-        Collection<Process> processes = model.getModelElementsByType(Process.class);
-        if (!processes.isEmpty())
-        {
-            Process first = processes.iterator().next();
-            if (first.getId() != null && !first.getId().isBlank())
-            {
-                return first.getId();
-            }
-        }
-        return "";
-    }
-
-    /**
-     * Recursively searches for a sub-directory that matches either
-     * <ul>
-     *   <li>the full Maven style path (e.g. {@code src/main/resources/bpe}) or</li>
-     *   <li>the plain folder name (e.g. {@code bpe})</li>
-     * </ul>
-     *
-     * @param rootPath        the directory from which to start searching
-     * @param relativeSubPath the Maven-style sub-path to locate
-     * @return a {@link File} pointing to the first matching directory, or {@code null} if nothing is found
-     */
-    private File findDirectoryRecursively(Path rootPath, String relativeSubPath)
-    {
-        // Extract the last path segment once so we do not compute it in every loop
-        String simpleName = Paths.get(relativeSubPath).getFileName().toString();
-
-        Queue<Path> queue = new LinkedList<>();
-        queue.offer(rootPath);
-
-        while (!queue.isEmpty())
-        {
-            Path current = queue.poll();
-            if (!Files.isDirectory(current))
-                continue;
-
-            // 1) Try the full Maven-style path
-            Path candidateFull = current.resolve(relativeSubPath);
-            if (Files.isDirectory(candidateFull))
-                return candidateFull.toFile();
-
-            // 2) Fallback: try only the last segment (flat layout)
-            Path candidateSimple = current.resolve(simpleName);
-            if (Files.isDirectory(candidateSimple))
-                return candidateSimple.toFile();
-
-            // Enqueue sub-directories for breadth-first search
-            try
-            {
-                Files.list(current)
-                        .filter(Files::isDirectory)
-                        .forEach(queue::offer);
-            }
-            catch (IOException e)
-            {
-                // Ignore unreadable folders and continue searching
-            }
-        }
-        return null;
     }
 
     /**
@@ -572,12 +483,12 @@ public class DsfValidatorImpl implements DsfValidator
         PathMatcher matcher = root.getFileSystem().getPathMatcher(glob);
         try (var stream = Files.walk(root)) {
             return stream
-                .filter(Files::isRegularFile)
-                .filter(matcher::matches)
-                .map(Path::toFile)
-                .collect(Collectors.toList());
+                    .filter(Files::isRegularFile)
+                    .filter(matcher::matches)
+                    .map(Path::toFile)
+                    .collect(Collectors.toList());
         } catch (IOException e) {
-            System.err.println("Error walking directory " + root + ": " + e.getMessage());
+            logger.error("Error walking directory " + root + ": " + e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -594,23 +505,20 @@ public class DsfValidatorImpl implements DsfValidator
     private List<File> findFhirFilesRecursively(Path rootPath)
     {
         return findFiles(rootPath, "glob:**/*.{xml,json}").stream()
-            .filter(f -> FhirFileUtils.isFhirFile(f.toPath()))
-            .collect(Collectors.toList());
+                .filter(f -> FhirFileUtils.isFhirFile(f.toPath()))
+                .collect(Collectors.toList());
     }
 
     /**
-     * <p>
-     * Recursively finds all files under the given {@code rootPath} that match the specified extension.
-     * </p>
+     * Recursively finds all BPMN files (ending in .bpmn) under the given {@code rootPath}.
      *
-     * @param rootPath  The root path to traverse
-     * @param extension The file extension to match (e.g., ".bpmn", ".xml")
-     * @return a list of {@link File} objects that match the specified extension
+     * @param rootPath The root path to traverse.
+     * @return A list of {@link File} objects that are BPMN files.
      */
-    private List<File> findFilesWithExtensionRecursively(Path rootPath, String extension)
+    private List<File> findBpmnFilesRecursively(Path rootPath)
     {
-        String cleanExt = extension.startsWith(".") ? extension.substring(1) : extension;
-        return findFiles(rootPath, "glob:**/*." + cleanExt);
+        // sole purpose is to find BPMN files.
+        return findFiles(rootPath, "glob:**/*.bpmn");
     }
 
     /**
@@ -623,9 +531,9 @@ public class DsfValidatorImpl implements DsfValidator
      * @param targetDir the target directory for reports
      */
     private void writeSubReports(String prefix,
-                                List<AbstractValidationItem> success,
-                                List<AbstractValidationItem> other,
-                                File targetDir)
+                                 List<AbstractValidationItem> success,
+                                 List<AbstractValidationItem> other,
+                                 File targetDir)
     {
         File successDir = new File(targetDir, "success");
         File otherDir = new File(targetDir, "other");
@@ -635,13 +543,13 @@ public class DsfValidatorImpl implements DsfValidator
         // Write success reports
         if (!success.isEmpty()) {
             new ValidationOutput(success).writeResultsAsJson(
-                new File(successDir, prefix + "_success_aggregated.json"));
+                    new File(successDir, prefix + "_success_aggregated.json"));
         }
 
         // Write other reports
         if (!other.isEmpty()) {
             new ValidationOutput(other).writeResultsAsJson(
-                new File(otherDir, prefix + "_other_aggregated.json"));
+                    new File(otherDir, prefix + "_other_aggregated.json"));
         }
 
         // Write combined aggregated report
@@ -650,59 +558,18 @@ public class DsfValidatorImpl implements DsfValidator
         all.addAll(other);
         if (!all.isEmpty()) {
             new ValidationOutput(all).writeResultsAsJson(
-                new File(targetDir, prefix + "_issues_aggregated.json"));
+                    new File(targetDir, prefix + "_issues_aggregated.json"));
         }
     }
 
-
-    /**
-     * @deprecated No longer used. The reporting structure now uses a fixed "report" directory instead of timestamped folders.
-     */
-    @Deprecated
-    public File createReportsDirectory()
-    {
-        File reportDir = new File("report");
-        if (!reportDir.exists() && !reportDir.mkdirs())
-        {
-            System.err.println("WARNING: Could not create 'report' folder at: " + reportDir.getAbsolutePath());
-        }
-        return reportDir;
-    }
-
-    /**
-     * Runs ServiceLoader validation using {@link ApiRegistrationValidationSupport} and prints results to console.
-     *
-     * <p>This method is called twice: once before and once after the Maven build to give feedback
-     * about whether the {@code ProcessPluginDefinition} registration is detectable in both source and compiled outputs.</p>
-     *
-     * @param scope scope label to prefix output (e.g., "Pre-build", "Post-build")
-     * @param root  project root directory to validate
-     * @throws IOException if directory traversal fails
-     */
-    public void runServiceLoaderCheck(String scope, Path root) throws IOException, MissingServiceRegistrationException {
-        List<AbstractValidationItem> raw = new ArrayList<>();
-        ApiRegistrationValidationSupport support = new ApiRegistrationValidationSupport();
-        support.run(scope, root, raw);
-
-        if (!raw.isEmpty())
-        {
-            System.out.println("\n[" + scope + "] ServiceLoader registration results:");
-            for (AbstractValidationItem it : raw)
-            {
-                System.out.println(" - " + it.getSeverity() + ": " +
-                    (it instanceof PluginValidationItemSuccess ? "Registration found" : "Registration missing"));
-            }
-        }
-    }
 
     /**
      * Collects plugin validation items (ServiceLoader registration checks) for the given project root.
      *
      * @param root the project root
      * @return a list of plugin validation items as {@link PluginValidationItem}
-     * @throws IOException if traversal fails
      */
-    public List<AbstractValidationItem> collectPluginItems(Path root) throws IOException, MissingServiceRegistrationException {
+    public List<AbstractValidationItem> collectPluginItems(Path root) throws  MissingServiceRegistrationException {
         List<AbstractValidationItem> raw = new ArrayList<>();
         ApiRegistrationValidationSupport support = new ApiRegistrationValidationSupport();
         support.run("Plugin collection", root, raw);
@@ -783,6 +650,81 @@ public class DsfValidatorImpl implements DsfValidator
     }
 
     /**
+     * Prints the detected DSF BPE API version to the console with red formatting.
+     * This method should be called after validation is complete to display the version at the end.
+     */
+    public void printDetectedApiVersion() {
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
+        String versionStr = switch (apiVersion) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+        logger.info("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
+    }
+
+    /**
+     * Finds all BPMN and FHIR files on disk and compares them to the sets of referenced files.
+     * Generates validation items for any unreferenced files ("leftovers").
+     *
+     * @param projectDir          The root directory of the project.
+     * @param resourcesDir        The 'src/main/resources' directory, used as the base for relative paths.
+     * @param referencedBpmnPaths A set of relative paths to BPMN files from the plugin definition.
+     * @param referencedFhirPaths A set of relative paths to FHIR files from the plugin definition.
+     * @return A list of validation items for leftover checks.
+     */
+    private List<AbstractValidationItem> findAndReportLeftovers(File projectDir, File resourcesDir, Set<String> referencedBpmnPaths, Set<String> referencedFhirPaths)
+    {
+        // Find all actual files on disk
+        File bpeRoot = new File(resourcesDir, "bpe");
+        List<File> actualBpmnFiles = (bpeRoot.exists()) ? findBpmnFilesRecursively(bpeRoot.toPath()) : Collections.emptyList();
+
+        File fhirRoot = new File(resourcesDir, "fhir");
+        List<File> actualFhirFiles = (fhirRoot.exists()) ? findFhirFilesRecursively(fhirRoot.toPath()) : Collections.emptyList();
+
+        // Convert the paths of actual files to be relative to the resources directory
+        Set<String> actualBpmnPaths = actualBpmnFiles.stream()
+                .map(f -> getRelativePath(f, resourcesDir)) // Use resourcesDir as the base
+                .collect(Collectors.toSet());
+        Set<String> actualFhirPaths = actualFhirFiles.stream()
+                .map(f -> getRelativePath(f, resourcesDir)) // Use resourcesDir as the base
+                .collect(Collectors.toSet());
+
+        // Find the difference: files on disk that are not in the definition
+        actualBpmnPaths.removeAll(referencedBpmnPaths);
+        actualFhirPaths.removeAll(referencedFhirPaths);
+
+        List<AbstractValidationItem> items = new ArrayList<>();
+        if (actualBpmnPaths.isEmpty() && actualFhirPaths.isEmpty())
+        {
+            // No leftovers found -> success item
+            items.add(new PluginValidationItemSuccess(projectDir, projectDir.getName(),
+                    "All BPMN and FHIR resources found in the project are correctly referenced in ProcessPluginDefinition."));
+        }
+        else
+        {
+            // Report all leftovers as warnings
+            actualBpmnPaths.forEach(path -> {
+                items.add(new ProcessPluginRessourceNotLoadedValidationItem(new File(resourcesDir, path), path, null));
+            });
+            actualFhirPaths.forEach(path -> {
+                items.add(new ProcessPluginRessourceNotLoadedValidationItem(new File(resourcesDir, path), path, null));
+            });
+        }
+
+        return items;
+    }
+
+    /**
+     * Wandelt einen absoluten Dateipfad in einen relativen Pfad um (mit '/' als Trennzeichen).
+     */
+    private String getRelativePath(File file, File baseDir)
+    {
+        String relative = baseDir.toPath().relativize(file.toPath()).toString();
+        return relative.replace(File.separator, "/");
+    }
+
+    /**
      * Writes one JSON file per item into the given folder using the given filename pattern.
      *
      * @param items    items to serialize
@@ -799,19 +741,5 @@ public class DsfValidatorImpl implements DsfValidator
             new ValidationOutput(new ArrayList<>(List.of(it)))
                     .writeResultsAsJson(new File(dir, fileName));
         }
-    }
-
-    /**
-     * Prints the detected DSF BPE API version to the console with red formatting.
-     * This method should be called after validation is complete to display the version at the end.
-     */
-    public void printDetectedApiVersion() {
-        ApiVersion apiVersion = ApiVersionHolder.getVersion();
-        String versionStr = switch (apiVersion) {
-            case V1 -> "v1";
-            case V2 -> "v2";
-            case UNKNOWN -> "unknown";
-        };
-        System.out.println("\u001B[31mDetected DSF BPE API version: " + versionStr + "\u001B[0m");
     }
 }
