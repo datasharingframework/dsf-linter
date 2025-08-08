@@ -18,7 +18,6 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static dev.dsf.utils.validator.util.ReportCleaner.prepareCleanReportDirectory;
 
 /**
  * <p>
