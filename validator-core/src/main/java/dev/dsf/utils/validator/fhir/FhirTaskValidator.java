@@ -42,14 +42,14 @@ import java.util.*;
  *     FHIR Profiling Rules §5.1.0.14</a> for background.</li>
  *   <li><strong>Placeholder checks:</strong>
  *     Ensures that elements such as {@code authoredOn} and
- *     {@code requester/restriction.identifier.value} contain expected template variables
+ *     {@code requester/recipient.identifier.value} contain expected template variables
  *     (e.g., {@code #{organization}}, {@code #{date}}).</li>
  *   <li><strong>Terminology validation:</strong>
  *     Cross-checks all {@code coding} elements against known value sets and
  *     {@link FhirAuthorizationCache}.</li>
  *   <li><strong>Authorization logic:</strong>
- *     Verifies requester and recipient organizations are authorized for the referenced
- *     {@code ActivityDefinition}.</li>
+ *     Verifies requester and recipient organizations contain the required {@code #{organization}}
+ *     placeholder for development contexts.</li>
  * </ul>
  *
  * <h3>StructureDefinition Integration</h3>
@@ -65,6 +65,17 @@ import java.util.*;
  *   <li>Environment variable: {@code DSF_PROJECT_ROOT}</li>
  * </ul>
  * <p>Or by implicit detection of standard folder structures (e.g., {@code src/}, {@code fhir/}).</p>
+ *
+ * <h3>Input Validation Behavior</h3>
+ * <p>The {@link #validateInputs(Document, File, String, List)} method performs comprehensive
+ * validation of {@code Task.input} elements including:</p>
+ * <ul>
+ *   <li>Structural validation (presence of coding.system, coding.code, and value[x])</li>
+ *   <li>Duplicate detection using {@code system#code} combinations</li>
+ *   <li>Status-based business rules for {@code business-key} presence</li>
+ *   <li>BPMN slice validation for message-name, business-key, and correlation-key</li>
+ *   <li>Cardinality checks against StructureDefinition min/max constraints</li>
+ * </ul>
  *
  * @see dev.dsf.utils.validator.DsfValidatorImpl
  * @see AbstractFhirInstanceValidator
@@ -615,26 +626,23 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
       */
 
     /**
-     * Validates that the {@code Task.requester.identifier.value} exists, contains the
-     * {@code #{organization}} placeholder, and is authorized according to the referenced
-     * {@code ActivityDefinition}'s {@code extension-process-authorization} declarations.
+     * Validates that the {@code Task.requester.identifier.value} exists and contains the
+     * required {@code #{organization}} placeholder for development contexts.
      *
-     * <p>This method performs a multi-step validation process for the {@code requester.identifier.value} field:</p>
+     * <p>This method performs a two-step validation process for the {@code requester.identifier.value} field:</p>
      * <ul>
      *   <li><strong>Existence check:</strong> Fails if the value is missing or blank, using
      *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterIdNotExistValidationItem}.</li>
      *   <li><strong>Placeholder check:</strong> If the value does not contain the required
      *       {@code #{organization}} placeholder, a
      *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterIdNoPlaceholderValidationItem}
-     *       is added.</li>
-     *   <li><strong>Authorization check:</strong> If the value is present and contains the placeholder,
-     *       the method skips authorization (assumes development context) and reports success.
-     *       Otherwise, it verifies that the requester is authorized according to the
-     *       {@code ActivityDefinition} referred to via {@code instantiatesCanonical}.
-     *       If not authorized, a
-     *       {@link dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem}
-     *       is reported.</li>
+     *       is added. If the placeholder is present, a success confirmation is reported.</li>
      * </ul>
+     *
+     * <p>Note: This method validates placeholder presence for development contexts but does not
+     * perform actual authorization checks against the {@code ActivityDefinition}. The method
+     * returns early if the {@code instantiatesCanonical} is missing or if the corresponding
+     * {@code ActivityDefinition} file cannot be found.</p>
      *
      * @param taskDoc   the XML DOM representation of the Task resource
      * @param taskFile  the file from which the Task was loaded (used for context and reporting)
@@ -643,7 +651,6 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
      *
      * @see dev.dsf.utils.validator.item.FhirTaskRequesterIdNotExistValidationItem
      * @see dev.dsf.utils.validator.item.FhirTaskRequesterIdNoPlaceholderValidationItem
-     * @see dev.dsf.utils.validator.item.FhirTaskRequesterNotAuthorisedValidationItem
      */
     private void validateRequesterAuthorization(Document taskDoc,
                                                 File taskFile,
@@ -674,57 +681,46 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         {
             out.add(new FhirTaskRequesterIdNotExistValidationItem(
                     taskFile, ref));
-            return;
         } else {
             if (!"#{organization}".equals(requesterId))
             {
                 out.add(new FhirTaskRequesterIdNoPlaceholderValidationItem (
-                        taskFile, ref, "Task.requester.identifier.value: '" + requesterId +"' does not contain the '#{organization}' placeholder, continue to auth check."
+                        taskFile, ref
                 ));
             }
             else
             {
-                out.add(ok(taskFile, ref, "requester placeholder – skipped auth check"));
-                return;
+                out.add(ok(taskFile, ref, "Task.requester.identifier.value contains the '#{organization}' placeholder."));
             }
         }
-
-        boolean authorised = FhirValidator.isRequesterAuthorised(
-                actFile, requesterId);
-
-        if (authorised)
-            out.add(ok(taskFile, ref, "requester organisation authorised by ActivityDefinition"));
-        else
-            out.add(new FhirTaskRequesterNotAuthorisedValidationItem(
-                    taskFile, ref,
-                    "Organisation '" + requesterId
-                            + "' is not authorised according to ActivityDefinition "
-                            + actFile.getName()));
     }
 
     /**
-     * Validates that the {@code Task.restriction.recipient.identifier.value} is authorized
-     * according to the corresponding {@code ActivityDefinition}'s
-     * {@code extension-process-authorization} block.
+     * Validates that the {@code Task.restriction.recipient.identifier.value} exists and contains the
+     * required {@code #{organization}} placeholder for development contexts.
      *
-     * <p>This method performs a cross-resource check by locating the
-     * {@code ActivityDefinition} referenced by {@code Task.instantiatesCanonical}.
-     * It then verifies whether the recipient organization specified in the Task
-     * is explicitly listed or generically permitted (e.g., {@code LOCAL_ALL})
-     * in the ActivityDefinition's recipient authorization extensions.</p>
+     * <p>This method performs a two-step validation process for the {@code recipient.identifier.value} field:</p>
+     * <ul>
+     *   <li><strong>Existence check:</strong> Fails if the value is missing or blank, using
+     *       {@link dev.dsf.utils.validator.item.FhirTaskRecipientIdNotExistValidationItem}.</li>
+     *   <li><strong>Placeholder check:</strong> If the value does not contain the required
+     *       {@code #{organization}} placeholder, a
+     *       {@link dev.dsf.utils.validator.item.FhirTaskRecipientIdNoPlaceholderValidationItem}
+     *       is added. If the placeholder is present, a success confirmation is reported.</li>
+     * </ul>
      *
-     * <p>If the recipient identifier contains the development placeholder
-     * {@code #{organization}}, the check is skipped and a success entry is added.
-     * This allows local development processes to pass validation.</p>
+     * <p>Note: This method validates placeholder presence for development contexts but does not
+     * perform actual authorization checks against the {@code ActivityDefinition}. The method
+     * returns early if the {@code instantiatesCanonical} is missing or if the corresponding
+     * {@code ActivityDefinition} file cannot be found.</p>
      *
-     * <p>If the recipient organization is not authorized, a
-     * {@link dev.dsf.utils.validator.item.FhirTaskRecipientNotAuthorisedValidationItem}
-     * is added to the output.</p>
+     * @param taskDoc   the XML DOM representation of the Task resource
+     * @param taskFile  the file from which the Task was loaded (used for context and reporting)
+     * @param ref       a canonical reference to the Task (typically extracted from {@code instantiatesCanonical})
+     * @param out       the list of validation items to which results are appended
      *
-     * @param taskDoc   the DOM representation of the FHIR Task resource
-     * @param taskFile  the source file from which the Task was loaded (used for reporting)
-     * @param ref       a canonical reference string (e.g., from {@code instantiatesCanonical})
-     * @param out       the validation output list to which validation results are appended
+     * @see dev.dsf.utils.validator.item.FhirTaskRecipientIdNotExistValidationItem
+     * @see dev.dsf.utils.validator.item.FhirTaskRecipientIdNoPlaceholderValidationItem
      */
     private void validateRecipientAuthorization(Document taskDoc,
                                                 File taskFile,
@@ -734,36 +730,42 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
         String instCanon = val(taskDoc,
                 TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
         if (blank(instCanon))
-            return;                                     // already reported elsewhere
+            return; // already handled elsewhere
 
         File projectRoot = determineProjectRoot(taskFile);
         File actFile = FhirValidator.findActivityDefinitionForInstantiatesCanonical(
                 instCanon, projectRoot);
+
         if (actFile == null)
-            return;                                     // ActivityDefinition missing
+        {
+            // The missing ActivityDefinition error is already reported, no need to double-report
+            return;
+        }
 
         String recipientId = val(taskDoc,
                 TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']"
                         + "/*[local-name()='identifier']/*[local-name()='value']/@value");
 
-        /* Allow development placeholder */
-        if (recipientId != null && recipientId.equals("#{organization}"))
+        // Allow the dev placeholder
+        if (recipientId == null || recipientId.isBlank())
         {
-            out.add(ok(taskFile, ref, "recipient placeholder – skipped auth check"));
-            return;
+            out.add(new FhirTaskRecipientIdNotExistValidationItem(taskFile, ref));
         }
-
-        boolean authorised = FhirValidator.isRecipientAuthorised(actFile, recipientId);
-
-        if (authorised)
-            out.add(ok(taskFile, ref, "recipient organisation authorised by ActivityDefinition"));
         else
-            out.add(new FhirTaskRecipientNotAuthorisedValidationItem(
-                    taskFile, ref,
-                    "Organisation '" + recipientId
-                            + "' is not authorised according to ActivityDefinition "
-                            + actFile.getName()));
+        {
+            if (!"#{organization}".equals(recipientId))
+            {
+                out.add(new FhirTaskRecipientIdNoPlaceholderValidationItem(taskFile, ref));
+            }
+            else
+            {
+                out.add(ok(taskFile, ref,
+                        "Task.restriction.recipient.identifier.value contains the '#{organization}' placeholder."));
+            }
+        }
     }
+
+
 
     /* utils inside FhirTaskValidator ----------------------------------------- */
     private static record SliceCard(int min, int max) {}
