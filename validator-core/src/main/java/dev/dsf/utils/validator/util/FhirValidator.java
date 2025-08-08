@@ -151,7 +151,8 @@ public class FhirValidator
                     .filter(FhirFileUtils::isFhirFile)  // Use utility class
                     .toList();
 
-            return fhirFiles.stream().anyMatch(p -> fileContainsValue(p, value, isActivityDefinition));
+            return fhirFiles.stream().anyMatch(p -> fileContainsValue(p, value,
+                isActivityDefinition ? FhirDefinitionType.ACTIVITY_DEFINITION : FhirDefinitionType.STRUCTURE_DEFINITION));
         }
         catch (Exception e)
         {
@@ -160,40 +161,37 @@ public class FhirValidator
     }
 
     /**
-     * Determines if a particular XML file (either an ActivityDefinition or a StructureDefinition)
+     * Determines if a particular FHIR file (either an ActivityDefinition or a StructureDefinition)
      * contains the specified value.
      * <p>
-     * Depending on whether {@code isDefinition} is {@code true} (ActivityDefinition) or {@code false}
-     * (StructureDefinition), this method loads the file, verifies that its root element matches the
-     * expected resource type, and then delegates the actual search to either
+     * This method loads the file (supporting both XML and JSON formats), verifies that its root element
+     * matches the expected resource type, and then delegates the actual search to either
      * {@link #activityDefinitionContainsMessageName(Document, String)} or
      * {@link #structureDefinitionContainsValue(Document, String)}.
      * </p>
      *
-     * @param filePath       the path to the XML file
+     * @param filePath       the path to the FHIR file (XML or JSON)
      * @param value          the string value to look for
-     * @param whichDefinition   {@code true} if searching in an ActivityDefinition, {@code false} if searching in a StructureDefinition
-     * @return {@code true} if the file contains the specified value, {@code false} otherwise
+     * @param type the FHIR resource type selector
+     * @return {@code true} if the file contains the given value for the specified resource type, {@code false} otherwise
      */
-    private static boolean fileContainsValue(Path filePath, String value, boolean whichDefinition)
-    {
-        try
-        {
-            Document doc = parseFhirFile(filePath);  // Use the new method that supports both XML and JSON
+    private static boolean fileContainsValue(Path filePath, String value, FhirDefinitionType type) {
+        try {
+            Document doc = parseFhirFile(filePath); // Supports both XML and JSON
             if (doc == null) return false;
 
             String rootName = doc.getDocumentElement().getLocalName();
-            if (whichDefinition && !"ActivityDefinition".equals(rootName)) return false;
-            if (!whichDefinition && !"StructureDefinition".equals(rootName)) return false;
-
-            // Use the existing method to search either the ActivityDefinition or the StructureDefinition:
-            if (whichDefinition)
-                return activityDefinitionContainsMessageName(doc, value);
-            else
-                return structureDefinitionContainsValue(doc, value);
-        }
-        catch (Exception ex)
-        {
+            return switch (type) {
+                case ACTIVITY_DEFINITION -> {
+                    if (!"ActivityDefinition".equals(rootName)) yield false;
+                    yield activityDefinitionContainsMessageName(doc, value);
+                }
+                case STRUCTURE_DEFINITION -> {
+                    if (!"StructureDefinition".equals(rootName)) yield false;
+                    yield structureDefinitionContainsValue(doc, value);
+                }
+            };
+        } catch (Exception ex) {
             return false;
         }
     }
@@ -883,13 +881,14 @@ public class FhirValidator
             return paths
                     .filter(Files::isRegularFile)
                     .filter(FhirFileUtils::isFhirFile)  // Use utility class
-                    .filter(p -> fileContainsValue(p, profileValue, /*isActivity=*/false))
+                    .filter(p -> fileContainsValue(p, profileValue, FhirDefinitionType.STRUCTURE_DEFINITION))
                     .map(Path::toFile)
                     .findFirst()
                     .orElse(null);
         }
         catch (Exception e) { return null; }
     }
+
     /**
      * Finds an ActivityDefinition file whose {@code url} element matches the given canonical value (version removed).
      * <p>
