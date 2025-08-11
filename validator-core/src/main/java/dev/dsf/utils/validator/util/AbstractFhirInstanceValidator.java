@@ -179,21 +179,20 @@ public abstract class AbstractFhirInstanceValidator
     /**
      * Extracts the effective value from a FHIR value[x] element.
      *
-     * <p>This method handles both:</p>
+     * <p>This method handles multiple FHIR value types:</p>
      * <ul>
      *   <li><b>Primitive types</b> such as {@code valueString}, {@code valueBoolean}, etc., where the {@code value}
      *       attribute is located directly on the {@code value[x]} element.</li>
-     *   <li><b>Complex types</b> such as {@code valueReference}, where the actual value (e.g., a {@code reference} string)
-     *       is nested within a child element of the {@code valueReference} element.</li>
+     *   <li><b>valueReference</b> with logical reference via nested {@code identifier/value} elements.</li>
+     *   <li><b>valueIdentifier</b> with nested {@code value} elements.</li>
      * </ul>
      *
-     * <p>Specifically:</p>
-     * <ul>
-     *   <li>If a child node starts with {@code value} (e.g., {@code valueString}) and has a {@code value} attribute,
-     *       that attribute's content is returned.</li>
-     *   <li>If the child node is {@code valueReference}, it attempts to extract the {@code reference} attribute
-     *       from a nested {@code reference} element.</li>
-     * </ul>
+     * <p>The method attempts to extract values in the following order:</p>
+     * <ol>
+     *   <li>Direct {@code value} attribute from any child element starting with "value"</li>
+     *   <li>Logical reference from {@code valueReference/identifier/value/@value}</li>
+     *   <li>Identifier value from {@code valueIdentifier/value/@value}</li>
+     * </ol>
      *
      * @param node the parent node (typically an {@code input} or {@code output} element)
      * @return the extracted string value if present; {@code null} if no value could be found
@@ -214,21 +213,14 @@ public abstract class AbstractFhirInstanceValidator
                 if (v != null) return v.getNodeValue();
             }
 
-            // case 2 – Reference / CodableReference: <valueReference><reference value="..."/></valueReference>
-            if ("valueReference".equals(k.getNodeName()))
-            {
-                String ref = extractSingleNodeValue(k, "./*[local-name()='reference']/@value");
-                if (ref != null && !ref.isBlank()) return ref;
-            }
-
-            // case 3 – logical reference: <valueReference><identifier><value value="..."/></identifier>
+            // case 2 – logical reference: <valueReference><identifier><value value="..."/></identifier>
             if ("valueReference".equals(k.getNodeName())) {
                 String idValue = extractSingleNodeValue(
                         k, "./*[local-name()='identifier']/*[local-name()='value']/@value");
                 if (idValue != null && !idValue.isBlank()) return idValue;
             }
 
-            // case 4 – valueIdentifier: <valueIdentifier><value value="..."/></valueIdentifier>
+            // case 3 – valueIdentifier: <valueIdentifier><value value="..."/></valueIdentifier>
             if ("valueIdentifier".equals(k.getNodeName())) {
                 String idVal = extractSingleNodeValue(
                         k, "./*[local-name()='value']/@value");
