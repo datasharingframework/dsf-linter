@@ -248,16 +248,14 @@ public class BpmnValidationUtils
      * <p>
      * This method attempts to construct a class loader with the following search paths, in order:
      * <ol>
-     *   <li>Project root directory – allows loading from exploded JARs or unpacked source trees</li>
      *   <li>{@code target/classes} – the default Maven output directory</li>
-     *   <li>{@code build/classes/java/main} – the default Gradle output directory</li>
+     *   <li>{@code build/classes} – the default Gradle output directory</li>
+     *   <li>Project root directory – allows loading from exploded JARs or unpacked source trees</li>
      *   <li>All {@code *.jar} files located directly in the project root – fallback when JARs are manually placed</li>
      *   <li>{@code target/dependency/*.jar} – conventional Maven dependencies directory (e.g., from copy-dependencies)</li>
-     *   <li>{@code target/dependencies/***.jar} – CI repository layout with nested dependency JARs</li>
      * </ol>
      * This makes the method compatible with exploded plugin setups such as those found in CI pipelines,
-     * where the classes reside directly in the root or inside a flat file structure. The parent class loader
-     * is set to the current thread's context class loader for compatibility with environments like Docker.
+     * where the classes reside directly in the root or inside a flat file structure.
      * </p>
      *
      * @param projectRoot the root directory of the exploded JAR or the Maven/Gradle project
@@ -268,54 +266,27 @@ public class BpmnValidationUtils
     {
         List<URL> urls = new ArrayList<>();
 
-        // 0) Root (so loose classes like output/com/... are visible)
+        // 1) allow loading exploded classes under the project root
         urls.add(projectRoot.toURI().toURL());
 
-        // 1) Typical build output dirs
-        File mavenClasses = new File(projectRoot, "target/classes");
-        if (mavenClasses.isDirectory()) urls.add(mavenClasses.toURI().toURL());
+        // 2) classic Maven/Gradle output dirs
+        File classesDir = new File(projectRoot, "target/classes");
+        if (!classesDir.exists())
+            classesDir = new File(projectRoot, "build/classes");
+        if (classesDir.exists())
+            urls.add(classesDir.toURI().toURL());
 
-        File gradleClasses = new File(projectRoot, "build/classes/java/main");
-        if (gradleClasses.isDirectory()) urls.add(gradleClasses.toURI().toURL());
+        // 3) include plugin.jar itself (so you don't even have to unzip it)
+        File pluginJar = new File(projectRoot, "plugin.jar");
+        if (pluginJar.isFile())
+            urls.add(pluginJar.toURI().toURL());
 
-        // 2) JARs sitting in the project root (e.g., plugin.jar)
-        try (java.nio.file.DirectoryStream<Path> ds =
-                     java.nio.file.Files.newDirectoryStream(projectRoot.toPath(), "*.jar"))
-        {
-            for (Path jar : ds) urls.add(jar.toUri().toURL());
-        }
-
-        // 3) Classic maven-dependency-plugin output
-        Path legacyDeps = projectRoot.toPath().resolve("target").resolve("dependency");
-        if (java.nio.file.Files.isDirectory(legacyDeps))
-        {
-            try (java.util.stream.Stream<Path> s = java.nio.file.Files.list(legacyDeps))
-            {
-                s.filter(p -> p.toString().endsWith(".jar")).forEach(p -> {
-                    try { urls.add(p.toUri().toURL()); } catch (Exception ignore) {}
-                });
-            }
-        }
-
-        // 4) CI repository layout: target/dependencies/**.jar (compile/runtime/provided/…)
-        Path depsRoot = projectRoot.toPath().resolve("target").resolve("dependencies");
-        if (java.nio.file.Files.isDirectory(depsRoot))
-        {
-            try (java.util.stream.Stream<Path> s = java.nio.file.Files.walk(depsRoot))
-            {
-                s.filter(p -> p.toString().endsWith(".jar")).forEach(p -> {
-                    try { urls.add(p.toUri().toURL()); } catch (Exception ignore) {}
-                });
-            }
-        }
-
-        // Use the Thread's ContextClassLoader as the parent. This is crucial for environments
-        // like Docker where the SystemClassLoader might not have access to all necessary classes.
-        return new java.net.URLClassLoader(
-                urls.toArray(new java.net.URL[0]),
-                Thread.currentThread().getContextClassLoader()
-        );
-    }
+        // 4) fall back on any other top-level JARs
+        File[] rootJars = projectRoot.listFiles(f -> f.getName().toLowerCase().endsWith(".jar"));
+        if (rootJars != null)
+            for (File jar : rootJars)
+                if (!jar.equals(pluginJar))
+                    urls.add(jar.toURI().toURL());
 
         // 5) copied dependencies
         File depDir = new File(projectRoot, "target/dependency");
