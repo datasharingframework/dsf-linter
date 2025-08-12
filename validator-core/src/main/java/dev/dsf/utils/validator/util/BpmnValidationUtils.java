@@ -4,11 +4,11 @@ import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.logger.ConsoleLogger;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
-import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
-import org.camunda.bpm.model.xml.instance.DomElement;
 import org.w3c.dom.Document;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -18,8 +18,12 @@ import java.io.FileInputStream;
 import java.lang.Error;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * The {@code BpmnValidationUtils} class contains common static utility methods used across various BPMN validator classes.
@@ -53,14 +57,17 @@ import java.util.List;
  */
 public class BpmnValidationUtils
 {
-
     /**
      * List of all DSF task-related interface class names supported for validation purposes.
      * <p>
      * This array includes:
      * <ul>
      *   <li><b>API v1:</b> {@code org.camunda.bpm.engine.delegate.JavaDelegate}</li>
-     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.task.ServiceTask}, {@code TaskMessageSend}, {@code TaskMessageReceive}, and {@code UserTaskListener}</li>
+     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.activity.ServiceTask},
+     *       {@code dev.dsf.bpe.v2.activity.MessageSendTask},
+     *       {@code dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent},
+     *       {@code dev.dsf.bpe.v2.activity.MessageEndEvent},
+     *       as well as {@code dev.dsf.bpe.v2.activity.UserTaskListener}</li>
      * </ul>
      * These interfaces define valid implementations for service tasks, message events, and user task listeners
      * in both legacy and modern DSF process definitions.
@@ -70,11 +77,13 @@ public class BpmnValidationUtils
             /* API v1 */
             "org.camunda.bpm.engine.delegate.JavaDelegate",
             /* API v2 */
-            "dev.dsf.bpe.v2.task.ServiceTask",
-            "dev.dsf.bpe.v2.task.TaskMessageSend",
-            "dev.dsf.bpe.v2.task.TaskMessageReceive",
-            "dev.dsf.bpe.v2.task.UserTaskListener"
+            "dev.dsf.bpe.v2.activity.ServiceTask",
+            "dev.dsf.bpe.v2.activity.MessageSendTask",
+            "dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent",
+            "dev.dsf.bpe.v2.activity.MessageEndEvent",
+            "dev.dsf.bpe.v2.activity.UserTaskListener"
     };
+
     /**
      * Checks if the given string is null or empty (after trimming).
      *
@@ -109,199 +118,141 @@ public class BpmnValidationUtils
     }
 
     /**
-     * Attempts to read any nested {@code <camunda:string>} text content from a {@link CamundaField}.
+     * Checks whether a class with the given fully-qualified name can be successfully loaded.
      * <p>
-     * If the field does not have a direct string value set via {@code camunda:stringValue},
-     * this method inspects its DOM children for a {@code <camunda:string>} element and returns its text content.
+     * This method attempts to resolve the specified class name using multiple strategies, in order:
+     * </p>
+     * <ol>
+     *   <li>Via the current thread's context class loader</li>
+     *   <li>Via a custom {@link URLClassLoader} constructed from the given {@code projectRoot} directory,
+     *       including common Maven/Gradle build paths and dependency JARs</li>
+     *   <li>By directly checking the file system for a {@code .class} file corresponding to the class</li>
+     * </ol>
+     *
+     * <p>
+     * This layered approach ensures compatibility with typical local builds and CI environments using exploded plugin layouts.
+     * If any strategy successfully resolves the class, the method returns {@code true}.
+     * Otherwise, it logs diagnostic output and returns {@code false}.
      * </p>
      *
-     * @param field the {@link CamundaField} to extract nested string content from
-     * @return the text content from a nested {@code <camunda:string>} element, or {@code null} if not found
-     */
-    public static String tryReadNestedStringContent(CamundaField field)
-    {
-        if (field == null) return null;
-        DomElement domEl = field.getDomElement();
-        if (domEl != null)
-        {
-            Collection<DomElement> childEls = domEl.getChildElements();
-            for (DomElement child : childEls)
-            {
-                if ("string".equals(child.getLocalName())
-                        && "http://camunda.org/schema/1.0/bpmn".equals(child.getNamespaceURI()))
-                {
-                    return child.getTextContent();
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Checks if a fully-qualified class name can be loaded from the current context or via a custom class loader.
      * <p>
-     * This method first attempts to load the class using the context class loader. If that fails,
-     * it falls back to a custom {@link URLClassLoader} that includes the project's classes and dependency JARs.
+     * For file-based fallback resolution, the method checks the following locations:
      * </p>
+     * <ul>
+     *   <li>{@code projectRoot/com/example/MyClass.class}</li>
+     *   <li>{@code projectRoot/target/classes/com/example/MyClass.class}</li>
+     *   <li>{@code projectRoot/build/classes/main/java/com/example/MyClass.class}</li>
+     * </ul>
      *
-     * @param className   the fully-qualified name of the class to load
-     * @param projectRoot the project root directory to use for creating the custom class loader
-     * @return {@code true} if the class can be loaded; {@code false} otherwise
+     * @param className   The fully-qualified class name to check (e.g., {@code com.example.MyClass})
+     * @param projectRoot The root directory of the project or exploded JAR (used to construct custom class loader and file-based fallback)
+     * @return {@code true} if the class is loadable through any of the available mechanisms; {@code false} otherwise
+     *
+     * @see ClassLoader
+     * @see URLClassLoader
      */
-    public static boolean classExists(String className, File projectRoot)
-    {
-        // First, try context class loader
-        try
-        {
-            ClassLoader cl = Thread.currentThread().getContextClassLoader();
-            cl.loadClass(className);
-            return true;
-        }
-        catch (ClassNotFoundException e)
-        {
-            // Fallback to custom loader
-        }
-        catch (NoClassDefFoundError err)
-        {
-            System.err.println("DEBUG: NoClassDefFoundError while trying context CL: " + err.getMessage());
-        }
-        catch (ExceptionInInitializerError err)
-        {
-            System.err.println("DEBUG: ExceptionInInitializerError while trying context CL: " + err.getMessage());
-        }
-        catch (UnsatisfiedLinkError err)
-        {
-            System.err.println("DEBUG: UnsatisfiedLinkError while trying context CL: " + err.getMessage());
-        }
-        catch (ClassFormatError err)
-        {
-            System.err.println("DEBUG: ClassFormatError while trying context CL: " + err.getMessage());
-        }
-        catch (Error err)
-        {
-            // Catching Error is generally discouraged, but logged here for class-loading edge cases
-            System.err.println("DEBUG: Serious error while trying context CL: " + err.getMessage());
-        }
-        catch (Exception e)
-        {
-            // If some other runtime exception occurs
-            System.err.println("DEBUG: Exception while trying context CL: " + e.getMessage());
-        }
+    public static boolean classExists(String className, File projectRoot) {
+        // 0) Quick guard
+        if (className == null || className.isBlank()) return false;
 
-        // Second, try a custom class loader if projectRoot is provided
-        if (projectRoot != null)
-        {
-            try
-            {
-                ClassLoader urlCl = createProjectClassLoader(projectRoot);
-                urlCl.loadClass(className);
+        // 1) Try the Thread Context ClassLoader (TCCL) first.
+        try {
+            ClassLoader tccl = Thread.currentThread().getContextClassLoader();
+            if (tccl != null) {
+                tccl.loadClass(className);        // does not trigger class initialization
                 return true;
             }
-            catch (ClassNotFoundException e)
-            {
-                // No fallback beyond this
+        } catch (ClassNotFoundException ignore) {
+            // Fall through to the next strategy.
+        } catch (LinkageError | Exception ex) {
+            // LinkageError covers NoClassDefFoundError, UnsatisfiedLinkError, ClassFormatError, etc.
+            logger.debug("TCCL could not resolve " + className + ": " + ex);
+        }
+
+        // 2) Use a project-scoped URLClassLoader (covers exploded plugin + target/dependencies/**.jar)
+        if (projectRoot != null) {
+            try {
+                ClassLoader urlCl = getOrCreateProjectClassLoader(projectRoot);
+                urlCl.loadClass(className);
+                return true;
+            } catch (ClassNotFoundException ignore) {
+                // Fall through to file-system heuristic.
+            } catch (LinkageError | Exception ex) {
+                logger.debug("Project CL could not resolve " + className + ": " + ex);
             }
-            catch (NoClassDefFoundError err)
-            {
-                System.err.println("DEBUG: NoClassDefFoundError while custom loading " + className + ": " + err.getMessage());
-            }
-            catch (ExceptionInInitializerError err)
-            {
-                System.err.println("DEBUG: ExceptionInInitializerError while custom loading " + className + ": " + err.getMessage());
-            }
-            catch (UnsatisfiedLinkError err)
-            {
-                System.err.println("DEBUG: UnsatisfiedLinkError while custom loading " + className + ": " + err.getMessage());
-            }
-            catch (ClassFormatError err)
-            {
-                System.err.println("DEBUG: ClassFormatError while custom loading " + className + ": " + err.getMessage());
-            }
-            catch (Error err)
-            {
-                // Again, logged but not rethrown, to maintain boolean return
-                System.err.println("DEBUG: Serious error while custom loading " + className + ": " + err.getMessage());
-            }
-            catch (Exception e)
-            {
-                System.err.println("DEBUG: Exception while custom loading " + className + ": " + e.getMessage());
-            }
+        }
+
+        // 3) File-system heuristic (cheap last resort for loose .class files)
+        if (projectRoot != null) {
+            String relPath = className.replace('.', '/') + ".class";
+
+            // a) Flat under projectRoot (our CI exploded layout)
+            if (new File(projectRoot, relPath).exists()) return true;
+
+            // b) Maven: target/classes
+            if (new File(projectRoot, "target/classes/" + relPath).exists()) return true;
+
+            // c) Gradle: build/classes
+            return new File(projectRoot, "build/classes/" + relPath).exists();
         }
         return false;
     }
 
-
+    // BpmnValidationUtils.java
     /**
-     * Creates a {@link URLClassLoader} that includes the project's class directories and dependency JARs.
+     * Creates a {@link URLClassLoader} configured to load classes and resources from the project's
+     * build outputs and embedded JARs.
      * <p>
-     * The method checks for the existence of "/target/classes" or "/build/classes" and adds them to the classpath.
-     * Additionally, if a "/target/dependency" directory exists, all JAR files within it are also added.
+     * This method attempts to construct a class loader with the following search paths, in order:
+     * <ol>
+     *   <li>{@code target/classes} – the default Maven output directory</li>
+     *   <li>{@code build/classes} – the default Gradle output directory</li>
+     *   <li>Project root directory – allows loading from exploded JARs or unpacked source trees</li>
+     *   <li>All {@code *.jar} files located directly in the project root – fallback when JARs are manually placed</li>
+     *   <li>{@code target/dependency/*.jar} – conventional Maven dependencies directory (e.g., from copy-dependencies)</li>
+     * </ol>
+     * This makes the method compatible with exploded plugin setups such as those found in CI pipelines,
+     * where the classes reside directly in the root or inside a flat file structure.
      * </p>
      *
-     * @param projectRoot the root directory of the project
-     * @return a {@link URLClassLoader} that loads classes from the specified directories and JARs
-     * @throws Exception if an error occurs while constructing the class loader
+     * @param projectRoot the root directory of the exploded JAR or the Maven/Gradle project
+     * @return a {@link URLClassLoader} that can load project classes and dependencies
+     * @throws Exception if URL conversion or class loader initialization fails
      */
-    private static ClassLoader createProjectClassLoader(File projectRoot)
-            throws Exception
+    public static ClassLoader createProjectClassLoader(File projectRoot) throws Exception
     {
+        List<URL> urls = new ArrayList<>();
+
+        // 1) allow loading exploded classes under the project root
+        urls.add(projectRoot.toURI().toURL());
+
+        // 2) classic Maven/Gradle output dirs
         File classesDir = new File(projectRoot, "target/classes");
         if (!classesDir.exists())
-        {
             classesDir = new File(projectRoot, "build/classes");
-        }
-
-        List<URL> urlList = new java.util.ArrayList<>();
         if (classesDir.exists())
-        {
-            urlList.add(classesDir.toURI().toURL());
-        }
+            urls.add(classesDir.toURI().toURL());
 
-        File dependencyDir = new File(projectRoot, "target/dependency");
-        if (dependencyDir.exists() && dependencyDir.isDirectory())
-        {
-            File[] jars = dependencyDir.listFiles((d, n) -> n.toLowerCase().endsWith(".jar"));
-            if (jars != null)
-            {
-                for (File jar : jars)
-                {
-                    urlList.add(jar.toURI().toURL());
-                }
-            }
-        }
+        // 3) include plugin.jar itself (so you don't even have to unzip it)
+        File pluginJar = new File(projectRoot, "plugin.jar");
+        if (pluginJar.isFile())
+            urls.add(pluginJar.toURI().toURL());
 
-        URL[] urls = urlList.toArray(new URL[0]);
-        return new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
-    }
+        // 4) fall back on any other top-level JARs
+        File[] rootJars = projectRoot.listFiles(f -> f.getName().toLowerCase().endsWith(".jar"));
+        if (rootJars != null)
+            for (File jar : rootJars)
+                if (!jar.equals(pluginJar))
+                    urls.add(jar.toURI().toURL());
 
-    /**
-     * old
-     * Checks if the class with the given name implements {@code org.camunda.bpm.engine.delegate.JavaDelegate}.
-     * <p>
-     * The check is performed by loading both the candidate class and the {@code JavaDelegate} interface using
-     * a custom class loader, then verifying assignability.
-     * </p>
-     * new
-     * Methode is not anymore used after the new version von DSF (API 2)
-     * @param className   the fully-qualified class name to check
-     * @param projectRoot the project root directory used to create the custom class loader
-     * @return {@code true} if the candidate class implements {@code JavaDelegate}; {@code false} otherwise
-     */
-    @Deprecated
-    public static boolean implementsJavaDelegate(String className, File projectRoot)
-    {
-        try
-        {
-            ClassLoader customCl = createProjectClassLoader(projectRoot);
-            Class<?> candidateClass = Class.forName(className, true, customCl);
-            Class<?> delegateInterface = Class.forName("org.camunda.bpm.engine.delegate.JavaDelegate", true, customCl);
-            return delegateInterface.isAssignableFrom(candidateClass);
-        }
-        catch (Throwable t)
-        {
-            System.err.println("DEBUG: Exception in implementsJavaDelegate for " + className + ": " + t.getMessage());
-            return false;
-        }
+        // 5) copied dependencies
+        File depDir = new File(projectRoot, "target/dependency");
+        if (depDir.isDirectory())
+            for (File jar : Objects.requireNonNull(depDir.listFiles((d, n) -> n.endsWith(".jar"))))
+                urls.add(jar.toURI().toURL());
+
+        return new URLClassLoader(urls.toArray(new URL[0]),
+                Thread.currentThread().getContextClassLoader());
     }
 
     /**
@@ -377,7 +328,7 @@ public class BpmnValidationUtils
             List<BpmnElementValidationItem> issues,
             File projectRoot)
     {
-        String apiVersion = ApiVersionHolder.getVersion();
+        String apiVersion = ApiVersionHolder.getVersion().toString();
         if (isEmpty(implClass))
         {
             issues.add(new BpmnMessageSendEventImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
@@ -395,14 +346,31 @@ public class BpmnValidationUtils
                 issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
+            if("v2".equals(apiVersion))
+            {
+                issues.add(new BpmnEndOrIntermediateThrowEventMissingInterfaceValidationItem(
+                        elementId, bpmnFile, processId, implClass,
+                        "Implementation class '" + implClass
+                                + "' does not implement a supported DSF task interface."));
+            }
         }
         else
         {
-            // Success: the implementation class is non-empty, exists, and implements
-            issues.add(new BpmnElementValidationItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Implementation class '" + implClass
-                            + "' exists and implements a supported DSF task interface."));
+            if("v1".equals(apiVersion))
+                // Success: the implementation class exists and implements JavaDelegate.
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Implementation class '" + implClass + "' exists and implements JavaDelegate."
+                ));
+            if("v2".equals(apiVersion))
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Implementation class '" + implClass + "' exists and implements a supported DSF task interface."
+                ));
         }
     }
 
@@ -539,23 +507,36 @@ public class BpmnValidationUtils
 
 
     /**
-     * Checks if a BPMN user task has any {@link CamundaTaskListener} with an implementation class
-     * that cannot be found on the classpath.
-     * <p>
-     * The method inspects the extension elements of the {@link UserTask} for task listeners and verifies
-     * the existence of their specified implementation classes. For each listener:
-     * <ul>
-     *   <li>If the listener's implementation class is specified and cannot be found, an error item is added.</li>
-     *   <li>If the listener's implementation class is specified and is found, a success item is recorded.</li>
-     * </ul>
-     * </p>
+     * Validates {@code <camunda:taskListener>} definitions on a {@link UserTask} element.
      *
-     * @param userTask    the {@link UserTask} to check
-     * @param elementId   the identifier of the BPMN element being validated
-     * @param issues      the list of {@link BpmnElementValidationItem} where validation issues or success items will be added
-     * @param bpmnFile    the BPMN file under validation
-     * @param processId   the identifier of the BPMN process containing the task
-     * @param projectRoot the project root directory used for class loading
+     * <p>
+     * This method performs the following validations for each {@code <camunda:taskListener>}:
+     * </p>
+     * <ul>
+     *   <li><b>Missing class attribute:</b> If no {@code class} attribute is provided, a
+     *       {@link BpmnUserTaskListenerMissingClassAttributeValidationItem} is added.</li>
+     *   <li><b>Class existence:</b> If the class name is present but not found on the classpath, a
+     *       {@link BpmnUserTaskListenerJavaClassNotFoundValidationItem} is added. If it exists, a success item is registered.</li>
+     *   <li><b>API-specific inheritance/interface check:</b>
+     *     <ul>
+     *       <li>For API version {@code V1}, the listener class must either
+     *           <b>extend</b> {@code dev.dsf.bpe.v1.activity.DefaultUserTaskListener}
+     *           or <b>implement</b> {@code org.camunda.bpm.engine.delegate.TaskListener}.</li>
+     *       <li>For API version {@code V2}, the listener class must either
+     *           <b>extend</b> {@code dev.dsf.bpe.v2.activity.DefaultUserTaskListener}
+     *           or <b>implement</b> {@code dev.dsf.bpe.v2.activity.UserTaskListener}.</li>
+     *       <li>If neither requirement is met, a {@link BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem}
+     *           is registered.</li>
+     *     </ul>
+     *   </li>
+     * </ul>
+     *
+     * @param userTask   the {@link UserTask} element to validate
+     * @param elementId  the BPMN element ID
+     * @param issues     the list of validation items to collect results
+     * @param bpmnFile   the BPMN file being validated
+     * @param processId  the ID of the BPMN process definition
+     * @param projectRoot the root directory of the project, used for class loading
      */
     public static void checkTaskListenerClasses(
             UserTask userTask,
@@ -565,36 +546,84 @@ public class BpmnValidationUtils
             String processId,
             File projectRoot)
     {
-        if (userTask.getExtensionElements() != null)
+        if (userTask.getExtensionElements() == null) return;
+
+        Collection<CamundaTaskListener> listeners = userTask.getExtensionElements()
+                .getElementsQuery()
+                .filterByType(CamundaTaskListener.class)
+                .list();
+
+        for (CamundaTaskListener listener : listeners)
         {
-            Collection<CamundaTaskListener> listeners =
-                    userTask.getExtensionElements().getElementsQuery()
-                            .filterByType(CamundaTaskListener.class)
-                            .list();
-            for (CamundaTaskListener listener : listeners)
+            String implClass = listener.getCamundaClass();
+
+            // 1) Missing class attribute
+            if (isEmpty(implClass))
             {
-                String implClass = listener.getCamundaClass();
-                if (!BpmnValidationUtils.isEmpty(implClass))
-                {
-                    if (!BpmnValidationUtils.classExists(implClass, projectRoot))
-                    {
-                        issues.add(new BpmnFloatingElementValidationItem(
-                                elementId, bpmnFile, processId,
-                                "Task listener class not found: " + implClass,
-                                ValidationType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
-                                ValidationSeverity.ERROR,
-                                FloatingElementType.TASK_LISTENER_CLASS_NOT_FOUND
-                        ));
-                    }
-                    else
-                    {
-                        issues.add(new BpmnElementValidationItemSuccess(
-                                elementId, bpmnFile, processId,
-                                "Task listener class found: " + implClass
-                        ));
-                    }
-                }
+                issues.add(new BpmnUserTaskListenerMissingClassAttributeValidationItem(elementId, bpmnFile, processId));
+                continue;
             }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "UserTask listener declares a class attribute: '" + implClass + "'"));
+            }
+
+            // 2) Class existence
+            if (!classExists(implClass, projectRoot))
+            {
+                issues.add(new BpmnUserTaskListenerJavaClassNotFoundValidationItem(
+                        elementId, bpmnFile, processId, implClass));
+                continue;
+            }
+            else
+            {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "UserTask listener class '" + implClass + "' was found on the project classpath"));
+            }
+
+            // 3) API-specific checks with Either-Or logic
+            ApiVersion apiVersion = ApiVersionHolder.getVersion();
+
+            if (apiVersion == ApiVersion.UNKNOWN) {
+            System.err.println("DEBUG: Unknown API version for UserTask listener validation: " + apiVersion + ". No specific checks applied.");
+            }
+
+            else if (apiVersion == ApiVersion.V2)
+            {
+                String defaultSuperClass = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
+                String requiredInterface = "dev.dsf.bpe.v2.activity.UserTaskListener";
+
+                extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
+            }
+            else if (apiVersion == ApiVersion.V1)
+            {
+                String defaultSuperClass = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
+                String requiredInterface = "org.camunda.bpm.engine.delegate.TaskListener";
+
+                extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
+            }
+        }
+    }
+
+    private static void extendsDefault(String elementId, List<BpmnElementValidationItem> issues, File bpmnFile, String processId, File projectRoot, String implClass, String defaultSuperClass, String requiredInterface) {
+        boolean extendsDefault = isSubclassOf(implClass, defaultSuperClass, projectRoot);
+        boolean implementsInterface = implementsInterface(implClass, requiredInterface, projectRoot);
+
+        String inheritanceDescription = extendsDefault ? "extends " + defaultSuperClass : "implements " + requiredInterface;
+        if (extendsDefault || implementsInterface)
+        {
+            issues.add(new BpmnElementValidationItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "UserTask listener '" + implClass +  "' extend or implement the required interface class: '" + inheritanceDescription + "'"));
+        }
+        else {
+            issues.add(new BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem (
+                    elementId, bpmnFile, processId, implClass,
+                    "UserTask listener '" + implClass + "' does not extend the default class '" + defaultSuperClass
+                            + "' or implement the required interface '" + requiredInterface + "'."));
         }
     }
 
@@ -1117,4 +1146,58 @@ public class BpmnValidationUtils
         return false;
     }
 
+    /**
+     * Checks if the given class implements the given interface.
+     *
+     * @param className     fully-qualified name of the candidate class
+     * @param interfaceName fully-qualified name of the required interface
+     * @param projectRoot   project root used to assemble a class loader
+     * @return true if {@code className} implements {@code interfaceName}, false otherwise
+     */
+    public static boolean implementsInterface(String className, String interfaceName, File projectRoot)
+    {
+        try
+        {
+            ClassLoader cl = createProjectClassLoader(projectRoot);
+            Class<?> candidate = Class.forName(className, false, cl);
+            Class<?> iface = Class.forName(interfaceName, false, cl);
+            return iface.isAssignableFrom(candidate);
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: implementsInterface failed for " + className + " -> " + interfaceName + ": " + t.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Checks if the given class is a subclass (directly or indirectly) of the given superclass name.
+     *
+     * @param className       fully-qualified name of the candidate class
+     * @param superClassName  fully-qualified name of the required superclass
+     * @param projectRoot     project root used to assemble a class loader
+     * @return true if {@code className} extends (directly or indirectly) {@code superClassName}, false otherwise
+     */
+    public static boolean isSubclassOf(String className, String superClassName, File projectRoot)
+    {
+        try
+        {
+            ClassLoader cl = createProjectClassLoader(projectRoot);
+            Class<?> target = Class.forName(className, false, cl);
+            Class<?> required = Class.forName(superClassName, false, cl);
+
+            Class<?> current = target.getSuperclass();
+            while (current != null)
+            {
+                if (current.equals(required))
+                    return true;
+                current = current.getSuperclass();
+            }
+        }
+        catch (Throwable t)
+        {
+            System.err.println("DEBUG: isSubclassOf failed for " + className + " -> " + superClassName + ": " + t.getMessage());
+        }
+        return false;
+    }
 }
