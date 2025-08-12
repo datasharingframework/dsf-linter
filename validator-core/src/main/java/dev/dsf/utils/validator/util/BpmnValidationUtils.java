@@ -4,20 +4,16 @@ import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.logger.Logger;
-import dev.dsf.utils.validator.logger.ConsoleLogger;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Objects;
 
 /**
  * The {@code BpmnValidationUtils} class contains common static utility methods used across various BPMN validator classes.
@@ -137,7 +133,7 @@ public class BpmnValidationUtils
      * <ul>
      *   <li>{@code projectRoot/com/example/MyClass.class}</li>
      *   <li>{@code projectRoot/target/classes/com/example/MyClass.class}</li>
-     *   <li>{@code projectRoot/build/classes/main/java/com/example/MyClass.class}</li>
+     *   <li>{@code projectRoot/build/classes/com/example/MyClass.class}</li>
      * </ul>
      *
      * @param className   The fully-qualified class name to check (e.g., {@code com.example.MyClass})
@@ -145,50 +141,101 @@ public class BpmnValidationUtils
      * @return {@code true} if the class is loadable through any of the available mechanisms; {@code false} otherwise
      *
      * @see ClassLoader
-     * @see URLClassLoader
+     * @see java.net.URLClassLoader
      */
-    public static boolean classExists(String className, File projectRoot) {
-        // 0) Quick guard
-        if (className == null || className.isBlank()) return false;
-
-        // 1) Try the Thread Context ClassLoader (TCCL) first.
-        try {
-            ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-            if (tccl != null) {
-                tccl.loadClass(className);        // does not trigger class initialization
-                return true;
-            }
-        } catch (ClassNotFoundException ignore) {
-            // Fall through to the next strategy.
-        } catch (LinkageError | Exception ex) {
-            // LinkageError covers NoClassDefFoundError, UnsatisfiedLinkError, ClassFormatError, etc.
-            logger.debug("TCCL could not resolve " + className + ": " + ex);
+    public static boolean classExists(String className, File projectRoot)
+    {
+        // First, try context class loader
+        try
+        {
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            cl.loadClass(className);
+            return true;
+        }
+        catch (ClassNotFoundException e)
+        {
+            // Fallback to custom loader
+        }
+        catch (NoClassDefFoundError err)
+        {
+            System.err.println("DEBUG: NoClassDefFoundError while trying context CL: " + err.getMessage());
+        }
+        catch (ExceptionInInitializerError err)
+        {
+            System.err.println("DEBUG: ExceptionInInitializerError while trying context CL: " + err.getMessage());
+        }
+        catch (UnsatisfiedLinkError err)
+        {
+            System.err.println("DEBUG: UnsatisfiedLinkError while trying context CL: " + err.getMessage());
+        }
+        catch (ClassFormatError err)
+        {
+            System.err.println("DEBUG: ClassFormatError while trying context CL: " + err.getMessage());
+        }
+        catch (Error err)
+        {
+            // Catching Error is generally discouraged, but logged here for class-loading edge cases
+            System.err.println("DEBUG: Serious error while trying context CL: " + err.getMessage());
+        }
+        catch (Exception e)
+        {
+            // If some other runtime exception occurs
+            System.err.println("DEBUG: Exception while trying context CL: " + e.getMessage());
         }
 
-        // 2) Use a project-scoped URLClassLoader (covers exploded plugin + target/dependencies/**.jar)
-        if (projectRoot != null) {
-            try {
-                ClassLoader urlCl = getOrCreateProjectClassLoader(projectRoot);
+        // Second, try a custom class loader if projectRoot is provided
+        if (projectRoot != null)
+        {
+            try
+            {
+                ClassLoader urlCl = createProjectClassLoader(projectRoot);
                 urlCl.loadClass(className);
                 return true;
-            } catch (ClassNotFoundException ignore) {
-                // Fall through to file-system heuristic.
-            } catch (LinkageError | Exception ex) {
-                logger.debug("Project CL could not resolve " + className + ": " + ex);
+            }
+            catch (ClassNotFoundException e)
+            {
+                // No fallback beyond this
+            }
+            catch (NoClassDefFoundError err)
+            {
+                System.err.println("DEBUG: NoClassDefFoundError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (ExceptionInInitializerError err)
+            {
+                System.err.println("DEBUG: ExceptionInInitializerError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (UnsatisfiedLinkError err)
+            {
+                System.err.println("DEBUG: UnsatisfiedLinkError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (ClassFormatError err)
+            {
+                System.err.println("DEBUG: ClassFormatError while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (Error err)
+            {
+                // Again, logged but not rethrown, to maintain boolean return
+                System.err.println("DEBUG: Serious error while custom loading " + className + ": " + err.getMessage());
+            }
+            catch (Exception e)
+            {
+                System.err.println("DEBUG: Exception while custom loading " + className + ": " + e.getMessage());
             }
         }
-
-        // 3) File-system heuristic (cheap last resort for loose .class files)
+        // File‐system fallback: look for the .class file directly
         if (projectRoot != null) {
+            // Convert FQCN to relative path, e.g. "com.example.MyClass" → "com/example/MyClass.class"
             String relPath = className.replace('.', '/') + ".class";
 
-            // a) Flat under projectRoot (our CI exploded layout)
-            if (new File(projectRoot, relPath).exists()) return true;
+            // a) Flat layout under projectRoot (e.g. CI: output/de/…/Listener.class)
+            if (new File(projectRoot, relPath).exists())
+                return true;
 
-            // b) Maven: target/classes
-            if (new File(projectRoot, "target/classes/" + relPath).exists()) return true;
+            // b) Maven convention: target/classes
+            if (new File(projectRoot, "target/classes/" + relPath).exists())
+                return true;
 
-            // c) Gradle: build/classes
+            // c) Gradle convention: build/classes
             return new File(projectRoot, "build/classes/" + relPath).exists();
         }
         return false;
