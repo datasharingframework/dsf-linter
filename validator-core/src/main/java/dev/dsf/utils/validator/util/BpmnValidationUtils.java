@@ -7,7 +7,13 @@ import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
+import org.w3c.dom.Document;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
+import java.io.FileInputStream;
+import java.lang.Error;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -47,8 +53,6 @@ import java.util.Objects;
  */
 public class BpmnValidationUtils
 {
-    private static final Logger logger = new ConsoleLogger();
-
     /**
      * List of all DSF task-related interface class names supported for validation purposes.
      * <p>
@@ -1129,6 +1133,28 @@ public class BpmnValidationUtils
 
 
     // BpmnValidationUtils.java (near the bottom)
+    /**
+     * Parses an XML file into a {@link org.w3c.dom.Document}.
+     * <p>
+     * This method creates a namespace-aware {@link DocumentBuilder} and parses the provided XML file.
+     * It returns the resulting {@link Document} or throws an exception if an error occurs.
+     * </p>
+     *
+     * @param xmlFile the XML file to parse
+     * @return the parsed {@link org.w3c.dom.Document}
+     * @throws Exception if an error occurs during parsing
+     */
+    public static org.w3c.dom.Document parseXml(File xmlFile) throws Exception
+    {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        try (FileInputStream fis = new FileInputStream(xmlFile))
+        {
+            return db.parse(fis);
+        }
+    }
+
     /**
      * Determines whether the specified class implements any of the DSF-supported task interfaces
      * listed in {@link #DSF_TASK_INTERFACES}.
