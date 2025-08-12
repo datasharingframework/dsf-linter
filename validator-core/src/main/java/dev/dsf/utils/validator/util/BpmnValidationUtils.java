@@ -245,14 +245,66 @@ public class BpmnValidationUtils
                 if (!jar.equals(pluginJar))
                     urls.add(jar.toURI().toURL());
 
-        // 5) copied dependencies
-        File depDir = new File(projectRoot, "target/dependency");
-        if (depDir.isDirectory())
-            for (File jar : Objects.requireNonNull(depDir.listFiles((d, n) -> n.endsWith(".jar"))))
-                urls.add(jar.toURI().toURL());
+    /**
+     * Cache for storing {@link ClassLoader} instances mapped to their corresponding project root paths.
+     * <p>
+     * This cache prevents the overhead of creating duplicate class loaders for the same project directory,
+     * which is especially beneficial when validating multiple BPMN files within the same project.
+     * The cache uses canonical file paths as keys to ensure consistent mapping even when different
+     * {@link File} objects point to the same physical directory.
+     * </p>
+     * 
+     * @see #getOrCreateProjectClassLoader(File)
+     * @see #createProjectClassLoader(File)
+     */
+    private static final ConcurrentMap<Path, ClassLoader> CL_CACHE = new ConcurrentHashMap<>();
 
-        return new URLClassLoader(urls.toArray(new URL[0]),
-                Thread.currentThread().getContextClassLoader());
+    
+   /**
+    * Retrieves or creates a cached {@link ClassLoader} instance for the specified project root directory.
+    * <p>
+    * This method implements a caching mechanism to avoid the overhead of creating duplicate class loaders
+    * for the same project directory during validation of multiple BPMN files. The cache uses canonical
+    * file paths as keys to ensure consistent mapping even when different {@link File} objects point to
+    * the same physical directory.
+    * </p>
+    * 
+    * <p>
+    * The method performs the following operations:
+    * </p>
+    * <ol>
+    *   <li>Converts the project root to its canonical path to normalize different file representations</li>
+    *   <li>Checks the internal cache ({@link #CL_CACHE}) for an existing class loader</li>
+    *   <li>If not found, delegates to {@link #createProjectClassLoader(File)} to create a new instance</li>
+    *   <li>Stores the newly created class loader in the cache for future use</li>
+    * </ol>
+    * 
+    * <p>
+    * The cache is thread-safe and uses {@link ConcurrentHashMap#computeIfAbsent(Object, java.util.function.Function)}
+    * to ensure atomic cache operations in multi-threaded validation scenarios.
+    * </p>
+    * 
+    * @param projectRoot the root directory of the project for which to obtain a class loader;
+    *                   must not be {@code null}
+    * @return a {@link ClassLoader} configured for the specified project directory,
+    *         either retrieved from cache or newly created
+    * @throws Exception if the canonical path cannot be resolved, or if class loader creation fails
+    * @throws RuntimeException if {@link #createProjectClassLoader(File)} throws an exception,
+    *                         wrapped with additional context about the failed project root
+    * 
+    * @see #createProjectClassLoader(File)
+    * @see #CL_CACHE
+    * @see File#getCanonicalFile()
+    */
+   private static ClassLoader getOrCreateProjectClassLoader(File projectRoot) throws Exception {
+       Path key = projectRoot.getCanonicalFile().toPath();
+        return CL_CACHE.computeIfAbsent(key, k -> {
+            try {
+                return createProjectClassLoader(projectRoot);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create project classloader for " + projectRoot, e);
+            }
+        });
     }
 
     /**
