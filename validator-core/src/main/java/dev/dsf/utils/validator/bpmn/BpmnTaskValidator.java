@@ -102,7 +102,7 @@ public class BpmnTaskValidator
                 issues.add(new BpmnServiceTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
+            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
                 if ("v1".equals(apiVersion))
                   issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
@@ -277,7 +277,7 @@ public class BpmnTaskValidator
                 issues.add(new BpmnMessageSendTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
+            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
             {
                 // only report this issue for v1
                 if ("v1".equals(apiVersion))
