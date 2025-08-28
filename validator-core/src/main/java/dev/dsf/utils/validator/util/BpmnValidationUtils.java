@@ -175,7 +175,7 @@ public class BpmnValidationUtils
      */
     private static boolean containsPlaceholder(String rawValue) {
         if (rawValue == null || rawValue.isEmpty()) {
-            return false;
+            return true;
         }
         // Regex explanation:
         // (\\$|#)      : Matches either a '$' or '#' character.
@@ -183,7 +183,7 @@ public class BpmnValidationUtils
         // "[^\\}]+":   : Ensures that at least one character (that is not '}') is present.
         // "\\}"        : Matches the literal '}'.
         // ".*" before and after allows the placeholder to appear anywhere in the string.
-        return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
+        return !rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
     }
 
     /**
@@ -946,7 +946,7 @@ public class BpmnValidationUtils
             }
             else {
                 String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent() : timeDurationExpr.getTextContent();
-                if (!containsPlaceholder(timerValue))
+                if (containsPlaceholder(timerValue))
                 {
                     issues.add(new BpmnFloatingElementValidationItem(
                             elementId, bpmnFile, processId,
@@ -1250,7 +1250,7 @@ public class BpmnValidationUtils
                     "Profile field is provided with value: '" + literalValue + "'"
             ));
 
-            if (!containsPlaceholder(literalValue))
+            if (containsPlaceholder(literalValue))
             {
                 issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId, literalValue));
@@ -1317,7 +1317,7 @@ public class BpmnValidationUtils
         }
         else
         {
-            if (!containsPlaceholder(literalValue))
+            if (containsPlaceholder(literalValue))
             {
                 issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderValidationItem(
                         elementId, bpmnFile, processId));
