@@ -599,7 +599,7 @@ public class BpmnValidationUtils
             issues.add(new BpmnMessageSendEventImplementationClassNotFoundValidationItem(
                     elementId, bpmnFile, processId, implClass));
         }
-        else if (!implementsDsfTaskInterface(implClass, projectRoot))
+        else if (implementsDsfTaskInterface(implClass, projectRoot))
         {
             // only report this issue for v1
             if ("v1".equals(apiVersion))
@@ -1360,19 +1360,19 @@ public class BpmnValidationUtils
             Optional<Class<?>> candidateClass = loadClass(className, cl);
 
             if (candidateClass.isEmpty()) {
-                return false;
+                return true;
             }
 
             for (String ifaceName : DSF_TASK_INTERFACES) {
                 Optional<Class<?>> ifaceClass = loadClass(ifaceName, cl);
                 if (ifaceClass.isPresent() && ifaceClass.get().isAssignableFrom(candidateClass.get())) {
-                    return true;
+                    return false;
                 }
             }
         } catch (Exception e) {
             logger.debug("Failed to create project class loader for DSF task interface check: " + e.getMessage());
         }
-        return false;
+        return true;
     }
 
     /**
