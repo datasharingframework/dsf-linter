@@ -24,32 +24,42 @@ import java.nio.file.DirectoryStream;
 import java.net.URI;
 
 /**
- * The {@code BpmnValidationUtils} class contains common static utility methods used across various BPMN validator classes.
+ * Provides a collection of static utility methods to support the validation of BPMN 2.0 process models,
+ * with a special focus on Camunda extensions and DSF (Digital Service Framework) conventions.
  * <p>
- * These utility methods support operations such as:
+ * This class is designed as a stateless utility and contains no public constructor. Its responsibilities
+ * can be grouped into several key areas:
  * <ul>
- *   <li>String null or emptiness checks</li>
- *   <li>Placeholder detection within strings</li>
- *   <li>Extraction of nested string content from Camunda fields</li>
- *   <li>Class-loading and existence checks, including verifying if a class implements {@code JavaDelegate}</li>
- *   <li>Extraction of implementation class values from BPMN elements</li>
- *   <li>Validation of implementation classes and listener classes</li>
- *   <li>Cross-checking message names against FHIR resources</li>
- *   <li>XML parsing of FHIR resource files</li>
- *   <li>Timer, error boundary, and conditional event validation checks</li>
- *   <li>Validation of profile and instantiatesCanonical field values against FHIR StructureDefinition and ActivityDefinition</li>
- *   <li>Checking if a BPMN profile string contains parts of a message name</li>
+ * <li><b>BPMN Element Validation:</b> Offers fine-grained checks for various BPMN elements, including
+ * listeners (execution, task), events (timer, error, conditional), and custom field injections
+ * like {@code profile} and {@code instantiatesCanonical}.</li>
+ * <li><b>FHIR Resource Integration:</b> Includes methods to cross-reference BPMN artifacts (e.g., message names)
+ * against corresponding FHIR {@code ActivityDefinition} and {@code StructureDefinition} resources.</li>
+ * <li><b>Class & Classpath Management:</b> Provides a sophisticated, thread-safe, and cached mechanism
+ * to create project-specific ClassLoaders for dynamic class validation.</li>
  * </ul>
  * </p>
- *
+ * <h3>Classpath Management</h3>
  * <p>
- * References:
+ * A core feature of this utility is its robust classpath management. It is designed to handle complex
+ * project layouts, such as multi-module Maven/Gradle projects, and is optimized for performance in
+ * local and CI/CD environments. Key capabilities include:
  * <ul>
- *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">
- *       Camunda Extension Elements</a></li>
- *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
- *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
+ * <li><b>Standard and Recursive Loading:</b> Support for both flat and recursive directory scanning to
+ * reliably find build artifacts.</li>
+ * <li><b>Build System Awareness:</b> Automatic detection of common Maven, Gradle, and IntelliJ build
+ * output directories via centralized path constants.</li>
+ * <li><b>Performance:</b> Aggressive caching of {@link ClassLoader} instances minimizes I/O overhead,
+ * and the use of {@link java.net.URI} prevents slow network lookups during path resolution.</li>
+ * </ul>
+ * </p>
+ * <h3>Key Technologies & Specifications</h3>
+ * <p>
+ * <ul>
+ * <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
+ * <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
+ * <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
+ * <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
  * </ul>
  * </p>
  */
@@ -759,35 +769,28 @@ public class BpmnValidationUtils
 
     /**
      * Validates {@code <camunda:taskListener>} definitions on a {@link UserTask} element.
-     *
      * <p>
-     * This method performs the following validations for each {@code <camunda:taskListener>}:
+     * This method iterates through each {@code <camunda:taskListener>} associated with the user task
+     * and performs a sequential, multi-step validation. If a critical validation fails (e.g., the
+     * class attribute is missing or the class is not found), subsequent checks for that specific
+     * listener are skipped to prevent cascading errors.
      * </p>
-     * <ul>
-     *   <li><b>Missing class attribute:</b> If no {@code class} attribute is provided, a
-     *       {@link BpmnUserTaskListenerMissingClassAttributeValidationItem} is added.</li>
-     *   <li><b>Class existence:</b> If the class name is present but not found on the classpath, a
-     *       {@link BpmnUserTaskListenerJavaClassNotFoundValidationItem} is added. If it exists, a success item is registered.</li>
-     *   <li><b>API-specific inheritance/interface check:</b>
-     *     <ul>
-     *       <li>For API version {@code V1}, the listener class must either
-     *           <b>extend</b> {@code dev.dsf.bpe.v1.activity.DefaultUserTaskListener}
-     *           or <b>implement</b> {@code org.camunda.bpm.engine.delegate.TaskListener}.</li>
-     *       <li>For API version {@code V2}, the listener class must either
-     *           <b>extend</b> {@code dev.dsf.bpe.v2.activity.DefaultUserTaskListener}
-     *           or <b>implement</b> {@code dev.dsf.bpe.v2.activity.UserTaskListener}.</li>
-     *       <li>If neither requirement is met, a {@link BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem}
-     *           is registered.</li>
-     *     </ul>
-     *   </li>
-     * </ul>
+     * <p>The validation process includes the following checks in order:</p>
+     * <ol>
+     * <li><b>Class Attribute Presence:</b> Ensures the {@code camunda:class} attribute is specified and not empty.</li>
+     * <li><b>Class Existence:</b> Verifies that the specified listener class exists on the project's classpath
+     * using the {@link #classExists(String, File)} method.</li>
+     * <li><b>API-Specific Inheritance:</b> Based on the active API version (V1 or V2), it determines the
+     * required base class and interface. It then validates that the listener class either extends the
+     * default base class or implements the required interface, using the {@link #extendsDefault} helper.</li>
+     * </ol>
      *
-     * @param userTask   the {@link UserTask} element to validate
-     * @param elementId  the BPMN element ID
-     * @param issues     the list of validation items to collect results
-     * @param bpmnFile   the BPMN file being validated
-     * @param processId  the ID of the BPMN process definition
-     * @param projectRoot the root directory of the project, used for class loading
+     * @param userTask    the {@link UserTask} element to validate.
+     * @param elementId   the BPMN element ID of the user task.
+     * @param issues      the list of validation items where results are collected.
+     * @param bpmnFile    the BPMN file being validated.
+     * @param processId   the ID of the BPMN process definition.
+     * @param projectRoot the root directory of the project, used for class loading.
      */
     public static void checkTaskListenerClasses(
             UserTask userTask,
@@ -795,65 +798,63 @@ public class BpmnValidationUtils
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
             String processId,
-            File projectRoot)
-    {
-        if (userTask.getExtensionElements() == null) return;
+            File projectRoot) {
+        if (userTask.getExtensionElements() == null) {
+            return;
+        }
 
         Collection<CamundaTaskListener> listeners = userTask.getExtensionElements()
                 .getElementsQuery()
                 .filterByType(CamundaTaskListener.class)
                 .list();
 
-        for (CamundaTaskListener listener : listeners)
-        {
+        for (CamundaTaskListener listener : listeners) {
             String implClass = listener.getCamundaClass();
 
-            // 1) Missing class attribute
-            if (isEmpty(implClass))
-            {
+            // Step 1: Validate presence of the class attribute.
+            if (isEmpty(implClass)) {
                 issues.add(new BpmnUserTaskListenerMissingClassAttributeValidationItem(elementId, bpmnFile, processId));
-                continue;
-            }
-            else
-            {
+                continue; // Skip further checks for this listener.
+            } else {
                 issues.add(new BpmnElementValidationItemSuccess(
                         elementId, bpmnFile, processId,
                         "UserTask listener declares a class attribute: '" + implClass + "'"));
             }
 
-            // 2) Class existence
-            if (!classExists(implClass, projectRoot))
-            {
+            // Step 2: Validate class existence on the classpath.
+            if (!classExists(implClass, projectRoot)) {
                 issues.add(new BpmnUserTaskListenerJavaClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
-                continue;
-            }
-            else
-            {
+                continue; // Skip further checks for this listener.
+            } else {
                 issues.add(new BpmnElementValidationItemSuccess(
                         elementId, bpmnFile, processId,
                         "UserTask listener class '" + implClass + "' was found on the project classpath"));
             }
 
-            // 3) API-specific checks with Either-Or logic
+            // Step 3: Perform API-specific inheritance/interface checks.
             ApiVersion apiVersion = ApiVersionHolder.getVersion();
+            String defaultSuperClass = null;
+            String requiredInterface = null;
 
-            if (apiVersion == ApiVersion.UNKNOWN) {
-            System.err.println("DEBUG: Unknown API version for UserTask listener validation: " + apiVersion + ". No specific checks applied.");
+            // First, determine the required class names based on the API version.
+            switch (apiVersion) {
+                case V2:
+                    defaultSuperClass = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
+                    requiredInterface = "dev.dsf.bpe.v2.activity.UserTaskListener";
+                    break;
+                case V1:
+                    defaultSuperClass = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
+                    requiredInterface = "org.camunda.bpm.engine.delegate.TaskListener";
+                    break;
+                case UNKNOWN:
+                    // Log or handle the case where the API version is unknown and no checks can be performed.
+                    logger.debug("Unknown API version for UserTask listener validation. Skipping inheritance checks.");
+                    break;
             }
 
-            else if (apiVersion == ApiVersion.V2)
-            {
-                String defaultSuperClass = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
-                String requiredInterface = "dev.dsf.bpe.v2.activity.UserTaskListener";
-
-                extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
-            }
-            else if (apiVersion == ApiVersion.V1)
-            {
-                String defaultSuperClass = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
-                String requiredInterface = "org.camunda.bpm.engine.delegate.TaskListener";
-
+            // Then, execute the validation logic once with the determined class names.
+            if (defaultSuperClass != null) {
                 extendsDefault(elementId, issues, bpmnFile, processId, projectRoot, implClass, defaultSuperClass, requiredInterface);
             }
         }
@@ -943,8 +944,7 @@ public class BpmnValidationUtils
                         "Fixed date/time (timeDate) provided: '" + timeDateExpr.getTextContent() + "'"
                 ));
             }
-            else if (!isTimeCycleEmpty || !isTimeDurationEmpty)
-            {
+            else {
                 String timerValue = !isTimeCycleEmpty ? timeCycleExpr.getTextContent() : timeDurationExpr.getTextContent();
                 if (!containsPlaceholder(timerValue))
                 {
