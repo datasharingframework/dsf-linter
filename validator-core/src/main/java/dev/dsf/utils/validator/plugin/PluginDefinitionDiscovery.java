@@ -652,7 +652,7 @@ public final class PluginDefinitionDiscovery
             });
         }
 
-        // --- Step 2: If ServiceLoader failed, start manual scan ---
+        // --- Step 2: If ServiceLoader failed, start manual scan --- (unpacked jar)
         if (candidates.isEmpty()) {
             System.out.println("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
             candidates.addAll(scanJars(cl));

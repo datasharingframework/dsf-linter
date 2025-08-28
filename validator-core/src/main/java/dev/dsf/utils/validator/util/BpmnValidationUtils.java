@@ -1357,95 +1357,136 @@ public class BpmnValidationUtils
 
     // BpmnValidationUtils.java (near the bottom)
     /**
-     * Determines whether the specified class implements any of the DSF-supported task interfaces
-     * listed in {@link #DSF_TASK_INTERFACES}.
+     * Determines whether a class implements any of the supported DSF (Digital Service Framework) task interfaces.
      * <p>
-     * This includes support for both DSF API v1 and API v2 interfaces, such as {@code JavaDelegate},
-     * {@code ServiceTask}, {@code TaskMessageSend}, and others. The method attempts to load the target
-     * class and each interface using a custom class loader scoped to the given project directory.
+     * This method checks the given {@code className} against a predefined list of interfaces, including
+     * those from DSF API v1 (e.g., {@code org.camunda.bpm.engine.delegate.JavaDelegate}) and v2 (e.g., {@code dev.dsf.bpe.v2.activity.ServiceTask}).
+     * </p>
+     * <p>
+     * It operates efficiently by using a cached {@link ClassLoader} obtained via {@link #getOrCreateProjectClassLoader(File)},
+     * preventing redundant classpath scanning. The actual class loading is delegated to the robust
+     * {@link #loadClass(String, ClassLoader)} helper, which gracefully handles classes that are not found
+     * or cannot be loaded by returning an {@link java.util.Optional}.
      * </p>
      *
-     * @param className   the fully-qualified name of the class to inspect
-     * @param projectRoot the root directory of the project (used to resolve class and dependency paths)
-     * @return {@code true} if the class implements any known DSF task interface; {@code false} otherwise
+     * @param className   The fully-qualified name of the class to be inspected.
+     * @param projectRoot The root directory of the project, used to configure the class loader.
+     * @return {@code true} if the class implements at least one of the supported DSF task interfaces, {@code false} otherwise.
      */
-    public static boolean implementsDsfTaskInterface(String className, File projectRoot)
-    {
-        try
-        {
-            ClassLoader cl = createProjectClassLoader(projectRoot);
-            Class<?> candidate = Class.forName(className, false, cl);
+    public static boolean implementsDsfTaskInterface(String className, File projectRoot) {
+        try {
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+            Optional<Class<?>> candidateClass = loadClass(className, cl);
 
-            for (String ifaceName : DSF_TASK_INTERFACES)
-            {
-                try
-                {
-                    Class<?> iface = Class.forName(ifaceName, false, cl);
-                    if (iface.isAssignableFrom(candidate))
-                        return true;
-                }
-                catch (ClassNotFoundException ignore) { /* interface not on class‑path */ }
+            if (candidateClass.isEmpty()) {
+                return false;
             }
-        }
-        catch (Throwable t)
-        {
-            System.err.println("DEBUG: " + t.getMessage());
+
+            for (String ifaceName : DSF_TASK_INTERFACES) {
+                Optional<Class<?>> ifaceClass = loadClass(ifaceName, cl);
+                if (ifaceClass.isPresent() && ifaceClass.get().isAssignableFrom(candidateClass.get())) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to create project class loader for DSF task interface check: " + e.getMessage());
         }
         return false;
     }
 
     /**
-     * Checks if the given class implements the given interface.
+     * Checks if a given class implements a specific interface.
+     * <p>
+     * This method efficiently verifies the inheritance relationship by using a cached, project-specific
+     * {@link ClassLoader} retrieved via {@link #getOrCreateProjectClassLoader(File)}. Both the candidate
+     * class and the interface are loaded using the {@link #loadClass(String, ClassLoader)} helper,
+     * which safely handles potential class loading failures by returning an {@link java.util.Optional}.
+     * </p>
      *
-     * @param className     fully-qualified name of the candidate class
-     * @param interfaceName fully-qualified name of the required interface
-     * @param projectRoot   project root used to assemble a class loader
-     * @return true if {@code className} implements {@code interfaceName}, false otherwise
+     * @param className     The fully-qualified name of the class to check.
+     * @param interfaceName The fully-qualified name of the interface that should be implemented.
+     * @param projectRoot   The project's root directory, used for class loading.
+     * @return {@code true} if the class successfully implements the specified interface, {@code false} otherwise,
+     * including cases where either class or interface cannot be loaded.
      */
-    public static boolean implementsInterface(String className, String interfaceName, File projectRoot)
-    {
-        try
-        {
-            ClassLoader cl = createProjectClassLoader(projectRoot);
-            Class<?> candidate = Class.forName(className, false, cl);
-            Class<?> iface = Class.forName(interfaceName, false, cl);
-            return iface.isAssignableFrom(candidate);
-        }
-        catch (Throwable t)
-        {
-            System.err.println("DEBUG: implementsInterface failed for " + className + " -> " + interfaceName + ": " + t.getMessage());
+    public static boolean implementsInterface(String className, String interfaceName, File projectRoot) {
+        try {
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+            Optional<Class<?>> candidateClass = loadClass(className, cl);
+            Optional<Class<?>> interfaceClass = loadClass(interfaceName, cl);
+
+            return candidateClass.isPresent()
+                    && interfaceClass.isPresent()
+                    && interfaceClass.get().isAssignableFrom(candidateClass.get());
+        } catch (Exception e) {
+            logger.debug("Failed during implementsInterface check for " + className + ": " + e.getMessage());
             return false;
         }
     }
 
     /**
-     * Checks if the given class is a subclass (directly or indirectly) of the given superclass name.
+     * Checks if a given class is a subclass of a specified superclass.
+     * <p>
+     * This method determines if {@code className} inherits from {@code superClassName}, either directly or
+     * indirectly. It leverages the efficient {@link Class#isAssignableFrom(Class)} check, which is more
+     * performant than iterating through the class hierarchy manually.
+     * </p>
+     * <p>
+     * For class resolution, it relies on a cached {@link ClassLoader} from {@link #getOrCreateProjectClassLoader(File)}
+     * and the safe {@link #loadClass(String, ClassLoader)} helper method to prevent errors if classes are not found.
+     * The method also ensures that a class is not considered a subclass of itself.
+     * </p>
      *
-     * @param className       fully-qualified name of the candidate class
-     * @param superClassName  fully-qualified name of the required superclass
-     * @param projectRoot     project root used to assemble a class loader
-     * @return true if {@code className} extends (directly or indirectly) {@code superClassName}, false otherwise
+     * @param className      The fully-qualified name of the potential subclass.
+     * @param superClassName The fully-qualified name of the required superclass.
+     * @param projectRoot    The project's root directory, used to configure the class loader.
+     * @return {@code true} if the class is a proper subclass of the superclass, {@code false} otherwise.
      */
-    public static boolean isSubclassOf(String className, String superClassName, File projectRoot)
-    {
-        try
-        {
-            ClassLoader cl = createProjectClassLoader(projectRoot);
-            Class<?> target = Class.forName(className, false, cl);
-            Class<?> required = Class.forName(superClassName, false, cl);
+    public static boolean isSubclassOf(String className, String superClassName, File projectRoot) {
+        try {
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+            Optional<Class<?>> targetClass = loadClass(className, cl);
+            Optional<Class<?>> requiredSuperclass = loadClass(superClassName, cl);
 
-            Class<?> current = target.getSuperclass();
-            while (current != null)
-            {
-                if (current.equals(required))
-                    return true;
-                current = current.getSuperclass();
+            if (targetClass.isEmpty() || requiredSuperclass.isEmpty()) {
+                return false;
             }
+
+            // isAssignableFrom also works for superclasses, which is cleaner than iterating.
+            // A superclass is "assignable from" its subclass.
+            return requiredSuperclass.get().isAssignableFrom(targetClass.get())
+                    && !targetClass.get().equals(requiredSuperclass.get()); // Ensure it's a proper subclass
+
+        } catch (Exception e) {
+            logger.debug("Failed during isSubclassOf check for " + className + ": " + e.getMessage());
+            return false;
         }
-        catch (Throwable t)
-        {
-            System.err.println("DEBUG: isSubclassOf failed for " + className + " -> " + superClassName + ": " + t.getMessage());
+    }
+
+    /**
+     * Loads a class by its fully-qualified name using a project-specific class loader.
+     * <p>
+     * This helper method encapsulates the logic for retrieving the project's class loader
+     * and loading a specific class, handling potential {@link ClassNotFoundException} or other
+     * linkage errors gracefully by returning an {@link Optional}. This avoids cluttering
+     * calling methods with repetitive try-catch blocks.
+     * </p>
+     *
+     * @param className   The fully-qualified name of the class to load.
+     * @param cl          The ClassLoader to use for loading the class.
+     * @return An {@code Optional} containing the {@link Class} object if found; otherwise, an empty {@code Optional}.
+     */
+    private static Optional<Class<?>> loadClass(String className, ClassLoader cl) {
+        if (isEmpty(className) || cl == null) {
+            return Optional.empty();
         }
-        return false;
+        try {
+            return Optional.of(Class.forName(className, false, cl));
+        } catch (ClassNotFoundException | LinkageError e) {
+            // LinkageError covers cases like NoClassDefFoundError.
+            // Log the error for debugging purposes without stopping the validation.
+            logger.debug("Could not load class '" + className + "': " + e.getMessage());
+            return Optional.empty();
+        }
     }
 }
