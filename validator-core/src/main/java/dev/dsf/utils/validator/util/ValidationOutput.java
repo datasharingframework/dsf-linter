@@ -10,6 +10,7 @@ import dev.dsf.utils.validator.item.BpmnElementValidationItem;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -25,55 +26,116 @@ import java.util.stream.Collectors;
  * It stores a list of {@link AbstractValidationItem} instances and provides methods to:
  * <ul>
  *   <li>Print issues to the console</li>
- *   <li>Export results as a pretty-printed JSON file</li>
- *   <li>Retrieve associated process identifiers</li>
+ *   <li>Export results as a pretty-printed JSON file with timestamp, API version, and summary</li>
+ *   <li>Retrieve associated process identifiers from BPMN validation items</li>
+ *   <li>Create empty validation outputs for cases with no issues</li>
  * </ul>
  * </p>
  *
+ * <h3>Key Features:</h3>
+ * <ul>
+ *   <li><b>Immutable Design:</b> Implemented as a Java record for thread safety</li>
+ *   <li><b>Flexible Output:</b> Console printing and JSON file export</li>
+ *   <li><b>Smart Sorting:</b> Issues sorted by severity and description</li>
+ *   <li><b>API Versioning:</b> Includes API version information in JSON output</li>
+ *   <li><b>Summary Statistics:</b> Provides counts by validation severity</li>
+ * </ul>
+ *
  * <h3>Example Usage:</h3>
  * <pre>{@code
- * List<AbstractValidationItem> items = ...;
+ * // Create validation output with items
+ * List<AbstractValidationItem> items = validator.validate(bpmnFile);
  * ValidationOutput output = new ValidationOutput(items);
+ *
+ * // Print to console
  * output.printResults();
- * output.writeResultsAsJson(new File("issues.json"));
+ *
+ * // Export to JSON file
+ * output.writeResultsAsJson(new File("validation-report.json"));
+ *
+ * // Get process ID from BPMN items
+ * String processId = output.getProcessId();
+ *
+ * // Create empty output for no issues
+ * ValidationOutput empty = ValidationOutput.empty();
  * }</pre>
  *
  * <h3>JSON Output Format:</h3>
  * <pre>
  * {
  *   "timestamp": "2025-04-11 16:58:23",
- *   "validationItems": [ ... ]
+ *   "apiVersion": "v2",
+ *   "summary": {
+ *     "ERROR": 2,
+ *     "WARN": 1,
+ *     "INFO": 0,
+ *     "SUCCESS": 5
+ *   },
+ *   "validationItems": [
+ *     { "severity": "ERROR", "message": "...", "location": "..." },
+ *     { "severity": "WARN", "message": "...", "location": "..." }
+ *   ]
  * }
  * </pre>
- * <p>The output includes a timestamp in {@code yyyy-MM-dd HH:mm:ss} format and a list of sorted items.</p>
+ * <p>
+ * The JSON output includes:
+ * <ul>
+ *   <li><b>timestamp:</b> Report generation time in {@code yyyy-MM-dd HH:mm:ss} format</li>
+ *   <li><b>apiVersion:</b> Current API version (v1, v2, or unknown)</li>
+ *   <li><b>summary:</b> Count of issues by severity level</li>
+ *   <li><b>validationItems:</b> Sorted list of validation issues</li>
+ * </ul>
+ * </p>
  *
+ * @param validationItems the list of validation items found during validation
+ *
+ * @see AbstractValidationItem
+ * @see BpmnElementValidationItem
+ * @see ValidationSeverity
  */
 public record ValidationOutput(List<AbstractValidationItem> validationItems)
 {
     /**
      * Constructs a {@code ValidationOutput} with the given list of validation items.
+     * <p>
+     * This compact constructor is automatically generated for the record and ensures
+     * that the provided list is stored as-is. The list should contain all validation
+     * items discovered during the validation process.
+     * </p>
      *
-     * @param validationItems the items to be stored
+     * @param validationItems the list of validation items to be stored; may be empty but should not be null
      */
     public ValidationOutput
     {
     }
-
     /**
      * Returns the validation items stored in this output.
+     * <p>
+     * This is the accessor method for the record component. The returned list
+     * contains all validation items that were provided during construction.
+     * </p>
      *
-     * @return a list of validation items
+     * @return an unmodifiable view of the validation items list
      */
     @Override
     public List<AbstractValidationItem> validationItems()
     {
         return validationItems;
     }
-
     /**
-     * Prints the validation results to the console.
-     * If no items exist, prints "No issues found."
-     * Otherwise, prints each issue on its own line.
+     * Prints the validation results to the console in a human-readable format.
+     * <p>
+     * The output format depends on whether any validation items were found:
+     * <ul>
+     *   <li>If no items exist, prints "No issues found."</li>
+     *   <li>If items exist, prints a count summary followed by each issue prefixed with "*"</li>
+     * </ul>
+     * </p>
+     * <p>
+     * This method is useful for quick command-line feedback during validation runs.
+     * </p>
+     *
+     * @see #writeResultsAsJson(File) for structured output to files
      */
     public void printResults()
     {
@@ -94,24 +156,40 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
     /**
      * Writes the validation results to a JSON file in a human-readable format.
      * <p>
-     * The generated JSON contains three main sections:
+     * The generated JSON contains four main sections:
      * </p>
      * <ol>
-     *   <li><b>{@code timestamp}</b>: The current time when the report is generated, formatted as {@code yyyy-MM-dd HH:mm:ss}.</li>
-     *   <li><b>{@code summary}</b>: A map summarizing the total number of issues by severity level ({@code ERROR}, {@code WARN}, {@code INFO}, {@code SUCCESS}).</li>
-     *   <li><b>{@code validationItems}</b>: A sorted list of all validation issues found.</li>
+     *   <li><b>{@code timestamp}</b>: The current time when the report is generated, formatted as {@code yyyy-MM-dd HH:mm:ss}</li>
+     *   <li><b>{@code apiVersion}</b>: The current API version (v1, v2, or unknown) from {@link ApiVersionHolder}</li>
+     *   <li><b>{@code summary}</b>: A map summarizing the total number of issues by severity level ({@code ERROR}, {@code WARN}, {@code INFO}, {@code SUCCESS})</li>
+     *   <li><b>{@code validationItems}</b>: A sorted list of all validation issues found</li>
      * </ol>
      * <p>
-     * Validation items are first sorted by severity (as defined by the {@link #SEVERITY_RANK}) and then alphabetically
-     * by their string representation. The output is written as a pretty-printed JSON file.
+     * <b>Sorting Algorithm:</b><br>
+     * Validation items are sorted using a two-level approach:
+     * <ol>
+     *   <li>Primary: By severity level using {@link #SEVERITY_RANK} (ERROR → WARN → INFO → SUCCESS)</li>
+     *   <li>Secondary: Alphabetically by their string representation for consistent ordering</li>
+     * </ol>
+     * </p>
+     * <p>
+     * <b>Error Handling:</b><br>
+     * If an {@link IOException} occurs during file writing, an error message is printed
+     * to {@code System.err} and the stack trace is displayed. The method does not throw
+     * exceptions to avoid disrupting the validation workflow.
      * </p>
      *
-     * @param outputFile the target file to which the report will be written
+     * @param outputFile the target file to which the JSON report will be written
+     * @throws NullPointerException if outputFile is null
+     *
+     * @see #SEVERITY_RANK for the severity ordering used in sorting
+     * @see ApiVersionHolder#getVersion() for API version determination
      */
     public void writeResultsAsJson(File outputFile)
     {
-        // 0) Sort items (existing logic, kept)
-        validationItems.sort(
+        // 0) Sort items - create a mutable copy first since record fields are immutable
+        List<AbstractValidationItem> sortedItems = new ArrayList<>(validationItems);
+        sortedItems.sort(
                 Comparator.comparingInt((AbstractValidationItem i) ->
                                 SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
                         .thenComparing(AbstractValidationItem::toString));
@@ -147,7 +225,7 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
         root.put("summary", summary);
 
         /*  2) Validation items  */
-        root.put("validationItems", validationItems);
+        root.put("validationItems", sortedItems);
 
         /*  3) Write pretty-printed JSON  */
         ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
@@ -164,18 +242,31 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
     }
 
     /**
+     * Retrieves the process ID associated with the first BPMN validation item found.
      * <p>
-     * Returns the process ID associated with the BPMN file that was validated.
-     * This method attempts to invoke a {@code getProcessId()} method on the first
-     * BPMN validation item. It assumes that all validation items in this output
-     * share the same process ID.
+     * This method searches through the validation items to find the first instance of
+     * {@link BpmnElementValidationItem} and extracts its process ID. The assumption is
+     * that all BPMN validation items within a single validation run share the same
+     * process ID, so using the first valid one is sufficient.
+     * </p>
+     * <p>
+     * <b>Search Algorithm:</b>
+     * <ol>
+     *   <li>Iterate through all validation items</li>
+     *   <li>Check if the item is an instance of {@code BpmnElementValidationItem}</li>
+     *   <li>Extract the process ID and verify it's not null or empty</li>
+     *   <li>Return the first valid process ID found</li>
+     * </ol>
+     * </p>
+     * <p>
+     * <b>Fallback Behavior:</b><br>
+     * If no valid process ID can be determined (empty list, no BPMN items, or all have
+     * null/empty process IDs), the method returns {@code "unknown_process"}.
      * </p>
      *
-     * <p>
-     * If no process ID can be determined, it returns "unknown_process".
-     * </p>
+     * @return the process ID from the first BPMN validation item, or {@code "unknown_process"} if not available
      *
-     * @return the process ID, or "unknown_process" if not available
+     * @see BpmnElementValidationItem#getProcessId()
      */
     public String getProcessId()
     {
@@ -194,6 +285,24 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
 
         return "unknown_process";
     }
+    /**
+     * Creates an empty {@code ValidationOutput} instance with no validation items.
+     * <p>
+     * This factory method is useful for scenarios where validation completed successfully
+     * without finding any issues, or as a default/placeholder instance. The returned
+     * output will contain an empty list of validation items.
+     * </p>
+     * <p>
+     * <b>Usage Examples:</b>
+     * <ul>
+     *   <li>Default return value when no validation issues are found</li>
+     *   <li>Placeholder for initialization before actual validation runs</li>
+     *   <li>Testing scenarios where empty results are needed</li>
+     * </ul>
+     * </p>
+     *
+     * @return a new {@code ValidationOutput} instance with an empty validation items list
+     */
     public static ValidationOutput empty()
     {
         return new ValidationOutput(List.of());

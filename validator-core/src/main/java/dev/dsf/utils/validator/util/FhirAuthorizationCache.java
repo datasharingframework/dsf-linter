@@ -7,95 +7,56 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.net.*;
 import java.nio.file.*;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.jar.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑08)</h2>
+ * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑05)</h2>
  *
  * <p>
  * This class implements a centralized, thread-safe cache for known FHIR {@code CodeSystem} codes
- * used throughout the DSF (Data Sharing Framework) validation process. It provides fast lookup
- * capabilities to verify whether a referenced {@code Coding} is declared and recognized within
- * the cached CodeSystems.
+ * used throughout the DSF (Data Sharing Framework) validation process. It is used by multiple
+ * validators to verify whether a referenced {@code Coding} is declared and recognized.
  * </p>
  *
  * <h3>Main Responsibilities</h3>
  * <ul>
- *   <li>Registers core DSF {@code CodeSystem} entries at startup with predefined codes</li>
+ *   <li>Registers core DSF {@code CodeSystem} entries at startup</li>
  *   <li>Dynamically discovers additional {@code CodeSystem} definitions by scanning
- *       {@code src/main/resources/fhir/CodeSystem} directories in project structures</li>
- *   <li>Supports both XML and JSON CodeSystem definition formats</li>
- *   <li>Provides fast lookup operations for code validation use cases</li>
- *   <li>Offers utilities to register, query, clear, and debug cache contents</li>
- *   <li>Handles nested concept hierarchies in JSON CodeSystem definitions</li>
+ *       {@code src/main/resources/fhir/CodeSystem} directories</li>
+ *   <li>Supports fast lookup of known codes per system for validation use cases</li>
+ *   <li>Offers utilities to register, clear, and debug the contents of the cache</li>
+ *   <li>Loads both XML and JSON CodeSystem definitions</li>
  * </ul>
  *
- * <h3>Key Features</h3>
- * <ul>
- *   <li><strong>Thread Safety:</strong> Uses {@link ConcurrentHashMap} with thread-safe sets</li>
- *   <li><strong>Flexible Discovery:</strong> Supports both Maven layouts and flat directory structures</li>
- *   <li><strong>Debug Support:</strong> Detailed logging when {@code -Ddsf.debug.codesystem=true} is set</li>
- *   <li><strong>Multiple Query Methods:</strong> {@code isKnown()}, {@code isUnknown()}, {@code containsSystem()}</li>
- *   <li><strong>Diagnostic Utilities:</strong> {@code findSystemsContainingCode()} for troubleshooting</li>
- * </ul>
- *
- * <h3>Supported CodeSystems</h3>
- * <p>Pre-registered DSF core CodeSystems include:</p>
- * <ul>
- *   <li>{@link #CS_PROCESS_AUTH} - Process authorization codes</li>
- *   <li>{@link #CS_READ_ACCESS} - Read access tag codes</li>
- *   <li>{@link #CS_PRACT_ROLE} - Practitioner role codes</li>
- *   <li>{@link #CS_ORG_ROLE} - Organization role codes</li>
- *   <li>{@link #CS_TASK_STATUS} - FHIR Task status codes</li>
- * </ul>
- *
- * <h3>Usage Examples</h3>
- * <pre>{@code
- * // Initialize cache from project directory
- * FhirAuthorizationCache.seedFromProjectFolder(projectDir);
- *
- * // Check if a code is unknown (validation failure)
- * if (FhirAuthorizationCache.isUnknown("http://dsf.dev/fhir/CodeSystem/practitioner-role", "HRP_USER")) {
- *     // handle validation error
- * }
- *
- * // Check if a code is known (validation success)
- * if (FhirAuthorizationCache.isKnown("http://dsf.dev/fhir/CodeSystem/organization-role", "TTP")) {
- *     // proceed with validation
- * }
- *
- * // Check if a CodeSystem is cached
- * if (FhirAuthorizationCache.containsSystem("http://dsf.dev/fhir/CodeSystem/read-access-tag")) {
- *     // CodeSystem is available for validation
- * }
- *
- * // Find which CodeSystems contain a specific code (diagnostic)
- * Set<String> systems = FhirAuthorizationCache.findSystemsContainingCode("COORDINATOR");
- * }</pre>
- *
- * <h3>Thread Safety</h3>
+ * <h3>Concurrency</h3>
  * <p>
- * All public methods are thread-safe and can be called concurrently during validation.
- * The internal data structures use concurrent collections to ensure consistency.
+ * Internally, the class uses a {@link ConcurrentHashMap} with thread-safe sets to store code
+ * values per system. It is safe to use concurrently across threads during validation.
  * </p>
  *
- * @since DSF v1.7
- * @version 3.0 (2025-05)
+ * <h3>Debugging</h3>
+ * <p>
+ * If the system property {@code -Ddsf.debug.codesystem=true} is set, the class prints detailed
+ * output to {@code System.out} during loading and summarization.
+ * </p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * FhirAuthorizationCache.seedFromProjectFolder(projectDir);
+ * if (FhirAuthorizationCache.isUnknown("http://dsf.dev/fhir/CodeSystem/practitioner-role", "HRP_USER")) {
+ *     // handle missing code
+ * }
+ * }</pre>
+ *
  */
 public final class FhirAuthorizationCache
 {
@@ -187,98 +148,6 @@ public final class FhirAuthorizationCache
         Set<String> known = CODES_BY_SYSTEM.get(system);
         if (known != null) return !known.contains(code);
         return true;
-    }
-
-    /**
-     * Returns an unmodifiable snapshot of all known codes for the specified CodeSystem.
-     *
-     * @param system the CodeSystem URI
-     * @return a set of codes; empty if none are registered
-     */
-    public static Set<String> getCodes(String system)
-    {
-        return CODES_BY_SYSTEM.getOrDefault(system, Collections.emptySet());
-    }
-
-    /**
-     * Clears all cached codes from all CodeSystems.
-     * Primarily intended for unit testing.
-     */
-    public static void clearAll()
-    {
-        CODES_BY_SYSTEM.clear();
-    }
-
-    /**
-     * Recursively scans the given project root directory for directories named
-     * {@code src/main/resources/fhir/CodeSystem} or {@code fhir/CodeSystem} and loads
-     * all {@code *.xml} and {@code *.json} files found within them.
-     *
-     * <p>
-     * This method supports both Maven-style resource layouts and flat directory
-     * structures as commonly produced by exploded plugin JARs in CI pipelines.
-     * </p>
-     *
-     * <p>
-     * All discovered CodeSystem definitions will be parsed and their system/code
-     * pairs registered in the internal cache for later use during FHIR validation.
-     * </p>
-     *
-     * <p>
-     * This method must be called before executing any validation that relies on known
-     * {@code CodeSystem} code values (e.g., to check {@code Coding.code} or {@code ValueSet} references).
-     * </p>
-     *
-     * @param projectRoot the root of the project or a file within it; used to determine base traversal path
-     */
-
-    public static void seedFromProjectFolder(File projectRoot)
-    {
-        if (projectRoot == null)
-            return;
-
-        if (!projectRoot.isDirectory()) {
-            projectRoot = projectRoot.getParentFile();
-            if (projectRoot == null || !projectRoot.isDirectory())
-                return;
-        }
-
-        final Path MAVEN_LAYOUT = Paths.get("src", "main", "resources", "fhir", "CodeSystem");
-        final Path FLAT_LAYOUT  = Paths.get("fhir", "CodeSystem");   // fallback for exploded JARs
-
-        try (Stream<Path> walk = Files.walk(projectRoot.toPath()))
-        {
-            walk.filter(Files::isDirectory) // cheap test first
-                    .filter(p -> p.endsWith(MAVEN_LAYOUT) || p.endsWith(FLAT_LAYOUT))
-                    .forEach(FhirAuthorizationCache::loadAllFhirInDirectory);
-        }
-        catch (IOException e)
-        {
-            System.err.println("[CodeSystem-Cache] Failed to walk project tree: " + e.getMessage());
-        }
-
-        if (DEBUG)
-            dumpStatistics();
-    }
-
-    /**
-     * Loads all FHIR CodeSystem files (XML and JSON) in the specified directory and registers any valid CodeSystems.
-     *
-     * @param dir the directory containing {@code CodeSystem} XML and JSON files
-     */
-    private static void loadAllFhirInDirectory(Path dir)
-    {
-        try (Stream<Path> files = Files.list(dir)) {
-            files.filter(Files::isRegularFile).forEach(p -> {
-                String name = p.getFileName().toString().toLowerCase();
-                if (name.endsWith(".xml")) {
-                    loadSingleCodeSystem(p);
-                } else if (name.endsWith(".json")) {
-                    loadJsonFile(p);
-                }
-            });
-        }
-        catch (IOException ignore) { /* directory not readable */ }
     }
 
     /**
@@ -392,7 +261,125 @@ public final class FhirAuthorizationCache
         System.out.println("==================================");
     }
 
-    // Add to FhirAuthorizationCache.java
+    /**
+     * Seeds the CodeSystem cache from both the project directory (disk) and the project classpath
+     * (dependencies & plugin JAR). Keeps parsing logic centralized by materializing classpath resources
+     * to temporary files.
+     *
+     * @param projectRoot the root of the project used to determine base traversal path and classpath setup
+     */
+    public static void seedFromProjectAndClasspath(File projectRoot)
+    {
+        Objects.requireNonNull(projectRoot, "projectRoot");
+        Set<File> allCodeSystemFiles = new LinkedHashSet<>(findCodeSystemsOnDisk(projectRoot));
+
+        // 2) Classpath scan: fhir/CodeSystem/*.xml and *.json from dependency JARs or directories
+        try {
+            ClassLoader cl = BpmnValidationUtils.getOrCreateProjectClassLoader(projectRoot);
+            allCodeSystemFiles.addAll(findCodeSystemsOnClasspath(cl));
+        } catch (Exception e) {
+            if (DEBUG) {
+                System.err.println("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
+            }
+            // keep going; disk results might still be sufficient
+        }
+
+        // 3) Feed everything through the same parse path you already use
+        for (File cs : allCodeSystemFiles) {
+            loadCodeSystemFile(cs);
+        }
+
+        if (DEBUG)
+            dumpStatistics();
+    }
+
+    // ---- Helper methods ----
+
+    /**
+     * Returns CodeSystem files under typical project locations (no changes to your current logic).
+     */
+    private static Collection<File> findCodeSystemsOnDisk(File projectRoot)
+    {
+        List<String> candidates = List.of(
+                "src/main/resources/fhir/CodeSystem",
+                "target/classes/fhir/CodeSystem",
+                "fhir/CodeSystem" // exploded plugin root case
+        );
+        List<File> out = new ArrayList<>();
+        for (String dir : candidates) {
+            File d = new File(projectRoot, dir);
+            File[] xmls = d.isDirectory() ? d.listFiles(f -> f.isFile() && (f.getName().endsWith(".xml") || f.getName().endsWith(".json"))) : null;
+            if (xmls != null) out.addAll(Arrays.asList(xmls));
+        }
+        return out;
+    }
+
+    /**
+     * Finds CodeSystem XMLs and JSONs on the classpath under "fhir/CodeSystem" (both directories and JARs).
+     */
+    private static Collection<File> findCodeSystemsOnClasspath(ClassLoader cl) throws IOException
+    {
+        final String basePath = "fhir/CodeSystem";
+        List<File> out = new ArrayList<>();
+
+        // A) enumerate basePath URLs (dirs or inside JARs)
+        Enumeration<URL> urls = cl.getResources(basePath);
+        while (urls.hasMoreElements()) {
+            URL url = urls.nextElement();
+            String protocol = url.getProtocol();
+
+            if ("file".equals(protocol)) {
+                // Directory on classpath -> list *.xml and *.json
+                File dir = new File(url.getPath());
+                File[] files = dir.isDirectory() ? dir.listFiles(f -> f.isFile() &&
+                        (f.getName().endsWith(".xml") || f.getName().endsWith(".json"))) : null;
+                if (files != null) out.addAll(Arrays.asList(files));
+            } else if ("jar".equals(protocol)) {
+                // JAR -> iterate entries
+                try {
+                    JarURLConnection conn = (JarURLConnection) url.openConnection();
+                    try (JarFile jar = conn.getJarFile()) {
+                        for (JarEntry e : Collections.list(jar.entries())) {
+                            if (!e.isDirectory()
+                                    && e.getName().startsWith(basePath + "/")
+                                    && (e.getName().endsWith(".xml") || e.getName().endsWith(".json"))) {
+                                // materialize to temp file
+                                String fileName = Paths.get(e.getName()).getFileName().toString();
+                                Path tmp = Files.createTempFile("cs-", "-" + fileName);
+                                try (InputStream in = jar.getInputStream(e)) {
+                                    Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+                                }
+                                tmp.toFile().deleteOnExit();
+                                out.add(tmp.toFile());
+                            }
+                        }
+                    }
+                } catch (IOException ioe) {
+                    if (DEBUG) {
+                        System.err.println("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
+                    }
+                    // ignore this JAR and keep going
+                }
+            }
+            // Note: removed problematic fallback logic that was always false
+        }
+
+        // B) defensive de-dup
+        return out.stream().distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * Single-file load hook that delegates to existing XML/JSON parsing logic.
+     */
+    private static void loadCodeSystemFile(File f)
+    {
+        String name = f.getName().toLowerCase();
+        if (name.endsWith(".xml")) {
+            loadSingleCodeSystem(f.toPath());
+        } else if (name.endsWith(".json")) {
+            loadJsonFile(f.toPath());
+        }
+    }
 
     /** True if we have any codes cached for this CodeSystem URL. */
     public static boolean containsSystem(String system) {
@@ -414,5 +401,4 @@ public final class FhirAuthorizationCache
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
-
 }

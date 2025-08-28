@@ -153,7 +153,7 @@ public class BpmnEventValidator {
             if (!activityDefFound) {
                 // negative scenario
                 issues.add(new FhirActivityDefinitionValidationItem(
-                        ValidationSeverity.WARN,
+                        ValidationSeverity.ERROR,
                         elementId,
                         bpmnFile,
                         processId,
@@ -883,7 +883,7 @@ public class BpmnEventValidator {
             boolean activityFound = false;
             if (!FhirValidator.activityDefinitionExists(msgName, projectRoot)) {
                 issues.add(new FhirActivityDefinitionValidationItem(
-                        ValidationSeverity.WARN,
+                        ValidationSeverity.ERROR,
                         elementId,
                         bpmnFile,
                         processId,

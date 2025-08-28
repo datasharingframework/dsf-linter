@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,6 +38,8 @@ public class JsonProblemStatementTest
      * A "no-op" (no-operation) logger for tests that does nothing.
      */
     private static class NoOpLogger implements Logger {
+        @Override
+        public void debug(String message) { /* Do nothing */ }
         @Override
         public void info(String message) { /* Do nothing */ }
         @Override
@@ -208,7 +211,7 @@ public class JsonProblemStatementTest
 
         // Perform validation using the correct, lower-level method
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
@@ -333,7 +336,7 @@ public class JsonProblemStatementTest
 
         // Perform validation using the same approach as the first test
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
         ValidationOutput result = new ValidationOutput(items);
 
         // Ensure successful lookup between formats

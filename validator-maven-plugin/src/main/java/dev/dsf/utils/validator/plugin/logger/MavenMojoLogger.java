@@ -15,6 +15,9 @@ public class MavenMojoLogger implements Logger {
     }
 
     @Override
+    public void debug(String message) { slf4jLogger.debug(message);}
+
+    @Override
     public void info(String message) {
         slf4jLogger.info(message);
     }

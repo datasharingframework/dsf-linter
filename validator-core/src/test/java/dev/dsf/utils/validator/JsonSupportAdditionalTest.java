@@ -36,6 +36,8 @@ public class JsonSupportAdditionalTest {
         @Override
         public void info(String message) { /* Do nothing */ }
         @Override
+        public void debug(String message) { /* Do nothing */ }
+        @Override
         public void warn(String message) { /* Do nothing */ }
         @Override
         public void error(String message) { /* Do nothing */ }

@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -71,16 +72,16 @@ public class JsonActivityDefinitionLookupTest
         public void error(String message) { /* Do nothing */ }
         @Override
         public void error(String message, Throwable throwable) { /* Do nothing */ }
+        @Override
+        public void debug(String message) { /* Do nothing */ }
     }
 
     /**
      * Creates a new validator and a directory structure under {@code src/main/resources/fhir}
      * for writing JSON/XML test files before each test.
-     *
-     * @throws IOException if test directory creation fails
      */
     @BeforeEach
-    void setUp() throws IOException
+    void setUp()
     {
         validator = new DsfValidatorImpl(new NoOpLogger());
 
@@ -88,7 +89,7 @@ public class JsonActivityDefinitionLookupTest
         File srcMain = new File(projectRoot, "src/main/resources");
         fhirDir = new File(srcMain, "fhir");
         activityDefinitionDir = new File(fhirDir, "ActivityDefinition");
-        activityDefinitionDir.mkdirs();
+        boolean directoriesCreated = activityDefinitionDir.mkdirs();
 
         // Directory for the validator to write its reports
         reportDir = tempDir.resolve("reports").toFile();
@@ -117,7 +118,7 @@ public class JsonActivityDefinitionLookupTest
      * @throws IOException if file writing or validation fails
      */
     @Test
-    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException, MissingServiceRegistrationException, ResourceValidationException, InterruptedException {
+    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException, ResourceValidationException {
         // Write JSON ActivityDefinition
         String jsonActivityDefinition = """
             {
@@ -215,7 +216,7 @@ public class JsonActivityDefinitionLookupTest
 
         // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
@@ -325,7 +326,7 @@ public class JsonActivityDefinitionLookupTest
 
         // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, reportDir, reportDir);
+        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());

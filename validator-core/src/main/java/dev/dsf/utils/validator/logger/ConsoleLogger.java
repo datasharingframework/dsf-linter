@@ -34,4 +34,10 @@ public class ConsoleLogger implements Logger {
             throwable.printStackTrace(System.err);
         }
     }
+
+    @Override
+    public void debug(String message) {
+        // Debug messages go to standard output with DEBUG prefix
+        System.out.println("DEBUG: " + message);
+    }
 }

@@ -66,13 +66,13 @@ public final class ApiRegistrationValidationSupport
         if (opt.isPresent())
         {
             var dv = opt.get();
-            String key = keyPrefix + ":" + dv.version() + ":" + dv.foundAt();
+            String key = keyPrefix + ":" + dv.version();
             if (reported.add(key))
             {
                 out.add(new PluginValidationItemSuccess(
                         root.toFile(),
                         "META-INF/services",
-                        scope + ": ServiceLoader registration OK (" + dv.version() + ") at " + dv.foundAt()));
+                        scope + ": ServiceLoader registration OK (" + dv.version() + ")"));
                 ApiVersionHolder.setVersion(dv.version());
             }
         }
