@@ -18,6 +18,9 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
+
+
 /**
  * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑05)</h2>
  *
@@ -275,7 +278,7 @@ public final class FhirAuthorizationCache
 
         // 2) Classpath scan: fhir/CodeSystem/*.xml and *.json from dependency JARs or directories
         try {
-            ClassLoader cl = BpmnValidationUtils.getOrCreateProjectClassLoader(projectRoot);
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             allCodeSystemFiles.addAll(findCodeSystemsOnClasspath(cl));
         } catch (Exception e) {
             if (DEBUG) {

@@ -5,11 +5,14 @@ import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.util.FhirValidator;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
 import java.util.List;
+
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.*;
+import static dev.dsf.utils.validator.bpmn.BpmnModelUtils.extractImplementationClass;
+import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 /**
  * The {@code BpmnEventValidator} class provides validation logic for various BPMN events,
@@ -108,7 +111,7 @@ public class BpmnEventValidator {
         String elementId = startEvent.getId();
 
         // 1) Check that the start event has a non-empty name
-        if (BpmnValidationUtils.isEmpty(startEvent.getName())) {
+        if (isEmpty(startEvent.getName())) {
             issues.add(new BpmnEventNameEmptyValidationItem(
                     elementId,
                     bpmnFile,
@@ -129,7 +132,7 @@ public class BpmnEventValidator {
         MessageEventDefinition messageDef =
                 (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
 
-        if (messageDef.getMessage() == null || BpmnValidationUtils.isEmpty(messageDef.getMessage().getName())) {
+        if (messageDef.getMessage() == null || isEmpty(messageDef.getMessage().getName())) {
             // negative scenario: message is missing or has an empty name
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(
                     elementId,
@@ -221,7 +224,7 @@ public class BpmnEventValidator {
         String elementId = startEvent.getId();
         // Only process start events that are not part of a SubProcess
         if (!(startEvent.getParentElement() instanceof SubProcess)) {
-            if (BpmnValidationUtils.isEmpty(startEvent.getName())) {
+            if (isEmpty(startEvent.getName())) {
                 // Negative scenario: name is empty
                 issues.add(new BpmnStartEventNotPartOfSubProcessValidationItem(
                         elementId, bpmnFile, processId));
@@ -337,7 +340,7 @@ public class BpmnEventValidator {
         String elementId = throwEvent.getId();
 
         // 1) Validate the event name
-        if (BpmnValidationUtils.isEmpty(throwEvent.getName())) {
+        if (isEmpty(throwEvent.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Throw Event name is empty",
@@ -358,7 +361,7 @@ public class BpmnEventValidator {
         SignalEventDefinition def =
                 (SignalEventDefinition) throwEvent.getEventDefinitions().iterator().next();
 
-        if (def.getSignal() == null || BpmnValidationUtils.isEmpty(def.getSignal().getName())) {
+        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Throw Event",
@@ -461,7 +464,7 @@ public class BpmnEventValidator {
 
         // 1) If the End Event is not part of a SubProcess, its name must not be empty.
         if (!(endEvent.getParentElement() instanceof SubProcess)) {
-            if (BpmnValidationUtils.isEmpty(endEvent.getName())) {
+            if (isEmpty(endEvent.getName())) {
                 issues.add(new BpmnEndEventNotPartOfSubProcessValidationItem(
                         elementId, bpmnFile, processId));
             } else {
@@ -495,7 +498,7 @@ public class BpmnEventValidator {
         }
 
         // 3) Check that execution listener classes referenced in the event's extension elements exist on the classpath.
-        BpmnValidationUtils.checkExecutionListenerClasses(endEvent, elementId, issues, bpmnFile, processId, projectRoot);
+        checkExecutionListenerClasses(endEvent, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
 
@@ -522,7 +525,7 @@ public class BpmnEventValidator {
         String elementId = endEvent.getId();
 
         // Validate that the event name is not empty.
-        if (BpmnValidationUtils.isEmpty(endEvent.getName())) {
+        if (isEmpty(endEvent.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal End Event name is empty",
@@ -541,7 +544,7 @@ public class BpmnEventValidator {
 
         // Validate that the associated signal is present and its name is not empty.
         SignalEventDefinition def = (SignalEventDefinition) endEvent.getEventDefinitions().iterator().next();
-        if (def.getSignal() == null || BpmnValidationUtils.isEmpty(def.getSignal().getName())) {
+        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal End Event",
@@ -599,23 +602,7 @@ public class BpmnEventValidator {
         // ... additional event definitions if needed
     }
 
-    /**
-     * Validates an {@link IntermediateCatchEvent} that contains a {@link MessageEventDefinition}.
-     * <p>
-     * The validation ensures:
-     * <ul>
-     *   <li>The event name is not empty – if empty, a warning is issued; otherwise, a success is recorded.</li>
-     *   <li>The associated message's name is not empty – if empty, a warning is issued; otherwise, it is further validated.</li>
-     *   <li>The message name is verified against FHIR resources using
-     *       {@link BpmnValidationUtils#checkMessageName(String, List, String, File, String, File)}.</li>
-     * </ul>
-     * </p>
-     *
-     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
-     * @param issues     a list to which any validation issues (warnings, errors, or success items) will be added
-     * @param bpmnFile   the BPMN file under validation
-     * @param processId  the identifier of the BPMN process containing the event
-     */
+
     private void validateMessageIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
             List<BpmnElementValidationItem> issues,
@@ -624,7 +611,7 @@ public class BpmnEventValidator {
         String elementId = catchEvent.getId();
 
         // Check that the catch event has a non-empty name.
-        if (BpmnValidationUtils.isEmpty(catchEvent.getName())) {
+        if (isEmpty(catchEvent.getName())) {
             issues.add(new BpmnMessageIntermediateCatchEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         } else {
@@ -640,7 +627,7 @@ public class BpmnEventValidator {
         MessageEventDefinition def = (MessageEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         // Check that the message is present and its name is not empty.
-        if (def.getMessage() == null || BpmnValidationUtils.isEmpty(def.getMessage().getName())) {
+        if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(elementId, bpmnFile, processId));
         } else {
             // Record a success for non-empty message name.
@@ -653,29 +640,12 @@ public class BpmnEventValidator {
             ));
 
             // Validate the message name against FHIR resources.
-            BpmnValidationUtils.checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
+            checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
         }
     }
 
 
-    /**
-     * Validates an {@link IntermediateCatchEvent} that contains a {@link TimerEventDefinition}.
-     * <p>
-     * The validation for a timer event includes:
-     * <ul>
-     *   <li>Ensuring the event name is not empty – if the name is empty, a warning is issued; if non-empty, a success item is recorded.</li>
-     *   <li>Verifying that one of the timer definitions ({@code timeDate}, {@code timeCycle}, or {@code timeDuration}) is present.
-     *       The actual timer definition is validated by {@link BpmnValidationUtils#checkTimerDefinition(String, List, File, String, TimerEventDefinition)}.</li>
-     *   <li>If {@code timeDate} is used, an informational message is logged; if {@code timeCycle} or {@code timeDuration} is used,
-     *       a warning is issued if no version placeholder is present (handled within the timer check utility).</li>
-     * </ul>
-     * </p>
-     *
-     * @param catchEvent the {@link IntermediateCatchEvent} to be validated
-     * @param issues     a list to which any validation issues (errors, warnings, or success items) will be added
-     * @param bpmnFile   the BPMN file under validation
-     * @param processId  the identifier of the BPMN process containing the event
-     */
+
     private void validateTimerIntermediateCatchEvent(
             IntermediateCatchEvent catchEvent,
             List<BpmnElementValidationItem> issues,
@@ -684,7 +654,7 @@ public class BpmnEventValidator {
         String elementId = catchEvent.getId();
 
         // Check that the event name is not empty.
-        if (BpmnValidationUtils.isEmpty(catchEvent.getName())) {
+        if (isEmpty(catchEvent.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Timer Intermediate Catch Event name is empty",
@@ -704,7 +674,7 @@ public class BpmnEventValidator {
 
         // Validate the timer definition.
         TimerEventDefinition timerDef = (TimerEventDefinition) catchEvent.getEventDefinitions().iterator().next();
-        BpmnValidationUtils.checkTimerDefinition(elementId, issues, bpmnFile, processId, timerDef);
+        checkTimerDefinition(elementId, issues, bpmnFile, processId, timerDef);
     }
 
 
@@ -731,7 +701,7 @@ public class BpmnEventValidator {
         String elementId = catchEvent.getId();
 
         // Validate that the event name is not empty.
-        if (BpmnValidationUtils.isEmpty(catchEvent.getName())) {
+        if (isEmpty(catchEvent.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Catch Event name is empty",
@@ -750,7 +720,7 @@ public class BpmnEventValidator {
 
         // Validate that the associated signal is present and its name is not empty.
         SignalEventDefinition def = (SignalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
-        if (def.getSignal() == null || BpmnValidationUtils.isEmpty(def.getSignal().getName())) {
+        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "Signal is empty in Signal Intermediate Catch Event",
@@ -786,7 +756,7 @@ public class BpmnEventValidator {
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
             String processId) {
-        BpmnValidationUtils.checkConditionalEvent(catchEvent, issues, bpmnFile, processId);
+        checkConditionalEvent(catchEvent, issues, bpmnFile, processId);
     }
 
     // BOUNDARY EVENT VALIDATION
@@ -851,7 +821,7 @@ public class BpmnEventValidator {
         String elementId = boundaryEvent.getId();
 
         // 1) Validate the boundary event name.
-        if (BpmnValidationUtils.isEmpty(boundaryEvent.getName())) {
+        if (isEmpty(boundaryEvent.getName())) {
             issues.add(new BpmnMessageBoundaryEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         } else {
@@ -867,7 +837,7 @@ public class BpmnEventValidator {
         MessageEventDefinition def =
                 (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
 
-        if (def.getMessage() == null || BpmnValidationUtils.isEmpty(def.getMessage().getName())) {
+        if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(
                     elementId, bpmnFile, processId));
         } else {
@@ -924,24 +894,13 @@ public class BpmnEventValidator {
     }
 
 
-    /**
-     * Validates a {@link BoundaryEvent} that contains an {@link ErrorEventDefinition}.
-     * <p>
-     * The method delegates validation to {@link BpmnValidationUtils#checkErrorBoundaryEvent(BoundaryEvent, List, File, String)},
-     * which verifies the presence and correctness of the error reference and configuration.
-     * </p>
-     *
-     * @param boundaryEvent the {@link BoundaryEvent} to be validated
-     * @param issues        a list to which any validation issues will be added
-     * @param bpmnFile      the BPMN file under validation
-     * @param processId     the identifier of the BPMN process containing the event
-     */
+
     private void validateErrorBoundaryEvent(
             BoundaryEvent boundaryEvent,
             List<BpmnElementValidationItem> issues,
             File bpmnFile,
             String processId) {
-        BpmnValidationUtils.checkErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
+        checkErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
     }
 
     // COMMON MESSAGE EVENT VALIDATION (shared)
@@ -974,7 +933,7 @@ public class BpmnEventValidator {
         String elementId = event.getId();
 
         // Check the event name.
-        if (BpmnValidationUtils.isEmpty(event.getName())) {
+        if (isEmpty(event.getName())) {
             issues.add(new BpmnEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         } else {
@@ -988,8 +947,8 @@ public class BpmnEventValidator {
         }
 
         // Extract and validate the implementation class.
-        String implClass = BpmnValidationUtils.extractImplementationClass(event);
-        BpmnValidationUtils.validateImplementationClass(implClass, elementId, bpmnFile, processId, issues, projectRoot);
+        String implClass = extractImplementationClass(event);
+        validateImplementationClass(implClass, elementId, bpmnFile, processId, issues, projectRoot);
 
         // Validate field injections.
         BpmnFieldInjectionValidator.validateMessageSendFieldInjections(event, issues, bpmnFile, processId, projectRoot);

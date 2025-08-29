@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.util;
 
+import dev.dsf.utils.validator.classloading.ClassInspector;
 import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -20,12 +21,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkTaskListenerClasses;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Test class for {@link BpmnValidationUtils#checkTaskListenerClasses(UserTask, String, List, File, String, File)}
+ * Test class for {@link dev.dsf.utils.validator.bpmn.BpmnElementValidator#checkTaskListenerClasses(UserTask, String, List, File, String, File)}
  *
  * Tests various scenarios including:
  * - UserTask with no extension elements
@@ -33,7 +35,7 @@ import static org.mockito.Mockito.*;
  * - UserTask with task listeners having existing/non-existing classes
  * - UserTask with task listeners implementing correct/incorrect interfaces for API v1 and v2
  */
-class BpmnValidationUtilsTaskListenerTest {
+class BpmnElementValidatorTaskListenerTest {
 
     @TempDir
     Path tempDir;
@@ -62,7 +64,7 @@ class BpmnValidationUtilsTaskListenerTest {
         when(userTask.getExtensionElements()).thenReturn(null);
 
         // When
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
         // Then
         assertTrue(issues.isEmpty(), "No issues should be reported for UserTask without extension elements");
@@ -80,7 +82,7 @@ class BpmnValidationUtilsTaskListenerTest {
         when(extensionElements.getElementsQuery().filterByType(CamundaTaskListener.class).list()).thenReturn(new ArrayList<>());
 
         // When
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
         // Then
         assertTrue(issues.isEmpty(), "No issues should be reported for UserTask with empty extension elements");
@@ -93,7 +95,7 @@ class BpmnValidationUtilsTaskListenerTest {
         UserTask userTask = createUserTaskWithTaskListener(null);
 
         // When
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
         // Then
         assertEquals(1, issues.size());
@@ -107,7 +109,7 @@ class BpmnValidationUtilsTaskListenerTest {
         UserTask userTask = createUserTaskWithTaskListener("");
 
         // When
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
         // Then
         assertEquals(1, issues.size());
@@ -121,7 +123,7 @@ class BpmnValidationUtilsTaskListenerTest {
         UserTask userTask = createUserTaskWithTaskListener("   ");
 
         // When
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
         // Then
         assertEquals(1, issues.size());
@@ -135,13 +137,12 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.NonExistentListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class)) {
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class)) {
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(false);
+
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
             assertEquals(2, issues.size());
@@ -150,6 +151,8 @@ class BpmnValidationUtilsTaskListenerTest {
         }
     }
 
+    // Assuming the necessary static imports for ClassInspector and BpmnElementValidator are present
+
     @Test
     @DisplayName("Should validate task listener extending DefaultUserTaskListener (API v2)")
     public void testTaskListenerExtendsDefaultV2() {
@@ -157,23 +160,23 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.ExtendingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(false);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V2);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -184,23 +187,26 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.ExtendingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(false);
+
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V1);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
+
+
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -211,23 +217,23 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.ImplementingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(true);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V2);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -238,23 +244,23 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.ImplementingListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(true);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V1);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -265,24 +271,25 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.InvalidListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(false);
+
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V2);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
-            // Note: Error validation item would be added by the private extendsDefault method
+            assertInstanceOf(BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem.class, issues.get(2));
         }
     }
 
@@ -293,25 +300,28 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.InvalidListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(false);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V1);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq(className), eq("dev.dsf.bpe.v1.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq(className), eq("org.camunda.bpm.engine.delegate.TaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(2, issues.size());
+            assertEquals(3, issues.size());
+
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
+
+            assertInstanceOf(BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassValidationItem.class, issues.get(2));
         }
     }
+
 
     @Test
     @DisplayName("Should only check class attribute and existence for unknown API version")
@@ -320,18 +330,17 @@ class BpmnValidationUtilsTaskListenerTest {
         String className = "com.example.SomeListener";
         UserTask userTask = createUserTaskWithTaskListener(className);
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq(className), eq(projectRoot))).thenReturn(true);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.UNKNOWN);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
-            // Then - Only class attribute and existence checks should be performed for UNKNOWN version
+            // Then
             assertEquals(2, issues.size());
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
@@ -343,35 +352,37 @@ class BpmnValidationUtilsTaskListenerTest {
     public void testTaskListenerWithMultipleListeners() {
         // Given
         UserTask userTask = createUserTaskWithMultipleTaskListeners(
-            "com.example.ValidListener",
-            "com.example.InvalidListener",
-            ""
+                "com.example.ValidListener",
+                "com.example.InvalidListener",
+                ""
         );
 
-        try (MockedStatic<BpmnValidationUtils> mockedUtils = Mockito.mockStatic(BpmnValidationUtils.class);
+        try (MockedStatic<ClassInspector> mockedInspector = Mockito.mockStatic(ClassInspector.class);
              MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
 
-            mockedUtils.when(() -> BpmnValidationUtils.isEmpty(anyString())).thenCallRealMethod();
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq("com.example.ValidListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.classExists(eq("com.example.InvalidListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.classExists(eq("com.example.ValidListener"), eq(projectRoot))).thenReturn(true);
+            mockedInspector.when(() -> ClassInspector.classExists(eq("com.example.InvalidListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.isSubclassOf(eq("com.example.ValidListener"), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
+            mockedInspector.when(() -> ClassInspector.implementsInterface(eq("com.example.ValidListener"), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(true);
+
             mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V2);
-            mockedUtils.when(() -> BpmnValidationUtils.isSubclassOf(eq("com.example.ValidListener"), eq("dev.dsf.bpe.v2.activity.DefaultUserTaskListener"), eq(projectRoot))).thenReturn(false);
-            mockedUtils.when(() -> BpmnValidationUtils.implementsInterface(eq("com.example.ValidListener"), eq("dev.dsf.bpe.v2.activity.UserTaskListener"), eq(projectRoot))).thenReturn(true);
-            mockedUtils.when(() -> BpmnValidationUtils.checkTaskListenerClasses(any(), any(), any(), any(), any(), any())).thenCallRealMethod();
 
             // When
-            BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+            checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
-            assertEquals(5, issues.size());
-            // First listener (valid)
-            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1)); // Class found
-            // Second listener (class not found)
-            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2)); // Class attribute provided
-            assertInstanceOf(BpmnUserTaskListenerJavaClassNotFoundValidationItem.class, issues.get(3)); // Class not found
-            // Third listener (empty class)
-            assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.get(4)); // Missing class attribute
+            assertEquals(6, issues.size());
+
+            // 2. Verify the items for each listener in the correct order
+            // Listener 1 (Valid)
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(0));
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(1));
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(2));
+            // Listener 2 (Class Not Found)
+            assertInstanceOf(BpmnElementValidationItemSuccess.class, issues.get(3));
+            assertInstanceOf(BpmnUserTaskListenerJavaClassNotFoundValidationItem.class, issues.get(4));
+            // Listener 3 (Missing Attribute)
+            assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.get(5));
         }
     }
 
@@ -390,7 +401,7 @@ class BpmnValidationUtilsTaskListenerTest {
                     mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V1);
 
                     // When
-                    BpmnValidationUtils.checkTaskListenerClasses(releaseDataSet, "releaseDataSet", issues, mergeBpmnFile, "medizininformatik-initiativede_mergeDataSharing", projectRoot);
+                    checkTaskListenerClasses(releaseDataSet, "releaseDataSet", issues, mergeBpmnFile, "medizininformatik-initiativede_mergeDataSharing", projectRoot);
 
                     // Then - Should validate the actual listener class from the merge.BPMN
                     assertFalse(issues.isEmpty(), "Issues should be found when validating real BPMN file");

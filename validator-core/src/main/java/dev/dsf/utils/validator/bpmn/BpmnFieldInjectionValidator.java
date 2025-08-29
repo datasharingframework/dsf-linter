@@ -2,7 +2,6 @@ package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import dev.dsf.utils.validator.util.FhirValidator;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
@@ -10,6 +9,10 @@ import org.camunda.bpm.model.xml.instance.DomElement;
 
 import java.io.File;
 import java.util.*;
+
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkInstantiatesCanonicalField;
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkProfileField;
+import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 /**
  * Validates {@code <camunda:field>} injections on BPMN elements.
@@ -136,13 +139,13 @@ public class BpmnFieldInjectionValidator {
 
         // 1) attribute stringValue
         String literal = field.getCamundaStringValue();
-        if (!BpmnValidationUtils.isEmpty(literal)) {
+        if (!isEmpty(literal)) {
             return new FieldValue(FieldValueType.STRING, literal.trim());
         }
 
         // 2) attribute expression
         String expr = field.getCamundaExpression();
-        if (!BpmnValidationUtils.isEmpty(expr)) {
+        if (!isEmpty(expr)) {
             return new FieldValue(FieldValueType.EXPRESSION, expr.trim());
         }
 
@@ -167,92 +170,7 @@ public class BpmnFieldInjectionValidator {
         return null; // completely empty field
     }
 
-    /**
-     * Validates the Camunda fields present in the provided {@link ExtensionElements} and adds
-     * corresponding validation issues to the provided list.
-     * <p>
-     * This method performs a multi-step validation of the Camunda fields within the given
-     * {@code extensionElements}. It first extracts all {@link CamundaField} objects using the element query.
-     * For each field, the method retrieves the Camunda name, expression, and literal value.
-     * If the literal value is missing, it attempts to read nested string content.
-     * If an expression (rather than a literal string) is found, a
-     * {@link BpmnFieldInjectionNotStringLiteralValidationItem} is added to the issues list.
-     * </p>
-     * <p>
-     * The validation behavior is as follows:
-     * <ol>
-     *   <li>
-     *     For fields with the name <b>profile</b>:
-     *     <ul>
-     *       <li>It invokes {@link BpmnValidationUtils#checkProfileField(String, File, String, List, String, File)}
-     *           to validate the profile field.</li>
-     *       <li>It records the literal value and checks if a StructureDefinition exists for that profile via
-     *           {@link FhirValidator#structureDefinitionExists(String, File)}. If the field is provided and valid,
-     *           a success item is added.</li>
-     *     </ul>
-     *   </li>
-     *   <li>
-     *     For fields with the name <b>messageName</b>:
-     *     <ul>
-     *       <li>If the literal value is empty, it adds a {@link BpmnFieldInjectionMessageValueEmptyValidationItem}
-     *           to the issues list.</li>
-     *       <li>Otherwise, it records the message name value for later cross-checking and adds a success item.</li>
-     *     </ul>
-     *   </li>
-     *   <li>
-     *     For fields with the name <b>instantiatesCanonical</b>:
-     *     <ul>
-     *       <li>It invokes {@link BpmnValidationUtils#checkInstantiatesCanonicalField(String, String, File, String, List, File)}
-     *           to validate the field and records the literal value. If the field is provided, a success item is added.</li>
-     *     </ul>
-     *   </li>
-     *   <li>
-     *     For any other field names, it adds a {@link BpmnUnknownFieldInjectionValidationItem} to the issues list.
-     *     (No success item is added in this default branch.)
-     *   </li>
-     * </ol>
-     * </p>
-     * <p>
-     * After processing the individual fields, the method performs cross-check validation if a valid profile field was found:
-     * <ol>
-     *   <li>
-     *     It locates the actual StructureDefinition file by invoking
-     *     {@link FhirValidator#findStructureDefinitionFile(String, File)}.
-     *   </li>
-     *   <li>
-     *     If the file is found, it is parsed (using an inline parsing method from
-     *     {@link BpmnValidationUtils}) to obtain a {@link org.w3c.dom.Document} representation.
-     *   </li>
-     *   <li>
-     *     If a BPMN had an <code>instantiatesCanonical</code> value, the method checks whether the
-     *     StructureDefinition contains a non-empty <code>&lt;fixedCanonical&gt;</code> element under
-     *     <code>Task.instantiatesCanonical</code>. An error is added if this element is missing or empty;
-     *     otherwise, a success item is recorded.
-     *   </li>
-     *   <li>
-     *     The method then checks for a <code>&lt;fixedString&gt;</code> element under
-     *     <code>Task.input:message-name.value[x]</code> and adds an error if it is missing or empty;
-     *     otherwise, a success item is recorded.
-     *   </li>
-     *   <li>
-     *     Finally, if an <code>instantiatesCanonical</code> value is provided, it validates that an
-     *     ActivityDefinition exists for that canonical using
-     *     {@link FhirValidator#activityDefinitionExistsForInstantiatesCanonical(String, File)}.
-     *     If no ActivityDefinition is found, a warning is added; if found, a success item is recorded.
-     *     If a messageName value is provided, it further checks that the ActivityDefinition contains the messageName
-     *     using {@link FhirValidator#activityDefinitionHasMessageName(String, File)}.
-     *     An error is added if not; otherwise, a success item is recorded.
-     *   </li>
-     * </ol>
-     * </p>
-     *
-     * @param extensionElements the {@link ExtensionElements} containing the Camunda fields to be validated
-     * @param elementId         the identifier of the BPMN element being validated
-     * @param issues            the list of {@link BpmnElementValidationItem} where validation issues will be added
-     * @param bpmnFile          the BPMN file under validation
-     * @param processId         the identifier of the BPMN process containing the element
-     * @param projectRoot       the root directory of the project containing FHIR and BPMN resources
-     */
+
     private static void validateCamundaFields(ExtensionElements extensionElements,
                                               String elementId,
                                               List<BpmnElementValidationItem> issues,
@@ -283,14 +201,14 @@ public class BpmnFieldInjectionValidator {
 
             switch (fieldName) {
                 case "profile" -> {
-                    BpmnValidationUtils.checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
+                    checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
                     profileVal = literal;
-                    if (!BpmnValidationUtils.isEmpty(literal) && FhirValidator.structureDefinitionExists(literal, projectRoot)) {
+                    if (!isEmpty(literal) && FhirValidator.structureDefinitionExists(literal, projectRoot)) {
                         structureFoundForProfile = true;
                     }
                 }
                 case "messageName" -> {
-                    if (BpmnValidationUtils.isEmpty(literal)) {
+                    if (isEmpty(literal)) {
                         issues.add(new BpmnFieldInjectionMessageValueEmptyValidationItem(elementId, bpmnFile, processId));
                     } else {
                         messageNameVal = literal;
@@ -299,7 +217,7 @@ public class BpmnFieldInjectionValidator {
                     }
                 }
                 case "instantiatesCanonical" -> {
-                    BpmnValidationUtils.checkInstantiatesCanonicalField(elementId, literal, bpmnFile, processId, issues, projectRoot);
+                    checkInstantiatesCanonicalField(elementId, literal, bpmnFile, processId, issues, projectRoot);
                     instantiatesVal = literal;
                 }
                 default -> issues.add(new BpmnUnknownFieldInjectionValidationItem(elementId, bpmnFile, processId, fieldName));
@@ -307,7 +225,7 @@ public class BpmnFieldInjectionValidator {
         }
 
         /*  cross‑checks that need both BPMN + FHIR context  */
-        if (structureFoundForProfile && !BpmnValidationUtils.isEmpty(profileVal)) {
+        if (structureFoundForProfile && !isEmpty(profileVal)) {
             performCrossChecks(elementId, issues, bpmnFile, processId, projectRoot,
                     profileVal, instantiatesVal, messageNameVal);
         }
@@ -341,7 +259,7 @@ public class BpmnFieldInjectionValidator {
         try {
             var doc = FhirValidator.parseFhirFile(structureFile.toPath());
 
-            if (!BpmnValidationUtils.isEmpty(instantiatesVal)) {
+            if (!isEmpty(instantiatesVal)) {
                 String fixedCanonical = FhirValidator.getTaskInstantiatesCanonicalValue(doc);
                 if (fixedCanonical == null) {
                     issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
@@ -369,7 +287,7 @@ public class BpmnFieldInjectionValidator {
         } catch (Exception ignored) { /* parsing errors are ignored */ }
 
         // ActivityDefinition checks
-        if (!BpmnValidationUtils.isEmpty(instantiatesVal)) {
+        if (!isEmpty(instantiatesVal)) {
             boolean actDefFound = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
             if (!actDefFound) {
                 issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.WARN,
@@ -379,7 +297,7 @@ public class BpmnFieldInjectionValidator {
                 issues.add(new BpmnElementValidationItemSuccess(elementId, bpmnFile, processId,
                         "ActivityDefinition exists for instantiatesCanonical: '" + instantiatesVal + "'."));
 
-                if (!BpmnValidationUtils.isEmpty(messageNameVal) &&
+                if (!isEmpty(messageNameVal) &&
                         !FhirValidator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
                     issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, instantiatesVal,

@@ -6,6 +6,8 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
+
 /**
  * Utility class for resolving resource references in various formats to concrete files, URLs, or streams.
  * <p>
@@ -155,7 +157,7 @@ public final class ResourceResolver {
 
         // 2) Classpath lookup
         try {
-            ClassLoader cl = BpmnValidationUtils.getOrCreateProjectClassLoader(projectRoot);
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             URL url = cl.getResource(cpPath);
             return Optional.ofNullable(url);
         } catch (Exception e) {
@@ -188,7 +190,7 @@ public final class ResourceResolver {
 
         // 2) Classpath lookup
         try {
-            ClassLoader cl = BpmnValidationUtils.getOrCreateProjectClassLoader(projectRoot);
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             InputStream stream = cl.getResourceAsStream(cpPath);
             return Optional.ofNullable(stream);
         } catch (Exception e) {
@@ -266,7 +268,7 @@ public final class ResourceResolver {
                 return Optional.of(cached);
             }
 
-            ClassLoader cl = BpmnValidationUtils.getOrCreateProjectClassLoader(projectRoot);
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             URL url = cl.getResource(cpPath);
             if (url == null) return Optional.empty();
 

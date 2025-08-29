@@ -1,0 +1,38 @@
+package dev.dsf.utils.validator.util;
+
+public class ValidationUtils {
+
+    /**
+     * Checks if the given string is null or empty (after trimming).
+     *
+     * @param value the string to check
+     * @return {@code true} if the string is null or empty; {@code false} otherwise
+     */
+    public static boolean isEmpty(String value)
+    {
+        return (value == null || value.trim().isEmpty());
+    }
+
+    /**
+     * Checks if the given string contains a version placeholder.
+     * <p>
+     * A valid placeholder is expected to be in the format "${someWord}" or "#{someWord}", with at least one character inside.
+     * </p>
+     *
+     * @param rawValue the string to check for a placeholder
+     * @return {@code true} if the string contains a valid placeholder; {@code false} otherwise
+     */
+    public static boolean containsPlaceholder(String rawValue) {
+        if (rawValue == null || rawValue.isEmpty()) {
+            return false;
+        }
+        // Regex explanation:
+        // (\\$|#)      : Matches either a '$' or '#' character.
+        // "\\{"        : Matches the literal '{'.
+        // "[^\\}]+":   : Ensures that at least one character (that is not '}') is present.
+        // "\\}"        : Matches the literal '}'.
+        // ".*" before and after allows the placeholder to appear anywhere in the string.
+        return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
+    }
+
+}

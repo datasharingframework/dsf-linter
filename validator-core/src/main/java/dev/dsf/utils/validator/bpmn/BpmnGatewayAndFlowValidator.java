@@ -5,7 +5,6 @@ import dev.dsf.utils.validator.FlowElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import org.camunda.bpm.model.bpmn.instance.EventBasedGateway;
 import org.camunda.bpm.model.bpmn.instance.ExclusiveGateway;
 import org.camunda.bpm.model.bpmn.instance.FlowNode;
@@ -13,6 +12,9 @@ import org.camunda.bpm.model.bpmn.instance.SequenceFlow;
 
 import java.io.File;
 import java.util.List;
+
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkExecutionListenerClasses;
+import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 /**
  * The {@code BpmnGatewayAndFlowValidator} class handles validation logic for BPMN gateway and flow elements,
@@ -75,7 +77,7 @@ public class BpmnGatewayAndFlowValidator
 
         // Check only if there are multiple outgoing flows.
         if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1) {
-            if (BpmnValidationUtils.isEmpty(gateway.getName())) {
+            if (isEmpty(gateway.getName())) {
                 issues.add(new BpmnFloatingElementValidationItem(
                         elementId, bpmnFile, processId,
                         "Exclusive Gateway has multiple outgoing flows but name is empty.",
@@ -129,7 +131,7 @@ public class BpmnGatewayAndFlowValidator
             if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1)
             {
                 // Check the sequence flow name.
-                if (BpmnValidationUtils.isEmpty(flow.getName()))
+                if (isEmpty(flow.getName()))
                 {
                     issues.add(new BpmnFlowElementValidationItem(
                             elementId,
@@ -204,6 +206,6 @@ public class BpmnGatewayAndFlowValidator
             File bpmnFile,
             String processId)
     {
-        BpmnValidationUtils.checkExecutionListenerClasses(gateway, gateway.getId(), issues, bpmnFile, processId, projectRoot);
+        checkExecutionListenerClasses(gateway, gateway.getId(), issues, bpmnFile, processId, projectRoot);
     }
 }

@@ -18,6 +18,8 @@ import java.nio.file.PathMatcher;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory.createProjectClassLoader;
+
 /**
  * <h1>DSF Validator Implementation</h1>
  *
@@ -446,7 +448,7 @@ public class DsfValidatorImpl implements DsfValidator
 
                 try
                 {
-                    ClassLoader projectCl = BpmnValidationUtils.createProjectClassLoader(projectDir);
+                    ClassLoader projectCl = createProjectClassLoader(projectDir);
                     Thread.currentThread().setContextClassLoader(projectCl);
                     logger.info("Context ClassLoader set for Maven project validation.");
                 }
@@ -461,7 +463,7 @@ public class DsfValidatorImpl implements DsfValidator
                 logger.info("Building runtime classpath from: " + projectDir.getAbsolutePath());
                 try
                 {
-                    ClassLoader projectCl = BpmnValidationUtils.createProjectClassLoader(projectDir);
+                    ClassLoader projectCl = createProjectClassLoader(projectDir);
                     Thread.currentThread().setContextClassLoader(projectCl);
                     logger.info("Context ClassLoader set for exploded plugin validation.");
                 }

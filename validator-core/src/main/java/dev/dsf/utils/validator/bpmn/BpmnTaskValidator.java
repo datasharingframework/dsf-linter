@@ -4,7 +4,6 @@ import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
-import dev.dsf.utils.validator.util.BpmnValidationUtils;
 import dev.dsf.utils.validator.util.FhirValidator;
 import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
@@ -14,6 +13,12 @@ import org.camunda.bpm.model.bpmn.instance.UserTask;
 
 import java.io.File;
 import java.util.List;
+
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkMessageName;
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkTaskListenerClasses;
+import static dev.dsf.utils.validator.classloading.ClassInspector.classExists;
+import static dev.dsf.utils.validator.classloading.ClassInspector.implementsDsfTaskInterface;
+import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 /**
  * <p>
@@ -71,7 +76,7 @@ public class BpmnTaskValidator
         String elementId = task.getId();
         String apiVersion = ApiVersionHolder.getVersion();
         // Validate the task name.
-        if (BpmnValidationUtils.isEmpty(task.getName()))
+        if (isEmpty(task.getName()))
         {
             issues.add(new BpmnServiceTaskNameEmptyValidationItem(elementId, bpmnFile, processId));
         }
@@ -97,12 +102,12 @@ public class BpmnTaskValidator
         }
         else
         {
-            if (!BpmnValidationUtils.classExists(implClass, projectRoot))
+            if (!classExists(implClass, projectRoot))
             {
                 issues.add(new BpmnServiceTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
+            else if (!implementsDsfTaskInterface(implClass, projectRoot))
             {
                 if ("v1".equals(apiVersion))
                   issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateValidationItem(
@@ -152,7 +157,7 @@ public class BpmnTaskValidator
         String elementId = userTask.getId();
 
         // Validate that the User Task name is not empty.
-        if (BpmnValidationUtils.isEmpty(userTask.getName())) {
+        if (isEmpty(userTask.getName())) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task name is empty",
@@ -172,7 +177,7 @@ public class BpmnTaskValidator
         // Validate the camunda:formKey.
         String formKey = userTask.getCamundaFormKey();
         boolean found = true;
-        if (BpmnValidationUtils.isEmpty(formKey)) {
+        if (isEmpty(formKey)) {
             issues.add(new BpmnFloatingElementValidationItem(
                     elementId, bpmnFile, processId,
                     "User Task formKey is empty",
@@ -219,7 +224,7 @@ public class BpmnTaskValidator
         }
 
         // Validate any <camunda:taskListener> classes.
-        BpmnValidationUtils.checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
+        checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // SEND TASK VALIDATION
@@ -249,7 +254,7 @@ public class BpmnTaskValidator
         String apiVersion = ApiVersionHolder.getVersion();
 
         // Validate the task name.
-        if (BpmnValidationUtils.isEmpty(sendTask.getName()))
+        if (isEmpty(sendTask.getName()))
         {
             issues.add(new BpmnEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
@@ -266,18 +271,18 @@ public class BpmnTaskValidator
 
         // Validate the implementation class.
         String implClass = sendTask.getCamundaClass();
-        if (BpmnValidationUtils.isEmpty(implClass))
+        if (isEmpty(implClass))
         {
             issues.add(new BpmnMessageSendTaskImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
         }
         else
         {
-            if (!BpmnValidationUtils.classExists(implClass, projectRoot))
+            if (!classExists(implClass, projectRoot))
             {
                 issues.add(new BpmnMessageSendTaskImplementationClassNotFoundValidationItem(
                         elementId, bpmnFile, processId, implClass));
             }
-            else if (!BpmnValidationUtils.implementsDsfTaskInterface(implClass, projectRoot))
+            else if (!implementsDsfTaskInterface(implClass, projectRoot))
             {
                 // only report this issue for v1
                 if ("v1".equals(apiVersion))
@@ -303,21 +308,7 @@ public class BpmnTaskValidator
 
     // RECEIVE TASK VALIDATION
 
-    /**
-     * Validates a {@link ReceiveTask}, checking:
-     * <ul>
-     *   <li>That the task name is non-empty – if empty, a warning is recorded; if non-empty, a success item is added.</li>
-     *   <li>That the message definition exists and its {@code message.getName()} is non-empty – if empty, a warning is recorded;
-     *       if non-empty, a success item is added.</li>
-     *   <li>That the message name appears in ActivityDefinition/StructureDefinition (validated via {@link BpmnValidationUtils#checkMessageName(String, List, String, File, String, File)}),
-     *       with no additional success item for that check.</li>
-     * </ul>
-     *
-     * @param receiveTask the {@link ReceiveTask} to validate
-     * @param issues      the list of validation items to which any detected issues or successes will be added
-     * @param bpmnFile    the BPMN file under validation
-     * @param processId   the identifier of the BPMN process containing the task
-     */
+
     public void validateReceiveTask(
             ReceiveTask receiveTask,
             List<BpmnElementValidationItem> issues,
@@ -327,7 +318,7 @@ public class BpmnTaskValidator
         String elementId = receiveTask.getId();
 
         // Check if the ReceiveTask name is non-empty.
-        if (BpmnValidationUtils.isEmpty(receiveTask.getName()))
+        if (isEmpty(receiveTask.getName()))
         {
             issues.add(new BpmnEventNameEmptyValidationItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
@@ -340,7 +331,7 @@ public class BpmnTaskValidator
         }
 
         // Check if the message definition exists and its name is non-empty.
-        if (receiveTask.getMessage() == null || BpmnValidationUtils.isEmpty(receiveTask.getMessage().getName()))
+        if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName()))
         {
             issues.add(new BpmnMessageStartEventMessageNameEmptyValidationItem(
                     elementId, bpmnFile, processId));
@@ -353,7 +344,7 @@ public class BpmnTaskValidator
                     "ReceiveTask message name is non-empty: '" + msgName + "'"));
 
             // Validate that the message name appears in the FHIR resources.
-            BpmnValidationUtils.checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
+            checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
         }
     }
 
