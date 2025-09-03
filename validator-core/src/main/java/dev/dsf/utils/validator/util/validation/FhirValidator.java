@@ -1,5 +1,8 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.validation;
 
+import dev.dsf.utils.validator.util.resource.FhirDefinitionType;
+import dev.dsf.utils.validator.util.resource.FhirFileUtils;
+import dev.dsf.utils.validator.util.converter.JsonXmlConverter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;

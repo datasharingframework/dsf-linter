@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.api;
 
 /**
  * Represents the detected DSF BPE API version.

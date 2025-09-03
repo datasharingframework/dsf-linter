@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.maven;
 
 import java.io.File;
 import java.io.BufferedReader;

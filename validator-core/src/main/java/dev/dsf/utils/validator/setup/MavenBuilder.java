@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.build;
+package dev.dsf.utils.validator.setup;
 
 import java.io.BufferedReader;
 import java.io.File;

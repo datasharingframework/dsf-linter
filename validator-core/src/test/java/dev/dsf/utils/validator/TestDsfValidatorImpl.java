@@ -3,7 +3,7 @@ package dev.dsf.utils.validator;
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.logger.Logger;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

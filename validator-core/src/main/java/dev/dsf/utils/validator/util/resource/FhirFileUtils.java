@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.resource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 

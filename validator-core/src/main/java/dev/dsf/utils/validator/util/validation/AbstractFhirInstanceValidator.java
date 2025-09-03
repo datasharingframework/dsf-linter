@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.validation;
 
 import dev.dsf.utils.validator.item.FhirElementValidationItemSuccess;
 import org.w3c.dom.Document;

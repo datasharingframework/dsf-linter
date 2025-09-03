@@ -2,6 +2,8 @@ package dev.dsf.utils.validator.util;
 
 import dev.dsf.utils.validator.classloading.ClassInspector;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.api.ApiVersion;
+import dev.dsf.utils.validator.util.api.ApiVersionHolder;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.UserTask;
@@ -72,6 +74,7 @@ class BpmnElementValidatorTaskListenerTest {
 
     @Test
     @DisplayName("Should not report issues for UserTask with empty extension elements")
+    @SuppressWarnings("unchecked") // Suppress warning for mocking raw generic Query type
     public void testUserTaskWithEmptyExtensionElements() {
         // Given
         UserTask userTask = mock(UserTask.class);
@@ -408,8 +411,8 @@ class BpmnElementValidatorTaskListenerTest {
 
                     // Check that we have validation items for the listener class
                     boolean hasListenerValidation = issues.stream()
-                        .anyMatch(item -> item.getDescription().contains("ReleaseMergedDataSetListener") ||
-                                        item.getDescription().contains("de.medizininformatik_initiative.process.data_sharing.questionnaire.ReleaseMergedDataSetListener"));
+                            .anyMatch(item -> item.getDescription().contains("ReleaseMergedDataSetListener") ||
+                                    item.getDescription().contains("de.medizininformatik_initiative.process.data_sharing.questionnaire.ReleaseMergedDataSetListener"));
 
                     assertTrue(hasListenerValidation, "Should validate the ReleaseMergedDataSetListener class from merge.BPMN");
                 }
@@ -419,6 +422,7 @@ class BpmnElementValidatorTaskListenerTest {
 
     // Helper methods
 
+    @SuppressWarnings("unchecked") // Suppress warning for mocking raw generic Query type
     private UserTask createUserTaskWithTaskListener(String className) {
         UserTask userTask = mock(UserTask.class);
         ExtensionElements extensionElements = mock(ExtensionElements.class);
@@ -433,6 +437,7 @@ class BpmnElementValidatorTaskListenerTest {
         return userTask;
     }
 
+    @SuppressWarnings("unchecked") // Suppress warning for mocking raw generic Query type
     private UserTask createUserTaskWithMultipleTaskListeners(String... classNames) {
         UserTask userTask = mock(UserTask.class);
         ExtensionElements extensionElements = mock(ExtensionElements.class);

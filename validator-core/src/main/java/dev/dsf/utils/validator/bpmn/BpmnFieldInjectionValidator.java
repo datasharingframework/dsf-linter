@@ -2,7 +2,7 @@ package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.FhirValidator;
+import dev.dsf.utils.validator.util.validation.FhirValidator;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.xml.instance.DomElement;

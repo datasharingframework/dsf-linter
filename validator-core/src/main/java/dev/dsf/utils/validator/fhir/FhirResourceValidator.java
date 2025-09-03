@@ -1,10 +1,10 @@
 package dev.dsf.utils.validator.fhir;
 
 import dev.dsf.utils.validator.exception.ResourceValidationException;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
-import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
-import dev.dsf.utils.validator.util.JsonXmlConverter;
+import dev.dsf.utils.validator.util.validation.AbstractFhirInstanceValidator;
+import dev.dsf.utils.validator.util.converter.JsonXmlConverter;
 import org.w3c.dom.Document;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,7 +1,7 @@
 package dev.dsf.utils.validator.fhir;
 
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.AbstractFhirInstanceValidator;
+import dev.dsf.utils.validator.util.validation.AbstractFhirInstanceValidator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;

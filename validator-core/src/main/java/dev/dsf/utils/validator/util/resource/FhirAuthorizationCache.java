@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.resource;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;

@@ -1,6 +1,6 @@
 package dev.dsf.utils.validator;
 
-import dev.dsf.utils.validator.util.JsonXmlConverter;
+import dev.dsf.utils.validator.util.converter.JsonXmlConverter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.w3c.dom.Document;

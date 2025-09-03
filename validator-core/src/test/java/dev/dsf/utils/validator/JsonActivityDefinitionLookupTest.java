@@ -1,11 +1,11 @@
 package dev.dsf.utils.validator;
 
-import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
-import dev.dsf.utils.validator.util.FhirFileUtils;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.service.FhirValidationService;
+import dev.dsf.utils.validator.util.resource.FhirFileUtils;
+import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -46,7 +46,7 @@ public class JsonActivityDefinitionLookupTest
     /**
      * Validator instance used to perform resource validation.
      */
-    private DsfValidatorImpl validator;
+    private FhirValidationService fhirValidationService;
 
     /**
      * Directory where FHIR test resources will be written.
@@ -83,7 +83,7 @@ public class JsonActivityDefinitionLookupTest
     @BeforeEach
     void setUp()
     {
-        validator = new DsfValidatorImpl(new NoOpLogger());
+        fhirValidationService = new FhirValidationService(new NoOpLogger());
 
         File projectRoot = tempDir.toFile();
         File srcMain = new File(projectRoot, "src/main/resources");
@@ -216,7 +216,10 @@ public class JsonActivityDefinitionLookupTest
 
         // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
+        FhirValidationService.ValidationResult validationResult =
+                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+
+        List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
@@ -326,7 +329,10 @@ public class JsonActivityDefinitionLookupTest
 
         // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
+        FhirValidationService.ValidationResult validationResult =
+                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+
+        List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());

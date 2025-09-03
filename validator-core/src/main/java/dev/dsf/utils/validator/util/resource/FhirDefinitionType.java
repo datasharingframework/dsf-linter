@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.resource;
 
 /**
  * Enumeration representing different types of FHIR definition resources

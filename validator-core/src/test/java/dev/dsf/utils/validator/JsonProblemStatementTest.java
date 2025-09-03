@@ -3,8 +3,9 @@ package dev.dsf.utils.validator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
-import dev.dsf.utils.validator.util.FhirFileUtils;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.service.FhirValidationService;
+import dev.dsf.utils.validator.util.resource.FhirFileUtils;
+import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,17 +23,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests reproducing and validating the original issue described in the DSF problem statement.
- * These tests now use the correct, lower-level validation API to bypass the Maven build.
+ * These tests now use the refactored service-based validation API.
  */
 public class JsonProblemStatementTest
 {
     @TempDir
     Path tempDir;
 
-    private DsfValidatorImpl validator;
+    private FhirValidationService fhirValidationService;
     private File fhirDir;
     private File activityDefinitionDir;
-    private File reportDir; // Directory for validator reports
 
     /**
      * A "no-op" (no-operation) logger for tests that does nothing.
@@ -53,7 +53,7 @@ public class JsonProblemStatementTest
     @BeforeEach
     void setUp() throws IOException
     {
-        validator = new DsfValidatorImpl(new NoOpLogger());
+        fhirValidationService = new FhirValidationService(new NoOpLogger());
 
         File projectRoot = tempDir.toFile();
         File srcMain = new File(projectRoot, "src/main/resources");
@@ -61,12 +61,6 @@ public class JsonProblemStatementTest
         activityDefinitionDir = new File(fhirDir, "ActivityDefinition");
         if (!activityDefinitionDir.mkdirs() && !activityDefinitionDir.exists()) {
             throw new IOException("Failed to create ActivityDefinition directory");
-        }
-
-        // A directory for the validator to write its reports to
-        reportDir = tempDir.resolve("reports").toFile();
-        if (!reportDir.mkdirs() && !reportDir.exists()) {
-            throw new IOException("Failed to create reports directory");
         }
     }
 
@@ -209,9 +203,12 @@ public class JsonProblemStatementTest
             }""";
         Files.writeString(new File(fhirDir, "dsf-task-start-ping.json").toPath(), jsonStartPingTask);
 
-        // Perform validation using the correct, lower-level method
+        // Perform validation using the refactored service
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
+        FhirValidationService.ValidationResult validationResult =
+                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+
+        List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
@@ -230,10 +227,10 @@ public class JsonProblemStatementTest
         // Verify both files were processed by checking for file-related validation items
         boolean hasTaskFileItems = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("dsf-task-start-ping") ||
-                                 item.toString().contains("start-ping-task"));
+                        item.toString().contains("start-ping-task"));
         boolean hasActivityDefItems = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("dsf-ping") ||
-                                 item.toString().contains("ActivityDefinition"));
+                        item.toString().contains("ActivityDefinition"));
 
         assertTrue(hasTaskFileItems || hasActivityDefItems,
                 "Should have validation items for the created files");
@@ -334,9 +331,12 @@ public class JsonProblemStatementTest
             }""";
         Files.writeString(new File(fhirDir, "pong-task.json").toPath(), jsonTask);
 
-        // Perform validation using the same approach as the first test
+        // Perform validation using the refactored service
         List<File> fhirFiles = collectFhirFiles();
-        List<AbstractValidationItem> items = validator.validateAllFhirResourcesSplitNewStructure(fhirFiles, new ArrayList<>(), reportDir);
+        FhirValidationService.ValidationResult validationResult =
+                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+
+        List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         // Ensure successful lookup between formats

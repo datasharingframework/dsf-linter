@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.api;
 
 /**
  * Indicates how the API version was detected.

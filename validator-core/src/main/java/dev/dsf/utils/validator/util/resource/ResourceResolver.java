@@ -1,4 +1,4 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.resource;
 
 import java.io.*;
 import java.net.URL;

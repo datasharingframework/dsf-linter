@@ -1,11 +1,12 @@
-package dev.dsf.utils.validator.util;
+package dev.dsf.utils.validator.util.validation;
+
 import dev.dsf.utils.validator.ValidationSeverity;
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.util.api.ApiVersion;
+import dev.dsf.utils.validator.util.api.ApiVersionHolder;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
  *   <li>Export results as a pretty-printed JSON file with timestamp, API version, and summary</li>
  *   <li>Retrieve associated process identifiers from BPMN validation items</li>
  *   <li>Create empty validation outputs for cases with no issues</li>
+ *   <li>Count validation items by severity level</li>
  * </ul>
  * </p>
  *
@@ -55,6 +57,15 @@ import java.util.stream.Collectors;
  *
  * // Get process ID from BPMN items
  * String processId = output.getProcessId();
+ *
+ * // Get counts by severity
+ * int errors = output.getErrorCount();
+ * int warnings = output.getWarningCount();
+ *
+ * // Check for issues
+ * if (output.hasErrors()) {
+ *     System.err.println("Validation failed with errors");
+ * }
  *
  * // Create empty output for no issues
  * ValidationOutput empty = ValidationOutput.empty();
@@ -93,8 +104,8 @@ import java.util.stream.Collectors;
  * @see BpmnElementValidationItem
  * @see ValidationSeverity
  */
-public record ValidationOutput(List<AbstractValidationItem> validationItems)
-{
+public record ValidationOutput(List<AbstractValidationItem> validationItems) {
+
     /**
      * Constructs a {@code ValidationOutput} with the given list of validation items.
      * <p>
@@ -105,9 +116,9 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      *
      * @param validationItems the list of validation items to be stored; may be empty but should not be null
      */
-    public ValidationOutput
-    {
+    public ValidationOutput {
     }
+
     /**
      * Returns the validation items stored in this output.
      * <p>
@@ -118,10 +129,98 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      * @return an unmodifiable view of the validation items list
      */
     @Override
-    public List<AbstractValidationItem> validationItems()
-    {
+    public List<AbstractValidationItem> validationItems() {
         return validationItems;
     }
+
+    /**
+     * Returns the count of validation items with ERROR severity.
+     * <p>
+     * This method filters the validation items and counts only those with
+     * {@link ValidationSeverity#ERROR} severity level.
+     * </p>
+     *
+     * @return the number of error items in the validation output
+     */
+    public int getErrorCount() {
+        return (int) validationItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
+                .count();
+    }
+
+    /**
+     * Returns the count of validation items with WARNING severity.
+     * <p>
+     * This method filters the validation items and counts only those with
+     * {@link ValidationSeverity#WARN} severity level.
+     * </p>
+     *
+     * @return the number of warning items in the validation output
+     */
+    public int getWarningCount() {
+        return (int) validationItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
+                .count();
+    }
+
+    /**
+     * Returns the count of validation items with INFO severity.
+     * <p>
+     * This method filters the validation items and counts only those with
+     * {@link ValidationSeverity#INFO} severity level.
+     * </p>
+     *
+     * @return the number of info items in the validation output
+     */
+    public int getInfoCount() {
+        return (int) validationItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.INFO)
+                .count();
+    }
+
+    /**
+     * Returns the count of validation items with SUCCESS severity.
+     * <p>
+     * This method filters the validation items and counts only those with
+     * {@link ValidationSeverity#SUCCESS} severity level.
+     * </p>
+     *
+     * @return the number of success items in the validation output
+     */
+    public int getSuccessCount() {
+        return (int) validationItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
+                .count();
+    }
+
+    /**
+     * Checks if there are any validation items with ERROR severity.
+     * <p>
+     * This is a convenience method that checks whether the validation output
+     * contains any errors that would indicate validation failure.
+     * </p>
+     *
+     * @return {@code true} if there are any error items, {@code false} otherwise
+     */
+    public boolean hasErrors() {
+        return validationItems.stream()
+                .anyMatch(item -> item.getSeverity() == ValidationSeverity.ERROR);
+    }
+
+    /**
+     * Checks if there are any validation items with WARNING severity.
+     * <p>
+     * This is a convenience method that checks whether the validation output
+     * contains any warnings that might need attention.
+     * </p>
+     *
+     * @return {@code true} if there are any warning items, {@code false} otherwise
+     */
+    public boolean hasWarnings() {
+        return validationItems.stream()
+                .anyMatch(item -> item.getSeverity() == ValidationSeverity.WARN);
+    }
+
     /**
      * Prints the validation results to the console in a human-readable format.
      * <p>
@@ -137,17 +236,12 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      *
      * @see #writeResultsAsJson(File) for structured output to files
      */
-    public void printResults()
-    {
-        if (validationItems.isEmpty())
-        {
+    public void printResults() {
+        if (validationItems.isEmpty()) {
             System.out.println(" No issues found.");
-        }
-        else
-        {
+        } else {
             System.out.println(" Found " + validationItems.size() + " issue(s):");
-            for (AbstractValidationItem item : validationItems)
-            {
+            for (AbstractValidationItem item : validationItems) {
                 System.out.println("* " + item);
             }
         }
@@ -185,8 +279,7 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      * @see #SEVERITY_RANK for the severity ordering used in sorting
      * @see ApiVersionHolder#getVersion() for API version determination
      */
-    public void writeResultsAsJson(File outputFile)
-    {
+    public void writeResultsAsJson(File outputFile) {
         // 0) Sort items - create a mutable copy first since record fields are immutable
         List<AbstractValidationItem> sortedItems = new ArrayList<>(validationItems);
         sortedItems.sort(
@@ -229,12 +322,9 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
 
         /*  3) Write pretty-printed JSON  */
         ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
-        try
-        {
+        try {
             mapper.writeValue(outputFile, root);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             System.err.println("Failed to write JSON output to "
                     + outputFile.getAbsolutePath() + ": " + e.getMessage());
             e.printStackTrace();
@@ -268,15 +358,12 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      *
      * @see BpmnElementValidationItem#getProcessId()
      */
-    public String getProcessId()
-    {
+    public String getProcessId() {
         if (validationItems == null || validationItems.isEmpty())
             return "unknown_process";
 
-        for (AbstractValidationItem item : validationItems)
-        {
-            if (item instanceof BpmnElementValidationItem bpmnItem)
-            {
+        for (AbstractValidationItem item : validationItems) {
+            if (item instanceof BpmnElementValidationItem bpmnItem) {
                 String pid = bpmnItem.getProcessId();
                 if (pid != null && !pid.isEmpty())
                     return pid;
@@ -285,6 +372,7 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
 
         return "unknown_process";
     }
+
     /**
      * Creates an empty {@code ValidationOutput} instance with no validation items.
      * <p>
@@ -303,8 +391,7 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      *
      * @return a new {@code ValidationOutput} instance with an empty validation items list
      */
-    public static ValidationOutput empty()
-    {
+    public static ValidationOutput empty() {
         return new ValidationOutput(List.of());
     }
 

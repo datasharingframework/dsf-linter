@@ -3,7 +3,7 @@ package dev.dsf.utils.validator.fhir;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.FhirValueSetMissingReadAccessTagAllOrLocalValidationItem;
 import dev.dsf.utils.validator.item.FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem;
-import dev.dsf.utils.validator.util.FhirValidator;
+import dev.dsf.utils.validator.util.validation.FhirValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;

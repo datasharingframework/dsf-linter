@@ -3,7 +3,7 @@ package dev.dsf.utils.validator.bpmn;
 import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
-import dev.dsf.utils.validator.util.FhirValidator;
+import dev.dsf.utils.validator.util.validation.FhirValidator;
 import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 

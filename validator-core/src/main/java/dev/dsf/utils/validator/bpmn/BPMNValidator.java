@@ -2,7 +2,7 @@ package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
-import dev.dsf.utils.validator.util.ValidationOutput;
+import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 

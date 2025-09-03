@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.util;
 
+import dev.dsf.utils.validator.util.validation.FhirValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
