@@ -2,7 +2,9 @@ package dev.dsf.utils.validator.bpmn;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
+import dev.dsf.utils.validator.util.resource.FhirResourceExtractor;
+import dev.dsf.utils.validator.util.resource.FhirResourceLocator;
+import dev.dsf.utils.validator.util.resource.FhirResourceParser;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.xml.instance.DomElement;
@@ -203,7 +205,7 @@ public class BpmnFieldInjectionValidator {
                 case "profile" -> {
                     checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
                     profileVal = literal;
-                    if (!isEmpty(literal) && FhirValidator.structureDefinitionExists(literal, projectRoot)) {
+                    if (!isEmpty(literal) && FhirResourceLocator.structureDefinitionExists(literal, projectRoot)) {
                         structureFoundForProfile = true;
                     }
                 }
@@ -253,14 +255,14 @@ public class BpmnFieldInjectionValidator {
                                            String profileVal,
                                            String instantiatesVal,
                                            String messageNameVal) {
-        File structureFile = FhirValidator.findStructureDefinitionFile(profileVal, projectRoot);
+        File structureFile = FhirResourceLocator.findStructureDefinitionFile(profileVal, projectRoot);
         if (structureFile == null) return; // Warn already added earlier.
 
         try {
-            var doc = FhirValidator.parseFhirFile(structureFile.toPath());
+            var doc = FhirResourceParser.parseFhirFile(structureFile.toPath());
 
             if (!isEmpty(instantiatesVal)) {
-                String fixedCanonical = FhirValidator.getTaskInstantiatesCanonicalValue(doc);
+                String fixedCanonical = FhirResourceExtractor.getTaskInstantiatesCanonicalValue(doc);
                 if (fixedCanonical == null) {
                     issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, structureFile.getName(),
@@ -275,7 +277,7 @@ public class BpmnFieldInjectionValidator {
                 }
             }
 
-            String fixedString = FhirValidator.getTaskMessageNameFixedStringValue(doc);
+            String fixedString = FhirResourceExtractor.getTaskMessageNameFixedStringValue(doc);
             if (fixedString == null || fixedString.isBlank()) {
                 issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
                         elementId, bpmnFile, processId, structureFile.getName(),
@@ -288,7 +290,7 @@ public class BpmnFieldInjectionValidator {
 
         // ActivityDefinition checks
         if (!isEmpty(instantiatesVal)) {
-            boolean actDefFound = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
+            boolean actDefFound = FhirResourceLocator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
             if (!actDefFound) {
                 issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.WARN,
                         elementId, bpmnFile, processId, instantiatesVal,
@@ -298,7 +300,7 @@ public class BpmnFieldInjectionValidator {
                         "ActivityDefinition exists for instantiatesCanonical: '" + instantiatesVal + "'."));
 
                 if (!isEmpty(messageNameVal) &&
-                        !FhirValidator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
+                        !FhirResourceLocator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
                     issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, instantiatesVal,
                             "ActivityDefinition does not contain message name '" + messageNameVal + "'."));

@@ -3,7 +3,7 @@ package dev.dsf.utils.validator.bpmn;
 import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
+import dev.dsf.utils.validator.util.resource.FhirResourceLocator;
 import dev.dsf.utils.validator.item.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 
@@ -24,7 +24,7 @@ import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
  *   <li>Correct usage of message references (e.g., MessageEventDefinition) and signal references</li>
  *   <li>Proper field injections (e.g., for profile, messageName, and instantiatesCanonical)</li>
  *   <li>Validation of implementation classes and execution listener classes</li>
- *   <li>Cross-checking references against FHIR resources using {@link FhirValidator}</li>
+ *   <li>Cross-checking references against FHIR resources using {@link FhirResourceLocator}</li>
  * </ul>
  * </p>
  * <p>
@@ -152,7 +152,7 @@ public class BpmnEventValidator {
             // 3) Check references in FHIR resources
             //    (ActivityDefinition and StructureDefinition existence)
 
-            boolean activityDefFound = FhirValidator.activityDefinitionExists(msgName, projectRoot);
+            boolean activityDefFound = FhirResourceLocator.activityDefinitionExists(msgName, projectRoot);
             if (!activityDefFound) {
                 // negative scenario
                 issues.add(new FhirActivityDefinitionValidationItem(
@@ -176,7 +176,7 @@ public class BpmnEventValidator {
             if (activityDefFound) {
                 // only check StructureDefinition if we already found an ActivityDefinition
                 // (adjust logic as needed)
-                boolean structureDefFound = FhirValidator.structureDefinitionExists(msgName, projectRoot);
+                boolean structureDefFound = FhirResourceLocator.structureDefinitionExists(msgName, projectRoot);
                 if (!structureDefFound) {
                     // negative scenario
                     issues.add(new FhirStructureDefinitionValidationItem(
@@ -851,7 +851,7 @@ public class BpmnEventValidator {
 
             // 3) Validate the FHIR ActivityDefinition.
             boolean activityFound = false;
-            if (!FhirValidator.activityDefinitionExists(msgName, projectRoot)) {
+            if (!FhirResourceLocator.activityDefinitionExists(msgName, projectRoot)) {
                 issues.add(new FhirActivityDefinitionValidationItem(
                         ValidationSeverity.ERROR,
                         elementId,
@@ -872,7 +872,7 @@ public class BpmnEventValidator {
 
             // 4) Validate the FHIR StructureDefinition (only if ActivityDefinition was found).
             if (activityFound) {
-                if (!FhirValidator.structureDefinitionExists(msgName, projectRoot)) {
+                if (!FhirResourceLocator.structureDefinitionExists(msgName, projectRoot)) {
                     issues.add(new FhirStructureDefinitionValidationItem(
                             ValidationSeverity.ERROR,
                             elementId,

@@ -4,7 +4,7 @@ import dev.dsf.utils.validator.FloatingElementType;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.ValidationType;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
+import dev.dsf.utils.validator.util.resource.FhirResourceLocator;
 import dev.dsf.utils.validator.util.api.ApiVersionHolder;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
@@ -244,7 +244,7 @@ public class BpmnTaskValidator
             }
             // If formKey is valid, check if the corresponding questionnaire exists.
             if (found) {
-                if (!FhirValidator.questionnaireExists(formKey, projectRoot)) {
+                if (!FhirResourceLocator.questionnaireExists(formKey, projectRoot)) {
                     issues.add(new FhirQuestionnaireDefinitionValidationItem(
                             ValidationSeverity.ERROR, elementId, bpmnFile, processId,
                             formKey,

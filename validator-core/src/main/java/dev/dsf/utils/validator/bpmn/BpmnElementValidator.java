@@ -8,7 +8,7 @@ import dev.dsf.utils.validator.logger.ConsoleLogger;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.util.api.ApiVersionHolder;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
+import dev.dsf.utils.validator.util.resource.FhirResourceLocator;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
@@ -118,7 +118,7 @@ public class BpmnElementValidator {
             File projectRoot)
     {
         // Check for a matching ActivityDefinition.
-        if (FhirValidator.activityDefinitionExists(messageName, projectRoot))
+        if (FhirResourceLocator.activityDefinitionExists(messageName, projectRoot))
         {
             issues.add(new BpmnElementValidationItemSuccess(
                     elementId,
@@ -140,7 +140,7 @@ public class BpmnElementValidator {
         }
 
         // Check for a matching StructureDefinition.
-        if (FhirValidator.structureDefinitionExists(messageName, projectRoot))
+        if (FhirResourceLocator.structureDefinitionExists(messageName, projectRoot))
         {
             issues.add(new BpmnElementValidationItemSuccess(
                     elementId,
@@ -677,7 +677,7 @@ public class BpmnElementValidator {
                         "Profile field contains a version placeholder: '" + literalValue + "'"
                 ));
             }
-            if (!FhirValidator.structureDefinitionExists(literalValue, projectRoot))
+            if (!FhirResourceLocator.structureDefinitionExists(literalValue, projectRoot))
             {
                 issues.add(new FhirStructureDefinitionValidationItem(
                         ValidationSeverity.WARN,

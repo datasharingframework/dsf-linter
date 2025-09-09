@@ -3,7 +3,7 @@ package dev.dsf.utils.validator.fhir;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.item.FhirValueSetMissingReadAccessTagAllOrLocalValidationItem;
 import dev.dsf.utils.validator.item.FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
+import dev.dsf.utils.validator.util.resource.FhirResourceParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -73,7 +73,7 @@ class FhirValueSetValidatorTest {
             return;
         }
 
-        Document doc = FhirValidator.parseFhirFile(filePath);
+        Document doc = FhirResourceParser.parseFhirFile(filePath);
         assertNotNull(doc, "Document should be parseable");
 
         List<FhirElementValidationItem> results = validator.validate(doc, filePath.toFile());

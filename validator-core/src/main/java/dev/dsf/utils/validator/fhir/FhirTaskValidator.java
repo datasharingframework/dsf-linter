@@ -1,9 +1,10 @@
 package dev.dsf.utils.validator.fhir;
 
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.resource.FhirResourceLocator;
+import dev.dsf.utils.validator.util.resource.FhirResourceParser;
 import dev.dsf.utils.validator.util.validation.AbstractFhirInstanceValidator;
 import dev.dsf.utils.validator.util.resource.FhirAuthorizationCache;
-import dev.dsf.utils.validator.util.validation.FhirValidator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -79,7 +80,7 @@ import java.util.*;
  *
  * @see dev.dsf.utils.validator.DsfValidatorImpl
  * @see AbstractFhirInstanceValidator
- * @see FhirValidator
+ * @see FhirResourceLocator
  * @see FhirAuthorizationCache
  * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Slicing and Cardinality Rules §5.1.0.14</a>
  */
@@ -173,7 +174,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             File root = determineProjectRoot(f);
             if (root != null)
             {
-                boolean exists = FhirValidator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
+                boolean exists = FhirResourceLocator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
                 if (!exists)
                     out.add(new FhirTaskUnknownInstantiatesCanonicalValidationItem(
                             f, ref,
@@ -663,7 +664,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             return; // already handled elsewhere
 
         File projectRoot = determineProjectRoot(taskFile);
-        File actFile = FhirValidator.findActivityDefinitionForInstantiatesCanonical(
+        File actFile = FhirResourceLocator.findActivityDefinitionForInstantiatesCanonical(
                 instCanon, projectRoot);
 
         if (actFile == null)
@@ -733,7 +734,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             return; // already handled elsewhere
 
         File projectRoot = determineProjectRoot(taskFile);
-        File actFile = FhirValidator.findActivityDefinitionForInstantiatesCanonical(
+        File actFile = FhirResourceLocator.findActivityDefinitionForInstantiatesCanonical(
                 instCanon, projectRoot);
 
         if (actFile == null)
@@ -779,7 +780,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
      * @return a map of slice names to their cardinality, or null if no SD file is found or an error occurs
      */
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
-        File sdFile = FhirValidator.findStructureDefinitionFile(profileUrl, projectRoot);
+        File sdFile = FhirResourceLocator.findStructureDefinitionFile(profileUrl, projectRoot);
         if (sdFile == null) {
             return null;
         }
@@ -788,9 +789,9 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             // parseXml, or if that fails parseJsonToXml
             Document sd;
             try {
-                sd = FhirValidator.parseXml(sdFile.toPath());
+                sd = FhirResourceParser.parseXml(sdFile.toPath());
             } catch (Exception e) {
-                sd = FhirValidator.parseJsonToXml(sdFile.toPath());
+                sd = FhirResourceParser.parseJsonToXml(sdFile.toPath());
             }
 
             Map<String, SliceCard> map = new HashMap<>();
