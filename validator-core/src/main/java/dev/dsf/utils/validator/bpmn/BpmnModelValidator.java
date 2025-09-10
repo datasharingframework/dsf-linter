@@ -160,6 +160,10 @@ public class BpmnModelValidator {
             else if (element instanceof ExclusiveGateway exclusiveGateway) {
                 gatewayAndFlowValidator.validateExclusiveGateway(exclusiveGateway, issues, bpmnFile, processId);
             }
+            // --- INCLUSIVE GATEWAY ---
+            else if (element instanceof InclusiveGateway inclusiveGateway) {
+                gatewayAndFlowValidator.validateInclusiveGateway(inclusiveGateway, issues, bpmnFile, processId);
+            }
             // --- SEQUENCE FLOW ---
             else if (element instanceof SequenceFlow sequenceFlow) {
                 gatewayAndFlowValidator.validateSequenceFlow(sequenceFlow, issues, bpmnFile, processId);
