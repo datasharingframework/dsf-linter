@@ -125,9 +125,9 @@ public class BpmnGatewayAndFlowValidator
             String processId)
     {
         String elementId = flow.getId();
-        if (flow.getSource() instanceof FlowNode)
+        FlowNode flowNode = (FlowNode) flow.getSource();
+        if (flow.getSource() != null)
         {
-            FlowNode flowNode = (FlowNode) flow.getSource();
             if (flowNode.getOutgoing() != null && flowNode.getOutgoing().size() > 1)
             {
                 // Check the sequence flow name.
