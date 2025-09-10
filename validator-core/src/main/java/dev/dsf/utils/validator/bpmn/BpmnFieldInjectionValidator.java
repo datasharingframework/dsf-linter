@@ -97,8 +97,8 @@ public class BpmnFieldInjectionValidator {
         }
 
         // 2) embedded MessageEventDefinition fields (ThrowEvent / EndEvent)
-        Collection<EventDefinition> eventDefs = (element instanceof ThrowEvent te) ? te.getEventDefinitions()
-                : (element instanceof EndEvent ee) ? ee.getEventDefinitions() : Collections.emptyList();
+        Collection<EventDefinition> eventDefs = (element instanceof EndEvent ee) ? ee.getEventDefinitions()
+                : (element instanceof ThrowEvent te) ? te.getEventDefinitions() : Collections.emptyList();
 
         for (EventDefinition def : eventDefs) {
             if (def instanceof MessageEventDefinition msgDef && hasCamundaFields(msgDef.getExtensionElements())) {
