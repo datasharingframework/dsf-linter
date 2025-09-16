@@ -15,8 +15,8 @@ import org.camunda.bpm.model.bpmn.instance.SequenceFlow;
 import java.io.File;
 import java.util.List;
 
-import static dev.dsf.utils.validator.util.BpmnValidationUtils.checkExecutionListenerClasses;
-import static dev.dsf.utils.validator.util.BpmnValidationUtils.isEmpty;
+import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.checkExecutionListenerClasses;
+import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 /**
  * The {@code BpmnGatewayAndFlowValidator} class handles validation logic for BPMN gateway and flow elements,
