@@ -18,13 +18,13 @@ public class BpmnModelUtils {
      * </p>
      *
      * @param element The BPMN {@link BaseElement} from which to extract the implementation class.
-     * @return The implementation class as a string, or an empty string if not found.
+     * @return An {@link Optional} containing the class name if found, otherwise an empty Optional.
      */
-    public static String extractImplementationClass(BaseElement element) {
+    public static Optional<String> extractImplementationClass(BaseElement element) {
         // 1. Check for a direct "camunda:class" attribute on the element itself.
         String implClass = element.getAttributeValueNs("http://camunda.org/schema/1.0/bpmn", "class");
         if (!isEmpty(implClass)) {
-            return implClass;
+            return Optional.of(implClass);
         }
 
         // 2. If not found, check for a class within nested event definitions.
@@ -37,7 +37,7 @@ public class BpmnModelUtils {
         }
 
         // 3. Use the helper to extract the class from the definitions.
-        return getCamundaClassFromMessageEvents(definitions).orElse("");
+        return getCamundaClassFromMessageEvents(definitions);
     }
 
     /**
