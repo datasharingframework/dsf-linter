@@ -40,6 +40,7 @@ public class BpmnModelUtils {
         return getCamundaClassFromMessageEvents(definitions);
     }
 
+
     /**
      * Scans a collection of event definitions to find the Camunda class from a MessageEventDefinition.
      *

@@ -958,6 +958,7 @@ public class BpmnEventValidator {
             String implClass = implementationClassOptional.get();
             validateImplementationClass(implClass, elementId, bpmnFile, processId, issues, projectRoot);
         }
+
         // Validate field injections.
         BpmnFieldInjectionValidator.validateMessageSendFieldInjections(event, issues, bpmnFile, processId, projectRoot);
     }
