@@ -49,8 +49,11 @@ public class BpmnElementValidator {
             File projectRoot)
     {
         String apiVersion = ApiVersionHolder.getVersion().toString();
-
-        if (!classExists(implClass, projectRoot))
+        if (isEmpty(implClass))
+        {
+            issues.add(new BpmnMessageSendEventImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
+        }
+        else if (!classExists(implClass, projectRoot))
         {
             issues.add(new BpmnMessageSendEventImplementationClassNotFoundValidationItem(
                     elementId, bpmnFile, processId, implClass));

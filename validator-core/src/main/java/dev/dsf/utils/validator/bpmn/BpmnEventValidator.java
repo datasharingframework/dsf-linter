@@ -9,7 +9,6 @@ import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
 import java.util.List;
-import java.util.Optional;
 
 import static dev.dsf.utils.validator.bpmn.BpmnElementValidator.*;
 import static dev.dsf.utils.validator.bpmn.BpmnModelUtils.extractImplementationClass;
@@ -948,16 +947,8 @@ public class BpmnEventValidator {
         }
 
         // Extract and validate the implementation class.
-        Optional<String> implementationClassOptional = extractImplementationClass(event);
-
-        // Validate if the implementation class is present.
-        if (implementationClassOptional.isEmpty()) {
-            issues.add(new BpmnMessageSendEventImplementationClassEmptyValidationItem(elementId, bpmnFile, processId));
-        } else {
-            // If present, validate the class itself.
-            String implClass = implementationClassOptional.get();
-            validateImplementationClass(implClass, elementId, bpmnFile, processId, issues, projectRoot);
-        }
+        String implClass = extractImplementationClass(event);
+        validateImplementationClass(implClass, elementId, bpmnFile, processId, issues, projectRoot);
 
         // Validate field injections.
         BpmnFieldInjectionValidator.validateMessageSendFieldInjections(event, issues, bpmnFile, processId, projectRoot);
