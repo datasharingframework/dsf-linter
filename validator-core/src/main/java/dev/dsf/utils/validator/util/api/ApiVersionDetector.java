@@ -36,7 +36,6 @@ import java.util.Optional;
  * This class is stateless and safe for concurrent use.
  * </p>
  *
- * @see ApiRegistrationValidationSupport
  * @see DetectedVersion
  * @see ApiVersion
  */
