@@ -2,35 +2,23 @@ package dev.dsf.utils.validator.service;
 
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.plugin.EnhancedPluginDefinitionDiscovery;
 import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery;
-import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
-import dev.dsf.utils.validator.util.resource.ResourceResolver;
+import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.util.api.ApiVersionDetector;
-import dev.dsf.utils.validator.util.api.ApiVersionHolder;
+import dev.dsf.utils.validator.util.api.DetectedVersion;
 import dev.dsf.utils.validator.util.resource.FhirAuthorizationCache;
+import dev.dsf.utils.validator.util.resource.ResourceDiscoveryUtils;
 import dev.dsf.utils.validator.setup.ProjectSetupHandler.ProjectContext;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
- * Service responsible for discovering and collecting resources from plugin definitions.
- *
- * <p>This service handles:
- * <ul>
- *   <li>Plugin definition discovery and validation</li>
- *   <li>Resource root determination</li>
- *   <li>BPMN and FHIR resource collection</li>
- *   <li>API version detection</li>
- *   <li>Authorization cache initialization</li>
- * </ul>
- *
- * @author DSF Development Team
- * @since 1.0.0
+ * Unified resource discovery service that handles any number of plugins.
+ * Always returns a Map of plugins for consistent processing.
+ * A single plugin is simply a special case with one entry in the Map.
  */
 public class ResourceDiscoveryService {
 
@@ -38,307 +26,203 @@ public class ResourceDiscoveryService {
     private final ApiVersionDetector apiVersionDetector;
 
     /**
-     * Constructs a new ResourceDiscoveryService.
-     *
-     * @param logger the logger for output messages
+     * Single plugin discovery result containing all resource information
      */
+    public record PluginDiscovery(
+            PluginDefinitionDiscovery.PluginAdapter adapter,
+            ApiVersion apiVersion,
+            File resourcesDir,
+            List<File> bpmnFiles,
+            List<File> fhirFiles,
+            List<String> missingBpmnRefs,
+            List<String> missingFhirRefs,
+            Set<String> referencedPaths
+    ) {}
+
+    /**
+     * Discovery result that always contains a Map of plugins.
+     * This Map may contain one or more entries.
+     */
+    public record DiscoveryResult(
+            Map<String, PluginDiscovery> plugins,
+            File sharedResourcesDir,
+            Set<ApiVersion> detectedVersions
+    ) {
+        /**
+         * Get combined statistics across all plugins
+         */
+        public DiscoveryStatistics getStatistics() {
+            int totalBpmnFiles = 0;
+            int totalFhirFiles = 0;
+            int totalMissingBpmn = 0;
+            int totalMissingFhir = 0;
+
+            for (PluginDiscovery plugin : plugins.values()) {
+                totalBpmnFiles += plugin.bpmnFiles().size();
+                totalFhirFiles += plugin.fhirFiles().size();
+                totalMissingBpmn += plugin.missingBpmnRefs().size();
+                totalMissingFhir += plugin.missingFhirRefs().size();
+            }
+
+            return new DiscoveryStatistics(
+                    totalBpmnFiles, totalFhirFiles,
+                    totalMissingBpmn, totalMissingFhir
+            );
+        }
+    }
+
+    /**
+     * Statistics holder for discovery results
+     */
+    public record DiscoveryStatistics(
+            int bpmnFiles,
+            int fhirFiles,
+            int missingBpmn,
+            int missingFhir
+    ) {}
+
     public ResourceDiscoveryService(Logger logger) {
         this.logger = logger;
         this.apiVersionDetector = new ApiVersionDetector();
     }
 
     /**
-     * Discovers all resources from the project context.
+     * Main discovery method that always returns a Map of plugins.
+     * Works uniformly for any number of plugins (one or more).
      *
-     * @param context the project context containing setup information
-     * @return a DiscoveryResult containing all discovered resources
-     * @throws IllegalStateException if plugin discovery fails
+     * @param context the project context
+     * @return discovery result containing all plugins as a Map
      */
-    public DiscoveryResult discoverResources(ProjectContext context) throws IllegalStateException, MissingServiceRegistrationException {
-        // 1. Discover plugin definition
-        PluginAdapter pluginAdapter = discoverPluginDefinition(context.projectDir());
+    public DiscoveryResult discover(ProjectContext context)
+            throws IllegalStateException, MissingServiceRegistrationException {
 
-        // 2. Determine resources root
-        File resourcesDir = determineResourcesRoot(
+        logger.info("Starting unified plugin resource discovery...");
+
+        // 1. Discover all plugins
+        EnhancedPluginDefinitionDiscovery.DiscoveryResult pluginDiscovery =
+                EnhancedPluginDefinitionDiscovery.discoverAll(context.projectDir());
+
+        if (pluginDiscovery.getAllPlugins().isEmpty()) {
+            throw new IllegalStateException("No ProcessPluginDefinition implementations found");
+        }
+
+        logger.info("Found " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");
+
+        // 2. Determine shared resources directory
+        File sharedResourcesDir = ResourceDiscoveryUtils.determineResourcesRoot(
                 context.projectDir(),
-                pluginAdapter,
+                pluginDiscovery.getAllPlugins().getFirst(),
                 context.resourcesDir()
         );
 
-        logger.info("Resources root in use: " + resourcesDir.getAbsolutePath());
+        logger.info("Resources root: " + sharedResourcesDir.getAbsolutePath());
 
-        // 3. Detect API version
-        detectAndSetApiVersion(context.projectPath());
+        // 3. Initialize shared components
+        FhirAuthorizationCache.seedFromProjectAndClasspath(context.projectDir());
+        logger.debug("FHIR authorization cache initialized.");
 
-        // 4. Initialize authorization cache
-        initializeAuthorizationCache(context.projectDir());
+        // 4. Process each plugin into unified structure
+        Map<String, PluginDiscovery> plugins = new LinkedHashMap<>();
+        Set<ApiVersion> detectedVersions = new HashSet<>();
 
-        // 5. Collect referenced resources
-        Set<String> referencedBpmnPaths = collectReferencedBpmnPaths(pluginAdapter);
-        Set<String> referencedFhirPaths = collectReferencedFhirPaths(pluginAdapter);
+        for (Map.Entry<String, List<PluginDefinitionDiscovery.PluginAdapter>> entry :
+                pluginDiscovery.getPluginsByName().entrySet()) {
 
-        // 6. Resolve files
-        ResolvedResources bpmnResources = resolveResourceFiles(referencedBpmnPaths, resourcesDir, "BPMN");
-        ResolvedResources fhirResources = resolveResourceFiles(referencedFhirPaths, resourcesDir, "FHIR");
+            String pluginGroupName = entry.getKey();
+            List<PluginDefinitionDiscovery.PluginAdapter> pluginList = entry.getValue();
 
-        logDiscoveryResults(
-                referencedBpmnPaths, bpmnResources,
-                referencedFhirPaths, fhirResources
-        );
+            int counter = 0;
+            for (PluginDefinitionDiscovery.PluginAdapter adapter : pluginList) {
+                String uniqueName = ResourceDiscoveryUtils.generateUniquePluginName(
+                        pluginGroupName, adapter, counter++, plugins.keySet()
+                );
 
+                logger.info("Processing plugin: " + uniqueName +
+                        " (" + adapter.sourceClass().getName() + ")");
+
+                PluginDiscovery discovery = discoverSinglePlugin(
+                        adapter, sharedResourcesDir, context.projectPath()
+                );
+
+                plugins.put(uniqueName, discovery);
+                detectedVersions.add(discovery.apiVersion());
+
+                // Log statistics
+                logger.info(String.format(
+                        "Plugin '%s': BPMN files=%d (missing=%d), FHIR files=%d (missing=%d)",
+                        uniqueName,
+                        discovery.bpmnFiles().size(),
+                        discovery.missingBpmnRefs().size(),
+                        discovery.fhirFiles().size(),
+                        discovery.missingFhirRefs().size()
+                ));
+            }
+        }
+
+        return new DiscoveryResult(plugins, sharedResourcesDir, detectedVersions);
+    }
+
+    /**
+     * Discovers resources for a single plugin.
+     */
+    private PluginDiscovery discoverSinglePlugin(
+            PluginDefinitionDiscovery.PluginAdapter adapter, File resourcesDir, Path projectPath)
+            throws MissingServiceRegistrationException {
+
+        // Detect API version
+        ApiVersion apiVersion = detectPluginApiVersion(adapter, projectPath);
+
+        // Collect references
+        Set<String> referencedBpmnPaths = ResourceDiscoveryUtils.collectBpmnPaths(adapter);
+        Set<String> referencedFhirPaths = ResourceDiscoveryUtils.collectFhirPaths(adapter);
+
+        logger.debug("Referenced BPMN: " + referencedBpmnPaths.size() +
+                ", Referenced FHIR: " + referencedFhirPaths.size());
+
+        // Resolve files
+        ResourceDiscoveryUtils.ResolvedResources bpmnResources =
+                ResourceDiscoveryUtils.resolveResourceFiles(referencedBpmnPaths, resourcesDir);
+        ResourceDiscoveryUtils.ResolvedResources fhirResources =
+                ResourceDiscoveryUtils.resolveResourceFiles(referencedFhirPaths, resourcesDir);
+
+        // Combine all referenced paths
         Set<String> allReferencedPaths = new HashSet<>();
         allReferencedPaths.addAll(referencedBpmnPaths);
         allReferencedPaths.addAll(referencedFhirPaths);
 
-        return new DiscoveryResult(
-                pluginAdapter,
+        return new PluginDiscovery(
+                adapter,
+                apiVersion,
                 resourcesDir,
-                bpmnResources.resolvedFiles,
-                fhirResources.resolvedFiles,
-                bpmnResources.missingRefs,
-                fhirResources.missingRefs,
+                bpmnResources.resolvedFiles(),
+                fhirResources.resolvedFiles(),
+                bpmnResources.missingRefs(),
+                fhirResources.missingRefs(),
                 allReferencedPaths
         );
     }
 
     /**
-     * Discovers the single ProcessPluginDefinition from the project.
-     *
-     * @param projectDir the project directory
-     * @return the discovered PluginAdapter
-     * @throws IllegalStateException if discovery fails
+     * Detects API version for a specific plugin.
      */
-    private PluginAdapter discoverPluginDefinition(File projectDir) throws IllegalStateException {
-        PluginAdapter pluginAdapter = PluginDefinitionDiscovery.discoverSingle(projectDir);
-        logger.info("Discovered ProcessPluginDefinition: " + pluginAdapter.sourceClass().getName());
+    private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter, Path projectPath)
+            throws MissingServiceRegistrationException {
 
-        // Log code source for diagnostics
-        try {
-            var cs = pluginAdapter.sourceClass().getProtectionDomain().getCodeSource();
-            if (cs != null && cs.getLocation() != null) {
-                logger.debug("Plugin class CodeSource: " + cs.getLocation());
-            } else {
-                logger.debug("Plugin class CodeSource: <null> (class may come from a special loader/JAR)");
-            }
-        } catch (Exception ignore) {
-            // Debug only
+        // Check adapter type directly
+        if (adapter instanceof PluginDefinitionDiscovery.V2Adapter) {
+            logger.debug("Plugin uses API v2 (determined by adapter type)");
+            return ApiVersion.V2;
+        } else if (adapter instanceof PluginDefinitionDiscovery.V1Adapter) {
+            logger.debug("Plugin uses API v1 (determined by adapter type)");
+            return ApiVersion.V1;
         }
 
-        return pluginAdapter;
-    }
-
-    /**
-     * Determines the proper resources root directory.
-     *
-     * @param projectDir the project directory
-     * @param pluginAdapter the plugin adapter
-     * @param fallback the fallback directory
-     * @return the determined resources root
-     */
-    public File determineResourcesRoot(File projectDir, PluginAdapter pluginAdapter, File fallback) {
-        try {
-            Class<?> pluginClass = pluginAdapter.sourceClass();
-            if (pluginClass != null) {
-                java.security.ProtectionDomain pd = pluginClass.getProtectionDomain();
-                if (pd != null) {
-                    java.security.CodeSource cs = pd.getCodeSource();
-                    if (cs != null && cs.getLocation() != null) {
-                        java.net.URI uri = cs.getLocation().toURI();
-                        Path loc = Paths.get(uri);
-
-                        if (Files.isDirectory(loc)) {
-                            String norm = loc.toString().replace('\\', '/');
-
-                            // Maven: <module>/target/classes → use directly
-                            if (norm.endsWith("/target/classes")) {
-                                return loc.toFile();
-                            }
-
-                            // Gradle: prefer <module>/build/resources/main if classes root is returned
-                            if (norm.endsWith("/build/classes/java/main")) {
-                                Path gradleRes = loc.getParent() // java
-                                        .getParent() // classes
-                                        .resolve("resources")
-                                        .resolve("main");
-                                if (Files.isDirectory(gradleRes)) {
-                                    return gradleRes.toFile();
-                                }
-                                // Fall back to classes dir if resources dir is missing
-                                return loc.toFile();
-                            }
-
-                            // Unknown layout but still a directory on the classpath – use it
-                            return loc.toFile();
-                        }
-
-                        // Code source points to a JAR or non-directory → use fallback
-                        return (fallback != null) ? fallback : projectDir;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.debug("Error determining resources root from code source: " + e.getMessage());
-        }
-
-        // Local source checkout fallbacks (Maven/Gradle)
-        File mavenResources = new File(projectDir, "src/main/resources");
-        if (mavenResources.isDirectory()) return mavenResources;
-
-        File mavenClasses = new File(projectDir, "target/classes");
-        if (mavenClasses.isDirectory()) return mavenClasses;
-
-        File gradleResources = new File(projectDir, "build/resources/main");
-        if (gradleResources.isDirectory()) return gradleResources;
-
-        return (fallback != null) ? fallback : projectDir;
-    }
-
-    /**
-     * Detects and sets the DSF BPE API version.
-     *
-     * @param projectPath the project path
-     */
-    private void detectAndSetApiVersion(Path projectPath) throws MissingServiceRegistrationException {
-        apiVersionDetector.detect(projectPath).ifPresent(v -> {
-            ApiVersionHolder.setVersion(v.version());
-            logger.info("Detected DSF BPE API version: " + v.version());
-        });
-    }
-
-    /**
-     * Initializes the FHIR authorization cache.
-     *
-     * @param projectDir the project directory
-     */
-    private void initializeAuthorizationCache(File projectDir) {
-        FhirAuthorizationCache.seedFromProjectAndClasspath(projectDir);
-        logger.debug("FHIR authorization cache initialized.");
-    }
-
-    /**
-     * Collects all referenced BPMN paths from the plugin adapter.
-     *
-     * @param pluginAdapter the plugin adapter
-     * @return set of BPMN resource paths
-     */
-    private Set<String> collectReferencedBpmnPaths(PluginAdapter pluginAdapter) {
-        logger.info("Gathering referenced BPMN resources from " +
-                pluginAdapter.sourceClass().getSimpleName() + "...");
-
-        return pluginAdapter.getProcessModels().stream()
-                .map(ResourceResolver::normalizeRef)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    /**
-     * Collects all referenced FHIR paths from the plugin adapter.
-     *
-     * @param pluginAdapter the plugin adapter
-     * @return set of FHIR resource paths
-     */
-    private Set<String> collectReferencedFhirPaths(PluginAdapter pluginAdapter) {
-        logger.info("Gathering referenced FHIR resources from " +
-                pluginAdapter.sourceClass().getSimpleName() + "...");
-
-        return pluginAdapter.getFhirResourcesByProcessId().values().stream()
-                .flatMap(Collection::stream)
-                .map(ResourceResolver::normalizeRef)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    /**
-     * Resolves resource files from their reference paths.
-     *
-     * @param referencedPaths the set of referenced resource paths
-     * @param resourcesDir the resources directory
-     * @param resourceType the type of resource (for logging)
-     * @return resolved resources with files and missing references
-     */
-    private ResolvedResources resolveResourceFiles(
-            Set<String> referencedPaths, File resourcesDir, String resourceType) {
-
-        List<File> resolvedFiles = referencedPaths.stream()
-                .map(this::cleanRef)
-                .map(ref -> ResourceResolver.resolveToFile(ref, resourcesDir))
-                .flatMap(Optional::stream)
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<String> missingRefs = referencedPaths.stream()
-                .map(this::cleanRef)
-                .filter(ref -> ResourceResolver.resolveToFile(ref, resourcesDir).isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (!referencedPaths.isEmpty() && resolvedFiles.isEmpty()) {
-            logger.warn("Sanity check: No " + resourceType + " files resolved although " +
-                    resourceType + " references exist. " +
-                    "If the plugin was loaded from a JAR, ensure ResourceResolver can read via ClassLoader.");
-        }
-
-        return new ResolvedResources(resolvedFiles, missingRefs);
-    }
-
-    /**
-     * Normalizes a resource reference for filesystem/classpath resolution.
-     *
-     * @param ref the reference to clean
-     * @return cleaned reference
-     */
-    private String cleanRef(String ref) {
-        if (ref == null) return "";
-        String r = ref.trim();
-
-        // Drop classpath: prefix
-        if (r.startsWith("classpath:")) {
-            r = r.substring("classpath:".length());
-        }
-
-        // Unify separators
-        r = r.replace('\\', '/');
-
-        // Remove all leading slashes
-        while (r.startsWith("/")) {
-            r = r.substring(1);
-        }
-
-        return r;
-    }
-
-    /**
-     * Logs the discovery results for debugging.
-     */
-    private void logDiscoveryResults(
-            Set<String> referencedBpmnPaths, ResolvedResources bpmnResources,
-            Set<String> referencedFhirPaths, ResolvedResources fhirResources) {
-
-        logger.info("Referenced BPMN: " + referencedBpmnPaths.size()
-                + " -> resolved: " + bpmnResources.resolvedFiles.size()
-                + ", missing: " + bpmnResources.missingRefs.size());
-
-        logger.info("Referenced FHIR: " + referencedFhirPaths.size()
-                + " -> resolved: " + fhirResources.resolvedFiles.size()
-                + ", missing: " + fhirResources.missingRefs.size());
-
-        if (!bpmnResources.missingRefs.isEmpty()) {
-            logger.warn("Sample missing BPMN ref: " + bpmnResources.missingRefs.getFirst());
-        }
-        if (!fhirResources.missingRefs.isEmpty()) {
-            logger.warn("Sample missing FHIR ref: " + fhirResources.missingRefs.getFirst());
-        }
-    }
-
-    /**
-         * Internal class for holding resolved resources and missing references.
-         */
-        private record ResolvedResources(List<File> resolvedFiles, List<String> missingRefs) {
-    }
-
-    /**
-         * Data class containing the complete discovery result.
-         */
-        public record DiscoveryResult(PluginAdapter pluginAdapter, File resourcesDir, List<File> bpmnFiles,
-                                      List<File> fhirFiles, List<String> missingBpmnRefs, List<String> missingFhirRefs,
-                                      Set<String> referencedPaths) {
+        // Fallback to detector
+        return apiVersionDetector.detect(projectPath)
+                .map(DetectedVersion::version)
+                .orElseGet(() -> {
+                    logger.warn("Could not detect API version. Using UNKNOWN.");
+                    return ApiVersion.UNKNOWN;
+                });
     }
 }

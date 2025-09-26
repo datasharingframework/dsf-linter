@@ -11,14 +11,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory.getOrCreateRecursiveProjectClassLoader;
@@ -246,80 +243,11 @@ public final class PluginDefinitionDiscovery
 
 
     /**
-     * Discovers a single plugin definition from classpath or project root.
-     * Uses ServiceLoader first, then falls back to manual scanning.
-     *
-     * @param projectRoot optional project root directory for scanning
-     * @return the discovered plugin adapter
-     * @throws IllegalStateException if no plugin or multiple plugins found
-     */
-    public static PluginAdapter discoverSingle(File projectRoot)
-    {
-        List<PluginAdapter> candidates = new ArrayList<>();
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        if (cl == null) cl = PluginDefinitionDiscovery.class.getClassLoader();
-
-        // --- Step 1: Try with ServiceLoader (the standard way) ---
-        try {
-            Class<?> v2Class = Class.forName("dev.dsf.bpe.v2.ProcessPluginDefinition", false, cl);
-            ServiceLoader<?> v2Loader = ServiceLoader.load(v2Class, cl);
-            for (Object instance : v2Loader) candidates.add(new V2Adapter(instance));
-        } catch (ClassNotFoundException ignored) {}
-        try {
-            Class<?> v1Class = Class.forName("dev.dsf.bpe.v1.ProcessPluginDefinition", false, cl);
-            ServiceLoader<?> v1Loader = ServiceLoader.load(v1Class, cl);
-            for (Object instance : v1Loader) candidates.add(new V1Adapter(instance));
-        } catch (ClassNotFoundException ignored) {}
-
-        // --- DEBUG: Report if found via ServiceLoader and show its root location ---
-        if (!candidates.isEmpty()) {
-            System.out.println("[DEBUG] Plugin found via Java ServiceLoader.");
-            candidates.forEach(p -> {
-                String location = "unknown";
-                try {
-                    // Get the JAR or directory path from where the class was loaded
-                    location = p.sourceClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-                } catch (Exception ignored) {}
-                System.out.println("  -> Found class: " + p.sourceClass().getName());
-                System.out.println("     -> From root: " + location);
-            });
-        }
-
-        // --- Step 2: If ServiceLoader failed, start manual scan --- (unpacked jar)
-        if (candidates.isEmpty()) {
-            System.out.println("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
-            candidates.addAll(scanJars(cl));
-            candidates.addAll(scanDirectories(cl));
-            if (projectRoot != null) {
-                candidates.addAll(scanProjectRoot(projectRoot));
-            }
-        }
-
-        // --- Step 3: Deduplicate and select the final candidate ---
-        Set<String> seen = new LinkedHashSet<>();
-        candidates.removeIf(a -> !seen.add(a.sourceClass().getName()));
-
-        if (candidates.isEmpty()) throw new IllegalStateException("No ProcessPluginDefinition implementation found on classpath");
-
-        List<PluginAdapter> v2 = candidates.stream().filter(a -> a instanceof V2Adapter).collect(Collectors.toList());
-        List<PluginAdapter> pool = !v2.isEmpty() ? v2 : candidates;
-        if (pool.size() > 1) {
-            String api = !v2.isEmpty() ? "[v2]" : "[v1]";
-            String names = pool.stream().map(a -> a.sourceClass().getName()).collect(Collectors.joining(", "));
-            throw new IllegalStateException("Multiple ProcessPluginDefinition implementations found " + api + ": " + names);
-        }
-
-        PluginAdapter foundPlugin = pool.getFirst();
-        System.out.println("[DEBUG] Final selected plugin: " + foundPlugin.sourceClass().getName());
-        return foundPlugin;
-    }
-
-    /**
      * Scans project root recursively for plugin definitions.
      * @param projectRoot the project root directory
      * @return list of discovered plugins
      */
-    private static List<PluginAdapter> scanProjectRoot(File projectRoot) {
+    static List<PluginAdapter> scanProjectRoot(File projectRoot) {
         List<PluginAdapter> found = new ArrayList<>();
 
         try {
@@ -472,7 +400,7 @@ public final class PluginDefinitionDiscovery
      * @param parentCl parent class loader
      * @return list of plugins found in JARs
      */
-    private static List<PluginAdapter> scanJars(ClassLoader parentCl) {
+    static List<PluginAdapter> scanJars(ClassLoader parentCl) {
         List<PluginAdapter> found = new ArrayList<>();
         String cp = System.getProperty("java.class.path", "");
         String sep = File.pathSeparator;
@@ -532,7 +460,7 @@ public final class PluginDefinitionDiscovery
      * @param parentCl parent class loader
      * @return list of discovered plugins
      */
-    private static List<PluginAdapter> scanDirectories(ClassLoader parentCl) {
+    static List<PluginAdapter> scanDirectories(ClassLoader parentCl) {
         List<PluginAdapter> found = new ArrayList<>();
         String[] scanPaths = { "target/classes", "build/classes/java/main", "out/production/classes" };
         for (String scanPath : scanPaths) {
