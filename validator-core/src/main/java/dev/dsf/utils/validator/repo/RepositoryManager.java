@@ -4,6 +4,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.File;
+import java.util.Objects;
 
 /**
  * <h2>Repository Manager</h2>
@@ -50,7 +51,7 @@ public class RepositoryManager {
      */
 
     public File getRepository(String remoteRepoUrl, File cloneDir) throws GitAPIException {
-        if (!cloneDir.exists() || cloneDir.list().length == 0) {
+        if (!cloneDir.exists() || Objects.requireNonNull(cloneDir.list()).length == 0) {
             System.out.println("Cloning repository from: " + remoteRepoUrl);
             Git.cloneRepository()
                     .setURI(remoteRepoUrl)
