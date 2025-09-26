@@ -1,172 +1,201 @@
 package dev.dsf.utils.validator;
 
-import dev.dsf.utils.validator.build.MavenBuilder;
+import dev.dsf.utils.validator.logger.ConsoleLogger;
+import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.repo.RepositoryManager;
-import dev.dsf.utils.validator.util.MavenUtil;
-import dev.dsf.utils.validator.util.ApiVersionDetector;
-import dev.dsf.utils.validator.util.ApiVersionHolder;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 
-/**
- * <p>
- * Entry point for validating BPMN and FHIR files contained in either a local project directory
- * or a remote Git repository. If a remote repository is specified, it is cloned before validation.
- * </p>
- *
- * <p>
- * This class uses:
- * <ul>
- *   <li><strong>Picocli</strong> – for command-line argument parsing</li>
- *   <li><strong>JGit</strong> – for Git repository cloning</li>
- *   <li><strong>Maven</strong> – for building the cloned or local project before validation</li>
- * </ul>
- * </p>
- *
- * <p><strong>Main responsibilities:</strong></p>
- * <ol>
- *   <li>Parse command-line arguments.</li>
- *   <li>Clone a remote Git repository or use a specified local project directory.</li>
- *   <li>Build the project using Maven.</li>
- *   <li>Run validations for BPMN and FHIR files and generate reports.</li>
- * </ol>
- *
- * <h3>Example Usage:</h3>
- * <pre>
- *   java -jar dsf-validator.jar --localPath /path/to/local/project
- *
- *   or
- *
- *   java -jar dsf-validator.jar --remoteRepo https://github.com/user/project.git
- *
- * </pre>
- *
- * <h3>References:</h3>
- * <ul>
- *   <li><a href="https://picocli.info/">Picocli Documentation</a></li>
- *   <li><a href="https://www.eclipse.org/jgit/">JGit Documentation</a></li>
- *   <li><a href="https://maven.apache.org/">Apache Maven Documentation</a></li>
- * </ul>
- */
 @Command(
-        name = "Main",
+        name = "dsf-validator",
         mixinStandardHelpOptions = true,
-        description = "Validates BPMN and FHIR files from a local path or a remote Git repository."
+        version = "3.0.0",
+        description = "Validates DSF process plugins from a local project or a remote Git repository."
 )
-public class Main implements Callable<Integer>
-{
-    /**
-     * Path to a local project directory to be validated.
-     */
-    @Option(names = "--localPath", description = "Path to a local project directory.")
-    private File localPath;
+public class Main implements Callable<Integer> {
 
-    /**
-     * URL of a remote Git repository to be cloned and validated.
-     */
-    @Option(names = "--remoteRepo", description = "URL of a remote Git repository to be cloned.")
-    private String remoteRepoUrl;
+    @Option(names = {"-p", "--path"},
+            description = "Path to the local project directory or URL of a remote Git repository.")
+    private String inputPath;
 
-    /**
-     * Main method that initializes command-line processing with Picocli.
-     *
-     * @param args command-line arguments
-     */
-    public static void main(String[] args)
-    {
+    @Option(names = {"-r", "--report-path"},
+            description = "Directory for validation reports. Default: <project-path>/target/dsf-validation-report")
+    private Path reportPath;
+
+    @Option(names = "--html",
+            description = "Generate an additional HTML report.")
+    private boolean generateHtmlReport = true;
+
+    @Option(names = "--no-fail",
+            description = "Exit with code 0 even if validation errors are found.")
+    private boolean noFailOnErrors = true;
+
+    @Option(names = {"-v", "--verbose"},
+            description = "Enable verbose logging output.")
+    private boolean verbose = false;
+
+
+    public static void main(String[] args) {
         int exitCode = new CommandLine(new Main()).execute(args);
         System.exit(exitCode);
     }
 
-    /**
-     * Method executed after command-line parsing is completed.
-     * Handles validation process including cloning (if necessary), building with Maven, and running validations.
-     *
-     * @return exit code (0 if successful, non-zero otherwise)
-     * @throws Exception if an unexpected error occurs
-     */
     @Override
-    public Integer call() throws Exception
-    {
-        // Validate that exactly one of --localPath or --remoteRepo is provided.
-        if ((localPath == null || !localPath.isDirectory()) && (remoteRepoUrl == null || remoteRepoUrl.isBlank()))
-        {
-            System.err.println("ERROR: Specify either --localPath or --remoteRepo.");
-            return 1;
-        }
-        if (localPath != null && remoteRepoUrl != null)
-        {
-            System.err.println("ERROR: Use only one of --localPath or --remoteRepo, not both.");
+    public Integer call() throws Exception {
+        Logger logger = new ConsoleLogger(verbose);
+        logger.info("DSF Validator v3.0.0");
+
+        // Validate input
+        if (inputPath == null || inputPath.isBlank()) {
+            logger.error("ERROR: Specify a path using --path (local directory or Git repository URL).");
             return 1;
         }
 
-        // Determine the project directory (either local or cloned).
-        File projectDir = (remoteRepoUrl != null) ? cloneRepository(remoteRepoUrl) : localPath;
-        if (projectDir == null)
-        {
+        // Determine project path (local or cloned)
+        Path projectPath = resolveProjectPath(inputPath, logger);
+        if (projectPath == null) {
             return 1;
         }
 
-        // Locate Maven executable and build the project.
-        MavenBuilder builder = new MavenBuilder();
-        String mavenExecutable = MavenUtil.locateMavenExecutable();
-        if (mavenExecutable == null)
-        {
-            System.err.println("ERROR: Maven executable not found in PATH.");
-            return 1;
+        // Set default report path if not specified
+        if (reportPath == null) {
+            reportPath = projectPath.resolve("target").resolve("dsf-validation-report");
         }
-        if (!builder.buildProject(projectDir, mavenExecutable,
-                "-B", "-DskipTests", "-Dformatter.skip=true", "-Dexec.skip=true", "clean", "package", "dependency:copy-dependencies"))
-        {
-            System.err.println("ERROR: Maven 'package' phase failed.");
-            return 1;
-        }
+        reportPath.toFile().mkdirs();
 
-        // Prepare clean report directory
-        File reportRoot = new File("report");
-
-        // Detect and store API version before any validation
-        String apiVersion = ApiVersionDetector.detectVersion(projectDir.toPath());
-        ApiVersionHolder.setVersion(apiVersion);
-
-        // Validate the project files (BPMN and FHIR).
-        DsfValidatorImpl validator = new DsfValidatorImpl();
-        ValidationOutput output = validator.validate(projectDir.toPath());
-
-        System.out.printf("%nValidation finished – %d issue(s) found.%n", output.validationItems().size());
-        System.out.println("Reports written to: " + reportRoot.getAbsolutePath());
-
-        // Print detected API version in red
-        System.out.println("\u001B[31mDetected DSF BPE API version: "
-                + apiVersion + "\u001B[0m");
-        return 0;
+        // Execute unified validation
+        return runValidation(projectPath, logger);
     }
 
     /**
-     * Clones a remote Git repository into a temporary directory under the system's temp folder.
-     *
-     * @param remoteUrl the remote repository URL
-     * @return a {@link File} representing the cloned repository's directory, or {@code null} if cloning fails
+     * Run validation using the unified validator.
+     * The validator handles any number of plugins uniformly.
      */
-    private File cloneRepository(String remoteUrl)
-    {
-        String repositoryName = remoteUrl.substring(remoteUrl.lastIndexOf('/') + 1);
-        File cloneDir = new File(System.getProperty("java.io.tmpdir"), repositoryName);
+    private Integer runValidation(Path projectPath, Logger logger) {
+        try {
+            // Create configuration
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    projectPath.toAbsolutePath(),
+                    reportPath.toAbsolutePath(),
+                    generateHtmlReport,
+                    !noFailOnErrors,
+                    logger
+            );
+
+            // Create and run validator - handles any number of plugins
+            DsfValidatorImpl validator = new DsfValidatorImpl(config);
+            DsfValidatorImpl.ValidationResult result = validator.validate();
+
+            // Output summary
+            printResult(result, logger);
+
+            // Return exit code
+            return result.success() ? 0 : 1;
+
+        } catch (Exception e) {
+            logger.error("FATAL: " + e.getMessage(), e);
+            return 1;
+        }
+    }
+
+    /**
+     * Print result summary.
+     * Works uniformly for any number of plugins.
+     */
+    private void printResult(DsfValidatorImpl.ValidationResult result, Logger logger) {
+        // Unified summary for any number of plugins
+        logger.info(String.format(
+                "\nValidation completed for %d plugin(s) with %d total plugin errors and %d total plugin warnings.",
+                result.pluginValidations().size(),
+                result.getPluginErrors(),
+                result.getPluginWarnings()
+        ));
+
+        if (result.getLeftoverCount() > 0) {
+            logger.info(String.format(
+                    "Additionally, %d unreferenced project-level resource(s) were found.",
+                    result.getLeftoverCount()
+            ));
+        }
+
+        logger.info("Reports written to: " + result.masterReportPath().toUri());
+    }
+
+    /**
+     * Resolves the project path from input (local or remote).
+     */
+    private Path resolveProjectPath(String input, Logger logger) {
+        if (isRemoteRepository(input)) {
+            // Clone remote repository
+            Optional<Path> clonedPath = cloneRepository(input, logger);
+            if (clonedPath.isEmpty()) {
+                logger.error("Failed to clone repository");
+                return null;
+            }
+            logger.info("Successfully cloned repository to: " + clonedPath.get());
+            return clonedPath.get();
+        } else {
+            // Local path
+            Path localPath = Path.of(input);
+            if (!Files.exists(localPath) || !Files.isDirectory(localPath)) {
+                logger.error("ERROR: Path does not exist or is not a directory: " + input);
+                return null;
+            }
+            return localPath;
+        }
+    }
+
+    private boolean isRemoteRepository(String input) {
+        return input != null && (
+                input.startsWith("http://") ||
+                        input.startsWith("https://") ||
+                        input.startsWith("git://") ||
+                        input.startsWith("ssh://") ||
+                        input.contains("git@")
+        );
+    }
+
+    private Optional<Path> cloneRepository(String remoteUrl, Logger logger) {
+        String repositoryName = remoteUrl.substring(remoteUrl.lastIndexOf('/') + 1)
+                .replace(".git", "");
+        Path clonePath = Path.of(System.getProperty("java.io.tmpdir"), "dsf-validator-" + repositoryName);
+
+        if (Files.exists(clonePath)) {
+            deleteDirectoryRecursively(clonePath);
+        }
 
         RepositoryManager repoManager = new RepositoryManager();
-        try
-        {
-            return repoManager.getRepository(remoteUrl, cloneDir);
+        try {
+            File result = repoManager.getRepository(remoteUrl, clonePath.toFile());
+            return Optional.ofNullable(result).map(File::toPath);
+        } catch (GitAPIException e) {
+            logger.error("ERROR: Failed to clone repository: " + e.getMessage());
+            return Optional.empty();
         }
-        catch (GitAPIException e)
-        {
-            System.err.println("ERROR: Failed to clone repository: " + e.getMessage());
-            return null;
+    }
+
+    private void deleteDirectoryRecursively(Path path) {
+        try (Stream<Path> walk = Files.walk(path)) {
+            walk.sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(file -> {
+                        if (!file.delete()) {
+                            System.err.println("Warning: Could not delete file: " + file);
+                        }
+                    });
+        } catch (IOException e) {
+            System.err.println("Warning: Could not recursively delete directory: " + path);
         }
     }
 }
