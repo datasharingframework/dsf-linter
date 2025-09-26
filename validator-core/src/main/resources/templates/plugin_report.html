@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>DSF Validation Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&display=swap');
+
+        :root {
+            /* Color palette based on your screenshot */
+            --primary-glow: #63C7A6;
+            --success-color: #63C7A6;
+            --primary-darker: #54AEA0;
+            --accent-blue-medium: #3F8999;
+            --accent-blue-dark: #326F95;
+
+            /* Retained for UI clarity */
+            --warning-color: #ffd900;
+            --error-color: #ff3c5f;
+
+            /* Derived dark theme to complement the palette */
+            --background-dark: #1d2a35;
+            --surface-color: #2c3a47;
+            --text-color: #e2e8f0;
+            --text-muted: #a0aec0;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--background-dark);
+            color: var(--text-color);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--accent-blue-dark) 0%, var(--background-dark) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 2px solid var(--primary-glow);
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .header .report-date {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap; /* Allows cards to wrap on smaller screens */
+            justify-content: center; /* Center cards */
+            padding: 2rem;
+            gap: 1rem;
+            margin: 2rem;
+        }
+
+        .dashboard-card {
+            background: var(--surface-color);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            text-align: center;
+            flex-basis: 180px; /* Set a base width for cards */
+            flex-grow: 1;
+            border: 1px solid #2d3748;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px rgba(99, 199, 166, 0.5);
+        }
+
+        .dashboard-card .number {
+            font-size: 3.5rem;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .dashboard-card .label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .systems-bay {
+            margin: 2rem;
+            background: var(--surface-color);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #2d3748;
+            max-width: 100%;
+        }
+
+        .systems-bay h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--primary-glow);
+            padding-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #2d3748;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .status-nominal { color: var(--success-color); font-weight: bold; }
+        .status-anomaly { color: var(--error-color); font-weight: bold; }
+
+        .telemetry-link {
+            color: var(--primary-glow);
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .telemetry-link:hover { text-decoration: underline; }
+
+
+        .launch-control p {
+            font-size: 1rem;
+            text-transform: none;
+            font-weight: normal;
+            margin: 0.5rem 0 0;
+            color: var(--text-muted);
+        }
+
+        .cargo-bay {
+            margin: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 217, 0, 0.05);
+            border-radius: 12px;
+            border-left: 5px solid var(--warning-color);
+        }
+
+        .cargo-bay h3 {
+            color: var(--warning-color);
+            margin-top: 2rem;
+        }
+
+        .cargo-bay table {
+            margin-top: 0.5rem;
+        }
+        .line-break {
+            word-break: break-all;
+        }
+        .fixed-table-width {
+            table-layout: fixed;
+        }
+        .plugin-class-col {
+            width: 35%;
+        }
+        .header-logo {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            width: 175px;
+            height: auto;
+            filter: drop-shadow(0 0 6px var(--primary-glow));
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <img th:src="'data:image/svg+xml;base64,' + ${logoBase64}" alt="Logo" class="header-logo"/>
+    <h1>DSF Validation Report</h1>
+    <p th:text="${projectName}">Project Analysis</p>
+    <p class="report-date" th:text="'Report generated on: ' + ${reportTimestamp}">Report generated on: 2025-09-25 19:30:00 +0200</p>
+</div>
+
+<div class="dashboard">
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--success-color);" th:text="${totalSuccesses}">0</div>
+        <div class="label">SUCCESS</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--error-color);" th:text="${totalErrors}">0</div>
+        <div class="label">ERRORS</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--warning-color);" th:text="${totalWarnings}">0</div>
+        <div class="label">WARNINGS</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--text-muted);" th:text="${totalInfos}">0</div>
+        <div class="label">INFO</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" th:text="${totalPlugins}">0</div>
+        <div class="label">PLUGINS</div>
+    </div>
+    <div class="dashboard-card" th:if="${leftoverAnalysis != null and leftoverAnalysis.getTotalLeftoverCount() > 0}">
+        <div class="number" style="color: var(--primary-darker);"
+             th:text="${leftoverAnalysis.getTotalLeftoverCount()}">0</div>
+        <div class="label">LEFTOVER RESOURCES</div>
+    </div>
+</div>
+
+<div class="systems-bay">
+    <h2>Systems Diagnostics</h2>
+    <table class="fixed-table-width">
+        <thead>
+        <tr>
+            <th>Status</th>
+            <th>Plugin Name</th>
+            <th class="plugin-class-col">Plugin Class</th>
+            <th>API VERSION</th>
+            <th>ERRORS</th>
+            <th>WARNINGS</th>
+            <th>INFO</th>
+            <th>REPORTS</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="validation : ${validations}">
+            <td>
+                <span th:if="${validation.errors == 0}" class="status-nominal">PASSED</span>
+                <span th:if="${validation.errors > 0}" class="status-anomaly">FAILED</span>
+            </td>
+            <td th:text="${validation.pluginName}" class="line-break">Plugin Name</td>
+            <td th:text="${validation.pluginClass}" class="line-break plugin-class-col">Plugin Class</td>
+            <td th:text="${validation.apiVersion}">API Version</td>
+            <td th:text="${validation.errors}"
+                th:class="${validation.errors > 0 ? 'status-anomaly' : ''}">0</td>
+            <td th:text="${validation.warnings}"
+                th:class="${validation.warnings > 0 ? 'status-advisory' : ''}">0</td>
+            <td th:text="${validation.infos}"
+                th:class="${validation.infos > 0 ? 'status-advisory' : ''}">0</td>
+            <td>
+                <a th:href="${validation.jsonReportPath}"
+                   class="telemetry-link"
+                   target="_blank">ACCESS LOG</a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div th:if="${leftoverAnalysis != null and leftoverAnalysis.getTotalLeftoverCount() > 0}"
+     class="cargo-bay">
+    <h2>Project-Wide Leftover Resource Analysis</h2>
+    <p>The following resources were found in the project directory but are not referenced by any plugin.</p>
+
+    <div th:if="${leftoverAnalysis.leftoverBpmnPaths.size() > 0}">
+        <h3>Unreferenced BPMN Files (<span th:text="${leftoverAnalysis.leftoverBpmnPaths.size()}">0</span>)</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>File Path</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="path : ${leftoverAnalysis.leftoverBpmnPaths}">
+                <td th:text="${path}">bpmn/process.bpmn</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${leftoverAnalysis.leftoverFhirPaths.size() > 0}">
+        <h3>Unreferenced FHIR Files (<span th:text="${leftoverAnalysis.leftoverFhirPaths.size()}">0</span>)</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>File Path</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="path : ${leftoverAnalysis.leftoverFhirPaths}">
+                <td th:text="${path}">fhir/Resource.xml</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8rem;">
+    <p>Full telemetry logs for each system are available in their respective data pods.</p>
+</div>
+
+</body>
+</html>
