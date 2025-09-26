@@ -110,7 +110,11 @@
             <version>2.10.3</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>org.thymeleaf</groupId>
+            <artifactId>thymeleaf</artifactId>
+            <version>3.1.2.RELEASE</version>
+        </dependency>
 
     </dependencies>
 
