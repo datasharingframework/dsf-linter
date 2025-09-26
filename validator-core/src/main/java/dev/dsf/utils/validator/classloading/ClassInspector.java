@@ -12,7 +12,7 @@ import static dev.dsf.utils.validator.util.ValidationUtils.isEmpty;
 
 public class ClassInspector {
 
-    private static final Logger logger = new ConsoleLogger();
+    private static final Logger logger = new ConsoleLogger(false);
 
     /**
      * List of all DSF task-related interface class names supported for validation purposes.

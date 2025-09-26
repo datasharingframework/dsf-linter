@@ -9,6 +9,12 @@ import dev.dsf.utils.validator.util.Console;
  */
 public class ConsoleLogger implements Logger {
 
+    private final boolean verbose;
+
+    public ConsoleLogger(boolean verbose) {
+        this.verbose = verbose;
+    }
+
     @Override
     public void info(String message) {
         System.out.println(message);
@@ -37,7 +43,9 @@ public class ConsoleLogger implements Logger {
 
     @Override
     public void debug(String message) {
-        // Debug messages go to standard output with DEBUG prefix
-        System.out.println("DEBUG: " + message);
+        // Only print debug messages if verbose mode is enabled.
+        if (verbose) {
+            System.out.println("DEBUG: " + message);
+        }
     }
 }
