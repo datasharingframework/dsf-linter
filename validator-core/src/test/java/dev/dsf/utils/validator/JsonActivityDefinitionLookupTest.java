@@ -58,8 +58,6 @@ public class JsonActivityDefinitionLookupTest
      */
     private File activityDefinitionDir;
 
-    private File reportDir;  // For storing test reports
-
     /**
      * A "no-op" (no-operation) logger for tests that does nothing.
      */
@@ -92,7 +90,8 @@ public class JsonActivityDefinitionLookupTest
         boolean directoriesCreated = activityDefinitionDir.mkdirs();
 
         // Directory for the validator to write its reports
-        reportDir = tempDir.resolve("reports").toFile();
+        // For storing test reports
+        File reportDir = tempDir.resolve("reports").toFile();
     }
 
     /**

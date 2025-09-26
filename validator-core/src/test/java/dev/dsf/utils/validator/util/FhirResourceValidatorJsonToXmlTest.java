@@ -80,10 +80,10 @@ class FhirResourceValidatorJsonToXmlTest {
     /**
      * Helper method to load JSON from classpath resource.
      */
-    private String loadJsonFromResource(String resourcePath) throws Exception {
-        try (InputStream jsonStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+    private String loadJsonFromResource() throws Exception {
+        try (InputStream jsonStream = getClass().getClassLoader().getResourceAsStream("fhir/examples/dashBoardReport/ActivityDefinition/report-autostart.json")) {
             if (jsonStream == null) {
-                throw new RuntimeException("Resource not found: " + resourcePath);
+                throw new RuntimeException("Resource not found: " + "fhir/examples/dashBoardReport/ActivityDefinition/report-autostart.json");
             }
             return new String(jsonStream.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -128,7 +128,7 @@ class FhirResourceValidatorJsonToXmlTest {
         void testConvertValidActivityDefinitionJsonToXml() throws Exception {
             String jsonContent;
             try {
-                jsonContent = loadJsonFromResource("fhir/examples/dashBoardReport/ActivityDefinition/report-autostart.json");
+                jsonContent = loadJsonFromResource();
             } catch (Exception e) {
                 // Fallback to inline JSON if resource loading fails
                 jsonContent = """

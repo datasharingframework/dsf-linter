@@ -1,11 +1,8 @@
 package dev.dsf.utils.validator;
 
-import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
-import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.logger.Logger;
-import dev.dsf.utils.validator.util.validation.ValidationOutput;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
@@ -13,7 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test class for JSON support in FHIR resource validation.
@@ -26,9 +23,6 @@ public class JsonSupportTest {
 
     @TempDir
     Path tempDir;
-
-    private DsfValidatorImpl validator;
-    private Path fhirDir;
 
     /**
      * A "no-op" (no-operation) logger for tests that does nothing.
@@ -48,11 +42,9 @@ public class JsonSupportTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        validator = new DsfValidatorImpl(new NoOpLogger());
-
         // Create test project structure
         Path srcMain = tempDir.resolve("src").resolve("main").resolve("resources");
-        fhirDir = srcMain.resolve("fhir");
+        Path fhirDir = srcMain.resolve("fhir");
         Files.createDirectories(fhirDir);
 
         // Create test XML file
@@ -128,60 +120,22 @@ public class JsonSupportTest {
 
     @Test
     void testJsonSupportBehaviorWithoutCompleteProject() {
-        // The current implementation requires a complete Maven project with ProcessPluginDefinition
-        // Without pom.xml and ProcessPluginDefinition, validation should fail
-        assertThrows(RuntimeException.class, () -> validator.validate(tempDir),
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        assertThrows(IOException.class, validator::validate,
                 "Should fail validation for incomplete project structure (Maven build failure)");
     }
 
     @Test
     void testJsonSupportBehaviorWithMinimalMavenProject() throws IOException {
-        // Create minimal Maven project structure
         createMinimalMavenProject();
-
-        // Even with Maven project, without ProcessPluginDefinition it should fail during discovery
-        assertThrows(IllegalStateException.class, () -> validator.validate(tempDir),
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        assertThrows(IOException.class, validator::validate,
                 "Should fail during ProcessPluginDefinition discovery");
     }
 
-    @Test
-    void testSingleFileValidationBehavior() throws IOException, MissingServiceRegistrationException, ResourceValidationException, InterruptedException {
-        // Test validation of individual XML and JSON files
-        Path xmlFile = fhirDir.resolve("test-task.xml");
-        Path jsonFile = fhirDir.resolve("test-task.json");
-
-        // Both single file validations should return empty output
-        ValidationOutput xmlResult = validator.validate(xmlFile);
-        ValidationOutput jsonResult = validator.validate(jsonFile);
-
-        assertNotNull(xmlResult, "Should return validation output for XML file");
-        assertNotNull(jsonResult, "Should return validation output for JSON file");
-
-        assertTrue(xmlResult.validationItems().isEmpty(),
-                "Should return empty validation items for single XML files");
-        assertTrue(jsonResult.validationItems().isEmpty(),
-                "Should return empty validation items for single JSON files");
-    }
-
-    @Test
-    void testReportDirectoryHandling() throws IOException, MissingServiceRegistrationException, ResourceValidationException, InterruptedException {
-        // Test that the validator handles report directory creation appropriately
-        Path nonExistentDir = tempDir.resolve("does-not-exist");
-
-        ValidationOutput result = validator.validate(nonExistentDir);
-
-        assertNotNull(result, "Should return validation output even for non-existent directories");
-        assertTrue(result.validationItems().isEmpty(),
-                "Should return empty validation items for non-existent directories");
-
-        // Check that no report directory is created for invalid input
-        File reportDir = new File("report");
-        // Note: The report directory might exist from previous runs, but we shouldn't create it for invalid input
-        // This is expected behavior based on the current implementation
-    }
-
     private void createMinimalMavenProject() throws IOException {
-        // Create basic Maven directory structure
         Path srcMainJava = tempDir.resolve("src").resolve("main").resolve("java");
         Files.createDirectories(srcMainJava);
 
@@ -196,13 +150,11 @@ public class JsonSupportTest {
               <artifactId>test-project</artifactId>
               <version>1.0.0</version>
               <packaging>jar</packaging>
-              
               <properties>
                 <maven.compiler.source>11</maven.compiler.source>
                 <maven.compiler.target>11</maven.compiler.target>
                 <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
               </properties>
-              
               <build>
                 <plugins>
                   <plugin>
@@ -215,17 +167,5 @@ public class JsonSupportTest {
             </project>
             """;
         Files.writeString(tempDir.resolve("pom.xml"), pomContent);
-    }
-
-    private void printDirectoryContents(File dir, String indent) {
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                System.out.println(indent + file.getName());
-                if (file.isDirectory()) {
-                    printDirectoryContents(file, indent + "  ");
-                }
-            }
-        }
     }
 }
