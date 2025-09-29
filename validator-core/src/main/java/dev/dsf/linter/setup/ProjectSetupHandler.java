@@ -1,9 +1,8 @@
-package dev.dsf.linter.setup;
+package dev.dsf.utils.validator.setup;
 
-import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.util.maven.MavenUtil;
-import dev.dsf.linter.classloading.ProjectClassLoaderFactory;
-import dev.dsf.linter.util.resource.ResourceRootResolver;
+import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.util.maven.MavenUtil;
+import dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,23 +59,31 @@ public class ProjectSetupHandler {
         boolean isMavenProject = detectProjectLayout(projectPath);
 
         ClassLoader projectClassLoader;
+        File resourcesDir;
 
         if (isMavenProject) {
             logger.info("Detected Maven project ('pom.xml' exists), executing build...");
+
             buildMavenProject(projectDir);
-        }
-        else {
+            projectClassLoader = createProjectClassLoader(projectDir);
+
+            // Determine resources directory for Maven project
+            File srcMainResources = new File(projectDir, "src/main/resources");
+            resourcesDir = srcMainResources.isDirectory()
+                    ? srcMainResources
+                    : new File(projectDir, "target/classes");
+
+            logger.info("Using Maven resource directory: " + resourcesDir.getAbsolutePath());
+        } else {
             logger.info("No 'pom.xml' found. Assuming exploded plugin layout – skipping Maven build.");
             logger.info("Building runtime classpath from: " + projectDir.getAbsolutePath());
+
+            projectClassLoader = createProjectClassLoader(projectDir);
+            resourcesDir = projectDir;
+
+            logger.info("Using project root as resource directory for exploded plugin: "
+                    + resourcesDir.getAbsolutePath());
         }
-        projectClassLoader = createProjectClassLoader(projectDir);
-
-        // Initial resource root resolution based on standard conventions
-        // This initial resolution provides a baseline, but plugins can override it
-        ResourceRootResolver.ResolutionResult initialResourceRoot =
-                ResourceRootResolver.resolveResourceRoot(projectDir);
-
-        logger.info("Initial resource root resolution: " + initialResourceRoot);
 
         // Set the thread context class loader
         Thread.currentThread().setContextClassLoader(projectClassLoader);
@@ -85,7 +92,7 @@ public class ProjectSetupHandler {
         return new ProjectContext(
                 projectPath,
                 projectDir,
-                initialResourceRoot.resourceRoot(),
+                resourcesDir,
                 isMavenProject,
                 projectClassLoader
         );
@@ -97,7 +104,7 @@ public class ProjectSetupHandler {
      * @param projectPath the project path to check
      * @return true if pom.xml exists, false otherwise
      */
-    private boolean detectProjectLayout(Path projectPath) {
+    public boolean detectProjectLayout(Path projectPath) {
         return Files.isRegularFile(projectPath.resolve("pom.xml"));
     }
 
@@ -119,12 +126,11 @@ public class ProjectSetupHandler {
                 mavenExecutable,
                 "-B",
                 "-DskipTests",
-                "-Dformatter.skip=true", //todo
-                "-Dexec.skip=true", //todo
-                "clean", //todo
-                "package", //todo optional
-                "compile",
-                "dependency:copy-dependencies" //todo
+                "-Dformatter.skip=true",
+                "-Dexec.skip=true",
+                "clean",
+                "package",
+                "dependency:copy-dependencies"
         );
 
         if (!buildOk) {
@@ -163,9 +169,9 @@ public class ProjectSetupHandler {
     }
 
     /**
-     * Data class representing the project context after setup.
-     */
-    public record ProjectContext(Path projectPath, File projectDir, File resourcesDir, boolean isMavenProject,
-                                 ClassLoader projectClassLoader) {
+         * Data class representing the project context after setup.
+         */
+        public record ProjectContext(Path projectPath, File projectDir, File resourcesDir, boolean isMavenProject,
+                                     ClassLoader projectClassLoader) {
     }
 }
