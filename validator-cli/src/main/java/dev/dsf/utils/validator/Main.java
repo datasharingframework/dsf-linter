@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -39,7 +40,7 @@ public class Main implements Callable<Integer> {
 
     @Option(names = "--no-fail",
             description = "Exit with code 0 even if validation errors are found.")
-    private boolean noFailOnErrors = true;
+    private boolean noFailOnErrors = false;
 
     @Option(names = {"-v", "--verbose"},
             description = "Enable verbose logging output.")
@@ -47,6 +48,8 @@ public class Main implements Callable<Integer> {
 
 
     public static void main(String[] args) {
+        boolean verbose = Arrays.stream(args).anyMatch(a -> a.equals("-v") || a.equals("--verbose"));
+        configureLogging(verbose);
         int exitCode = new CommandLine(new Main()).execute(args);
         System.exit(exitCode);
     }
@@ -169,6 +172,7 @@ public class Main implements Callable<Integer> {
     private Optional<Path> cloneRepository(String remoteUrl, Logger logger) {
         String repositoryName = remoteUrl.substring(remoteUrl.lastIndexOf('/') + 1)
                 .replace(".git", "");
+        //dsf-validator-<repositoryName> to avoid collisions with real project directories
         Path clonePath = Path.of(System.getProperty("java.io.tmpdir"), "dsf-validator-" + repositoryName);
 
         if (Files.exists(clonePath)) {
@@ -197,5 +201,17 @@ public class Main implements Callable<Integer> {
         } catch (IOException e) {
             System.err.println("Warning: Could not recursively delete directory: " + path);
         }
+    }
+
+    /**
+     * Configures the logging framework based on the verbose flag.
+     *
+     * @param verbose If true, loads the verbose logging configuration.
+     * Otherwise, loads the default (non-verbose) configuration.
+     */
+    private static void configureLogging(boolean verbose)
+    {
+        String logbackConfigurationFile = verbose ? "logback-verbose.xml" : "logback.xml";
+        System.setProperty("logback.configurationFile", logbackConfigurationFile);
     }
 }
