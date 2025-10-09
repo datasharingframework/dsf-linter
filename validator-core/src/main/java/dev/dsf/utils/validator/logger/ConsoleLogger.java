@@ -7,13 +7,7 @@ import dev.dsf.utils.validator.util.Console;
  * System.out and System.err console streams. It uses the Console
  * utility to colorize error messages.
  */
-public class ConsoleLogger implements Logger {
-
-    private final boolean verbose;
-
-    public ConsoleLogger(boolean verbose) {
-        this.verbose = verbose;
-    }
+public record ConsoleLogger(boolean verbose) implements Logger {
 
     @Override
     public void info(String message) {
@@ -48,4 +42,10 @@ public class ConsoleLogger implements Logger {
             System.out.println("DEBUG: " + message);
         }
     }
+
+    @Override
+    public boolean isVerbose() {
+        return verbose;
+    }
+
 }

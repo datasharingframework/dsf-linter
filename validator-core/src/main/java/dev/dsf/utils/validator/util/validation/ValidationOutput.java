@@ -190,7 +190,7 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
     /**
      * Prints the validation results to the console.
      */
-    public void printResults()
+    public void printResults(Logger logger)
     {
         if (validationItems.isEmpty())
         {

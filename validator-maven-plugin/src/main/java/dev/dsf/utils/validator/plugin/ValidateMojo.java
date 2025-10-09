@@ -35,8 +35,15 @@ public class ValidateMojo extends AbstractMojo {
     @Parameter(property = "dsf.htmlReport", defaultValue = "true")
     private boolean generateHtmlReport;
 
-    @Parameter(property = "dsf.failOnErrors", defaultValue = "true") // Default changed to true for CI/CD best practices
+    @Parameter(property = "dsf.failOnErrors", defaultValue = "true")
     private boolean failOnErrors;
+
+    /**
+     * Enables verbose logging to include SUCCESS items in the console output.
+     * Can be activated via the command line with -Ddsf.validation.verbose=true
+     */
+    @Parameter(property = "dsf.validation.verbose", defaultValue = "false")
+    private boolean verbose;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -45,12 +52,17 @@ public class ValidateMojo extends AbstractMojo {
             return;
         }
 
-        Logger validatorLogger = new MavenMojoLogger(logger);
+        // Pass the verbose flag to the logger
+        Logger validatorLogger = new MavenMojoLogger(logger, verbose);
 
         if (reportDirectory == null) {
             reportDirectory = new File(baseDirectory, "target/dsf-validation-report");
         }
-        reportDirectory.mkdirs();
+
+        // Check if the directory could be created AND if it does not already exist.
+        if (!reportDirectory.mkdirs() && !reportDirectory.isDirectory()) {
+            throw new MojoExecutionException("Could not create report directory: " + reportDirectory);
+        }
 
         try {
             runValidation(validatorLogger);

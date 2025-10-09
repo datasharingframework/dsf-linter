@@ -72,6 +72,16 @@ public class JsonActivityDefinitionLookupTest
         public void error(String message, Throwable throwable) { /* Do nothing */ }
         @Override
         public void debug(String message) { /* Do nothing */ }
+
+        @Override
+        public boolean verbose() {
+            return false;
+        }
+
+        @Override
+        public boolean isVerbose() {
+            return false;
+        }
     }
 
     /**

@@ -40,6 +40,17 @@ public class JsonProblemStatementTest
     private static class NoOpLogger implements Logger {
         @Override
         public void debug(String message) { /* Do nothing */ }
+
+        @Override
+        public boolean verbose() {
+            return false;
+        }
+
+        @Override
+        public boolean isVerbose() {
+            return false;
+        }
+
         @Override
         public void info(String message) { /* Do nothing */ }
         @Override

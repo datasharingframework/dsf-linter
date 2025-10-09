@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +29,17 @@ public class JsonSupportTest {
     private static class NoOpLogger implements Logger {
         @Override
         public void debug(String message) { /* Do nothing */ }
+
+        @Override
+        public boolean verbose() {
+            return false;
+        }
+
+        @Override
+        public boolean isVerbose() {
+            return false;
+        }
+
         @Override
         public void info(String message) { /* Do nothing */ }
         @Override

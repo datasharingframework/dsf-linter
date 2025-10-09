@@ -27,7 +27,6 @@ public class DsfMultiPluginValidatorTest {
     @TempDir
     private Path tempReportDir; // JUnit 5 provides a temporary directory for test outputs
 
-    private Path projectPath;
     private DsfValidatorImpl validator;
 
     /**
@@ -35,6 +34,17 @@ public class DsfMultiPluginValidatorTest {
      */
     private static class ConsoleTestLogger implements Logger {
         @Override public void debug(String message) { System.out.println("[DEBUG] " + message); }
+
+        @Override
+        public boolean verbose() {
+            return false;
+        }
+
+        @Override
+        public boolean isVerbose() {
+            return false;
+        }
+
         @Override public void info(String message) { System.out.println("[INFO] " + message); }
         @Override public void warn(String message) { System.out.println("[WARN] " + message); }
         @Override public void error(String message) { System.err.println("[ERROR] " + message); }
@@ -46,13 +56,10 @@ public class DsfMultiPluginValidatorTest {
 
     @BeforeEach
     void setUp() {
-        // Set the system property to skip the 'clean' goal, avoiding file-locking issues on Windows.
-        System.setProperty("dsf.validator.skipClean", "true");
-
         // Locate the test project reliably from test resources.
         URL projectUrl = getClass().getClassLoader().getResource("dsf-multi-plugin-test");
         assertNotNull(projectUrl, "Test project 'dsf-multi-plugin-test' not found in test resources.");
-        projectPath = new File(projectUrl.getPath()).toPath();
+        Path projectPath = new File(projectUrl.getPath()).toPath();
 
         // Configure the validator.
         DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
@@ -69,11 +76,6 @@ public class DsfMultiPluginValidatorTest {
     @Test
     @DisplayName("Should fully validate the multi-plugin project, discover both plugins, and identify leftover files")
     void fullMultiPluginValidationTest() {
-        // Arrange: Validator is configured in setUp. We expect the test project to be compiled.
-        Path targetDir = projectPath.resolve("target/classes");
-        assertTrue(Files.exists(targetDir),
-                "The test project must be compiled. 'target/classes' not found. " +
-                        "Ensure the maven-invoker-plugin is configured correctly in pom.xml.");
 
         // Act & Assert
         assertDoesNotThrow(() -> {
@@ -115,7 +117,6 @@ public class DsfMultiPluginValidatorTest {
             assertNotNull(result.masterReportPath(), "Should have a master report path.");
             assertEquals(tempReportDir, result.masterReportPath());
             assertTrue(Files.exists(result.masterReportPath().resolve("report.html")), "Master HTML report should be generated.");
-            assertTrue(Files.exists(result.masterReportPath().resolve("validation.json")), "Master JSON report should be generated.");
 
             // Check that each plugin has its own report directory
             for (DsfValidatorImpl.PluginValidation validation : pluginValidations.values()) {

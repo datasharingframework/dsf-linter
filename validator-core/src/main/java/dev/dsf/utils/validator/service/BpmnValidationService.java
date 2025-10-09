@@ -126,9 +126,6 @@ public class BpmnValidationService {
         String processId = extractProcessId(output);
         itemsForThisFile.add(createSuccessItem(bpmnFile, processId));
 
-        // Print results for this file
-        output.printResults();
-
         return itemsForThisFile;
     }
 

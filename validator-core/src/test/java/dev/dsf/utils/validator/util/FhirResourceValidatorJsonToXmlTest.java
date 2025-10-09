@@ -3,6 +3,8 @@ package dev.dsf.utils.validator.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
+import dev.dsf.utils.validator.logger.ConsoleLogger;
+import dev.dsf.utils.validator.logger.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -58,7 +60,8 @@ class FhirResourceValidatorJsonToXmlTest {
      */
     @BeforeEach
     void setUp() {
-        validator = new FhirResourceValidator();
+        Logger logger = new ConsoleLogger(false);
+        validator = new FhirResourceValidator(logger);
         objectMapper = new ObjectMapper();
         xpath = XPathFactory.newInstance().newXPath();
     }

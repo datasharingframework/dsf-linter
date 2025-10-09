@@ -44,7 +44,10 @@ public final class FhirResourceValidator {
      */
     private final List<AbstractFhirInstanceValidator> validators;
 
-    public FhirResourceValidator() {
+    private final Logger logger;
+
+    public FhirResourceValidator(Logger logger) {
+        this.logger = logger;
         // Discover validators via ServiceLoader OR fallback to manual list
         ServiceLoader<AbstractFhirInstanceValidator> loader =
                 ServiceLoader.load(AbstractFhirInstanceValidator.class);
@@ -133,7 +136,7 @@ public final class FhirResourceValidator {
             }
         }
 
-        System.out.println("[DEBUG] No FHIR validator recognized file: " + file.getName());
+        logger.info("[INFO] No FHIR validator recognized file: " + file.getName());
         return issues;
     }
 

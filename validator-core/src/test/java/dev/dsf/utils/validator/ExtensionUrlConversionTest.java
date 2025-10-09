@@ -1,6 +1,8 @@
 package dev.dsf.utils.validator;
 
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
+import dev.dsf.utils.validator.logger.ConsoleLogger;
+import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +53,8 @@ public class ExtensionUrlConversionTest
     @BeforeEach
     void setUp() throws IOException
     {
-        validator = new FhirResourceValidator();
+        Logger logger = new ConsoleLogger(false);
+        validator = new FhirResourceValidator(logger);
 
         // Create test project structure under src/main/resources/fhir
         File projectRoot = tempDir.toFile();

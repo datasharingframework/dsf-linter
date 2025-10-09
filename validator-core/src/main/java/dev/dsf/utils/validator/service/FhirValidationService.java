@@ -37,7 +37,7 @@ public class FhirValidationService {
      */
     public FhirValidationService(Logger logger) {
         this.logger = logger;
-        this.fhirResourceValidator = new FhirResourceValidator();
+        this.fhirResourceValidator = new FhirResourceValidator(logger);
     }
 
     /**
@@ -125,9 +125,6 @@ public class FhirValidationService {
         // Extract FHIR reference and add success item
         String fhirReference = extractFhirReference(itemsForThisFile);
         itemsForThisFile.add(createSuccessItem(fhirFile, fhirReference));
-
-        // Print results for this file
-        output.printResults();
 
         return itemsForThisFile;
     }
