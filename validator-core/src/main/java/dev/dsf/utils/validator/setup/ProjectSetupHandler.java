@@ -8,8 +8,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Handles project setup, build operations, and classpath configuration
@@ -111,22 +109,11 @@ public class ProjectSetupHandler {
     }
 
     /**
-     * Executes a Maven build for the specified project directory.
-     * <p>
-     * This method compiles the project, packages it, and copies dependencies to ensure
-     * all classes and resources are available to the validator's ClassLoader.
-     * By default, it runs {@code clean}, {@code package}, and {@code dependency:copy-dependencies}
-     * with optimized flags like {@code -B} (batch mode) and {@code -DskipTests=true}.
-     * <p>
-     * The {@code clean} goal can be skipped by setting the Java System Property
-     * {@code dsf.validator.skipClean} to {@code true}. This is particularly useful
-     * for local test runs to avoid file-locking issues caused by the IDE on Windows.
+     * Builds a Maven project using clean, package, and dependency:copy-dependencies goals.
      *
-     * @param projectDir The root directory of the Maven project to be built.
-     * @throws IllegalStateException    if the Maven executable cannot be found in the system PATH.
-     * @throws InterruptedException     if the build process is interrupted by another thread.
-     * @throws IOException              if an I/O error occurs during the build process execution.
-     * @throws RuntimeException         if the Maven build fails (e.g., with a non-zero exit code).
+     * @param projectDir the project directory
+     * @throws IllegalStateException if Maven is not found or build fails
+     * @throws InterruptedException if the build process is interrupted
      */
     private void buildMavenProject(File projectDir) throws IllegalStateException, InterruptedException, IOException {
         String mavenExecutable = MavenUtil.locateMavenExecutable();
@@ -134,25 +121,16 @@ public class ProjectSetupHandler {
             throw new IllegalStateException("Maven executable not found in PATH.");
         }
 
-        List<String> goals = new ArrayList<>(List.of(
-                "-B",
-                "-DskipTests",
-                "-Dformatter.skip=true",
-                "-Dexec.skip=true"
-        ));
-
-        if (!Boolean.getBoolean("dsf.validator.skipClean")) {
-            goals.add("clean");
-        } else {
-            logger.info("Skipping 'clean' goal because 'dsf.validator.skipClean' is set.");
-        }
-
-        goals.addAll(List.of("package", "dependency:copy-dependencies"));
-
         boolean buildOk = mavenBuilder.buildProject(
                 projectDir,
                 mavenExecutable,
-                goals.toArray(new String[0])
+                "-B",
+                "-DskipTests",
+                "-Dformatter.skip=true",
+                "-Dexec.skip=true",
+                "clean",
+                "package",
+                "dependency:copy-dependencies"
         );
 
         if (!buildOk) {
@@ -191,9 +169,9 @@ public class ProjectSetupHandler {
     }
 
     /**
-         * Data class representing the project context after setup.
-         */
-        public record ProjectContext(Path projectPath, File projectDir, File resourcesDir, boolean isMavenProject,
-                                     ClassLoader projectClassLoader) {
+     * Data class representing the project context after setup.
+     */
+    public record ProjectContext(Path projectPath, File projectDir, File resourcesDir, boolean isMavenProject,
+                                 ClassLoader projectClassLoader) {
     }
 }
