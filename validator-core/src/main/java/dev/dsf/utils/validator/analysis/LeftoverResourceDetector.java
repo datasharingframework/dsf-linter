@@ -2,6 +2,7 @@ package dev.dsf.utils.validator.analysis;
 
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.service.ResourceDiscoveryService;
 import dev.dsf.utils.validator.util.resource.FhirFileUtils;
 
 import java.io.File;
@@ -95,6 +96,158 @@ public class LeftoverResourceDetector {
     }
 
     /**
+     * Gets validation items for a specific plugin in a multi-plugin project.
+     * This method intelligently assigns leftover items based on plugin context.
+     *
+     * @param leftoverAnalysis the complete leftover analysis result
+     * @param pluginName the name of the current plugin
+     * @param plugin the plugin discovery information
+     * @param isLastPlugin whether this is the last plugin being processed
+     * @param isSinglePluginProject whether this is a single-plugin project
+     * @return list of validation items appropriate for this plugin
+     */
+    public List<AbstractValidationItem> getItemsForPlugin(
+            AnalysisResult leftoverAnalysis,
+            String pluginName,
+            ResourceDiscoveryService.PluginDiscovery plugin,
+            boolean isLastPlugin,
+            boolean isSinglePluginProject) {
+
+        if (leftoverAnalysis == null || leftoverAnalysis.items().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Single plugin project: return all items
+        if (isSinglePluginProject) {
+            logger.debug("Single-plugin project: Returning all leftover items");
+            return new ArrayList<>(leftoverAnalysis.items());
+        }
+
+        // Multi-plugin project: apply intelligent assignment
+        return handleMultiPluginLeftovers(
+                leftoverAnalysis.items(),
+                pluginName,
+                plugin,
+                isLastPlugin
+        );
+    }
+
+    /**
+     * Handles leftover items for multi-plugin projects.
+     * Strategy:
+     * - Assign leftover warnings to the specific plugin if we can determine ownership
+     * - Add the success item only to the last plugin if no leftovers exist
+     * - For leftovers that can't be assigned, add them to the last plugin
+     */
+    private List<AbstractValidationItem> handleMultiPluginLeftovers(
+            List<AbstractValidationItem> allLeftoverItems,
+            String pluginName,
+            ResourceDiscoveryService.PluginDiscovery plugin,
+            boolean isLastPlugin) {
+
+        List<AbstractValidationItem> result = new ArrayList<>();
+
+        // Check if there are any leftover warning items
+        boolean hasLeftoverWarnings = allLeftoverItems.stream()
+                .anyMatch(item -> item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem);
+
+        if (!hasLeftoverWarnings) {
+            // Only success items exist - add to last plugin only
+            if (isLastPlugin) {
+                logger.debug("Multi-plugin project: Adding leftover success item to last plugin");
+                result.addAll(allLeftoverItems);
+            }
+        } else {
+            // There are leftover warnings - need to handle them
+
+            // Try to assign leftovers to this specific plugin based on path patterns
+            List<AbstractValidationItem> pluginSpecificLeftovers = filterLeftoversForPlugin(
+                    allLeftoverItems,
+                    pluginName,
+                    plugin
+            );
+
+            if (!pluginSpecificLeftovers.isEmpty()) {
+                logger.debug("Multi-plugin project: Found " + pluginSpecificLeftovers.size() +
+                        " plugin-specific leftovers for " + pluginName);
+                result.addAll(pluginSpecificLeftovers);
+            }
+
+            // Add unassigned leftovers to the last plugin
+            if (isLastPlugin) {
+                List<AbstractValidationItem> unassignedLeftovers = getUnassignedLeftovers(
+                        allLeftoverItems,
+                        pluginName
+                );
+
+                if (!unassignedLeftovers.isEmpty()) {
+                    logger.debug("Multi-plugin project: Adding " + unassignedLeftovers.size() +
+                            " unassigned leftovers to last plugin");
+                    result.addAll(unassignedLeftovers);
+                }
+            }
+        }
+
+        return result;
+    }
+    /**
+     * Filters leftover items that likely belong to a specific plugin.
+     * This is a heuristic based on file paths and plugin naming conventions.
+     */
+    private List<AbstractValidationItem> filterLeftoversForPlugin(
+            List<AbstractValidationItem> allLeftovers,
+            String pluginName,
+            ResourceDiscoveryService.PluginDiscovery plugin) {
+
+        return allLeftovers.stream()
+                .filter(item -> {
+                    if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem leftoverItem) {
+                        String location = leftoverItem.getLocation();
+                        String fileName = leftoverItem.getFileName();
+
+                        // Check if the file path or name contains the plugin name
+                        // This is a simple heuristic - you might need to adjust based on your project structure
+                        String pluginNameLower = pluginName.toLowerCase();
+
+                        // Additional heuristics could be added here:
+                        // - Check against plugin's resource paths
+                        // - Use process IDs from plugin's BPMN files
+                        // - Match against plugin-specific naming patterns
+
+                        return location.toLowerCase().contains(pluginNameLower) ||
+                                fileName.toLowerCase().contains(pluginNameLower);
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Gets leftover items that couldn't be assigned to any specific plugin.
+     * These are typically shared resources or resources with unclear ownership.
+     */
+    private List<AbstractValidationItem> getUnassignedLeftovers(
+            List<AbstractValidationItem> allLeftovers,
+            String excludePluginName) {
+
+        return allLeftovers.stream()
+                .filter(item -> {
+                    if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem leftoverItem) {
+                        String location = leftoverItem.getLocation();
+                        String fileName = leftoverItem.getFileName();
+
+                        // Include items that don't match any plugin name pattern
+                        // This is simplified - you might want more sophisticated logic
+                        return !location.toLowerCase().contains(excludePluginName.toLowerCase()) &&
+                                !fileName.toLowerCase().contains(excludePluginName.toLowerCase());
+                    }
+                    // Include success items only if they haven't been filtered yet
+                    return item instanceof PluginDefinitionValidationItemSuccess;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Creates validation items for leftover resources.
      *
      * @param projectDir the project directory
@@ -113,7 +266,7 @@ public class LeftoverResourceDetector {
 
         if (leftoverBpmnPaths.isEmpty() && leftoverFhirPaths.isEmpty()) {
             // No leftovers found -> success item
-            items.add(new PluginValidationItemSuccess(
+            items.add(new PluginDefinitionValidationItemSuccess(
                     projectDir,
                     projectDir.getName(),
                     "All BPMN and FHIR resources found in the project are correctly referenced in ProcessPluginDefinition."
@@ -122,7 +275,7 @@ public class LeftoverResourceDetector {
             // Report all leftovers as warnings
             leftoverBpmnPaths.forEach(path -> {
                 File file = new File(resourcesDir, path);
-                items.add(new ProcessPluginRessourceNotLoadedValidationItem(
+                items.add(new PluginDefinitionProcessPluginRessourceNotLoadedValidationItem(
                         file, path,
                         "BPMN file exists but is not referenced in ProcessPluginDefinition"
                 ));
@@ -130,7 +283,7 @@ public class LeftoverResourceDetector {
 
             leftoverFhirPaths.forEach(path -> {
                 File file = new File(resourcesDir, path);
-                items.add(new ProcessPluginRessourceNotLoadedValidationItem(
+                items.add(new PluginDefinitionProcessPluginRessourceNotLoadedValidationItem(
                         file, path,
                         "FHIR file exists but is not referenced in ProcessPluginDefinition"
                 ));
@@ -207,32 +360,32 @@ public class LeftoverResourceDetector {
             int actualFhir, int referencedFhir, int leftoverFhir) {
 
         logger.info("BPMN analysis: " + actualBpmn + " files found, " +
-                referencedBpmn + " referenced, " + leftoverBpmn + " leftover");
+                referencedBpmn + " referenced, " + leftoverBpmn + " unused");
 
         logger.info("FHIR analysis: " + actualFhir + " files found, " +
-                referencedFhir + " referenced, " + leftoverFhir + " leftover");
+                referencedFhir + " referenced, " + leftoverFhir + " unused");
 
-        if (leftoverBpmn > 0) {
-            logger.warn("Found " + leftoverBpmn + " unreferenced BPMN files");
-        }
-
-        if (leftoverFhir > 0) {
-            logger.warn("Found " + leftoverFhir + " unreferenced FHIR files");
+        // Removed logger.warn() calls - leftovers are now only shown in the structured
+        // "Unreferenced Resources" section via ProcessPluginRessourceNotLoadedValidationItem
+        if (leftoverBpmn > 0 || leftoverFhir > 0) {
+            logger.debug("Leftover resources will be displayed in validation output");
         }
     }
 
     /**
-         * Data class containing analysis results.
-         */
-        public record AnalysisResult(List<AbstractValidationItem> items, Set<String> leftoverBpmnPaths,
-                                     Set<String> leftoverFhirPaths) {
+     * Data class containing analysis results.
+     */
+    public record AnalysisResult(
+            List<AbstractValidationItem> items,
+            Set<String> leftoverBpmnPaths,
+            Set<String> leftoverFhirPaths) {
 
         public boolean hasLeftovers() {
-                return !leftoverBpmnPaths.isEmpty() || !leftoverFhirPaths.isEmpty();
-            }
-
-            public int getTotalLeftoverCount() {
-                return leftoverBpmnPaths.size() + leftoverFhirPaths.size();
-            }
+            return !leftoverBpmnPaths.isEmpty() || !leftoverFhirPaths.isEmpty();
         }
+
+        public int getTotalLeftoverCount() {
+            return leftoverBpmnPaths.size() + leftoverFhirPaths.size();
+        }
+    }
 }
