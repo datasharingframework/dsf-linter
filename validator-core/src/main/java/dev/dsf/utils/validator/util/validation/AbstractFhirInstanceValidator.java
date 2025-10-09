@@ -177,27 +177,33 @@ public abstract class AbstractFhirInstanceValidator
     }
 
     /**
-     * Extracts the effective value from a FHIR value[x] element.
+     * Extracts the effective value from a FHIR value[x] choice element.
      *
-     * <p>This method handles multiple FHIR value types:</p>
+     * <p>This method is designed to parse the value from a parent node (like {@code <input>})
+     * that contains one of the many {@code value[x]} variants defined by FHIR. It handles the
+     * following common cases:</p>
      * <ul>
-     *   <li><b>Primitive types</b> such as {@code valueString}, {@code valueBoolean}, etc., where the {@code value}
-     *       attribute is located directly on the {@code value[x]} element.</li>
-     *   <li><b>valueReference</b> with logical reference via nested {@code identifier/value} elements.</li>
-     *   <li><b>valueIdentifier</b> with nested {@code value} elements.</li>
+     * <li><b>Primitive types:</b> Extracts the {@code value} attribute from elements like
+     * {@code <valueString value="..." />}, {@code <valueBoolean value="..." />}, etc.</li>
+     * <li><b>valueReference:</b> Handles both <strong>direct references</strong> (via a nested {@code reference} element)
+     * and <strong>logical references</strong> (via a nested {@code identifier} element).</li>
+     * <li><b>valueIdentifier:</b> Extracts the value from a nested {@code value} element within an identifier.</li>
      * </ul>
      *
-     * <p>The method attempts to extract values in the following order:</p>
+     * <p>The method attempts to find a value by checking for child nodes in this specific order of precedence:</p>
      * <ol>
-     *   <li>Direct {@code value} attribute from any child element starting with "value"</li>
-     *   <li>Logical reference from {@code valueReference/identifier/value/@value}</li>
-     *   <li>Identifier value from {@code valueIdentifier/value/@value}</li>
+     * <li>Any element whose name starts with "value" (e.g., {@code valueString}, {@code valueInstant}).</li>
+     * <li>A direct reference via the path {@code valueReference/reference/@value}.</li>
+     * <li>A logical reference via the path {@code valueReference/identifier/value/@value}.</li>
+     * <li>An identifier via the path {@code valueIdentifier/value/@value}.</li>
      * </ol>
      *
-     * @param node the parent node (typically an {@code input} or {@code output} element)
-     * @return the extracted string value if present; {@code null} if no value could be found
+     * @param node The parent DOM node, typically a FHIR element like {@code input} or {@code output},
+     * which contains a {@code value[x]} child.
+     * @return The extracted string value if found; otherwise, {@code null}.
      *
-     * @see <a href="https://hl7.org/fhir/xml.html">FHIR XML Representation Rules (hl7.org)</a>
+     * @see <a href="http://hl7.org/fhir/R4/references.html#Reference">FHIR R4 DataType: Reference</a>
+     * @see <a href="https://www.hl7.org/fhir/R4/formats.html#choice">FHIR R4 Choice Data Types</a>
      */
     protected static String extractValueX(Node node)
     {
@@ -213,11 +219,22 @@ public abstract class AbstractFhirInstanceValidator
                 if (v != null) return v.getNodeValue();
             }
 
-            // case 2 – logical reference: <valueReference><identifier><value value="..."/></identifier>
-            if ("valueReference".equals(k.getNodeName())) {
-                String idValue = extractSingleNodeValue(
-                        k, "./*[local-name()='identifier']/*[local-name()='value']/@value");
-                if (idValue != null && !idValue.isBlank()) return idValue;
+            // case 2 – reference: handles direct and logical references
+            if ("valueReference".equals(k.getNodeName()))
+            {
+                // First, try to find a direct reference (e.g., <reference value="..."/>)
+                String directRef = extractSingleNodeValue(k, "./*[local-name()='reference']/@value");
+                if (directRef != null && !directRef.isBlank())
+                {
+                    return directRef;
+                }
+
+                // If not found, try to find a logical reference (e.g., <identifier><value value="..."/></identifier>)
+                String logicalRef = extractSingleNodeValue(k, "./*[local-name()='identifier']/*[local-name()='value']/@value");
+                if (logicalRef != null && !logicalRef.isBlank())
+                {
+                    return logicalRef;
+                }
             }
 
             // case 3 – valueIdentifier: <valueIdentifier><value value="..."/></valueIdentifier>
