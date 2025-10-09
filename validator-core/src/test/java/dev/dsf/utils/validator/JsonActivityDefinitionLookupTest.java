@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.service.FhirValidationService;
+import dev.dsf.utils.validator.service.ValidationResult;
 import dev.dsf.utils.validator.util.resource.FhirFileUtils;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.Test;
@@ -24,43 +25,19 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests to reproduce and verify the lookup behavior of
  * {@code instantiatesCanonical} references in FHIR {@code Task} resources.
- *
- * <p>This test specifically checks whether a {@code Task} in JSON format
- * can resolve a referenced {@code ActivityDefinition} resource in:
- * <ul>
- *   <li>JSON format (expected to fail due to a known issue)</li>
- *   <li>XML format (expected to succeed)</li>
- * </ul>
- *
- * <p>See issue report related to {@code TASK_UNKNOWN_INSTANTIATES_CANONICAL}
- * errors when working with all-JSON resource inputs.</p>
  */
 public class JsonActivityDefinitionLookupTest
 {
-    /**
-     * Temporary directory provided by JUnit for isolating test resources.
-     */
     @TempDir
     Path tempDir;
 
-    /**
-     * Validator instance used to perform resource validation.
-     */
     private FhirValidationService fhirValidationService;
-
-    /**
-     * Directory where FHIR test resources will be written.
-     */
     private File fhirDir;
-
-    /**
-     * Subdirectory for storing ActivityDefinition files (JSON or XML).
-     */
     private File activityDefinitionDir;
 
-    /**
-     * A "no-op" (no-operation) logger for tests that does nothing.
-     */
+    // FIX: Removed the class-level fhirFiles list to prevent state leakage between tests.
+    // Each test will now collect its own files.
+
     private static class NoOpLogger implements Logger {
         @Override
         public void info(String message) { /* Do nothing */ }
@@ -97,16 +74,9 @@ public class JsonActivityDefinitionLookupTest
         File srcMain = new File(projectRoot, "src/main/resources");
         fhirDir = new File(srcMain, "fhir");
         activityDefinitionDir = new File(fhirDir, "ActivityDefinition");
-        boolean directoriesCreated = activityDefinitionDir.mkdirs();
-
-        // Directory for the validator to write its reports
-        // For storing test reports
-        File reportDir = tempDir.resolve("reports").toFile();
+        activityDefinitionDir.mkdirs();
     }
 
-    /**
-     * Helper method to find all FHIR resource files (.xml, .json) in our test setup.
-     */
     private List<File> collectFhirFiles() throws IOException {
         try (Stream<Path> stream = Files.walk(fhirDir.toPath())) {
             return stream
@@ -222,20 +192,17 @@ public class JsonActivityDefinitionLookupTest
               ]
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
-
-        // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        FhirValidationService.ValidationResult validationResult =
-                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+        ValidationResult validationResult =
+                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
 
+        // FIX: getItems() is now called on the top-level ValidationResult object
         List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
         result.validationItems().forEach(item -> System.out.println("* " + item));
 
-        // The assertion is now flipped to assertFalse.
-        // A passing test now means the logic works correctly.
         boolean hasUnknownCanonicalError = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,
@@ -335,11 +302,9 @@ public class JsonActivityDefinitionLookupTest
               ]
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
-
-        // Use the specific FHIR validation method, bypassing the Maven build
         List<File> fhirFiles = collectFhirFiles();
-        FhirValidationService.ValidationResult validationResult =
-                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+        ValidationResult validationResult =
+                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
 
         List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);

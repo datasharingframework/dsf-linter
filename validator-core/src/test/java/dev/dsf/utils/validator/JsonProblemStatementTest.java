@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.service.FhirValidationService;
+import dev.dsf.utils.validator.service.ValidationResult;
 import dev.dsf.utils.validator.util.resource.FhirFileUtils;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,9 +95,9 @@ public class JsonProblemStatementTest
      * <p>
      * Checks that:
      * <ul>
-     *   <li>No {@code TASK_UNKNOWN_INSTANTIATES_CANONICAL} error occurs</li>
-     *   <li>Successful resolution of the canonical reference is reported</li>
-     *   <li>Validation messages reference only JSON file names</li>
+     * <li>No {@code TASK_UNKNOWN_INSTANTIATES_CANONICAL} error occurs</li>
+     * <li>Successful resolution of the canonical reference is reported</li>
+     * <li>Validation messages reference only JSON file names</li>
      * </ul>
      *
      * @throws IOException if resource creation fails
@@ -104,128 +105,125 @@ public class JsonProblemStatementTest
      */
     @Test
     void testOriginalProblemScenarioFixed() throws IOException, ResourceValidationException {
-        // Write JSON ActivityDefinition
-        String jsonPingActivityDefinition = """
-            {
-              "resourceType": "ActivityDefinition",
-              "meta": {
-                "tag": [
-                  {
-                    "system": "http://dsf.dev/fhir/CodeSystem/read-access-tag",
-                    "code": "ALL"
-                  }
-                ]
-              },
-              "extension": [
-                {
-                  "url": "http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
-                  "extension": [
-                    {
-                      "url": "message-name",
-                      "valueString": "startPing"
-                    },
-                    {
-                      "url": "task-profile",
-                      "valueCanonical": "http://dsf.dev/fhir/StructureDefinition/task-start-ping|#{version}"
-                    },
-                    {
-                      "url": "requester",
-                      "valueCoding": {
-                        "system": "http://dsf.dev/fhir/CodeSystem/process-authorization",
-                        "code": "LOCAL_ALL"
-                      }
-                    },
-                    {
-                      "url": "recipient",
-                      "valueCoding": {
-                        "system": "http://dsf.dev/fhir/CodeSystem/process-authorization",
-                        "code": "LOCAL_ALL"
-                      }
-                    }
-                  ]
-                }
-              ],
-              "url": "http://dsf.dev/bpe/Process/ping",
-              "version": "#{version}",
-              "name": "Ping",
-              "title": "PING process",
-              "subtitle": "Communication Testing Process",
-              "status": "unknown",
-              "experimental": false,
-              "date": "#{date}",
-              "publisher": "DSF",
-              "contact": [
-                {
-                  "name": "DSF",
-                  "telecom": [
-                    {
-                      "system": "email",
-                      "value": "pmo@dsf.dev"
-                    }
-                  ]
-                }
-              ],
-              "description": "Process to send PING messages to remote Organizations and to receive corresponding PONG messages",
-              "kind": "Task"
-            }""";
+        // ... (file writing code remains the same)
+        String jsonPingActivityDefinition = "{\n" +
+                "              \"resourceType\": \"ActivityDefinition\",\n" +
+                "              \"meta\": {\n" +
+                "                \"tag\": [\n" +
+                "                  {\n" +
+                "                    \"system\": \"http://dsf.dev/fhir/CodeSystem/read-access-tag\",\n" +
+                "                    \"code\": \"ALL\"\n" +
+                "                  }\n" +
+                "                ]\n" +
+                "              },\n" +
+                "              \"extension\": [\n" +
+                "                {\n" +
+                "                  \"url\": \"http://dsf.dev/fhir/StructureDefinition/extension-process-authorization\",\n" +
+                "                  \"extension\": [\n" +
+                "                    {\n" +
+                "                      \"url\": \"message-name\",\n" +
+                "                      \"valueString\": \"startPing\"\n" +
+                "                    },\n" +
+                "                    {\n" +
+                "                      \"url\": \"task-profile\",\n" +
+                "                      \"valueCanonical\": \"http://dsf.dev/fhir/StructureDefinition/task-start-ping|#{version}\"\n" +
+                "                    },\n" +
+                "                    {\n" +
+                "                      \"url\": \"requester\",\n" +
+                "                      \"valueCoding\": {\n" +
+                "                        \"system\": \"http://dsf.dev/fhir/CodeSystem/process-authorization\",\n" +
+                "                        \"code\": \"LOCAL_ALL\"\n" +
+                "                      }\n" +
+                "                    },\n" +
+                "                    {\n" +
+                "                      \"url\": \"recipient\",\n" +
+                "                      \"valueCoding\": {\n" +
+                "                        \"system\": \"http://dsf.dev/fhir/CodeSystem/process-authorization\",\n" +
+                "                        \"code\": \"LOCAL_ALL\"\n" +
+                "                      }\n" +
+                "                    }\n" +
+                "                  ]\n" +
+                "                }\n" +
+                "              ],\n" +
+                "              \"url\": \"http://dsf.dev/bpe/Process/ping\",\n" +
+                "              \"version\": \"#{version}\",\n" +
+                "              \"name\": \"Ping\",\n" +
+                "              \"title\": \"PING process\",\n" +
+                "              \"subtitle\": \"Communication Testing Process\",\n" +
+                "              \"status\": \"unknown\",\n" +
+                "              \"experimental\": false,\n" +
+                "              \"date\": \"#{date}\",\n" +
+                "              \"publisher\": \"DSF\",\n" +
+                "              \"contact\": [\n" +
+                "                {\n" +
+                "                  \"name\": \"DSF\",\n" +
+                "                  \"telecom\": [\n" +
+                "                    {\n" +
+                "                      \"system\": \"email\",\n" +
+                "                      \"value\": \"pmo@dsf.dev\"\n" +
+                "                    }\n" +
+                "                  ]\n" +
+                "                }\n" +
+                "              ],\n" +
+                "              \"description\": \"Process to send PING messages to remote Organizations and to receive corresponding PONG messages\",\n" +
+                "              \"kind\": \"Task\"\n" +
+                "            }";
         Files.writeString(new File(activityDefinitionDir, "dsf-ping.json").toPath(), jsonPingActivityDefinition);
-
-        // Write JSON Task that references the ActivityDefinition
-        String jsonStartPingTask = """
-            {
-              "resourceType": "Task",
-              "id": "start-ping-task",
-              "meta": {
-                "profile": ["http://dsf.dev/fhir/StructureDefinition/dsf-task-base"]
-              },
-              "instantiatesCanonical": "http://dsf.dev/bpe/Process/ping|#{version}",
-              "status": "draft",
-              "intent": "order",
-              "authoredOn": "#{date}",
-              "requester": {
-                "identifier": {
-                  "system": "http://dsf.dev/sid/organization-identifier",
-                  "value": "#{organization}"
-                }
-              },
-              "restriction": {
-                "recipient": [
-                  {
-                    "identifier": {
-                      "system": "http://dsf.dev/sid/organization-identifier",
-                      "value": "#{organization}"
-                    }
-                  }
-                ]
-              },
-              "input": [
-                {
-                  "type": {
-                    "coding": [
-                      {
-                        "system": "http://dsf.dev/fhir/CodeSystem/bpmn-message",
-                        "code": "message-name"
-                      }
-                    ]
-                  },
-                  "valueString": "startPing"
-                }
-              ]
-            }""";
+        String jsonStartPingTask = "{\n" +
+                "              \"resourceType\": \"Task\",\n" +
+                "              \"id\": \"start-ping-task\",\n" +
+                "              \"meta\": {\n" +
+                "                \"profile\": [\"http://dsf.dev/fhir/StructureDefinition/dsf-task-base\"]\n" +
+                "              },\n" +
+                "              \"instantiatesCanonical\": \"http://dsf.dev/bpe/Process/ping|#{version}\",\n" +
+                "              \"status\": \"draft\",\n" +
+                "              \"intent\": \"order\",\n" +
+                "              \"authoredOn\": \"#{date}\",\n" +
+                "              \"requester\": {\n" +
+                "                \"identifier\": {\n" +
+                "                  \"system\": \"http://dsf.dev/sid/organization-identifier\",\n" +
+                "                  \"value\": \"#{organization}\"\n" +
+                "                }\n" +
+                "              },\n" +
+                "              \"restriction\": {\n" +
+                "                \"recipient\": [\n" +
+                "                  {\n" +
+                "                    \"identifier\": {\n" +
+                "                      \"system\": \"http://dsf.dev/sid/organization-identifier\",\n" +
+                "                      \"value\": \"#{organization}\"\n" +
+                "                    }\n" +
+                "                  }\n" +
+                "                ]\n" +
+                "              },\n" +
+                "              \"input\": [\n" +
+                "                {\n" +
+                "                  \"type\": {\n" +
+                "                    \"coding\": [\n" +
+                "                      {\n" +
+                "                        \"system\": \"http://dsf.dev/fhir/CodeSystem/bpmn-message\",\n" +
+                "                        \"code\": \"message-name\"\n" +
+                "                      }\n" +
+                "                    ]\n" +
+                "                  },\n" +
+                "                  \"valueString\": \"startPing\"\n" +
+                "                }\n" +
+                "              ]\n" +
+                "            }";
         Files.writeString(new File(fhirDir, "dsf-task-start-ping.json").toPath(), jsonStartPingTask);
-
         // Perform validation using the refactored service
-        List<File> fhirFiles = collectFhirFiles();
-        FhirValidationService.ValidationResult validationResult =
-                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+        final List<File> fhirFiles = collectFhirFiles();
+        // FIX: Use ValidationResult directly, not as a nested class
+        ValidationResult validationResult =
+                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
 
+        // FIX: getItems() is now called on the top-level ValidationResult object
         List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 
         System.out.println("Total validation items: " + result.validationItems().size());
         result.validationItems().forEach(item -> System.out.println("* " + item));
 
-        // Ensure the original issue is fixed
+        // ... (assertions remain the same)
         boolean hasUnknownCanonicalError = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,
@@ -242,10 +240,8 @@ public class JsonProblemStatementTest
         boolean hasActivityDefItems = result.validationItems().stream()
                 .anyMatch(item -> item.toString().contains("dsf-ping") ||
                         item.toString().contains("ActivityDefinition"));
-
         assertTrue(hasTaskFileItems || hasActivityDefItems,
                 "Should have validation items for the created files");
-
         System.out.println("Validation completed successfully without TASK_UNKNOWN_INSTANTIATES_CANONICAL error");
     }
 
@@ -262,40 +258,39 @@ public class JsonProblemStatementTest
      */
     @Test
     void testMixedXmlJsonLookupWorks() throws IOException, ResourceValidationException {
-        // Write XML ActivityDefinition
-        String xmlActivityDefinition = """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <ActivityDefinition xmlns="http://hl7.org/fhir">
-              <meta>
-                <tag>
-                  <system value="http://dsf.dev/fhir/CodeSystem/read-access-tag"/>
-                  <code value="ALL"/>
-                </tag>
-              </meta>
-              <url value="http://dsf.dev/bpe/Process/pong"/>
-              <version value="#{version}"/>
-              <name value="Pong"/>
-              <title value="PONG process"/>
-              <status value="unknown"/>
-              <kind value="Task"/>
-              <extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">
-                <extension url="message-name">
-                  <valueString value="ping"/>
-                </extension>
-                <extension url="requester">
-                  <valueCoding>
-                    <system value="http://dsf.dev/fhir/CodeSystem/process-authorization"/>
-                    <code value="LOCAL_ALL"/>
-                  </valueCoding>
-                </extension>
-                <extension url="recipient">
-                  <valueCoding>
-                    <system value="http://dsf.dev/fhir/CodeSystem/process-authorization"/>
-                    <code value="LOCAL_ALL"/>
-                  </valueCoding>
-                </extension>
-              </extension>
-            </ActivityDefinition>""";
+        // ... (file writing code remains the same)
+        String xmlActivityDefinition = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "            <ActivityDefinition xmlns=\"http://hl7.org/fhir\">\n" +
+                "              <meta>\n" +
+                "                <tag>\n" +
+                "                  <system value=\"http://dsf.dev/fhir/CodeSystem/read-access-tag\"/>\n" +
+                "                  <code value=\"ALL\"/>\n" +
+                "                </tag>\n" +
+                "              </meta>\n" +
+                "              <url value=\"http://dsf.dev/bpe/Process/pong\"/>\n" +
+                "              <version value=\"#{version}\"/>\n" +
+                "              <name value=\"Pong\"/>\n" +
+                "              <title value=\"PONG process\"/>\n" +
+                "              <status value=\"unknown\"/>\n" +
+                "              <kind value=\"Task\"/>\n" +
+                "              <extension url=\"http://dsf.dev/fhir/StructureDefinition/extension-process-authorization\">\n" +
+                "                <extension url=\"message-name\">\n" +
+                "                  <valueString value=\"ping\"/>\n" +
+                "                </extension>\n" +
+                "                <extension url=\"requester\">\n" +
+                "                  <valueCoding>\n" +
+                "                    <system value=\"http://dsf.dev/fhir/CodeSystem/process-authorization\"/>\n" +
+                "                    <code value=\"LOCAL_ALL\"/>\n" +
+                "                  </valueCoding>\n" +
+                "                </extension>\n" +
+                "                <extension url=\"recipient\">\n" +
+                "                  <valueCoding>\n" +
+                "                    <system value=\"http://dsf.dev/fhir/CodeSystem/process-authorization\"/>\n" +
+                "                    <code value=\"LOCAL_ALL\"/>\n" +
+                "                  </valueCoding>\n" +
+                "                </extension>\n" +
+                "              </extension>\n" +
+                "            </ActivityDefinition>";
         Files.writeString(new File(activityDefinitionDir, "dsf-pong.xml").toPath(), xmlActivityDefinition);
 
         // Write referencing JSON Task
@@ -343,10 +338,11 @@ public class JsonProblemStatementTest
         Files.writeString(new File(fhirDir, "pong-task.json").toPath(), jsonTask);
 
         // Perform validation using the refactored service
-        List<File> fhirFiles = collectFhirFiles();
-        FhirValidationService.ValidationResult validationResult =
-                fhirValidationService.validate(fhirFiles, new ArrayList<>());
+        final List<File> fhirFiles = collectFhirFiles();
+        ValidationResult validationResult =
+                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
 
+        // FIX: getItems() is now called on the top-level ValidationResult object
         List<AbstractValidationItem> items = validationResult.getItems();
         ValidationOutput result = new ValidationOutput(items);
 

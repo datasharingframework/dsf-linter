@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.Console;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import dev.dsf.utils.validator.ValidationSeverity;
 
@@ -16,10 +17,10 @@ import java.util.List;
  *
  * <p>This service handles:
  * <ul>
- *   <li>Individual BPMN file validation</li>
- *   <li>Batch BPMN validation</li>
- *   <li>Missing reference tracking</li>
- *   <li>Validation result categorization</li>
+ * <li>Individual BPMN file validation</li>
+ * <li>Batch BPMN validation</li>
+ * <li>Missing reference tracking</li>
+ * <li>Validation result categorization</li>
  * </ul>
  *
  * @author DSF Development Team
@@ -41,28 +42,72 @@ public class BpmnValidationService {
     }
 
     /**
-     * Validates all BPMN files and missing references.
+     * Validates all BPMN aspects for a specific plugin, including referenced but missing files
+     * and the content of existing BPMN files. This method centralizes the collection of
+     * all validation items and handles the console output for all BPMN-related issues.
      *
-     * @param bpmnFiles list of BPMN files to validate
-     * @param missingBpmnRefs list of missing BPMN references
-     * @return validation result containing all items
-     * @throws ResourceValidationException if any BPMN file contains parsing errors
+     * @param pluginName       The name of the plugin being validated. Used for context in error messages.
+     * @param bpmnFiles        A list of existing BPMN files to be validated.
+     * @param missingBpmnRefs  A list of BPMN file paths that were referenced but not found.
+     * @return A {@link ValidationResult} object containing all collected validation items (errors and warnings).
+     * @throws ResourceValidationException if a severe, unrecoverable error occurs during validation.
      */
-    public ValidationResult validate(List<File> bpmnFiles, List<String> missingBpmnRefs)
-            throws ResourceValidationException {
+    public ValidationResult validate(String pluginName, List<File> bpmnFiles, List<String> missingBpmnRefs)
+            throws ResourceValidationException
+    {
+        List<AbstractValidationItem> allItems = new ArrayList<>();
 
-        // Collect validation items for missing references
-        List<AbstractValidationItem> allItems = new ArrayList<>(createMissingReferenceItems(missingBpmnRefs));
-
-        if (bpmnFiles.isEmpty() && missingBpmnRefs.isEmpty()) {
-            logger.info("No referenced .bpmn files to validate.");
-            return new ValidationResult(allItems);
-        }
-
-        // Collect validation items for existing files
+        // Process existing files first (so "Validating BPMN file:" appears before summary)
         allItems.addAll(validateExistingFiles(bpmnFiles));
 
+        // Then add missing reference errors
+        allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
+
+        if (!allItems.isEmpty())
+        {
+            ValidationOutput validationOutput = new ValidationOutput(allItems);
+            long errorCount = validationOutput.getErrorCount();
+            long warningCount = validationOutput.getWarningCount();
+            long infoCount = validationOutput.getInfoCount();
+
+            long nonSuccessCount = errorCount + warningCount + infoCount;
+
+            logger.info("Found " + nonSuccessCount + " BPMN issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
+
+            getFilteredItems(allItems, logger);
+
+        }
+
         return new ValidationResult(allItems);
+    }
+
+    static void getFilteredItems(List<AbstractValidationItem> allItems, Logger logger) {
+        List<AbstractValidationItem> errors = allItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
+                .toList();
+        if (!errors.isEmpty())
+        {
+            Console.red("  ✗ ERROR items:");
+            errors.forEach(e -> Console.red("    * " + e));
+        }
+
+        List<AbstractValidationItem> warnings = allItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
+                .toList();
+        if (!warnings.isEmpty())
+        {
+            Console.yellow("  ⚠ WARN items:");
+            warnings.forEach(w -> Console.yellow("    * " + w));
+        }
+
+        List<AbstractValidationItem> infos = allItems.stream()
+                .filter(item -> item.getSeverity() == ValidationSeverity.INFO)
+                .toList();
+        if (!infos.isEmpty())
+        {
+            logger.info("  ℹ INFO items:");
+            infos.forEach(i -> logger.info("    * " + i));
+        }
     }
 
     /**
@@ -71,19 +116,19 @@ public class BpmnValidationService {
      * @param missingBpmnRefs list of missing BPMN file references
      * @return list of validation items for missing references
      */
-    private List<AbstractValidationItem> createMissingReferenceItems(List<String> missingBpmnRefs) {
+    private List<AbstractValidationItem> createMissingReferenceItems(String pluginName, List<String> missingBpmnRefs) {
         List<AbstractValidationItem> items = new ArrayList<>();
 
         for (String missing : missingBpmnRefs) {
-            BpmnFileReferencedButNotFoundValidationItem notFoundItem =
-                    new BpmnFileReferencedButNotFoundValidationItem(
+            PluginDefinitionBpmnFileReferencedButNotFoundValidationItem notFoundItem =
+                    new PluginDefinitionBpmnFileReferencedButNotFoundValidationItem(
+                            pluginName,
                             ValidationSeverity.ERROR,
-                            new File(missing), // only for context
-                            "Referenced BPMN file not found (disk or classpath): " + missing
+                            new File(missing),
+                            "Referenced BPMN file not found"
                     );
             items.add(notFoundItem);
         }
-
         return items;
     }
 
@@ -214,56 +259,9 @@ public class BpmnValidationService {
     }
 
     /**
-     * Data class containing validation results.
-     */
-    public static class ValidationResult {
-        private final List<AbstractValidationItem> items;
-        private final int errorCount;
-        private final int warningCount;
-        private final int successCount;
-
-        public ValidationResult(List<AbstractValidationItem> items) {
-            this.items = items;
-
-            this.errorCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
-                    .count();
-
-            this.warningCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
-                    .count();
-
-            this.successCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .count();
-        }
-
-        public List<AbstractValidationItem> getItems() {
-            return items;
-        }
-        public int getErrorCount() { return errorCount; }
-        public int getWarningCount() { return warningCount; }
-        public int getSuccessCount() { return successCount; }
-
-        public boolean hasErrors() { return errorCount > 0; }
-        public boolean hasWarnings() { return warningCount > 0; }
-
-        public List<AbstractValidationItem> getSuccessItems() {
-            return items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .toList();
-        }
-
-        public List<AbstractValidationItem> getNonSuccessItems() {
-            return items.stream()
-                    .filter(item -> item.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
-        }
-    }
-
-    /**
      * Data class for file report metadata.
      */
     public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
     }
+
 }

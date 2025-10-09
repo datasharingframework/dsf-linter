@@ -102,7 +102,7 @@ class BpmnElementValidatorTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.getFirst());
+        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.get(0));
     }
 
     @Test
@@ -116,7 +116,7 @@ class BpmnElementValidatorTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.getFirst());
+        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.get(0));
     }
 
     @Test
@@ -130,7 +130,7 @@ class BpmnElementValidatorTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.getFirst());
+        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeValidationItem.class, issues.get(0));
     }
 
     @Test

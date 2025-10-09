@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.util.Console;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import dev.dsf.utils.validator.ValidationSeverity;
 
@@ -16,10 +17,10 @@ import java.util.List;
  *
  * <p>This service handles:
  * <ul>
- *   <li>Individual FHIR file validation</li>
- *   <li>Batch FHIR validation</li>
- *   <li>Missing reference tracking</li>
- *   <li>Validation result categorization</li>
+ * <li>Individual FHIR file validation</li>
+ * <li>Batch FHIR validation</li>
+ * <li>Missing reference tracking</li>
+ * <li>Validation result categorization</li>
  * </ul>
  *
  * @author DSF Development Team
@@ -41,26 +42,40 @@ public class FhirValidationService {
     }
 
     /**
-     * Validates all FHIR files and missing references.
+     * Validates all FHIR files and missing references for a given plugin.
      *
-     * @param fhirFiles list of FHIR files to validate
-     * @param missingFhirRefs list of missing FHIR references
-     * @return validation result containing all items
-     * @throws ResourceValidationException if any FHIR file contains parsing errors
+     * @param pluginName      The name of the plugin being validated.
+     * @param fhirFiles       List of FHIR files to validate.
+     * @param missingFhirRefs List of missing FHIR references.
+     * @return Validation result containing all items.
+     * @throws ResourceValidationException if any FHIR file contains parsing errors.
      */
-    public ValidationResult validate(List<File> fhirFiles, List<String> missingFhirRefs)
+    public ValidationResult validate(String pluginName, List<File> fhirFiles, List<String> missingFhirRefs)
             throws ResourceValidationException {
 
-        // Collect validation items for missing references
-        List<AbstractValidationItem> allItems = new ArrayList<>(createMissingReferenceItems(missingFhirRefs));
+        List<AbstractValidationItem> allItems = new ArrayList<>(createMissingReferenceItems(pluginName, missingFhirRefs));
 
         if (fhirFiles.isEmpty() && missingFhirRefs.isEmpty()) {
             logger.info("No referenced FHIR files to validate.");
             return new ValidationResult(allItems);
         }
 
-        // Collect validation items for existing files
         allItems.addAll(validateExistingFiles(fhirFiles));
+
+        if (!allItems.isEmpty())
+        {
+            ValidationOutput validationOutput = new ValidationOutput(allItems);
+            long errorCount = validationOutput.getErrorCount();
+            long warningCount = validationOutput.getWarningCount();
+            long infoCount = validationOutput.getInfoCount();
+
+            long nonSuccessCount = errorCount + warningCount + infoCount;
+
+            logger.info("Found " + nonSuccessCount + " FHIR issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
+
+            BpmnValidationService.getFilteredItems(allItems, logger);
+
+        }
 
         return new ValidationResult(allItems);
     }
@@ -68,18 +83,20 @@ public class FhirValidationService {
     /**
      * Creates validation items for missing FHIR references.
      *
+     * @param pluginName      The name of the plugin.
      * @param missingFhirRefs list of missing FHIR file references
      * @return list of validation items for missing references
      */
-    private List<AbstractValidationItem> createMissingReferenceItems(List<String> missingFhirRefs) {
+    private List<AbstractValidationItem> createMissingReferenceItems(String pluginName, List<String> missingFhirRefs) {
         List<AbstractValidationItem> items = new ArrayList<>();
 
         for (String missing : missingFhirRefs) {
-            FhirFileReferencedButNotFoundValidationItem notFoundItem =
-                    new FhirFileReferencedButNotFoundValidationItem(
-                            "Referenced FHIR file not found : " + missing,
+            PluginDefinitionFhirFileReferencedButNotFoundValidationItem notFoundItem =
+                    new PluginDefinitionFhirFileReferencedButNotFoundValidationItem(
+                            pluginName,
                             ValidationSeverity.ERROR,
-                            new File(missing) // only for context
+                            new File(missing),
+                            "Referenced FHIR file not found"
                     );
             items.add(notFoundItem);
         }
@@ -118,11 +135,9 @@ public class FhirValidationService {
 
         logger.info("Validating FHIR file: " + fhirFile.getName());
 
-        // Validate the file using FhirResourceValidator
         ValidationOutput output = fhirResourceValidator.validateSingleFile(fhirFile.toPath());
         List<AbstractValidationItem> itemsForThisFile = new ArrayList<>(output.validationItems());
 
-        // Extract FHIR reference and add success item
         String fhirReference = extractFhirReference(itemsForThisFile);
         itemsForThisFile.add(createSuccessItem(fhirFile, fhirReference));
 
@@ -166,7 +181,7 @@ public class FhirValidationService {
      * @param fhirFile the FHIR file being validated
      * @return file report metadata
      */
-    public FileReportMetadata createFileReport(List<AbstractValidationItem> items, File fhirFile) {      //this logic is ignored, but we can use it again, whenever we want
+    public FileReportMetadata createFileReport(List<AbstractValidationItem> items, File fhirFile) {
         String baseName = extractBaseName(fhirFile);
         String parentFolderName = extractParentFolderName(fhirFile);
         String fileName = "fhir_issues_" + parentFolderName + "_" + baseName + ".json";
@@ -199,54 +214,9 @@ public class FhirValidationService {
     }
 
     /**
-     * Data class containing validation results.
-     */
-    public static class ValidationResult {
-        private final List<AbstractValidationItem> items;
-        private final int errorCount;
-        private final int warningCount;
-        private final int successCount;
-
-        public ValidationResult(List<AbstractValidationItem> items) {
-            this.items = items;
-
-            this.errorCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
-                    .count();
-
-            this.warningCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
-                    .count();
-
-            this.successCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .count();
-        }
-
-        public List<AbstractValidationItem> getItems() { return items; }
-        public int getErrorCount() { return errorCount; }
-        public int getWarningCount() { return warningCount; }
-        public int getSuccessCount() { return successCount; }
-
-        public boolean hasErrors() { return errorCount > 0; }
-        public boolean hasWarnings() { return warningCount > 0; }
-
-        public List<AbstractValidationItem> getSuccessItems() {
-            return items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .toList();
-        }
-
-        public List<AbstractValidationItem> getNonSuccessItems() {
-            return items.stream()
-                    .filter(item -> item.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
-        }
-    }
-
-    /**
      * Data class for file report metadata.
      */
     public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
     }
+
 }

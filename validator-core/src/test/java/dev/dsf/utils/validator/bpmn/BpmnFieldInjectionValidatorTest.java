@@ -127,7 +127,7 @@ public class BpmnFieldInjectionValidatorTest
 
         // We expect exactly 1 issue => BpmnFieldInjectionNotStringLiteralValidationItem
         assertEquals(1, issues.size(), "Expected exactly one validation issue for an expression-based field");
-        assertInstanceOf(BpmnFieldInjectionNotStringLiteralValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralValidationItem");
+        assertInstanceOf(BpmnFieldInjectionNotStringLiteralValidationItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralValidationItem");
     }
 
     /**
@@ -173,7 +173,7 @@ public class BpmnFieldInjectionValidatorTest
 
         // We expect 1 issue => because messageName was empty
         assertEquals(1, issues.size(), "Expected exactly one validation issue for empty messageName");
-        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
+        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
     }
 
     /**
@@ -254,6 +254,6 @@ public class BpmnFieldInjectionValidatorTest
 
         assertEquals(1, issues.size(),
                 "Expected one issue due to empty messageName in nested MessageEventDefinition");
-        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.getFirst(), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
+        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
     }
 }

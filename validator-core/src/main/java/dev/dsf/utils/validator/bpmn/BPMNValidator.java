@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static dev.dsf.utils.validator.fhir.FhirResourceValidator.getFile;
 import static dev.dsf.utils.validator.util.ValidationUtils.getFile;
 
 /**
