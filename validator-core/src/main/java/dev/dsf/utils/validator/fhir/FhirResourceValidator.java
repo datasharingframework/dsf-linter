@@ -1,6 +1,8 @@
 package dev.dsf.utils.validator.fhir;
 
 import dev.dsf.utils.validator.exception.ResourceValidationException;
+import dev.dsf.utils.validator.item.PluginDefinitionUnparsableFhirResourceValidationItem;
+import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import dev.dsf.utils.validator.item.FhirElementValidationItem;
 import dev.dsf.utils.validator.util.validation.AbstractFhirInstanceValidator;
@@ -20,23 +22,11 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static dev.dsf.utils.validator.util.ValidationUtils.getFile;
+
 /**
  * Validates FHIR resources by aggregating concrete {@link AbstractFhirInstanceValidator} implementations
  * and delegating validation to the first matching validator based on resource type.
- *
- * <p>This validator supports both XML and JSON FHIR resources. JSON resources are internally
- * converted to XML DOM for compatibility with existing DOM-based validators.</p>
- *
- * <p>Key features:</p>
- * <ul>
- *   <li>Automatic validator discovery through {@link ServiceLoader} with manual fallback</li>
- *   <li>Support for both XML and JSON FHIR resource formats</li>
- *   <li>Streamlined file processing using {@link java.nio.file.Files} and Java Streams</li>
- *   <li>Comprehensive error handling with {@link ResourceValidationException} for parsing failures</li>
- * </ul>
- *
- * <p>The class discovers validators lazily to avoid manual maintenance and provides
- * fallback validator instances for testing scenarios where ServiceLoader may not work.</p>
  */
 public final class FhirResourceValidator {
     /**
@@ -85,11 +75,32 @@ public final class FhirResourceValidator {
 
     /**
      * Validates a single FHIR XML or JSON resource file and returns its validation output.
+     * If parsing fails, it returns a ValidationOutput with an error item instead of throwing an exception.
      */
-    public ValidationOutput validateSingleFile(Path fhirFile) throws ResourceValidationException
-    {
-        List<FhirElementValidationItem> issues = validateFileInternal(fhirFile.toFile());
-        return new ValidationOutput(new ArrayList<>(issues));
+    public ValidationOutput validateSingleFile(Path fhirFile) {
+        try {
+            List<FhirElementValidationItem> issues = validateFileInternal(fhirFile.toFile());
+            return new ValidationOutput(new ArrayList<>(issues));
+        } catch (ResourceValidationException e) {
+            String pluginName = getProjectRoot(fhirFile).getName();
+            PluginDefinitionUnparsableFhirResourceValidationItem errorItem = getPluginDefinitionUnparsableFhirResourceValidationItem(fhirFile, pluginName);
+            return new ValidationOutput(Collections.singletonList(errorItem));
+        }
+    }
+
+    private static PluginDefinitionUnparsableFhirResourceValidationItem getPluginDefinitionUnparsableFhirResourceValidationItem(Path fhirFile, String pluginName) {
+        String fileName = fhirFile.getFileName().toString();
+        String errorMessage = String.format(
+                "Validation for plugin \"%s\" may has some false items because the file \"%s\" is unparsable.",
+                pluginName,
+                fileName
+        );
+
+        return new PluginDefinitionUnparsableFhirResourceValidationItem(
+                fhirFile.toFile(),
+                pluginName,
+                errorMessage
+        );
     }
 
     /*
@@ -199,6 +210,10 @@ public final class FhirResourceValidator {
             // Throw internal exception instead of returning null
             throw new FhirParsingException("Failed to parse XML", e);
         }
+    }
+
+    private File getProjectRoot(Path filePath) {
+        return getFile(filePath);
     }
 
 

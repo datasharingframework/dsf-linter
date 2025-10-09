@@ -1,7 +1,7 @@
 package dev.dsf.utils.validator.bpmn;
 
-import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.item.PluginDefinitionUnparsableBpmnResourceValidationItem;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -9,7 +9,11 @@ import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+
+import static dev.dsf.utils.validator.fhir.FhirResourceValidator.getFile;
+import static dev.dsf.utils.validator.util.ValidationUtils.getFile;
 
 /**
  * BPMNValidator is the primary entry point for validating a single BPMN file.
@@ -22,36 +26,45 @@ public class BPMNValidator {
 
     /**
      * Validates the BPMN file located at the given path.
-     * This method first parses the file. If parsing fails due to syntax errors,
-     * it throws a ResourceValidationException to halt the entire validation process.
+     * If parsing fails, it returns a ValidationOutput with a PluginDefinitionUnparsableBpmnFileValidationItem
+     * instead of throwing an exception, allowing the validation process to continue with other plugins.
      *
      * @param bpmnFilePath the path to the BPMN file.
-     * @return a ValidationOutput containing all validation issues if parsing is successful.
-     * @throws ResourceValidationException if the BPMN file cannot be parsed.
+     * @return a ValidationOutput containing all validation issues.
      */
-    public ValidationOutput validateBpmnFile(Path bpmnFilePath) throws ResourceValidationException {
-        BpmnModelInstance model;
+    public ValidationOutput validateBpmnFile(Path bpmnFilePath) {
         try {
-            model = Bpmn.readModelFromFile(bpmnFilePath.toFile());
+            BpmnModelInstance model = Bpmn.readModelFromFile(bpmnFilePath.toFile());
+
+            File bpmnFile = bpmnFilePath.toFile();
+            File projectRoot = getProjectRoot(bpmnFilePath);
+
+            // Delegate content validation to the model validator
+            BpmnModelValidator modelValidator = new BpmnModelValidator(projectRoot);
+            List<BpmnElementValidationItem> items = modelValidator.validateModel(model, bpmnFile);
+
+            return new ValidationOutput(new ArrayList<>(items));
         } catch (Exception e) {
-            // Requirement 7: Abort on syntax error by throwing the fatal exception.
-            throw new ResourceValidationException("Failed to parse BPMN model", bpmnFilePath, e);
+            String pluginName = getProjectRoot(bpmnFilePath).getName();
+            PluginDefinitionUnparsableBpmnResourceValidationItem errorItem = getPluginDefinitionUnparsableBpmnResourceValidationItem(bpmnFilePath, pluginName);
+
+            return new ValidationOutput(Collections.singletonList(errorItem));
         }
+    }
 
-        File bpmnFile = bpmnFilePath.toFile();
-        File projectRoot = getProjectRoot(bpmnFilePath);
+    private static PluginDefinitionUnparsableBpmnResourceValidationItem getPluginDefinitionUnparsableBpmnResourceValidationItem(Path bpmnFilePath, String pluginName) {
+        String fileName = bpmnFilePath.getFileName().toString();
+        String errorMessage = String.format(
+                "Validation for plugin \"%s\" may has some false items because the file \"%s\" is unparsable.",
+                pluginName,
+                fileName
+        );
 
-        // Delegate content validation to the model validator
-        BpmnModelValidator modelValidator = new BpmnModelValidator(projectRoot);
-        List<BpmnElementValidationItem> items = modelValidator.validateModel(model, bpmnFile);
-
-        // Extract processId from the validation items for the final output object
-        String processId = items.stream()
-                .map(BpmnElementValidationItem::getProcessId)
-                .findFirst()
-                .orElse("");
-
-        return new ValidationOutput(new ArrayList<>(items));
+        return new PluginDefinitionUnparsableBpmnResourceValidationItem(
+                bpmnFilePath.toFile(),
+                pluginName,
+                errorMessage
+        );
     }
 
     /**
@@ -62,14 +75,6 @@ public class BPMNValidator {
      * @return The project root directory, or the parent of the file as a fallback.
      */
     private File getProjectRoot(Path filePath) {
-        Path current = filePath.getParent();
-        while (current != null) {
-            if (new File(current.toFile(), "pom.xml").exists()) {
-                return current.toFile();
-            }
-            current = current.getParent();
-        }
-        // Fallback to the file's direct parent if no pom.xml is found
-        return filePath.getParent() != null ? filePath.getParent().toFile() : new File(".");
+        return getFile(filePath);
     }
 }

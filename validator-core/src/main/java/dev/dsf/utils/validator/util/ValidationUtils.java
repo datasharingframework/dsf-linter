@@ -1,5 +1,8 @@
 package dev.dsf.utils.validator.util;
 
+import java.io.File;
+import java.nio.file.Path;
+
 public class ValidationUtils {
 
     /**
@@ -33,6 +36,17 @@ public class ValidationUtils {
         // "\\}"        : Matches the literal '}'.
         // ".*" before and after allows the placeholder to appear anywhere in the string.
         return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
+    }
+
+    public static File getFile(Path filePath) {
+        Path current = filePath.getParent();
+        while (current != null) {
+            if (new File(current.toFile(), "pom.xml").exists()) {
+                return current.toFile();
+            }
+            current = current.getParent();
+        }
+        return filePath.getParent() != null ? filePath.getParent().toFile() : new File(".");
     }
 
 }
