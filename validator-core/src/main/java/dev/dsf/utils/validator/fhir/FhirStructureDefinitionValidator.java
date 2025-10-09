@@ -195,24 +195,30 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
                                           String ref,
                                           List<FhirElementValidationItem> out)
     {
-        boolean hasDiff = evaluateXPath(doc, DIFFERENTIAL_XP) != null;
-        boolean hasSnap = evaluateXPath(doc, SNAPSHOT_XP)     != null;
+        NodeList diffNodes = evaluateXPath(doc, DIFFERENTIAL_XP);
+        NodeList snapNodes = evaluateXPath(doc, SNAPSHOT_XP);
 
-        if (!hasDiff)
-        {
+        boolean hasDiff = diffNodes != null && diffNodes.getLength() > 0;
+        boolean hasSnap = snapNodes != null && snapNodes.getLength() > 0;
+
+        if (!hasDiff) {
             out.add(new FhirStructureDefinitionMissingDifferentialItem(file, ref));
-            return;
-        }
-        else
+        } else {
             out.add(ok(file, ref, "differential section present"));
+        }
 
-        if (hasSnap)
+        if (hasSnap) {
             out.add(new FhirStructureDefinitionSnapshotPresentItem(file, ref));
+        } else {
+            out.add(ok(file, ref, "snapshot section absent (OK)"));
+        }
 
         /* element/@id checks */
         NodeList elems = xp(doc, ELEMENTS_XP);
         if (elems == null) return;
 
+        // A flag to track any ID-related errors.
+        boolean idErrorFound = false;
         Set<String> ids = new HashSet<>();
         for (int i = 0; i < elems.getLength(); i++)
         {
@@ -220,10 +226,20 @@ public final class FhirStructureDefinitionValidator extends AbstractFhirInstance
             if (blank(id))
             {
                 out.add(new FhirStructureDefinitionElementWithoutIdItem(file, ref));
+                idErrorFound = true; // Error found
                 continue;
             }
             if (!ids.add(id))
+            {
                 out.add(new FhirStructureDefinitionDuplicateElementIdItem(file, ref, id));
+                idErrorFound = true; // Error found
+            }
+        }
+
+        // A single summary 'ok' message for all ID checks.
+        if (!idErrorFound)
+        {
+            out.add(ok(file, ref, "all " + elems.getLength() + " element/@id attributes are present and unique (OK)"));
         }
     }
 
