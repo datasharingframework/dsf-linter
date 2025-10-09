@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="">
+<head>
+    <meta charset="UTF-8">
+    <title>DSF Linter Result</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&display=swap');
+
+        :root {
+            --primary-glow: #63C7A6;
+            --primary-medium: #54AEA0;
+            --accent-blue-medium: #3F8999;
+            --accent-blue-dark: #326F95;
+
+            --success-color: #63C7A6;
+            --warning-color: #FFD700;
+            --error-color: #FF3C5F;
+
+            --background-dark: #0f1419;
+            --background-medium: #1a1f2e;
+            --surface-color: #232936;
+            --surface-hover: #2d3748;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        [data-theme="light"] {
+            --background-dark: #f8fafc;
+            --background-medium: #ffffff;
+            --surface-color: #ffffff;
+            --surface-hover: #f1f5f9;
+            --text-color: #0f172a;
+            --text-muted: #475569;
+            --border-color: #e2e8f0;
+            --warning-color: #d97706;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--background-dark);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--surface-color);
+            border: 2px solid var(--primary-glow);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(99, 199, 166, 0.3);
+        }
+
+        .theme-toggle-icon {
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .theme-toggle:hover .theme-toggle-icon {
+            transform: rotate(20deg);
+        }
+
+        .header {
+            position: relative;
+            background: #202127e6;
+            padding: 4rem 2rem 3rem;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        [data-theme="light"] .header {
+            background: #ffffff;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        [data-theme="light"] .header::before {
+            display: none;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-logo {
+            width: 180px;
+            height: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem;
+            background: linear-gradient(135deg, var(--primary-glow), var(--accent-blue-medium));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            letter-spacing: -1px;
+        }
+
+        [data-theme="light"] .header h1 {
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .project-name {
+            font-size: 1.3rem;
+            color: var(--text-color);
+            margin: 0.5rem 0;
+            font-weight: 400;
+        }
+
+        .header .report-date {
+            color: var(--text-color);
+            font-size: 0.95rem;
+            margin-top: 1rem;
+            font-weight: 300;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 4rem auto 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .dashboard-card {
+            background: linear-gradient(135deg, var(--surface-color) 0%, var(--background-medium) 100%);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dashboard-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-glow), var(--accent-blue-medium));
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary-glow);
+            box-shadow:
+                    0 20px 40px rgba(0, 0, 0, 0.3),
+                    0 0 40px rgba(99, 199, 166, 0.2);
+        }
+
+        .dashboard-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .dashboard-card .number {
+            font-size: 3.5rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, currentColor, currentColor);
+            -webkit-background-clip: text;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-card:hover .number {
+            transform: scale(1.1);
+        }
+
+        .dashboard-card .label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            margin-top: 0.5rem;
+        }
+
+        .simple-success-panel {
+            margin: 3rem auto;
+            max-width: 1400px;
+            background: rgba(99, 199, 166, 0.05);
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            border: 1px solid var(--success-color);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .simple-success-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .simple-success-icon {
+            font-size: 1.8rem;
+            color: var(--success-color);
+            line-height: 1;
+        }
+
+        .simple-success-panel h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--success-color);
+            margin: 0;
+        }
+
+        .simple-success-panel p {
+            font-size: 1.1rem;
+            color: var(--text-color);
+            margin: 0;
+            padding-left: 2.8rem;
+        }
+
+        .systems-bay {
+            margin: 3rem auto;
+            max-width: 1400px;
+            background: var(--surface-color);
+            border-radius: 16px;
+            padding: 2.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .systems-bay h2 {
+            margin: 0 0 2rem 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary-glow);
+            border-bottom: 2px solid var(--primary-glow);
+            padding-bottom: 0.75rem;
+            display: inline-block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+        }
+
+        thead tr {
+            background: linear-gradient(135deg, var(--background-medium), var(--surface-hover));
+        }
+
+        th {
+            padding: 1.2rem 1rem;
+            text-align: left;
+            color: var(--primary-glow);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-bottom: 2px solid var(--primary-glow);
+        }
+
+        tbody tr {
+            background: var(--background-medium);
+            transition: all 0.3s ease;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tbody tr:hover {
+            background: var(--surface-hover);
+            transform: scale(1.01);
+            box-shadow: 0 4px 12px rgba(99, 199, 166, 0.1);
+        }
+
+        td {
+            padding: 1.2rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        .status-nominal {
+            color: var(--success-color);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            padding: 0.3rem 0.8rem;
+            background: rgba(99, 199, 166, 0.1);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .status-anomaly {
+            color: var(--error-color);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            padding: 0.3rem 0.8rem;
+            background: rgba(255, 60, 95, 0.1);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .telemetry-link {
+            color: var(--primary-glow);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--primary-glow);
+            border-radius: 6px;
+            display: inline-block;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+
+        .telemetry-link:hover {
+            background: var(--primary-glow);
+            color: var(--background-dark);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(99, 199, 166, 0.3);
+        }
+
+        .cargo-bay {
+            margin: 3rem auto;
+            max-width: 1400px;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 215, 0, 0.02));
+            border-radius: 16px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .cargo-bay h2 {
+            color: var(--warning-color);
+            margin-top: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .cargo-bay h3 {
+            color: var(--warning-color);
+            margin-top: 2rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .line-break {
+            word-break: break-all;
+        }
+
+        .fixed-table-width {
+            table-layout: fixed;
+        }
+
+        .plugin-class-col {
+            width: 35%;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 4rem;
+            background: var(--background-medium);
+        }
+
+        .footer p {
+            margin: 0;
+            font-weight: 300;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .dashboard {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 1rem;
+                padding: 1.5rem;
+            }
+
+            .dashboard-card .number {
+                font-size: 2.5rem;
+            }
+
+            .systems-bay, .cargo-bay {
+                margin: 2rem 1rem;
+                padding: 1.5rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.8rem 0.5rem;
+            }
+
+            .theme-toggle {
+                top: 10px;
+                right: 10px;
+                width: 45px;
+                height: 45px;
+            }
+
+            .theme-toggle-icon {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+    <span class="theme-toggle-icon">🌓</span>
+</button>
+
+<div class="header">
+    <div class="header-content">
+        <img id="header-logo"
+             th:data-logo-dark="'data:image/svg+xml;base64,' + ${logoBase64Dark}"
+             th:data-logo-light="'data:image/svg+xml;base64,' + ${logoBase64Light}"
+             th:src="'data:image/svg+xml;base64,' + ${logoBase64Dark}"
+             alt="Logo"
+             class="header-logo"/>
+        <h1>DSF Linter Result</h1>
+        <p class="project-name" th:text="'Project Name: ' + ${projectName}">Project Name: Project Analysis</p>
+        <p class="report-date" th:text="'Report generated on: ' + ${reportTimestamp}">Report generated on: 2025-09-29 19:30:00 +0200</p>
+    </div>
+</div>
+
+<div class="dashboard">
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--success-color);" th:text="${totalSuccesses}">42</div>
+        <div class="label">Success</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--error-color);" th:text="${totalErrors}">3</div>
+        <div class="label">Errors</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--warning-color);" th:text="${totalWarnings}">7</div>
+        <div class="label">Warnings</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--text-muted);" th:text="${totalInfos}">12</div>
+        <div class="label">Info</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="number" style="color: var(--primary-glow);" th:text="${totalPlugins}">5</div>
+        <div class="label">Plugins</div>
+    </div>
+    <div class="dashboard-card" th:if="${leftoverAnalysis != null and leftoverAnalysis.getTotalLeftoverCount() > 0}">
+        <div class="number" style="color: var(--primary-medium);"
+             th:text="${leftoverAnalysis.getTotalLeftoverCount()}">8</div>
+        <div class="label">Unused Resources</div>
+    </div>
+</div>
+
+<div class="systems-bay">
+    <h2>Result Summary</h2>
+    <table class="fixed-table-width">
+        <thead>
+        <tr>
+            <th>Status</th>
+            <th>Plugin Name</th>
+            <th class="plugin-class-col">Plugin Class</th>
+            <th>API Version</th>
+            <th>Errors</th>
+            <th>Warnings</th>
+            <th>Info</th>
+            <th>Reports</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="validation : ${validations}">
+            <td>
+                <span th:if="${validation.errors == 0}" class="status-nominal">Passed</span>
+                <span th:if="${validation.errors > 0}" class="status-anomaly">Failed</span>
+            </td>
+            <td th:text="${validation.pluginName}" class="line-break">Plugin Name</td>
+            <td th:text="${validation.pluginClass}" class="line-break plugin-class-col">Plugin Class</td>
+            <td th:text="${validation.apiVersion}">1.0.0</td>
+            <td>
+                <span th:if="${validation.errors > 0}" class="status-anomaly" th:text="${validation.errors}">0</span>
+                <span th:if="${validation.errors == 0}" th:text="${validation.errors}">0</span>
+            </td>
+            <td th:text="${validation.warnings}">0</td>
+            <td th:text="${validation.infos}">0</td>
+            <td>
+                <a th:href="${validation.htmlReportPath}"
+                   class="telemetry-link"
+                   target="_blank">View Details</a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div th:if="${leftoverAnalysis != null and leftoverAnalysis.getTotalLeftoverCount() > 0}"
+     class="cargo-bay">
+    <h2>Unused Resources</h2>
+    <p>The following resources were found in the project directory but are not referenced by any plugin.</p>
+
+    <div th:if="${leftoverAnalysis.leftoverBpmnPaths.size() > 0}">
+        <h3>Unreferenced BPMN Files (<span th:text="${leftoverAnalysis.leftoverBpmnPaths.size()}">0</span>)</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>File Path</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="path : ${leftoverAnalysis.leftoverBpmnPaths}">
+                <td th:text="${path}">bpmn/process.bpmn</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${leftoverAnalysis.leftoverFhirPaths.size() > 0}">
+        <h3>Unreferenced FHIR Files (<span th:text="${leftoverAnalysis.leftoverFhirPaths.size()}">0</span>)</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>File Path</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="path : ${leftoverAnalysis.leftoverFhirPaths}">
+                <td th:text="${path}">fhir/Resource.xml</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="footer">
+    <p>Full telemetry logs for each system are available in their respective data pods.</p>
+</div>
+
+<script>
+    function initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateLogo(savedTheme);
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateLogo(newTheme);
+    }
+
+    function updateLogo(theme) {
+        const logo = document.getElementById('header-logo');
+        if (logo) {
+            if (theme === 'light') {
+                logo.src = logo.getAttribute('data-logo-light');
+            } else {
+                logo.src = logo.getAttribute('data-logo-dark');
+            }
+        }
+    }
+
+    initTheme();
+</script>
+</body>
+</html>
