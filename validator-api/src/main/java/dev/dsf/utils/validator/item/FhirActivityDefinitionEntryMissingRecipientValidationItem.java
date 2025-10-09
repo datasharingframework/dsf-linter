@@ -2,44 +2,44 @@ package dev.dsf.utils.validator.item;
 
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.ValidationType;
+
 import java.io.File;
 
 /**
- * Validation item indicating that the ActivityDefinition entry is missing the 'requester' extension
+ * Validation item indicating that the ActivityDefinition entry is missing the 'recipient' extension
  * in the process-authorization component.
- * Corresponds to {@link ValidationType#MISSING_REQUESTER_EXTENSION}.
+ * Corresponds to {@link ValidationType#MISSING_RECIPIENT_EXTENSION}.
  */
-public class ActivityDefinitionEntryMissingRequesterValidationItem extends FhirElementValidationItem
+public class FhirActivityDefinitionEntryMissingRecipientValidationItem extends FhirElementValidationItem
 {
     /**
-     * Constructs a new validation item for a missing requester extension using a default description.
+     * Constructs a new validation item for a missing recipient extension using a default description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
      */
-    public ActivityDefinitionEntryMissingRequesterValidationItem(File resourceFile, String fhirReference)
+    public FhirActivityDefinitionEntryMissingRecipientValidationItem(File resourceFile, String fhirReference)
     {
         super(ValidationSeverity.ERROR,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
-                ValidationType.MISSING_REQUESTER_EXTENSION,
-                "No <extension url='requester'> found in process-authorization.");
+                ValidationType.MISSING_RECIPIENT_EXTENSION,
+                "No <extension url='recipient'> found in process-authorization.");
     }
 
     /**
-     * Constructs a new validation item for a missing requester extension using a custom description.
+     * Constructs a new validation item for a missing recipient extension using a custom description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
      * @param description   a custom validation message describing the issue
      */
-    public ActivityDefinitionEntryMissingRequesterValidationItem(File resourceFile, String fhirReference, String description)
+    public FhirActivityDefinitionEntryMissingRecipientValidationItem(File resourceFile, String fhirReference, String description)
     {
         super(ValidationSeverity.ERROR,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
-                ValidationType.MISSING_REQUESTER_EXTENSION,
+                ValidationType.MISSING_RECIPIENT_EXTENSION,
                 description);
     }
 }
-

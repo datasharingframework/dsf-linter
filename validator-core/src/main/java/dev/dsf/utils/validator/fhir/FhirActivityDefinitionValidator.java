@@ -99,7 +99,7 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
         /* (1) <url>  */
         final String resourceUrl = val(doc, URL_XP);
         if (blank(resourceUrl))
-            issues.add(new InvalidFhirUrlValidationItem(resourceFile, null,
+            issues.add(new FhirActivityDefinitionInvalidFhirUrlValidationItem(resourceFile, null,
                     "ActivityDefinition is missing <url> or it is empty."));
         else
             issues.add(ok(resourceFile, resourceUrl, "Found <url>: '" + resourceUrl + "'."));
@@ -107,7 +107,7 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
         /* (2) <status> must be "unknown"  */
         final String statusVal = val(doc, STATUS_XP);
         if (blank(statusVal))
-            issues.add(new InvalidFhirStatusValidationItem(resourceFile, resourceUrl,
+            issues.add(new FhirActivityDefinitionInvalidFhirStatusValidationItem(resourceFile, resourceUrl,
                     "ActivityDefinition is missing <status> or it is empty."));
         else if (!"unknown".equals(statusVal))
             issues.add(new FhirStatusIsNotSetAsUnknown(resourceFile, resourceUrl,
@@ -159,7 +159,7 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
                 /* requester  */
                 NodeList requesterNodes = xp(authExt, AUTH_EXT_REQUESTER_XP);
                 if (requesterNodes.getLength() == 0)
-                    issues.add(new ActivityDefinitionEntryMissingRequesterValidationItem(resourceFile, resourceUrl,
+                    issues.add(new FhirActivityDefinitionEntryMissingRequesterValidationItem(resourceFile, resourceUrl,
                             "No <extension url='requester'> found in process-authorization."));
                 else
                 {
@@ -171,7 +171,7 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
                 /* recipient  */
                 NodeList recipientNodes = xp(authExt, AUTH_EXT_RECIPIENT_XP);
                 if (recipientNodes.getLength() == 0)
-                    issues.add(new ActivityDefinitionEntryMissingRecipientValidationItem(resourceFile, resourceUrl,
+                    issues.add(new FhirActivityDefinitionEntryMissingRecipientValidationItem(resourceFile, resourceUrl,
                             "No <extension url='recipient'> found in process-authorization."));
                 else
                 {
@@ -251,7 +251,7 @@ public final class FhirActivityDefinitionValidator extends AbstractFhirInstanceV
                                                                 String message)
     {
         return requester
-                ? new ActivityDefinitionEntryInvalidRequesterValidationItem(file, url, message)
-                : new ActivityDefinitionEntryInvalidRecipientValidationItem(file, url, message);
+                ? new FhirActivityDefinitionEntryInvalidRequesterValidationItem(file, url, message)
+                : new FhirActivityDefinitionEntryInvalidRecipientValidationItem(file, url, message);
     }
 }

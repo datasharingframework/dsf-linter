@@ -42,20 +42,4 @@ public class BpmnEventNameEmptyValidationItem extends BpmnElementValidationItem
         return description;
     }
 
-    /**
-     * Returns a string representation of the validation item that includes the element ID,
-     * BPMN file, process ID, severity, and description.
-     *
-     * @return a human-readable string representation of this validation item.
-     */
-    @Override
-    public String toString() {
-        return "BpmnEventNameEmptyValidationItem{" +
-                "elementId=" + getElementId() +
-                ", bpmnFile=" + getBpmnFile() +
-                ", processId=" + getProcessId() +
-                ", severity=" + getSeverity() +
-                ", description='" + description + '\'' +
-                '}';
-    }
 }

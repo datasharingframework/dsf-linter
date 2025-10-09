@@ -264,11 +264,11 @@ public class BpmnFieldInjectionValidator {
             if (!isEmpty(instantiatesVal)) {
                 String fixedCanonical = FhirResourceExtractor.getTaskInstantiatesCanonicalValue(doc);
                 if (fixedCanonical == null) {
-                    issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                    issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, structureFile.getName(),
                             "StructureDefinition lacks <fixedCanonical> for Task.instantiatesCanonical"));
                 } else if (fixedCanonical.isBlank()) {
-                    issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                    issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, structureFile.getName(),
                             "<fixedCanonical> present but empty in StructureDefinition"));
                 } else {
@@ -279,7 +279,7 @@ public class BpmnFieldInjectionValidator {
 
             String fixedString = FhirResourceExtractor.getTaskMessageNameFixedStringValue(doc);
             if (fixedString == null || fixedString.isBlank()) {
-                issues.add(new FhirStructureDefinitionValidationItem(ValidationSeverity.ERROR,
+                issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(ValidationSeverity.ERROR,
                         elementId, bpmnFile, processId, structureFile.getName(),
                         "StructureDefinition has no valid <fixedString> for message‑name."));
             } else {
@@ -292,7 +292,7 @@ public class BpmnFieldInjectionValidator {
         if (!isEmpty(instantiatesVal)) {
             boolean actDefFound = FhirResourceLocator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
             if (!actDefFound) {
-                issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.WARN,
+                issues.add(new BpmnNoActivityDefinitionFoundForMessageValidationItem(ValidationSeverity.WARN,
                         elementId, bpmnFile, processId, instantiatesVal,
                         "No ActivityDefinition found for instantiatesCanonical " + instantiatesVal));
             } else {
@@ -301,7 +301,7 @@ public class BpmnFieldInjectionValidator {
 
                 if (!isEmpty(messageNameVal) &&
                         !FhirResourceLocator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
-                    issues.add(new FhirActivityDefinitionValidationItem(ValidationSeverity.ERROR,
+                    issues.add(new BpmnNoActivityDefinitionFoundForMessageValidationItem(ValidationSeverity.ERROR,
                             elementId, bpmnFile, processId, instantiatesVal,
                             "ActivityDefinition does not contain message name '" + messageNameVal + "'."));
                 }

@@ -126,7 +126,7 @@ public class BpmnElementValidator {
         }
         else
         {
-            issues.add(new FhirActivityDefinitionValidationItem(
+            issues.add(new BpmnNoActivityDefinitionFoundForMessageValidationItem(
                     ValidationSeverity.ERROR,
                     elementId,
                     bpmnFile,
@@ -148,7 +148,7 @@ public class BpmnElementValidator {
         }
         else
         {
-            issues.add(new FhirStructureDefinitionValidationItem(
+            issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(
                     ValidationSeverity.ERROR,
                     elementId,
                     bpmnFile,
@@ -676,7 +676,7 @@ public class BpmnElementValidator {
             }
             if (!FhirResourceLocator.structureDefinitionExists(literalValue, projectRoot))
             {
-                issues.add(new FhirStructureDefinitionValidationItem(
+                issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(
                         ValidationSeverity.WARN,
                         elementId,
                         bpmnFile,

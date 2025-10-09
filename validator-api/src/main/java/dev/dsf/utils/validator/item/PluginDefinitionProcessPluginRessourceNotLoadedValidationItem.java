@@ -14,10 +14,10 @@ import java.io.File;
  * <ul>
  *   <li>The class name intentionally uses "Ressource" (double 's') to match the requested external type.</li>
  *   <li>Put instances of this item under {@code report/pluginReports/other/}.</li>
- *   <li>Use {@link PluginValidationItemSuccess} under {@code report/pluginReports/success/} when no leftovers exist.</li>
+ *   <li>Use {@link PluginDefinitionValidationItemSuccess} under {@code report/pluginReports/success/} when no leftovers exist.</li>
  * </ul>
  */
-public final class ProcessPluginRessourceNotLoadedValidationItem extends PluginValidationItem
+public final class PluginDefinitionProcessPluginRessourceNotLoadedValidationItem extends PluginValidationItem
 {
     /**
      * Creates a new warning item for an unreferenced plugin resource.
@@ -26,13 +26,24 @@ public final class ProcessPluginRessourceNotLoadedValidationItem extends PluginV
      * @param location optional logical location/context (e.g., relative path in the repo)
      * @param message  optional additional message; if {@code null} or empty a default message is used
      */
-    public ProcessPluginRessourceNotLoadedValidationItem(File file, String location, String message)
+    public PluginDefinitionProcessPluginRessourceNotLoadedValidationItem(File file, String location, String message)
     {
         super(ValidationSeverity.WARN,
-              file,
+                new File(file.getName()),
               location,
               (message == null || message.isBlank())
                   ? "Resource exists but is not referenced by ProcessPluginDefinition (not loaded)"
                   : message);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("[%s] %s (file=%s, location=%s, message=%s)",
+                getSeverity(),
+                this.getClass().getSimpleName(),
+                getFile(),
+                getLocation(),
+                getMessage());
     }
 }

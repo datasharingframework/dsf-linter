@@ -156,7 +156,7 @@ public class BpmnEventValidator {
             boolean activityDefFound = FhirResourceLocator.activityDefinitionExists(msgName, projectRoot);
             if (!activityDefFound) {
                 // negative scenario
-                issues.add(new FhirActivityDefinitionValidationItem(
+                issues.add(new BpmnNoActivityDefinitionFoundForMessageValidationItem(
                         ValidationSeverity.ERROR,
                         elementId,
                         bpmnFile,
@@ -180,7 +180,7 @@ public class BpmnEventValidator {
                 boolean structureDefFound = FhirResourceLocator.structureDefinitionExists(msgName, projectRoot);
                 if (!structureDefFound) {
                     // negative scenario
-                    issues.add(new FhirStructureDefinitionValidationItem(
+                    issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(
                             ValidationSeverity.ERROR,
                             elementId,
                             bpmnFile,
@@ -853,7 +853,7 @@ public class BpmnEventValidator {
             // 3) Validate the FHIR ActivityDefinition.
             boolean activityFound = false;
             if (!FhirResourceLocator.activityDefinitionExists(msgName, projectRoot)) {
-                issues.add(new FhirActivityDefinitionValidationItem(
+                issues.add(new BpmnNoActivityDefinitionFoundForMessageValidationItem(
                         ValidationSeverity.ERROR,
                         elementId,
                         bpmnFile,
@@ -874,7 +874,7 @@ public class BpmnEventValidator {
             // 4) Validate the FHIR StructureDefinition (only if ActivityDefinition was found).
             if (activityFound) {
                 if (!FhirResourceLocator.structureDefinitionExists(msgName, projectRoot)) {
-                    issues.add(new FhirStructureDefinitionValidationItem(
+                    issues.add(new BpmnNoStructureDefinitionFoundForMessageValidationItem(
                             ValidationSeverity.ERROR,
                             elementId,
                             bpmnFile,
