@@ -14,4 +14,15 @@ public abstract class AbstractValidationItem {
     public ValidationSeverity getSeverity() {
         return severity;
     }
+
+    /**
+     * Returns a string representation of this validation item.
+     * Subclasses should override this method to provide more detailed information.
+     *
+     * @return string representation for console output
+     */
+    @Override
+    public String toString() {
+        return "[" + severity + "] " + this.getClass().getSimpleName();
+    }
 }

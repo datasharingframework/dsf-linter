@@ -27,7 +27,8 @@ public abstract class PluginValidationItem extends AbstractValidationItem {
 
     @JsonGetter("file")
     public String getFileName() {
-        return file.getName();
+        String name = file.getName();
+        return name.replaceFirst("^dsf-validator-", "");
     }
 
     public String getLocation() {
@@ -36,5 +37,29 @@ public abstract class PluginValidationItem extends AbstractValidationItem {
 
     public String getMessage() {
         return message;
+    }
+
+    /**
+     * Returns a formatted string representation of this validation item.
+     * Format: [SEVERITY] Location: <location> - <message> (File: <filename>)
+     *
+     * @return formatted string representation for console output
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[").append(getSeverity()).append("] ");
+
+        if (location != null && !location.isBlank()) {
+            sb.append("Location: ").append(location).append(" - ");
+        }
+
+        sb.append(message);
+
+        if (file != null) {
+            sb.append(" (File: ").append(getFileName()).append(")");
+        }
+
+        return sb.toString();
     }
 }

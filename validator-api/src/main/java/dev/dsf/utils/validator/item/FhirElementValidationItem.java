@@ -155,16 +155,23 @@ public class FhirElementValidationItem extends FhirValidationItem
     }
 
     /**
-     * Generates a human-readable string representation of this validation item,
-     * including severity, issue type, FHIR reference, and file name.
+     * Generates a human-readable string representation of this validation item.
+     * Format: [SEVERITY] ClassName (reference=..., type=..., file=...) : description
      *
      * @return string describing the validation issue
      */
     @Override
     public String toString()
     {
-        return "[" + getSeverity() + "] " + issueType + " (" + fhirReference + "): " + description
-                + " [file=" + getResourceFile() + "]";
+        return String.format(
+                "[%s] %s (reference=%s, type=%s, file=%s) : %s",
+                getSeverity(),
+                this.getClass().getSimpleName(),
+                fhirReference,
+                issueType,
+                getResourceFile(),
+                description
+        );
     }
 
 
