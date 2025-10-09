@@ -101,7 +101,6 @@ public class DsfValidatorImpl {
     private final LeftoverResourceDetector leftoverDetector;
     private final ValidationReportGenerator reportGenerator;
 
-
     public DsfValidatorImpl(Config config) {
         this.config = config;
         this.logger = config.logger();
@@ -120,17 +119,17 @@ public class DsfValidatorImpl {
      */
     public ValidationResult validate() throws IOException {
         long startTime = System.currentTimeMillis();
-        printHeader();
+        reportGenerator.printHeader(config);
 
         final ClassLoader previousClassLoader = Thread.currentThread().getContextClassLoader();
 
         try {
             // Phase 1: Project Setup
-            logger.info("\n--- Phase 1: Project Setup ---");
+            reportGenerator.printPhaseHeader("Phase 1: Project Setup");
             ProjectSetupHandler.ProjectContext context = setupHandler.setupValidationEnvironment(config.projectPath());
 
             // Phase 2: Resource Discovery
-            logger.info("\n--- Phase 2: Resource Discovery ---");
+            reportGenerator.printPhaseHeader("Phase 2: Resource Discovery");
             ResourceDiscoveryService.DiscoveryResult discovery =
                     discoveryService.discover(context);
 
@@ -141,22 +140,22 @@ public class DsfValidatorImpl {
             }
 
             // Phase 3: Validation (Plugins and Project-level)
-            logger.info("\n--- Phase 3: Validation ---");
+            reportGenerator.printPhaseHeader("Phase 3: Validation");
 
             // Always perform project-level leftover analysis (works for 1 or more plugins)
             LeftoverResourceDetector.AnalysisResult leftoverResults =
                     performProjectLeftoverAnalysis(context, discovery);
 
-            // Validate all plugins (works for 1 or more)
-            Map<String, PluginValidation> validations = validateAllPlugins(context, discovery);
+            // Validate all plugins AND include leftover analysis items
+            Map<String, PluginValidation> validations = validateAllPlugins(context, discovery, leftoverResults);
 
             // Phase 4: Report Generation
-            logger.info("\n--- Phase 4: Report Generation ---");
+            reportGenerator.printPhaseHeader("Phase 4: Report Generation");
             reportGenerator.generateReports(validations, discovery, leftoverResults, config);
 
             // Phase 5: Summary
             long executionTime = System.currentTimeMillis() - startTime;
-            printSummary(validations, discovery, leftoverResults, executionTime);
+            reportGenerator.printSummary(validations, discovery, leftoverResults, executionTime, config);
 
             // Determine final success status
             int totalPluginErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
@@ -219,24 +218,50 @@ public class DsfValidatorImpl {
      */
     private Map<String, PluginValidation> validateAllPlugins(
             ProjectSetupHandler.ProjectContext context,
-            ResourceDiscoveryService.DiscoveryResult discovery)
+            ResourceDiscoveryService.DiscoveryResult discovery,
+            LeftoverResourceDetector.AnalysisResult leftoverAnalysis)
             throws ResourceValidationException, IOException, MissingServiceRegistrationException {
 
         Map<String, PluginValidation> validations = new LinkedHashMap<>();
 
+        boolean isSinglePluginProject = (discovery.plugins().size() == 1);
+
+        int currentPluginIndex = 0;
+        int totalPlugins = discovery.plugins().size();
+
         for (Map.Entry<String, ResourceDiscoveryService.PluginDiscovery> entry : discovery.plugins().entrySet()) {
             String pluginName = entry.getKey();
             ResourceDiscoveryService.PluginDiscovery plugin = entry.getValue();
+            currentPluginIndex++;
+            boolean isLastPlugin = (currentPluginIndex == totalPlugins);
 
-            logger.info("\n--- Validating Plugin: " + pluginName + " ---");
+            reportGenerator.printPluginHeader(pluginName, currentPluginIndex, totalPlugins);
             ApiVersionHolder.setVersion(plugin.apiVersion());
 
             // Core validation for BPMN, FHIR, and Plugin structure
             List<AbstractValidationItem> validationItems = new ArrayList<>();
-            validationItems.addAll(bpmnValidator.validate(plugin.bpmnFiles(), plugin.missingBpmnRefs()).getItems());
-            validationItems.addAll(fhirValidator.validate(plugin.fhirFiles(), plugin.missingFhirRefs()).getItems());
+            validationItems.addAll(bpmnValidator.validate(pluginName, plugin.bpmnFiles(), plugin.missingBpmnRefs()).getItems());
+            validationItems.addAll(fhirValidator.validate(pluginName, plugin.fhirFiles(), plugin.missingFhirRefs()).getItems());
             validationItems.addAll(pluginValidator.validatePlugin(context.projectPath(), plugin.adapter(), plugin.apiVersion()).getItems());
             validationItems.addAll(PluginMetadataValidator.validatePluginMetadata(plugin.adapter(), config.projectPath()));
+
+            // Get leftover items for this plugin
+            List<AbstractValidationItem> leftoverItems = leftoverDetector.getItemsForPlugin(
+                    leftoverAnalysis,
+                    pluginName,
+                    plugin,
+                    isLastPlugin,
+                    isSinglePluginProject
+            );
+
+            if (!leftoverItems.isEmpty()) {
+                logger.debug("Adding " + leftoverItems.size() + " leftover items to plugin: " + pluginName);
+
+                // Print leftover resources separately BEFORE adding to validation items
+                reportGenerator.printLeftoverResources(leftoverItems);
+
+                validationItems.addAll(leftoverItems);
+            }
 
             ValidationOutput finalOutput = new ValidationOutput(validationItems);
 
@@ -250,58 +275,10 @@ public class DsfValidatorImpl {
                     finalOutput,
                     pluginReportPath
             ));
+
+            reportGenerator.printPluginSummary(finalOutput);
         }
 
         return validations;
-    }
-
-    private void printHeader() {
-        logger.info("=".repeat(60));
-        logger.info("DSF Plugin Validation");
-        logger.info("=".repeat(60));
-        logger.info("Project: " + config.projectPath());
-        logger.info("Report:  " + config.reportPath());
-        logger.info("=".repeat(60));
-    }
-
-    private void printSummary(
-            Map<String, PluginValidation> validations,
-            ResourceDiscoveryService.DiscoveryResult discovery,
-            LeftoverResourceDetector.AnalysisResult leftoverResults,
-            long executionTime) {
-
-        logger.info("");
-        logger.info("=".repeat(60));
-        logger.info("Validation Complete!");
-
-        var stats = discovery.getStatistics();
-        logger.info(String.format(
-                "- Resources Found: %d BPMN, %d FHIR (%d missing BPMN, %d missing FHIR)",
-                stats.bpmnFiles(), stats.fhirFiles(),
-                stats.missingBpmn(), stats.missingFhir()
-        ));
-
-        logger.info(String.format("- Plugins Found:   %d", validations.size()));
-
-        int totalPluginErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
-        int totalPluginWarnings = validations.values().stream().mapToInt(v -> v.output().getWarningCount()).sum();
-        int totalLeftovers = (leftoverResults != null) ? leftoverResults.getTotalLeftoverCount() : 0;
-
-        logger.info(String.format("- Plugin Errors:   %d", totalPluginErrors));
-        logger.info(String.format("- Plugin Warnings: %d", totalPluginWarnings));
-
-        if (totalLeftovers > 0) {
-            logger.warn(String.format("- Unreferenced:    %d files (project-wide)", totalLeftovers));
-        }
-
-        logger.info(String.format("- Time:            %.2f seconds", executionTime / 1000.0));
-        logger.info(String.format("- Reports:         %s", config.reportPath().toAbsolutePath()));
-        logger.info("=".repeat(60));
-
-        if (config.failOnErrors() && totalPluginErrors > 0) {
-            logger.error("Result: FAILED (" + totalPluginErrors + " plugin errors found)");
-        } else {
-            logger.info("Result: SUCCESS");
-        }
     }
 }

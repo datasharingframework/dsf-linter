@@ -1,8 +1,9 @@
 package dev.dsf.utils.validator.util.validation;
 
 import dev.dsf.utils.validator.ValidationSeverity;
-import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.item.BpmnElementValidationItem;
+import dev.dsf.utils.validator.item.*;
+import dev.dsf.utils.validator.logger.Logger;
+import dev.dsf.utils.validator.util.Console;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,86 +11,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * <h2>DSF BPMN Validation Output</h2>
- *
- * <p>
- * The {@code ValidationOutput} class encapsulates the results of BPMN or FHIR validation runs.
- * It stores a list of {@link AbstractValidationItem} instances and provides methods to:
- * <ul>
- * <li>Print issues to the console</li>
- * <li>Export results as a pretty-printed JSON file with timestamp, API version, and summary</li>
- * <li>Retrieve associated process identifiers from BPMN validation items</li>
- * <li>Create empty validation outputs for cases with no issues</li>
- * </ul>
- * </p>
- *
- * <h3>Key Features:</h3>
- * <ul>
- * <li><b>Immutable Design:</b> Implemented as a Java record for thread safety</li>
- * <li><b>Flexible Output:</b> Console printing and JSON file export</li>
- * <li><b>Smart Sorting:</b> Issues sorted by severity and description</li>
- * <li><b>API Versioning:</b> Includes API version information in JSON output</li>
- * <li><b>Summary Statistics:</b> Provides counts by validation severity</li>
- * </ul>
- *
- * <h3>Example Usage:</h3>
- * <pre>{@code
- * // Create validation output with items
- * List<AbstractValidationItem> items = validator.validate(bpmnFile);
- * ValidationOutput output = new ValidationOutput(items);
- *
- * // Print to console
- * output.printResults();
- *
- * // Export to JSON file
- * output.writeResultsAsJson(new File("validation-report.json"));
- *
- * // Get process ID from BPMN items
- * String processId = output.getProcessId();
- *
- * // Create empty output for no issues
- * ValidationOutput empty = ValidationOutput.empty();
- * }</pre>
- *
- * <h3>JSON Output Format:</h3>
- * <pre>
- * {
- * "timestamp": "2025-04-11 16:58:23",
- * "apiVersion": "v2",
- * "summary": {
- * "ERROR": 2,
- * "WARN": 1,
- * "INFO": 0,
- * "SUCCESS": 5
- * },
- * "validationItems": [
- * { "severity": "ERROR", "message": "...", "location": "..." },
- * { "severity": "WARN", "message": "...", "location": "..." }
- * ]
- * }
- * </pre>
- * <p>
- * The JSON output includes:
- * <ul>
- * <li><b>timestamp:</b> Report generation time in {@code yyyy-MM-dd HH:mm:ss} format</li>
- * <li><b>apiVersion:</b> Current API version (v1, v2, or unknown)</li>
- * <li><b>summary:</b> Count of issues by severity level</li>
- * <li><b>validationItems:</b> Sorted list of validation issues</li>
- * </ul>
- * </p>
- *
- * @param validationItems the list of validation items found during validation
- *
- * @see AbstractValidationItem
- * @see BpmnElementValidationItem
- * @see ValidationSeverity
- */
 public record ValidationOutput(List<AbstractValidationItem> validationItems)
 {
-    /**
-     * A map that defines the sort order for validation severities.
-     */
     public static final Map<ValidationSeverity, Integer> SEVERITY_RANK = Map.of(
             ValidationSeverity.ERROR,   0,
             ValidationSeverity.WARN,    1,
@@ -97,18 +20,9 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
             ValidationSeverity.SUCCESS, 3
     );
 
-    /**
-     * Constructs a {@code ValidationOutput} and immediately sorts the validation items.
-     * <p>
-     * The items are sorted first by severity (ERROR, WARN, INFO, SUCCESS) and then
-     * alphabetically by their string representation to ensure a consistent order.
-     * </p>
-     *
-     * @param validationItems the list of validation items to be stored and sorted.
-     */
     public ValidationOutput(List<AbstractValidationItem> validationItems)
     {
-        this.validationItems = new ArrayList<>(validationItems); // Create a mutable copy
+        this.validationItems = new ArrayList<>(validationItems);
         this.validationItems.sort(
                 Comparator.comparingInt((AbstractValidationItem i) ->
                                 SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
@@ -192,20 +106,175 @@ public record ValidationOutput(List<AbstractValidationItem> validationItems)
      */
     public void printResults(Logger logger)
     {
-        if (validationItems.isEmpty())
-        {
-            System.out.println(" No issues found.");
+        List<AbstractValidationItem> projectWideSuccess = new ArrayList<>();
+        List<AbstractValidationItem> leftoverResources = new ArrayList<>();
+        List<AbstractValidationItem> metadataWarnings = new ArrayList<>();
+        List<AbstractValidationItem> regularItems = new ArrayList<>();
+
+        for (AbstractValidationItem item : validationItems) {
+            if (item instanceof PluginDefinitionValidationItemSuccess) {
+                projectWideSuccess.add(item);
+            } else if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem) {
+                leftoverResources.add(item);
+            } else if (item instanceof PluginDefinitionNoProcessModelDefinedValidationItem ||
+                    item instanceof PluginDefinitionNoFhirResourcesDefinedValidationItem) {
+                metadataWarnings.add(item);
+            } else {
+                regularItems.add(item);
+            }
         }
-        else
-        {
-            System.out.println(" Found " + validationItems.size() + " issue(s):");
-            for (AbstractValidationItem item : validationItems)
-            {
-                System.out.println("* " + item);
+
+        boolean hasAnyIssues = !leftoverResources.isEmpty() ||
+                !metadataWarnings.isEmpty() ||
+                hasNonSuccessItems(regularItems);
+
+        if (!projectWideSuccess.isEmpty()) {
+            printProjectWideSuccess(projectWideSuccess, logger);
+        }
+
+        if (!metadataWarnings.isEmpty()) {
+            printPluginMetadataWarnings(metadataWarnings, logger);
+        }
+
+        if (!leftoverResources.isEmpty()) {
+            printUnreferencedResources(leftoverResources, logger);
+        }
+
+        if (!regularItems.isEmpty()) {
+            printRegularItems(regularItems, logger);
+        }
+
+        if (!hasAnyIssues && projectWideSuccess.isEmpty()) {
+            Console.green("File validated successfully, no issues were detected.");
+        }
+
+        if (logger.isVerbose()) {
+            List<AbstractValidationItem> otherSuccessItems = regularItems.stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
+                    .filter(item -> !(item instanceof PluginDefinitionValidationItemSuccess))
+                    .toList();
+
+            if (!otherSuccessItems.isEmpty()) {
+                logger.info("");
+                Console.green(" Additional SUCCESS items (" + otherSuccessItems.size() + "):");
+                otherSuccessItems.forEach(item -> Console.green("* " + item));
             }
         }
     }
 
+    private void printProjectWideSuccess(List<AbstractValidationItem> items, Logger logger) {
+        logger.info("");
+        Console.green(" ✓ Project-Wide Validation");
+        for (AbstractValidationItem item : items) {
+            if (item instanceof PluginDefinitionValidationItemSuccess success) {
+                Console.green("   ✓ " + success.getMessage());
+            }
+        }
+    }
+
+    private void printPluginMetadataWarnings(List<AbstractValidationItem> items, Logger logger) {
+        logger.info("");
+        Console.yellow(" ⚠ Plugin Metadata Warnings");
+
+        for (AbstractValidationItem item : items) {
+            if (item instanceof PluginDefinitionNoProcessModelDefinedValidationItem noModel) {
+                Console.yellow("   ⚠ No BPMN process models defined");
+                Console.yellow("     Location: " + noModel.getLocation());
+                Console.yellow("     " + noModel.getMessage());
+            } else if (item instanceof PluginDefinitionNoFhirResourcesDefinedValidationItem noFhir) {
+                Console.yellow("   ⚠ No FHIR resources defined");
+                Console.yellow("     Location: " + noFhir.getLocation());
+                Console.yellow("     " + noFhir.getMessage());
+            }
+        }
+    }
+
+    private void printUnreferencedResources(List<AbstractValidationItem> items, Logger logger) {
+        logger.info("");
+        Console.yellow(" ⚠ Unreferenced Resources (Leftovers)");
+        Console.yellow("   These files exist in the repository but are not referenced by ProcessPluginDefinition:");
+        logger.info("");
+
+        List<AbstractValidationItem> bpmnLeftovers = new ArrayList<>();
+        List<AbstractValidationItem> fhirLeftovers = new ArrayList<>();
+
+        for (AbstractValidationItem item : items) {
+            if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem leftover) {
+                String location = leftover.getLocation();
+                if (location.endsWith(".bpmn")) {
+                    bpmnLeftovers.add(leftover);
+                } else {
+                    fhirLeftovers.add(leftover);
+                }
+            }
+        }
+
+        if (!bpmnLeftovers.isEmpty()) {
+            Console.yellow("   BPMN files (" + bpmnLeftovers.size() + "):");
+            for (AbstractValidationItem item : bpmnLeftovers) {
+                if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem leftover) {
+                    Console.yellow("     • " + leftover.getLocation());
+                }
+            }
+        }
+
+        if (!fhirLeftovers.isEmpty()) {
+            if (!bpmnLeftovers.isEmpty()) {
+                logger.info("");
+            }
+            Console.yellow("   FHIR files (" + fhirLeftovers.size() + "):");
+            for (AbstractValidationItem item : fhirLeftovers) {
+                if (item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem leftover) {
+                    Console.yellow("     • " + leftover.getLocation());
+                }
+            }
+        }
+    }
+
+    private void printRegularItems(List<AbstractValidationItem> items, Logger logger) {
+        List<AbstractValidationItem> nonSuccessItems = items.stream()
+                .filter(item -> item.getSeverity() != ValidationSeverity.SUCCESS)
+                .toList();
+
+        if (nonSuccessItems.isEmpty()) {
+            return;
+        }
+
+        logger.info(" Found " + nonSuccessItems.size() + " issue(s):");
+
+        ValidationSeverity currentSeverity = null;
+
+        for (AbstractValidationItem item : nonSuccessItems) {
+            if (currentSeverity != item.getSeverity()) {
+                currentSeverity = item.getSeverity();
+                printSeverityHeader(currentSeverity, logger);
+            }
+
+            printItemWithColor(item);
+        }
+    }
+
+    private boolean hasNonSuccessItems(List<AbstractValidationItem> items) {
+        return items.stream().anyMatch(item -> item.getSeverity() != ValidationSeverity.SUCCESS);
+    }
+
+    private void printSeverityHeader(ValidationSeverity severity, Logger logger) {
+        logger.info("");
+        String icon = switch (severity) {
+            case ERROR -> "✗";
+            case WARN -> "⚠";
+            case INFO -> "ℹ";
+            default -> "•";
+        };
+
+        String header = " " + icon + " " + severity + " items:";
+        Console.printWithSeverity(header, severity.name());
+    }
+
+    private void printItemWithColor(AbstractValidationItem item) {
+        String message = "* " + item.toString();
+        Console.printWithSeverity(message, item.getSeverity().name());
+    }
 
     /**
      * Retrieves the process ID from the first BPMN validation item.

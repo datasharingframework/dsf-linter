@@ -3,8 +3,8 @@
 package dev.dsf.utils.validator.service;
 
 import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.item.NoFhirResourcesDefinedValidationItem;
-import dev.dsf.utils.validator.item.NoProcessModelDefinedValidationItem;
+import dev.dsf.utils.validator.item.PluginDefinitionNoFhirResourcesDefinedValidationItem;
+import dev.dsf.utils.validator.item.PluginDefinitionNoProcessModelDefinedValidationItem;
 import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
 
 import java.nio.file.Path;
@@ -36,7 +36,7 @@ public final class PluginMetadataValidator {
 
         // Check for empty process models
         if (plugin.getProcessModels().isEmpty()) {
-            items.add(new NoProcessModelDefinedValidationItem(
+            items.add(new PluginDefinitionNoProcessModelDefinedValidationItem(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No BPMN process models are defined in this plugin."
@@ -45,7 +45,7 @@ public final class PluginMetadataValidator {
 
         // Check for empty FHIR resources
         if (plugin.getFhirResourcesByProcessId().isEmpty()) {
-            items.add(new NoFhirResourcesDefinedValidationItem(
+            items.add(new PluginDefinitionNoFhirResourcesDefinedValidationItem(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No FHIR resources are defined in this plugin."

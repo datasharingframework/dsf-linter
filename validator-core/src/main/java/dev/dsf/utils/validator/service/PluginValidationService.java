@@ -311,7 +311,7 @@ public class PluginValidationService {
             message.append(" for ").append(adapter.sourceClass().getSimpleName());
         }
 
-        return new PluginValidationItemSuccess(
+        return new PluginDefinitionValidationItemSuccess(
                 new File(projectName),
                 "META-INF/services",
                 message.toString()
@@ -328,7 +328,7 @@ public class PluginValidationService {
             message += " (expected: " + expectedFile + ")";
         }
 
-        return new MissingServiceLoaderRegistrationValidationItem(
+        return new PluginDefinitionMissingServiceLoaderRegistrationValidationItem(
                 new File(projectName),
                 "META-INF/services",
                 message

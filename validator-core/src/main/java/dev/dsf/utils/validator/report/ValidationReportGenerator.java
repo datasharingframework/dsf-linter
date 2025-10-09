@@ -1,12 +1,13 @@
 package dev.dsf.utils.validator.report;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.dsf.utils.validator.DsfValidatorImpl;
+import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.analysis.LeftoverResourceDetector;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
+import dev.dsf.utils.validator.item.PluginDefinitionProcessPluginRessourceNotLoadedValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.service.ResourceDiscoveryService;
+import dev.dsf.utils.validator.util.Console;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.util.api.ApiVersionHolder;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
@@ -14,9 +15,9 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
@@ -24,19 +25,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Generates validation reports with a unified structure.
+ * Generates HTML validation reports and console output with a unified structure.
  * ALWAYS creates subdirectories for each plugin, regardless of count.
  * This ensures consistent report structure for both single and multi-plugin projects.
  */
 public class ValidationReportGenerator {
 
     private final Logger logger;
-    private final JsonReportGenerator jsonGenerator;
     private final HtmlReportGenerator htmlGenerator;
 
     public ValidationReportGenerator(Logger logger) {
         this.logger = logger;
-        this.jsonGenerator = new JsonReportGenerator(logger);
         this.htmlGenerator = new HtmlReportGenerator(logger);
     }
 
@@ -57,7 +56,11 @@ public class ValidationReportGenerator {
 
         logger.info("Generating validation reports...");
 
-        // Ensure base report directory exists
+        if (!config.generateHtmlReport()) {
+            logger.info("HTML report generation is disabled. Skipping report generation.");
+            return;
+        }
+
         Files.createDirectories(config.reportPath());
 
         // ALWAYS generate individual plugin reports in subdirectories
@@ -69,8 +72,7 @@ public class ValidationReportGenerator {
             Path pluginReportDir = config.reportPath().resolve(pluginName);
             Files.createDirectories(pluginReportDir);
 
-            // Generate plugin-specific reports in its subdirectory
-            generatePluginReports(pluginName, validation, pluginReportDir, config);
+            generatePluginReport(pluginName, validation, pluginReportDir, config);
         }
 
         // Generate master report that aggregates all plugins
@@ -80,27 +82,20 @@ public class ValidationReportGenerator {
     }
 
     /**
-     * Generates reports for a single plugin in its dedicated subdirectory.
+     * Generates HTML report for a single plugin in its dedicated subdirectory.
      */
-    private void generatePluginReports(
+    private void generatePluginReport(
             String pluginName,
             DsfValidatorImpl.PluginValidation validation,
             Path pluginReportDir,
             DsfValidatorImpl.Config config) throws IOException {
 
-        logger.debug("Generating reports for plugin: " + pluginName);
+        logger.debug("Generating report for plugin: " + pluginName);
 
-        // Generate JSON report in plugin subdirectory
-        Path jsonReportPath = pluginReportDir.resolve("validation.json");
-        jsonGenerator.generatePluginReport(validation, jsonReportPath);
+        Path htmlReportPath = pluginReportDir.resolve("validation.html");
+        htmlGenerator.generatePluginReport(pluginName, validation, htmlReportPath);
 
-        // Generate HTML report if requested
-        if (config.generateHtmlReport()) {
-            Path htmlReportPath = pluginReportDir.resolve("validation.html");
-            htmlGenerator.generatePluginReport(pluginName, validation, htmlReportPath);
-        }
-
-        logger.debug("Plugin reports saved to: " + pluginReportDir);
+        logger.debug("Plugin report saved to: " + pluginReportDir);
     }
 
     /**
@@ -115,130 +110,264 @@ public class ValidationReportGenerator {
 
         logger.debug("Generating master report...");
 
-        // Generate master JSON report
-        Path masterJsonPath = config.reportPath().resolve("validation.json");
-        jsonGenerator.generateMasterReport(validations, leftoverResults, masterJsonPath);
+        Path masterHtmlPath = config.reportPath().resolve("report.html");
 
-        // Generate master HTML report if requested
-        if (config.generateHtmlReport()) {
-            Path masterHtmlPath = config.reportPath().resolve("report.html");
-
-            htmlGenerator.generateMasterReport(
-                    validations,
-                    discovery,
-                    leftoverResults,
-                    masterHtmlPath,
-                    config
-            );
-        }
+        htmlGenerator.generateMasterReport(
+                validations,
+                discovery,
+                leftoverResults,
+                masterHtmlPath,
+                config
+        );
 
         logger.debug("Master report saved to: " + config.reportPath());
     }
 
     /**
-     * Helper class for generating JSON reports.
+     * Prints the validation header with project information.
+     *
+     * @param config The validator configuration
      */
-    private static class JsonReportGenerator {
-        private final Logger logger;
-        private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    public void printHeader(DsfValidatorImpl.Config config) {
+        logger.info("=".repeat(80));
+        Console.bold("DSF Plugin Validation");
+        logger.info("=".repeat(80));
+        logger.info("Project: " + config.projectPath());
+        logger.info("Report:  " + config.reportPath());
+        logger.info("=".repeat(80));
+    }
 
-        JsonReportGenerator(Logger logger) {
-            this.logger = logger;
+    /**
+     * Prints a phase header for major validation steps.
+     *
+     * @param phaseName The name of the phase
+     */
+    public void printPhaseHeader(String phaseName) {
+        logger.info("");
+        logger.info("=".repeat(80));
+        Console.cyan(phaseName);
+        logger.info("=".repeat(80));
+    }
+
+    /**
+     * Prints a header for individual plugin validation.
+     *
+     * @param pluginName The name of the plugin
+     * @param current    Current plugin number
+     * @param total      Total number of plugins
+     */
+    public void printPluginHeader(String pluginName, int current, int total) {
+        logger.info("");
+        logger.info("-".repeat(80));
+        Console.bold(String.format("Validating Plugin [%d/%d]: %s", current, total, pluginName));
+        logger.info("-".repeat(80));
+    }
+
+    /**
+     * Prints a summary of the validation results for a single plugin.
+     * ALWAYS displays counts for errors, warnings, infos, and SUCCESS items.
+     * Displays detailed SUCCESS items only in verbose mode.
+     *
+     * @param output The validation output to summarize.
+     */
+    public void printPluginSummary(ValidationOutput output) {
+        logger.info("");
+        logger.info("Plugin validation summary:");
+        logger.info("");
+
+        int errorCount = output.getErrorCount();
+        int warningCount = output.getWarningCount();
+        int infoCount = output.getInfoCount();
+        int successCount = output.getSuccessCount();
+
+        // LINE 1: ALWAYS show errors
+        if (errorCount > 0) {
+            System.out.println("\u001B[31m  ✗ Errors:   " + errorCount + "\u001B[0m");
+            System.out.flush();
+        } else {
+            System.out.println("\u001B[32m  ✓ Errors:   " + errorCount + "\u001B[0m");
+            System.out.flush();
         }
 
-        void generatePluginReport(
-                DsfValidatorImpl.PluginValidation validation,
-                Path outputPath) throws IOException {
-
-            // Generate plugin-specific JSON
-            String json = formatPluginJson(validation);
-            Files.writeString(outputPath, json);
-            logger.debug("JSON report written to: " + outputPath);
+        // LINE 2: ALWAYS show warnings
+        if (warningCount > 0) {
+            Console.yellow("  ⚠ Warnings: " + warningCount);
+        } else {
+            logger.info("  ✓ Warnings: " + warningCount);
         }
 
-        void generateMasterReport(
-                Map<String, DsfValidatorImpl.PluginValidation> validations,
-                LeftoverResourceDetector.AnalysisResult leftoverResults,
-                Path outputPath) throws IOException {
-
-            // Generate master JSON with all plugins
-            String json = formatMasterJson(validations, leftoverResults);
-            Files.writeString(outputPath, json);
-            logger.debug("Master JSON report written to: " + outputPath);
+        // LINE 3: ALWAYS show infos
+        if (infoCount > 0) {
+            logger.info("  ℹ Infos:    " + infoCount);
+        } else {
+            logger.info("  ✓ Infos:    " + infoCount);
         }
 
-        private String formatPluginJson(DsfValidatorImpl.PluginValidation validation) throws IOException {
-            Map<String, Object> root = new LinkedHashMap<>();
-            ApiVersion apiVersion = validation.apiVersion();
-            ApiVersionHolder.setVersion(apiVersion); // Set for this thread
-
-            List<AbstractValidationItem> sortedItems = new ArrayList<>(validation.output().validationItems());
-            sortedItems.sort(
-                    Comparator.comparingInt((AbstractValidationItem i) ->
-                                    ValidationOutput.SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
-                            .thenComparing(AbstractValidationItem::toString)
-            );
-
-            root.put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            root.put("apiVersion", ApiVersionHolder.getVersion());
-            root.put("summary", Map.of(
-                    "ERROR", validation.output().getErrorCount(),
-                    "WARN", validation.output().getWarningCount(),
-                    "INFO", validation.output().getInfoCount(),
-                    "SUCCESS", validation.output().getSuccessCount()
-            ));
-            root.put("validationItems", validation.output().validationItems());
-
-            ApiVersionHolder.clear(); // Clean up
-            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        // LINE 4: ALWAYS show success count
+        if (successCount > 0) {
+            Console.green("  ✓ Success:  " + successCount);
+        } else {
+            logger.info("  ✓ Success:  " + successCount);
         }
 
-        private String formatMasterJson(
-                Map<String, DsfValidatorImpl.PluginValidation> validations,
-                LeftoverResourceDetector.AnalysisResult leftoverResults) throws IOException {
+        // SUCCESS items details: Only in verbose mode
+        if (logger.isVerbose() && successCount > 0) {
+            logger.info("");
+            Console.green("  Detailed SUCCESS items (" + successCount + "):");
 
-            Map<String, Object> root = new LinkedHashMap<>();
-            root.put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            root.put("totalPlugins", validations.size());
-            root.put("summary", Map.of(
-                    "totalErrors", getTotalErrors(validations),
-                    "totalWarnings", getTotalWarnings(validations),
-                    "leftoverResources", leftoverResults != null ? leftoverResults.getTotalLeftoverCount() : 0
-            ));
+            output.validationItems().stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
+                    .forEach(item -> Console.green("    * " + item));
+        }
+    }
 
-            if (leftoverResults != null) {
-                root.put("leftoverAnalysis", Map.of(
-                        "totalLeftovers", leftoverResults.getTotalLeftoverCount(),
-                        "bpmnLeftovers", leftoverResults.leftoverBpmnPaths(),
-                        "fhirLeftovers", leftoverResults.leftoverFhirPaths()
-                ));
+    /**
+     * Prints leftover resources found in the project.
+     * This provides a separate, clear section for unreferenced resources.
+     *
+     * @param leftoverItems The list of leftover validation items to display
+     */
+    public void printLeftoverResources(List<AbstractValidationItem> leftoverItems) {
+        if (leftoverItems.isEmpty()) {
+            return;
+        }
+
+        // Separate leftover warnings from success items
+        List<AbstractValidationItem> leftoverWarnings = leftoverItems.stream()
+                .filter(item -> item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem)
+                .toList();
+
+        if (leftoverWarnings.isEmpty()) {
+            return;
+        }
+
+        ValidationOutput leftoverOutput = new ValidationOutput(leftoverWarnings);
+        long errorCount = leftoverOutput.getErrorCount();
+        long warningCount = leftoverOutput.getWarningCount();
+        long infoCount = leftoverOutput.getInfoCount();
+
+        long nonSuccessCount = errorCount + warningCount + infoCount;
+
+        logger.info("Found " + nonSuccessCount + " Leftover Resources issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
+
+        // Print errors if any
+        if (errorCount > 0) {
+            Console.red("  ✗ ERROR items:");
+            leftoverWarnings.stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
+                    .forEach(e -> Console.red("    * " + e));
+        }
+
+        // Print warnings
+        if (warningCount > 0) {
+            Console.yellow("  ⚠ WARN items:");
+            leftoverWarnings.stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
+                    .forEach(w -> Console.yellow("    * " + w));
+        }
+
+        // Print infos
+        if (infoCount > 0) {
+            logger.info("  ℹ INFO items:");
+            leftoverWarnings.stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.INFO)
+                    .forEach(i -> logger.info("    * " + i));
+        }
+
+        // Print success items only in verbose mode
+        if (logger.isVerbose()) {
+            List<AbstractValidationItem> successItems = leftoverItems.stream()
+                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
+                    .toList();
+
+            if (!successItems.isEmpty()) {
+                logger.info("");
+                Console.green("  Additional SUCCESS items (" + successItems.size() + "):");
+                successItems.forEach(s -> Console.green("    * " + s));
             }
+        }
+    }
 
-            root.put("pluginDetails", validations.entrySet().stream()
-                    .map(entry -> Map.of(
-                            "name", entry.getKey(),
-                            "class", entry.getValue().pluginClass(),
-                            "apiVersion", entry.getValue().apiVersion().toString(),
-                            "errors", entry.getValue().output().getErrorCount(),
-                            "warnings", entry.getValue().output().getWarningCount(),
-                            "report", "./" + entry.getKey() + "/validation.json"
-                    ))
-                    .collect(Collectors.toList()));
+    /**
+     * Prints the final validation summary with statistics and results.
+     *
+     * @param validations     All plugin validations
+     * @param discovery       Resource discovery results
+     * @param leftoverResults Leftover analysis results
+     * @param executionTime   Total execution time in milliseconds
+     * @param config          Validator configuration
+     */
+    public void printSummary(
+            Map<String, DsfValidatorImpl.PluginValidation> validations,
+            ResourceDiscoveryService.DiscoveryResult discovery,
+            LeftoverResourceDetector.AnalysisResult leftoverResults,
+            long executionTime,
+            DsfValidatorImpl.Config config) {
 
-            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        logger.info("");
+        logger.info("=".repeat(80));
+        Console.bold("Validation Complete!");
+        logger.info("=".repeat(80));
+        logger.info("");
+        logger.info("--- Project Analysis Summary ---");
+        logger.info("");
+
+        var stats = discovery.getStatistics();
+        logger.info(String.format(
+                "Resources Found: %d BPMN, %d FHIR (%d missing BPMN, %d missing FHIR)",
+                stats.bpmnFiles(), stats.fhirFiles(),
+                stats.missingBpmn(), stats.missingFhir()
+        ));
+
+        logger.info(String.format("Plugins Found:   %d", validations.size()));
+        logger.info("");
+
+        int totalPluginErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
+        int totalPluginWarnings = validations.values().stream().mapToInt(v -> v.output().getWarningCount()).sum();
+        int totalPluginInfos = validations.values().stream().mapToInt(v -> v.output().getInfoCount()).sum();
+        int totalPluginSuccess = validations.values().stream().mapToInt(v -> v.output().getSuccessCount()).sum();
+        int totalLeftovers = (leftoverResults != null) ? leftoverResults.getTotalLeftoverCount() : 0;
+
+        if (totalPluginErrors > 0) {
+            Console.red(String.format("✗ Plugin Errors:   %d", totalPluginErrors));
+        } else {
+            Console.green("✓ Plugin Errors:   0");
         }
 
-        private int getTotalErrors(Map<String, DsfValidatorImpl.PluginValidation> validations) {
-            return validations.values().stream()
-                    .mapToInt(v -> v.output().getErrorCount())
-                    .sum();
+        if (totalPluginWarnings > 0) {
+            Console.yellow(String.format("⚠ Plugin Warnings: %d", totalPluginWarnings));
+        } else {
+            logger.info("  Plugin Warnings: 0");
         }
 
-        private int getTotalWarnings(Map<String, DsfValidatorImpl.PluginValidation> validations) {
-            return validations.values().stream()
-                    .mapToInt(v -> v.output().getWarningCount())
-                    .sum();
+        if (totalPluginInfos > 0) {
+            logger.info(String.format("ℹ Plugin Infos:    %d", totalPluginInfos));
+        } else {
+            logger.info("  Plugin Infos:    0");
         }
+
+        if (totalPluginSuccess > 0) {
+            Console.green(String.format("✓ Plugin Success:  %d", totalPluginSuccess));
+        } else {
+            logger.info("  Plugin Success:  0");
+        }
+
+        if (totalLeftovers > 0) {
+            Console.yellow(String.format("⚠ Unreferenced:    %d files (project-wide)", totalLeftovers));
+        }
+
+        logger.info("");
+        logger.info(String.format("Time:            %.2f seconds", executionTime / 1000.0));
+        logger.info(String.format("Reports:         %s", config.reportPath().toAbsolutePath()));
+        logger.info("=".repeat(80));
+
+        if (config.failOnErrors() && totalPluginErrors > 0) {
+            Console.red("Result: FAILED (" + totalPluginErrors + " plugin errors found)");
+        } else {
+            Console.green("Result: SUCCESS");
+        }
+
+        logger.info("=".repeat(80));
     }
 
     /**
@@ -280,7 +409,7 @@ public class ValidationReportGenerator {
                 ResourceDiscoveryService.DiscoveryResult discovery,
                 LeftoverResourceDetector.AnalysisResult leftoverResults,
                 Path outputPath,
-                DsfValidatorImpl.Config config) throws IOException{
+                DsfValidatorImpl.Config config) throws IOException {
 
             // Generate master HTML
             String html = formatMasterHtml(validations, discovery, leftoverResults, config);
@@ -289,14 +418,68 @@ public class ValidationReportGenerator {
         }
 
         private String formatPluginHtml(String pluginName, DsfValidatorImpl.PluginValidation validation) {
-            // Plugin-specific HTML implementation
-            // This would use a template or build the HTML structure
-            return String.format(
-                    "<html><body><h1>Plugin: %s</h1><p>Errors: %d, Warnings: %d</p></body></html>",
-                    pluginName,
-                    validation.output().getErrorCount(),
-                    validation.output().getWarningCount()
+            Context context = new Context();
+
+            ApiVersion apiVersion = validation.apiVersion();
+            ApiVersionHolder.setVersion(apiVersion);
+
+            getLogos(context);
+            context.setVariable("pluginName", pluginName);
+            context.setVariable("pluginClass", validation.pluginClass());
+            context.setVariable("apiVersion", apiVersion.toString());
+
+            int errorCount = validation.output().getErrorCount();
+            int warningCount = validation.output().getWarningCount();
+            int infoCount = validation.output().getInfoCount();
+            int successCount = validation.output().getSuccessCount();
+
+            context.setVariable("errorCount", errorCount);
+            context.setVariable("warningCount", warningCount);
+            context.setVariable("infoCount", infoCount);
+            context.setVariable("successCount", successCount);
+            context.setVariable("hasErrors", errorCount > 0);
+
+            List<AbstractValidationItem> sortedItems = new ArrayList<>(validation.output().validationItems());
+            sortedItems.sort(
+                    Comparator.comparingInt((AbstractValidationItem i) ->
+                                    ValidationOutput.SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
+                            .thenComparing(AbstractValidationItem::toString)
             );
+
+            Map<String, List<Map<String, Object>>> itemsBySeverity = new LinkedHashMap<>();
+            itemsBySeverity.put("ERROR", new ArrayList<>());
+            itemsBySeverity.put("WARN", new ArrayList<>());
+            itemsBySeverity.put("INFO", new ArrayList<>());
+            itemsBySeverity.put("SUCCESS", new ArrayList<>());
+
+            for (AbstractValidationItem item : sortedItems) {
+                Map<String, Object> itemMap = new LinkedHashMap<>();
+                itemMap.put("severity", item.getSeverity().toString());
+
+                List<String> getterNames = List.of(
+                        "getElementId", "getProcessId", "getDescription", "getBpmnFile",
+                        "getFhirReference", "getIssueType", "getResourceId", "getResourceFile",
+                        "getFileName", "getLocation", "getMessage"
+                );
+
+                for (String getterName : getterNames) {
+                    invokeGetter(item, getterName, itemMap);
+                }
+
+                itemMap.put("fullMessage", item.toString());
+
+                String severity = item.getSeverity().toString();
+                if (itemsBySeverity.containsKey(severity)) {
+                    itemsBySeverity.get(severity).add(itemMap);
+                }
+            }
+
+            context.setVariable("itemsBySeverity", itemsBySeverity);
+            context.setVariable("hasItems", !sortedItems.isEmpty());
+
+            ApiVersionHolder.clear();
+
+            return templateEngine.process("single_plugin_report", context);
         }
 
         private String formatMasterHtml(
@@ -306,24 +489,10 @@ public class ValidationReportGenerator {
                 DsfValidatorImpl.Config config) {
 
             Context context = new Context();
-            context.setVariable("projectName", config.projectPath().getFileName().toString());
-            try (InputStream logoStream = getClass().getResourceAsStream("/templates/DSF_Logo_monochrom_w.svg")) {
-                if (logoStream != null) {
-                    byte[] logoBytes = logoStream.readAllBytes();
-                    String logoBase64 = Base64.getEncoder().encodeToString(logoBytes);
-                    context.setVariable("logoBase64", logoBase64);
-                } else {
-                    // Fallback, falls das Logo nicht gefunden wird
-                    context.setVariable("logoBase64", "");
-                    logger.warn("Logo 'DSF_Logo_monochrom_w.svg' not found in templates.");
-                }
-            } catch (IOException e) {
-                logger.error("Error loading logo for report", e);
-                context.setVariable("logoBase64", "");
-            }
-
-            String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z").format(new Date());
-            context.setVariable("reportTimestamp", timestamp);
+            String projectName = config.projectPath().getFileName().toString();
+            projectName = projectName.replaceFirst("^dsf-validator-", "");
+            context.setVariable("projectName", projectName);
+            getLogos(context);
             context.setVariable("validations", validations.values().stream().map(v -> {
                 Map<String, Object> validationMap = new LinkedHashMap<>();
                 validationMap.put("pluginName", v.pluginName());
@@ -332,7 +501,7 @@ public class ValidationReportGenerator {
                 validationMap.put("errors", v.output().getErrorCount());
                 validationMap.put("warnings", v.output().getWarningCount());
                 validationMap.put("infos", v.output().getInfoCount());
-                validationMap.put("jsonReportPath", "./" + v.pluginName() + "/validation.json");
+                validationMap.put("htmlReportPath", "./" + v.pluginName() + "/validation.html");
                 return validationMap;
             }).collect(Collectors.toList()));
 
@@ -349,7 +518,54 @@ public class ValidationReportGenerator {
                 context.setVariable("leftoverAnalysis", leftoverResults);
             }
 
-            return templateEngine.process("plugin_report", context); // Assuming 'plugin_report' is the name of your HTML template
+            return templateEngine.process("summary_report.html", context);
+        }
+
+        private void getLogos(Context context) {
+            String logoDark = loadLogoAsBase64();
+            String logoLight = loadLogoAsBase64();
+
+            context.setVariable("logoBase64Dark", logoDark);
+            context.setVariable("logoBase64Light", logoLight);
+
+            String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z").format(new Date());
+            context.setVariable("reportTimestamp", timestamp);
+        }
+
+        private String loadLogoAsBase64() {
+            try (InputStream logoStream = getClass().getResourceAsStream("/templates/logo.svg")) {
+                if (logoStream != null) {
+                    byte[] logoBytes = logoStream.readAllBytes();
+                    return Base64.getEncoder().encodeToString(logoBytes);
+                } else {
+                    logger.warn("Logo '" + "/templates/logo.svg" + "' not found in templates.");
+                    return "";
+                }
+            } catch (IOException e) {
+                logger.error("Error loading logo: " + "/templates/logo.svg", e);
+                return "";
+            }
+        }
+    }
+
+    /**
+     * Tries to invoke a getter method on the given item and puts the returned value into the map.
+     * This helper method encapsulates the repetitive try-catch logic.
+     *
+     * @param item The object on which to invoke the getter.
+     * @param getterName The simple name of the getter method (e.g., "getElementId").
+     * @param targetMap The map to which the property should be added.
+     */
+    private static void invokeGetter(Object item, String getterName, Map<String, Object> targetMap) {
+        try {
+            Method method = item.getClass().getMethod(getterName);
+            Object value = method.invoke(item);
+            if (value != null) {
+                String key = Character.toLowerCase(getterName.charAt(3)) + getterName.substring(4);
+                targetMap.put(key, value);
+            }
+        } catch (Exception ignored) {
+
         }
     }
 }
