@@ -65,14 +65,21 @@ public class BpmnFloatingElementValidationItem extends BpmnElementValidationItem
     @Override
     public String toString()
     {
-        return "BpmnFloatingElementValidationItem{" +
-                "elementId='" + getElementId() + '\'' +
-                ", processId='" + getProcessId() + '\'' +
-                ", file=" + getBpmnFile() +
-                ", description='" + description + '\'' +
-                ", validationTypeOverride=" + validationTypeOverride +
-                ", floatingElementType=" + floatingElementType +
-                ", severity=" + getSeverity() +
-                '}';
+        String details = String.format(
+                "description='%s', validationTypeOverride=%s, floatingElementType=%s",
+                description,
+                validationTypeOverride,
+                floatingElementType
+        );
+
+        return String.format(
+                "[%s] %s (elementId=%s, processId=%s, file=%s) : %s",
+                getSeverity(),
+                this.getClass().getSimpleName(),
+                getElementId(),
+                getProcessId(),
+                getBpmnFile(),
+                details
+        );
     }
 }

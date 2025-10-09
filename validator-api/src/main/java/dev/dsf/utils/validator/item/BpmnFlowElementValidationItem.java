@@ -82,14 +82,21 @@ public class BpmnFlowElementValidationItem extends BpmnElementValidationItem
     @Override
     public String toString()
     {
-        return "BpmnFlowElementValidationItem{" +
-                "elementId='" + getElementId() + '\'' +
-                ", processId='" + getProcessId() + '\'' +
-                ", file=" + getBpmnFile() +
-                ", description='" + description + '\'' +
-                ", validationTypeOverride=" + validationTypeOverride +
-                ", flowElementType=" + flowElementType +
-                ", severity=" + getSeverity() +
-                '}';
+        String details = String.format(
+                "description='%s', validationTypeOverride=%s, flowElementType=%s",
+                description,
+                validationTypeOverride,
+                flowElementType
+        );
+
+        return String.format(
+                "[%s] %s (elementId=%s, processId=%s, file=%s) : %s",
+                getSeverity(),
+                this.getClass().getSimpleName(),
+                getElementId(),
+                getProcessId(),
+                getBpmnFile(),
+                details
+        );
     }
 }
