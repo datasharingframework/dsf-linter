@@ -111,7 +111,7 @@ public class ResourceDiscoveryService {
         // 2. Determine shared resources directory
         File sharedResourcesDir = ResourceDiscoveryUtils.determineResourcesRoot(
                 context.projectDir(),
-                pluginDiscovery.getAllPlugins().getFirst(),
+                pluginDiscovery.getAllPlugins().get(0),
                 context.resourcesDir()
         );
 
