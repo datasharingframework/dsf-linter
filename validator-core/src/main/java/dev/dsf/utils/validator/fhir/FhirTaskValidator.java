@@ -359,8 +359,6 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
      */
     private void validateInputs(Document doc, File f, String ref, List<FhirElementValidationItem> out)
     {
-        System.out.println(">>> validateInputs called on: " + f.getName());
-
         // Load cardinality definitions from StructureDefinition
         String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
         Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(f), profileUrl);

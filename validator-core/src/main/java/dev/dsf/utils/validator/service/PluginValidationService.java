@@ -50,8 +50,22 @@ public class PluginValidationService {
                 ? pluginAdapter.sourceClass().getSimpleName()
                 : "unknown plugin";
 
+        int errorCount = collectedPluginItems == null
+                ? 0
+                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.ERROR).size();
+        int warningCount = collectedPluginItems == null
+                ? 0
+                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.WARN).size();
+        int infoCount = collectedPluginItems == null
+                ? 0
+                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.INFO).size();
+        int allCount = errorCount + warningCount + infoCount;
+
         LogDecorators.infoMint(logger,
-                "Validating plugin configuration for: " + pluginName);
+                "Found " + allCount + " plugin issue(s) for: " + pluginName
+                        + " (" + errorCount + " errors, "
+                        + warningCount + " warnings, "
+                        + infoCount + " infos)");
 
         List<AbstractValidationItem> items = new ArrayList<>();
 
