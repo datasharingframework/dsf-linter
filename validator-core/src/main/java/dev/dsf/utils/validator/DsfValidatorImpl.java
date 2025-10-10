@@ -4,6 +4,7 @@ import dev.dsf.utils.validator.analysis.LeftoverResourceDetector;
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
+import dev.dsf.utils.validator.item.PluginValidationItem;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.report.ValidationReportGenerator;
 import dev.dsf.utils.validator.service.*;
@@ -49,7 +50,7 @@ public class DsfValidatorImpl {
     /**
      * Overall validation result containing all plugin validations
      */
-    public record ValidationResult(
+    public record OverallValidationResult(
             Map<String, PluginValidation> pluginValidations,
             LeftoverResourceDetector.AnalysisResult leftoverAnalysis,
             Path masterReportPath,
@@ -117,7 +118,7 @@ public class DsfValidatorImpl {
      * Main validation entry point.
      * Handles any number of plugins uniformly (one or more).
      */
-    public ValidationResult validate() throws IOException {
+    public OverallValidationResult validate() throws IOException {
         long startTime = System.currentTimeMillis();
         reportGenerator.printHeader(config);
 
@@ -135,7 +136,7 @@ public class DsfValidatorImpl {
 
             if (discovery.plugins().isEmpty()) {
                 logger.warn("No plugins found. Nothing to validate.");
-                return new ValidationResult(Collections.emptyMap(), null, config.reportPath(),
+                return new OverallValidationResult(Collections.emptyMap(), null, config.reportPath(),
                         System.currentTimeMillis() - startTime, true);
             }
 
@@ -161,7 +162,7 @@ public class DsfValidatorImpl {
             int totalPluginErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
             boolean success = !config.failOnErrors() || (totalPluginErrors == 0);
 
-            return new ValidationResult(validations, leftoverResults, config.reportPath(), executionTime, success);
+            return new OverallValidationResult(validations, leftoverResults, config.reportPath(), executionTime, success);
 
         } catch (Exception e) {
             logger.error("FATAL: Validation failed with unexpected error: " + e.getMessage(), e);
@@ -238,12 +239,39 @@ public class DsfValidatorImpl {
             reportGenerator.printPluginHeader(pluginName, currentPluginIndex, totalPlugins);
             ApiVersionHolder.setVersion(plugin.apiVersion());
 
-            // Core validation for BPMN, FHIR, and Plugin structure
-            List<AbstractValidationItem> validationItems = new ArrayList<>();
-            validationItems.addAll(bpmnValidator.validate(pluginName, plugin.bpmnFiles(), plugin.missingBpmnRefs()).getItems());
-            validationItems.addAll(fhirValidator.validate(pluginName, plugin.fhirFiles(), plugin.missingFhirRefs()).getItems());
-            validationItems.addAll(pluginValidator.validatePlugin(context.projectPath(), plugin.adapter(), plugin.apiVersion()).getItems());
-            validationItems.addAll(PluginMetadataValidator.validatePluginMetadata(plugin.adapter(), config.projectPath()));
+            // Core validation for BPMN and FHIR
+
+            // Validate BPMN (includes both BPMN items and Plugin items)
+            ValidationResult bpmnResult = bpmnValidator.validate(pluginName, plugin.bpmnFiles(), plugin.missingBpmnRefs());
+            List<AbstractValidationItem> allValidationItems = new ArrayList<>(bpmnResult.getItems());
+
+            // Validate FHIR (includes both FHIR items and Plugin items)
+            ValidationResult fhirResult = fhirValidator.validate(pluginName, plugin.fhirFiles(), plugin.missingFhirRefs());
+            allValidationItems.addAll(fhirResult.getItems());
+
+            // Separate Plugin-level items from BPMN/FHIR items
+            List<AbstractValidationItem> pluginLevelItems = allValidationItems.stream()
+                    .filter(item -> item instanceof PluginValidationItem)
+                    .toList();
+
+            // Items that are NOT Plugin-level (pure BPMN/FHIR items)
+            List<AbstractValidationItem> nonPluginItems = allValidationItems.stream()
+                    .filter(item -> !(item instanceof PluginValidationItem))
+                    .toList();
+
+            // Validate Plugin configuration, passing the collected Plugin-level items
+            PluginValidationService.ValidationResult pluginResult = pluginValidator.validatePlugin(
+                    context.projectPath(),
+                    plugin.adapter(),
+                    plugin.apiVersion(),
+                    pluginLevelItems  // Pass the collected Plugin items
+            );
+
+            // Merge all items
+            List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
+            finalValidationItems.addAll(nonPluginItems);  // Pure BPMN/FHIR items
+            finalValidationItems.addAll(pluginResult.getItems());  // Plugin items (including collected ones)
+            finalValidationItems.addAll(PluginMetadataValidator.validatePluginMetadata(plugin.adapter(), config.projectPath()));
 
             // Get leftover items for this plugin
             List<AbstractValidationItem> leftoverItems = leftoverDetector.getItemsForPlugin(
@@ -260,10 +288,10 @@ public class DsfValidatorImpl {
                 // Print leftover resources separately BEFORE adding to validation items
                 reportGenerator.printLeftoverResources(leftoverItems);
 
-                validationItems.addAll(leftoverItems);
+                finalValidationItems.addAll(leftoverItems);
             }
 
-            ValidationOutput finalOutput = new ValidationOutput(validationItems);
+            ValidationOutput finalOutput = new ValidationOutput(finalValidationItems);
 
             Path pluginReportPath = config.reportPath().resolve(pluginName);
             Files.createDirectories(pluginReportPath);

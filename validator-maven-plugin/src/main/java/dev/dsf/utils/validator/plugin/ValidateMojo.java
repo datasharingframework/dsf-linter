@@ -89,7 +89,7 @@ public class ValidateMojo extends AbstractMojo {
         );
 
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
-        DsfValidatorImpl.ValidationResult result = validator.validate();
+        DsfValidatorImpl.OverallValidationResult result = validator.validate();
 
         // Provide unified feedback for any number of plugins
         logger.info("Completed validation for {} plugin(s).", result.pluginValidations().size());

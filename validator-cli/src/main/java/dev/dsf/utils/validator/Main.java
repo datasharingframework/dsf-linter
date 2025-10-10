@@ -98,7 +98,7 @@ public class Main implements Callable<Integer> {
 
             // Create and run validator - handles any number of plugins
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
-            DsfValidatorImpl.ValidationResult result = validator.validate();
+            DsfValidatorImpl.OverallValidationResult result = validator.validate();
 
             // Output summary
             printResult(result, logger);
@@ -116,7 +116,7 @@ public class Main implements Callable<Integer> {
      * Print result summary.
      * Works uniformly for any number of plugins.
      */
-    private void printResult(DsfValidatorImpl.ValidationResult result, Logger logger) {
+    private void printResult(DsfValidatorImpl.OverallValidationResult result, Logger logger) {
         // Unified summary for any number of plugins
         logger.info(String.format(
                 "\nValidation completed for %d plugin(s) with %d total plugin errors and %d total plugin warnings.",

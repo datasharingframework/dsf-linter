@@ -79,7 +79,7 @@ public class DsfMultiPluginValidatorTest {
 
         // Act & Assert
         assertDoesNotThrow(() -> {
-            DsfValidatorImpl.ValidationResult result = validator.validate();
+            DsfValidatorImpl.OverallValidationResult result = validator.validate();
 
             // 1. General Assertions
             assertNotNull(result, "Validation result should not be null.");

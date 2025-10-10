@@ -1,10 +1,14 @@
 package dev.dsf.utils.validator.service;
 
+import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
+import dev.dsf.utils.validator.util.Console;
+import dev.dsf.utils.validator.util.ValidationUtils;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
+import dev.dsf.utils.validator.ValidationSeverity;
 
 import java.io.File;
 import java.nio.file.*;
@@ -16,7 +20,7 @@ import java.util.Set;
 
 /**
  * Service for validating plugin-specific configurations.
- * Primarily checks for ServiceLoader registrations.
+ * Primarily checks for ServiceLoader registrations and collects all plugin-related items.
  */
 public class PluginValidationService {
 
@@ -27,24 +31,38 @@ public class PluginValidationService {
     }
 
     /**
-     * Validates plugin configuration, particularly the ServiceLoader registration.
+     * Validates plugin configuration, including ServiceLoader registration and collected plugin items.
      *
-     * @param projectPath   The project root path
-     * @param pluginAdapter The plugin being validated
-     * @param apiVersion    The API version of the plugin
-     * @return Validation result containing success or error items
+     * @param projectPath        The project root path
+     * @param pluginAdapter      The plugin being validated
+     * @param apiVersion         The API version of the plugin
+     * @param collectedPluginItems Plugin-level items collected from BPMN/FHIR validation
+     * @return Validation result containing all plugin validation items
      * @throws MissingServiceRegistrationException if ServiceLoader registration is missing
      */
-    public ValidationResult validatePlugin(Path projectPath, PluginAdapter pluginAdapter, ApiVersion apiVersion)
+    public ValidationResult validatePlugin(Path projectPath,
+                                           PluginAdapter pluginAdapter,
+                                           ApiVersion apiVersion,
+                                           List<AbstractValidationItem> collectedPluginItems)
             throws MissingServiceRegistrationException {
 
         String pluginName = pluginAdapter != null
                 ? pluginAdapter.sourceClass().getSimpleName()
                 : "unknown plugin";
 
-        logger.info("Validating plugin configuration for: " + pluginName);
+        LogDecorators.infoMint(logger,
+                "Validating plugin configuration for: " + pluginName);
 
         List<AbstractValidationItem> items = new ArrayList<>();
+
+        // Add collected plugin items from BPMN/FHIR validation
+        if (collectedPluginItems != null && !collectedPluginItems.isEmpty()) {
+            items.addAll(collectedPluginItems);
+
+            // Display collected plugin items
+            displayCollectedPluginItems(collectedPluginItems);
+        }
+
         String projectName = projectPath.getFileName() != null
                 ? projectPath.getFileName().toString()
                 : "project";
@@ -70,6 +88,54 @@ public class PluginValidationService {
         }
 
         return new ValidationResult(items);
+    }
+
+    /**
+     * Displays collected plugin items grouped by severity.
+     */
+    private void displayCollectedPluginItems(List<AbstractValidationItem> items) {
+        // Filter by severity
+        List<AbstractValidationItem> errors = ValidationUtils.filterBySeverity(items, ValidationSeverity.ERROR);
+        List<AbstractValidationItem> warnings = ValidationUtils.filterBySeverity(items, ValidationSeverity.WARN);
+        List<AbstractValidationItem> infos = ValidationUtils.filterBySeverity(items, ValidationSeverity.INFO);
+
+        // Display ERROR items
+        if (!errors.isEmpty()) {
+            Console.red("  ✗ ERROR items:");
+            for (AbstractValidationItem error : errors) {
+                Console.red("    * " + formatItemMessage(error));
+            }
+        }
+
+        // Display WARN items
+        if (!warnings.isEmpty()) {
+            Console.yellow("  ⚠ WARN items:");
+            for (AbstractValidationItem warning : warnings) {
+                Console.yellow("    * " + formatItemMessage(warning));
+            }
+        }
+
+        // Display INFO items
+        if (!infos.isEmpty()) {
+            logger.info("  ℹ INFO items:");
+            for (AbstractValidationItem info : infos) {
+                logger.info("    * " + formatItemMessage(info));
+            }
+        }
+    }
+
+    /**
+     * Formats a validation item message for display.
+     * Removes redundant severity prefix if present in toString().
+     */
+    private String formatItemMessage(AbstractValidationItem item) {
+        String message = item.toString();
+        // Remove severity prefix if it's already in the message
+        String severityPrefix = "[" + item.getSeverity() + "] ";
+        if (message.startsWith(severityPrefix)) {
+            message = message.substring(severityPrefix.length());
+        }
+        return message;
     }
 
     /**

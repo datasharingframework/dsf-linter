@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.service;
 
+import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.fhir.FhirResourceValidator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
@@ -62,22 +63,36 @@ public class FhirValidationService {
 
         allItems.addAll(validateExistingFiles(fhirFiles));
 
-        if (!allItems.isEmpty())
+        // Filter out Plugin-level items for display (they will be shown in plugin section)
+        List<AbstractValidationItem> fhirOnlyItems = allItems.stream()
+                .filter(item -> !(item instanceof PluginValidationItem))
+                .toList();
+
+        if (!fhirOnlyItems.isEmpty())
         {
-            ValidationOutput validationOutput = new ValidationOutput(allItems);
+            ValidationOutput validationOutput = new ValidationOutput(fhirOnlyItems);
             long errorCount = validationOutput.getErrorCount();
             long warningCount = validationOutput.getWarningCount();
             long infoCount = validationOutput.getInfoCount();
 
             long nonSuccessCount = errorCount + warningCount + infoCount;
 
-            logger.info("Found " + nonSuccessCount + " FHIR issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
+            LogDecorators.infoMint(logger,
+                    "Found " + nonSuccessCount + " FHIR issue(s): ("
+                            + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
 
-            BpmnValidationService.getFilteredItems(allItems, logger);
-
+            printFilteredItems(fhirOnlyItems, logger);
         }
 
+        // Return ALL items (including Plugin items) for further processing
         return new ValidationResult(allItems);
+    }
+
+    /**
+     * Print filtered items grouped by severity, excluding SUCCESS items.
+     */
+    static void printFilteredItems(List<AbstractValidationItem> allItems, Logger logger) {
+        BpmnValidationService.listItemsBySeverity(allItems, logger);
     }
 
     /**

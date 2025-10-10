@@ -1,5 +1,6 @@
 package dev.dsf.utils.validator.service;
 
+import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
@@ -63,25 +64,39 @@ public class BpmnValidationService {
         // Then add missing reference errors
         allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
 
-        if (!allItems.isEmpty())
+        // Filter out Plugin-level items for display (they will be shown in plugin section)
+        List<AbstractValidationItem> bpmnOnlyItems = allItems.stream()
+                .filter(item -> !(item instanceof PluginValidationItem))
+                .toList();
+
+        if (!bpmnOnlyItems.isEmpty())
         {
-            ValidationOutput validationOutput = new ValidationOutput(allItems);
+            ValidationOutput validationOutput = new ValidationOutput(bpmnOnlyItems);
             long errorCount = validationOutput.getErrorCount();
             long warningCount = validationOutput.getWarningCount();
             long infoCount = validationOutput.getInfoCount();
 
             long nonSuccessCount = errorCount + warningCount + infoCount;
 
-            logger.info("Found " + nonSuccessCount + " BPMN issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
+            LogDecorators.infoMint(logger,
+                    "Found " + nonSuccessCount + " BPMN issue(s): ("
+                            + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
 
-            getFilteredItems(allItems, logger);
-
+            printFilteredItems(bpmnOnlyItems, logger);
         }
 
+        // Return ALL items (including Plugin items) for further processing
         return new ValidationResult(allItems);
     }
 
-    static void getFilteredItems(List<AbstractValidationItem> allItems, Logger logger) {
+    /**
+     * Print filtered items grouped by severity, excluding SUCCESS items.
+     */
+    static void printFilteredItems(List<AbstractValidationItem> allItems, Logger logger) {
+        listItemsBySeverity(allItems, logger);
+    }
+
+    static void listItemsBySeverity(List<AbstractValidationItem> allItems, Logger logger) {
         List<AbstractValidationItem> errors = allItems.stream()
                 .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
                 .toList();
@@ -210,7 +225,7 @@ public class BpmnValidationService {
      * @return file report metadata
      */
     public FileReportMetadata createFileReport(                   //this logic is ignored, but we can use it again, whenever we want
-            List<AbstractValidationItem> items, File bpmnFile, String processId) {
+                                                                  List<AbstractValidationItem> items, File bpmnFile, String processId) {
 
         String normalizedProcessId = normalizeProcessIdForReport(processId, bpmnFile);
         String parentFolderName = extractParentFolderName(bpmnFile);

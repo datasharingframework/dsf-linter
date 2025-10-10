@@ -6,7 +6,6 @@ import dev.dsf.utils.validator.logger.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -14,6 +13,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -25,6 +25,17 @@ class ValidationOutputTest
     private final ByteArrayOutputStream errContent = new ByteArrayOutputStream();
     private final PrintStream originalOut = System.out;
     private final PrintStream originalErr = System.err;
+
+    // Matches: Found <n> <BPMN|FHIR> issue(s): (<e> errors, <w> warnings, <i> infos)
+    private static final Pattern SUMMARY_PATTERN = Pattern.compile(
+            "Found\\s+(\\d+)\\s+(?:BPMN|FHIR)\\s+issue\\(s\\):\\s*\\((\\d+)\\s+errors,\\s*(\\d+)\\s+warnings,\\s*(\\d+)\\s+infos\\)",
+            Pattern.CASE_INSENSITIVE);
+
+    /** Strips ANSI escape sequences (e.g., 24-bit color) from a console line. */
+    private static String stripAnsi(String s)
+    {
+        return s == null ? null : s.replaceAll("\\u001B\\[[;\\d]*m", "");
+    }
 
     private Logger mockLogger;
 
@@ -49,11 +60,12 @@ class ValidationOutputTest
     private String getCapturedOutput() {
         return outContent.toString() + errContent.toString();
     }
+    
 
     @Test
     void testProjectWideSuccess_IsDisplayedInOwnSection()
     {
-        List<AbstractValidationItem> items = Arrays.asList(
+        List<AbstractValidationItem> items = List.of(
                 new PluginDefinitionValidationItemSuccess(
                         new File("project"),
                         "project",
@@ -192,12 +204,15 @@ class ValidationOutputTest
         ValidationOutput output = new ValidationOutput(items);
         output.printResults(mockLogger);
 
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(mockLogger, atLeastOnce()).info(captor.capture());
+        // Instead of capturing logger arguments, we check the actual console output.
+        // This is more consistent with the other tests in this class. The summary line
+        // "Found 50 issue(s)" is sent to the logger, but the detailed breakdown
+        // "ERROR items (50)" is printed to the console via System.err (using Console.red).
+        // Verifying this console output is a reliable way to confirm all items were counted.
+        String consoleOutput = getCapturedOutput();
 
-        List<String> messages = captor.getAllValues();
-        assertTrue(messages.stream().anyMatch(msg -> msg.contains("Found 50 issue(s)")),
-                "All items should be counted");
+        assertTrue(consoleOutput.contains("ERROR items (50)"),
+                "All 50 error items should be counted and displayed in the ERROR section header");
     }
 
     @Test

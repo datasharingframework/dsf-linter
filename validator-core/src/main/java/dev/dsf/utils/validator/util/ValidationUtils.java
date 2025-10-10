@@ -1,7 +1,12 @@
 package dev.dsf.utils.validator.util;
 
+import dev.dsf.utils.validator.ValidationSeverity;
+import dev.dsf.utils.validator.item.AbstractValidationItem;
+
 import java.io.File;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ValidationUtils {
 
@@ -47,6 +52,24 @@ public class ValidationUtils {
             current = current.getParent();
         }
         return filePath.getParent() != null ? filePath.getParent().toFile() : new File(".");
+    }
+
+    /**
+     * Filters validation items by the specified severity.
+     *
+     * @param items the list of validation items
+     * @param severity the desired {@link ValidationSeverity}
+     * @return a list containing only items with the given severity
+     */
+    public static List<AbstractValidationItem> filterBySeverity(
+            List<AbstractValidationItem> items, ValidationSeverity severity)
+    {
+        if (items == null || severity == null)
+            return List.of();
+
+        return items.stream()
+                .filter(item -> item.getSeverity() == severity)
+                .collect(Collectors.toList());
     }
 
 }
