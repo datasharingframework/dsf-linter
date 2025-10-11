@@ -4,7 +4,7 @@ import dev.dsf.utils.validator.DsfValidatorImpl;
 import dev.dsf.utils.validator.ValidationSeverity;
 import dev.dsf.utils.validator.analysis.LeftoverResourceDetector;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
-import dev.dsf.utils.validator.item.PluginDefinitionProcessPluginRessourceNotLoadedValidationItem;
+import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.service.ResourceDiscoveryService;
 import dev.dsf.utils.validator.util.Console;
@@ -157,11 +157,12 @@ public class ValidationReportGenerator {
      * @param total      Total number of plugins
      */
     public void printPluginHeader(String pluginName, int current, int total) {
-        logger.info("");
-        logger.info("-".repeat(80));
-        Console.bold(String.format("Validating Plugin [%d/%d]: %s", current, total, pluginName));
-        logger.info("-".repeat(80));
+        LogDecorators.infoMint(logger, "-".repeat(80));
+        LogDecorators.infoMint(logger,
+                String.format("Validating Plugin [%d/%d]: %s", current, total, pluginName));
+        LogDecorators.infoMint(logger, "-".repeat(80));
     }
+
 
     /**
      * Prints a summary of the validation results for a single plugin.
@@ -218,73 +219,6 @@ public class ValidationReportGenerator {
             output.validationItems().stream()
                     .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
                     .forEach(item -> Console.green("    * " + item));
-        }
-    }
-
-    /**
-     * Prints leftover resources found in the project.
-     * This provides a separate, clear section for unreferenced resources.
-     *
-     * @param leftoverItems The list of leftover validation items to display
-     */
-    public void printLeftoverResources(List<AbstractValidationItem> leftoverItems) {
-        if (leftoverItems.isEmpty()) {
-            return;
-        }
-
-        // Separate leftover warnings from success items
-        List<AbstractValidationItem> leftoverWarnings = leftoverItems.stream()
-                .filter(item -> item instanceof PluginDefinitionProcessPluginRessourceNotLoadedValidationItem)
-                .toList();
-
-        if (leftoverWarnings.isEmpty()) {
-            return;
-        }
-
-        ValidationOutput leftoverOutput = new ValidationOutput(leftoverWarnings);
-        long errorCount = leftoverOutput.getErrorCount();
-        long warningCount = leftoverOutput.getWarningCount();
-        long infoCount = leftoverOutput.getInfoCount();
-
-        long nonSuccessCount = errorCount + warningCount + infoCount;
-
-        logger.info("Found " + nonSuccessCount + " Leftover Resources issue(s): (" + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
-
-        // Print errors if any
-        if (errorCount > 0) {
-            Console.red("  ✗ ERROR items:");
-            leftoverWarnings.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
-                    .forEach(e -> Console.red("    * " + e));
-        }
-
-        // Print warnings
-        if (warningCount > 0) {
-            Console.yellow("  ⚠ WARN items:");
-            leftoverWarnings.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
-                    .forEach(w -> Console.yellow("    * " + w));
-        }
-
-        // Print infos
-        if (infoCount > 0) {
-            logger.info("  ℹ INFO items:");
-            leftoverWarnings.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.INFO)
-                    .forEach(i -> logger.info("    * " + i));
-        }
-
-        // Print success items only in verbose mode
-        if (logger.isVerbose()) {
-            List<AbstractValidationItem> successItems = leftoverItems.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .toList();
-
-            if (!successItems.isEmpty()) {
-                logger.info("");
-                Console.green("  Additional SUCCESS items (" + successItems.size() + "):");
-                successItems.forEach(s -> Console.green("    * " + s));
-            }
         }
     }
 

@@ -71,5 +71,46 @@ public class ValidationUtils {
                 .filter(item -> item.getSeverity() == severity)
                 .collect(Collectors.toList());
     }
+    /**
+     * Filters validation items to include only BpmnValidationItem instances.
+     *
+     * @param items the list of validation items
+     * @return a list containing only BPMN validation items
+     */
+    public static List<AbstractValidationItem> onlyBpmnItems(List<AbstractValidationItem> items) {
+        if (items == null) return List.of();
+
+        return items.stream()
+                .filter(item -> item instanceof dev.dsf.utils.validator.item.BpmnValidationItem)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Filters validation items to include only FhirValidationItem instances.
+     *
+     * @param items the list of validation items
+     * @return a list containing only FHIR validation items
+     */
+    public static List<AbstractValidationItem> onlyFhirItems(List<AbstractValidationItem> items) {
+        if (items == null) return List.of();
+
+        return items.stream()
+                .filter(item -> item instanceof dev.dsf.utils.validator.item.FhirValidationItem)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Filters validation items to include only PluginValidationItem instances.
+     *
+     * @param items the list of validation items
+     * @return a list containing only Plugin validation items
+     */
+    public static List<AbstractValidationItem> onlyPluginItems(List<AbstractValidationItem> items) {
+        if (items == null) return List.of();
+
+        return items.stream()
+                .filter(item -> item instanceof dev.dsf.utils.validator.item.PluginValidationItem)
+                .collect(Collectors.toList());
+    }
 
 }

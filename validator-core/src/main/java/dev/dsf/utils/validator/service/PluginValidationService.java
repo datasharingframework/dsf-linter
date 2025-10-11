@@ -1,14 +1,10 @@
 package dev.dsf.utils.validator.service;
 
-import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.item.*;
 import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
-import dev.dsf.utils.validator.util.Console;
-import dev.dsf.utils.validator.util.ValidationUtils;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
-import dev.dsf.utils.validator.ValidationSeverity;
 
 import java.io.File;
 import java.nio.file.*;
@@ -46,35 +42,10 @@ public class PluginValidationService {
                                            List<AbstractValidationItem> collectedPluginItems)
             throws MissingServiceRegistrationException {
 
-        String pluginName = pluginAdapter != null
-                ? pluginAdapter.sourceClass().getSimpleName()
-                : "unknown plugin";
-
-        int errorCount = collectedPluginItems == null
-                ? 0
-                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.ERROR).size();
-        int warningCount = collectedPluginItems == null
-                ? 0
-                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.WARN).size();
-        int infoCount = collectedPluginItems == null
-                ? 0
-                : ValidationUtils.filterBySeverity(collectedPluginItems, ValidationSeverity.INFO).size();
-        int allCount = errorCount + warningCount + infoCount;
-
-        LogDecorators.infoMint(logger,
-                "Found " + allCount + " plugin issue(s) for: " + pluginName
-                        + " (" + errorCount + " errors, "
-                        + warningCount + " warnings, "
-                        + infoCount + " infos)");
-
         List<AbstractValidationItem> items = new ArrayList<>();
 
-        // Add collected plugin items from BPMN/FHIR validation
         if (collectedPluginItems != null && !collectedPluginItems.isEmpty()) {
             items.addAll(collectedPluginItems);
-
-            // Display collected plugin items
-            displayCollectedPluginItems(collectedPluginItems);
         }
 
         String projectName = projectPath.getFileName() != null
@@ -90,12 +61,9 @@ public class PluginValidationService {
         if (found) {
             // Success: Service registration found
             items.add(createSuccessItem(projectName, apiVersion, pluginAdapter));
-            logger.info("✓ ServiceLoader registration verified");
         } else {
             // Error: Service registration missing
             items.add(createErrorItem(projectName, expectedServiceFile));
-            logger.error("✗ Missing ServiceLoader registration");
-
             throw new MissingServiceRegistrationException(
                     formatMissingRegistrationMessage(pluginAdapter, projectPath)
             );
@@ -104,53 +72,6 @@ public class PluginValidationService {
         return new ValidationResult(items);
     }
 
-    /**
-     * Displays collected plugin items grouped by severity.
-     */
-    private void displayCollectedPluginItems(List<AbstractValidationItem> items) {
-        // Filter by severity
-        List<AbstractValidationItem> errors = ValidationUtils.filterBySeverity(items, ValidationSeverity.ERROR);
-        List<AbstractValidationItem> warnings = ValidationUtils.filterBySeverity(items, ValidationSeverity.WARN);
-        List<AbstractValidationItem> infos = ValidationUtils.filterBySeverity(items, ValidationSeverity.INFO);
-
-        // Display ERROR items
-        if (!errors.isEmpty()) {
-            Console.red("  ✗ ERROR items:");
-            for (AbstractValidationItem error : errors) {
-                Console.red("    * " + formatItemMessage(error));
-            }
-        }
-
-        // Display WARN items
-        if (!warnings.isEmpty()) {
-            Console.yellow("  ⚠ WARN items:");
-            for (AbstractValidationItem warning : warnings) {
-                Console.yellow("    * " + formatItemMessage(warning));
-            }
-        }
-
-        // Display INFO items
-        if (!infos.isEmpty()) {
-            logger.info("  ℹ INFO items:");
-            for (AbstractValidationItem info : infos) {
-                logger.info("    * " + formatItemMessage(info));
-            }
-        }
-    }
-
-    /**
-     * Formats a validation item message for display.
-     * Removes redundant severity prefix if present in toString().
-     */
-    private String formatItemMessage(AbstractValidationItem item) {
-        String message = item.toString();
-        // Remove severity prefix if it's already in the message
-        String severityPrefix = "[" + item.getSeverity() + "] ";
-        if (message.startsWith(severityPrefix)) {
-            message = message.substring(severityPrefix.length());
-        }
-        return message;
-    }
 
     /**
      * Determines the expected service file name based on API version and plugin information.

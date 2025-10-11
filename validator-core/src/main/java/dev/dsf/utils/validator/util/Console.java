@@ -32,43 +32,35 @@ public class Console {
     }
 
     public static void red(String message) {
-        printColored(message, ANSI_RED, System.err);
+        printColored(message, ANSI_RED);
     }
 
     public static void green(String message) {
-        printColored(message, ANSI_GREEN, System.out);
+        printColored(message, ANSI_GREEN);
     }
 
     public static void yellow(String message) {
-        printColored(message, ANSI_YELLOW, System.out);
+        printColored(message, ANSI_YELLOW);
     }
 
     public static void blue(String message) {
-        printColored(message, ANSI_BLUE, System.out);
+        printColored(message, ANSI_BLUE);
     }
 
     public static void cyan(String message) {
-        printColored(message, ANSI_CYAN, System.out);
+        printColored(message, ANSI_CYAN);
     }
 
     public static void bold(String message) {
-        printColored(message, ANSI_BOLD, System.out);
+        printColored(message, ANSI_BOLD);
     }
 
-    private static void printColored(String message, String colorCode, java.io.PrintStream stream) {
+    private static void printColored(String message, String colorCode) {
         if (COLOR_ENABLED) {
-            stream.println(colorCode + message + ANSI_RESET);
+            System.out.println(colorCode + message + ANSI_RESET);
         } else {
-            stream.println(message);
+            System.out.println(message);
         }
     }
 
-    public static void printWithSeverity(String message, String severity) {
-        switch (severity) {
-            case "ERROR" -> red(message);
-            case "WARN" -> yellow(message);
-            case "SUCCESS" -> green(message);
-            default -> System.out.println(message);
-        }
-    }
 }

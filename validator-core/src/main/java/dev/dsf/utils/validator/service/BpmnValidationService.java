@@ -1,11 +1,9 @@
 package dev.dsf.utils.validator.service;
 
-import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.bpmn.BPMNValidator;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.*;
-import dev.dsf.utils.validator.util.Console;
 import dev.dsf.utils.validator.util.validation.ValidationOutput;
 import dev.dsf.utils.validator.ValidationSeverity;
 
@@ -45,7 +43,7 @@ public class BpmnValidationService {
     /**
      * Validates all BPMN aspects for a specific plugin, including referenced but missing files
      * and the content of existing BPMN files. This method centralizes the collection of
-     * all validation items and handles the console output for all BPMN-related issues.
+     * all validation items.
      *
      * @param pluginName       The name of the plugin being validated. Used for context in error messages.
      * @param bpmnFiles        A list of existing BPMN files to be validated.
@@ -64,66 +62,10 @@ public class BpmnValidationService {
         // Then add missing reference errors
         allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
 
-        // Filter out Plugin-level items for display (they will be shown in plugin section)
-        List<AbstractValidationItem> bpmnOnlyItems = allItems.stream()
-                .filter(item -> !(item instanceof PluginValidationItem))
-                .toList();
-
-        if (!bpmnOnlyItems.isEmpty())
-        {
-            ValidationOutput validationOutput = new ValidationOutput(bpmnOnlyItems);
-            long errorCount = validationOutput.getErrorCount();
-            long warningCount = validationOutput.getWarningCount();
-            long infoCount = validationOutput.getInfoCount();
-
-            long nonSuccessCount = errorCount + warningCount + infoCount;
-
-            LogDecorators.infoMint(logger,
-                    "Found " + nonSuccessCount + " BPMN issue(s): ("
-                            + errorCount + " errors, " + warningCount + " warnings, " + infoCount + " infos)");
-
-            printFilteredItems(bpmnOnlyItems, logger);
-        }
-
         // Return ALL items (including Plugin items) for further processing
         return new ValidationResult(allItems);
     }
 
-    /**
-     * Print filtered items grouped by severity, excluding SUCCESS items.
-     */
-    static void printFilteredItems(List<AbstractValidationItem> allItems, Logger logger) {
-        listItemsBySeverity(allItems, logger);
-    }
-
-    static void listItemsBySeverity(List<AbstractValidationItem> allItems, Logger logger) {
-        List<AbstractValidationItem> errors = allItems.stream()
-                .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
-                .toList();
-        if (!errors.isEmpty())
-        {
-            Console.red("  ✗ ERROR items:");
-            errors.forEach(e -> Console.red("    * " + e));
-        }
-
-        List<AbstractValidationItem> warnings = allItems.stream()
-                .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
-                .toList();
-        if (!warnings.isEmpty())
-        {
-            Console.yellow("  ⚠ WARN items:");
-            warnings.forEach(w -> Console.yellow("    * " + w));
-        }
-
-        List<AbstractValidationItem> infos = allItems.stream()
-                .filter(item -> item.getSeverity() == ValidationSeverity.INFO)
-                .toList();
-        if (!infos.isEmpty())
-        {
-            logger.info("  ℹ INFO items:");
-            infos.forEach(i -> logger.info("    * " + i));
-        }
-    }
 
     /**
      * Creates validation items for missing BPMN references.
