@@ -11,13 +11,69 @@ import java.util.stream.Collectors;
 public class ValidationUtils {
 
     /**
+     * Computes the count of ERROR, WARNING, and INFO severities for a given list of validation items.
+     */
+    public static class SeverityCount {
+        private final long errors;
+        private final long warnings;
+        private final long infos;
+        private final long total;
+
+        public SeverityCount(long errors, long warnings, long infos) {
+            this.errors = errors;
+            this.warnings = warnings;
+            this.infos = infos;
+            this.total = errors + warnings + infos;
+        }
+
+        public long getErrors() {
+            return errors;
+        }
+
+        public long getWarnings() {
+            return warnings;
+        }
+
+        public long getInfos() {
+            return infos;
+        }
+
+        public long getTotal() {
+            return total;
+        }
+    }
+
+    /**
+     * Counts severities (ERROR, WARN, INFO) in the given list of validation items.
+     *
+     * @param items the list of validation items
+     * @return a SeverityCount object containing the counts
+     */
+    public static SeverityCount countSeverities(List<? extends AbstractValidationItem> items) {
+        if (items == null || items.isEmpty()) {
+            return new SeverityCount(0, 0, 0);
+        }
+
+        long errors = items.stream()
+                .filter(i -> i.getSeverity() == ValidationSeverity.ERROR)
+                .count();
+        long warnings = items.stream()
+                .filter(i -> i.getSeverity() == ValidationSeverity.WARN)
+                .count();
+        long infos = items.stream()
+                .filter(i -> i.getSeverity() == ValidationSeverity.INFO)
+                .count();
+
+        return new SeverityCount(errors, warnings, infos);
+    }
+
+    /**
      * Checks if the given string is null or empty (after trimming).
      *
      * @param value the string to check
      * @return {@code true} if the string is null or empty; {@code false} otherwise
      */
-    public static boolean isEmpty(String value)
-    {
+    public static boolean isEmpty(String value) {
         return (value == null || value.trim().isEmpty());
     }
 
@@ -62,8 +118,7 @@ public class ValidationUtils {
      * @return a list containing only items with the given severity
      */
     public static List<AbstractValidationItem> filterBySeverity(
-            List<AbstractValidationItem> items, ValidationSeverity severity)
-    {
+            List<AbstractValidationItem> items, ValidationSeverity severity) {
         if (items == null || severity == null)
             return List.of();
 
@@ -71,6 +126,7 @@ public class ValidationUtils {
                 .filter(item -> item.getSeverity() == severity)
                 .collect(Collectors.toList());
     }
+
     /**
      * Filters validation items to include only BpmnValidationItem instances.
      *
@@ -112,5 +168,4 @@ public class ValidationUtils {
                 .filter(item -> item instanceof dev.dsf.utils.validator.item.PluginValidationItem)
                 .collect(Collectors.toList());
     }
-
 }

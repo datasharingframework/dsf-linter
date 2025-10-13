@@ -5,12 +5,10 @@ import dev.dsf.utils.validator.exception.MissingServiceRegistrationException;
 import dev.dsf.utils.validator.exception.ResourceValidationException;
 import dev.dsf.utils.validator.item.AbstractValidationItem;
 import dev.dsf.utils.validator.item.PluginValidationItem;
-import dev.dsf.utils.validator.logger.LogDecorators;
 import dev.dsf.utils.validator.logger.Logger;
 import dev.dsf.utils.validator.report.ValidationReportGenerator;
 import dev.dsf.utils.validator.service.*;
 import dev.dsf.utils.validator.setup.ProjectSetupHandler;
-import dev.dsf.utils.validator.util.Console;
 import dev.dsf.utils.validator.util.ValidationUtils;
 import dev.dsf.utils.validator.util.api.ApiVersion;
 import dev.dsf.utils.validator.util.api.ApiVersionHolder;
@@ -37,7 +35,8 @@ public class DsfValidatorImpl {
             boolean generateHtmlReport,
             boolean failOnErrors,
             Logger logger
-    )  { }
+    ) {
+    }
 
     /**
      * Validation result for a single plugin
@@ -48,7 +47,8 @@ public class DsfValidatorImpl {
             ApiVersion apiVersion,
             ValidationOutput output,
             Path reportPath
-    ) {}
+    ) {
+    }
 
     /**
      * Overall validation result containing all plugin validations
@@ -90,7 +90,6 @@ public class DsfValidatorImpl {
          * Get total error count across all plugins and project-level leftovers.
          */
         public int getTotalErrors() {
-            // For the overall success status, we treat leftovers as errors if failOnErrors is active.
             return getPluginErrors() + getLeftoverCount();
         }
     }
@@ -219,15 +218,15 @@ public class DsfValidatorImpl {
     /**
      * Validates all discovered plugins uniformly (works for one or many).
      * Prints a clean, fixed console structure per plugin:
-     *   BPMN → FHIR → Plugin (always shown, even when zero issues),
-     *   then prints the per-plugin summary.
+     * BPMN → FHIR → Plugin (always shown, even when zero issues),
+     * then prints the per-plugin summary.
      */
     private Map<String, PluginValidation> validateAllPlugins(
             ProjectSetupHandler.ProjectContext context,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverAnalysis)
-            throws ResourceValidationException, IOException, MissingServiceRegistrationException
-    {
+            throws ResourceValidationException, IOException, MissingServiceRegistrationException {
+
         Map<String, PluginValidation> validations = new LinkedHashMap<>();
 
         final boolean isSinglePluginProject = (discovery.plugins().size() == 1);
@@ -247,33 +246,13 @@ public class DsfValidatorImpl {
             // Ensure downstream validators know the API version
             ApiVersionHolder.setVersion(plugin.apiVersion());
 
-            // ---------------------------------------------------------------------
-            // 1) Run BPMN + FHIR validators (they may also contribute Plugin items)
-            // ---------------------------------------------------------------------
-            ValidationResult bpmnResult = bpmnValidator.validate(pluginName, plugin.bpmnFiles(), plugin.missingBpmnRefs());
-            ValidationResult fhirResult = fhirValidator.validate(pluginName, plugin.fhirFiles(), plugin.missingFhirRefs());
-
-            // Collect all items emitted by BPMN + FHIR passes
-            List<AbstractValidationItem> allValidationItems = new ArrayList<>(bpmnResult.getItems());
-            allValidationItems.addAll(fhirResult.getItems());
-
-            // Split into plugin-level vs. pure BPMN/FHIR items
-            List<AbstractValidationItem> pluginLevelItems = allValidationItems.stream()
-                    .filter(i -> i instanceof PluginValidationItem)
-                    .toList();
-
-            List<AbstractValidationItem> nonPluginItems = allValidationItems.stream()
-                    .filter(i -> !(i instanceof PluginValidationItem))
-                    .toList();
-
-            // ---------------------------------------------------------------------
+            ValidationItemsCollection itemsCollection = collectValidationItems(pluginName, plugin);
             // 2) Run Plugin validation (ServiceLoader etc.) on the items collected above
-            // ---------------------------------------------------------------------
             PluginValidationService.ValidationResult pluginResult = pluginValidator.validatePlugin(
                     context.projectPath(),
                     plugin.adapter(),
                     plugin.apiVersion(),
-                    pluginLevelItems
+                    itemsCollection.pluginLevelItems
             );
 
             // ---------------------------------------------------------------------
@@ -288,194 +267,150 @@ public class DsfValidatorImpl {
             );
 
             // Build the three strictly separated groups used for console sections
-            List<AbstractValidationItem> bpmnNonSuccess = ValidationUtils.onlyBpmnItems(nonPluginItems).stream()
-                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
+            List<AbstractValidationItem> bpmnNonSuccess = itemsCollection.getBpmnNonSuccessItems();
+            List<AbstractValidationItem> fhirNonSuccess = itemsCollection.getFhirNonSuccessItems();
+            List<AbstractValidationItem> pluginNonSuccess = getPluginNonSuccessItems(pluginResult, leftoverItems);
 
-            List<AbstractValidationItem> fhirNonSuccess = ValidationUtils.onlyFhirItems(nonPluginItems).stream()
-                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
+            String pluginNameShort = plugin.adapter().sourceClass().getSimpleName();
+            reportGenerator.printValidationSections(
+                    bpmnNonSuccess,
+                    fhirNonSuccess,
+                    pluginNonSuccess,
+                    pluginResult,
+                    pluginNameShort
+            );
 
-            // Plugin = pluginResult (+ optional leftovers), then filter non-success
-            List<AbstractValidationItem> allPluginItemsForDisplay = new ArrayList<>(pluginResult.getItems());
-            if (leftoverItems != null && !leftoverItems.isEmpty()) {
-                allPluginItemsForDisplay.addAll(leftoverItems);
-            }
-            List<AbstractValidationItem> pluginNonSuccess = ValidationUtils.onlyPluginItems(allPluginItemsForDisplay).stream()
-                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
-
-            // 4) Print sections in fixed order: BPMN → FHIR → Plugin
-            {
-                SeverityCount bpmnCount = countSeverities(bpmnNonSuccess);
-                LogDecorators.infoMint(logger,
-                        "Found " + bpmnCount.total + " BPMN issue(s): (" +
-                                bpmnCount.errors + " errors, " +
-                                bpmnCount.warnings + " warnings, " +
-                                bpmnCount.infos + " infos)");
-
-                if (!bpmnNonSuccess.isEmpty()) {
-                    printItemsByType(bpmnNonSuccess, "BPMN");
-                }
-            }
-
-            {
-                SeverityCount fhirCount = countSeverities(fhirNonSuccess);
-                LogDecorators.infoMint(logger,
-                        "Found " + fhirCount.total + " FHIR issue(s): (" +
-                                fhirCount.errors + " errors, " +
-                                fhirCount.warnings + " warnings, " +
-                                fhirCount.infos + " infos)");
-
-
-                if (!fhirNonSuccess.isEmpty()) {
-                    printItemsByType(fhirNonSuccess, "FHIR");
-                }
-            }
-
-            final String pluginNameShort = plugin.adapter().sourceClass().getSimpleName();
-            {
-                SeverityCount pluginCount = countSeverities(pluginNonSuccess);
-                LogDecorators.infoMint(logger,
-                        "Found " + pluginCount.total + " Plugin issue(s) for: " + pluginNameShort +
-                                ": (" + pluginCount.errors + " errors, " +
-                                pluginCount.warnings + " warnings, " +
-                                pluginCount.infos + " infos)");
-
-
-                if (!pluginNonSuccess.isEmpty()) {
-                    printItemsByType(pluginNonSuccess, "Plugin");
-                }
-
-                boolean hasServiceLoaderSuccess =
-                        pluginResult.getItems().stream()
-                                .anyMatch(i -> i.getClass().getSimpleName().equals("PluginDefinitionValidationItemSuccess"));
-
-                boolean hasServiceLoaderMissing =
-                        pluginResult.getItems().stream()
-                                .anyMatch(i -> i.getClass().getSimpleName().equals("PluginDefinitionMissingServiceLoaderRegistrationValidationItem"));
-
-                if (hasServiceLoaderSuccess) {
-                    Console.green("✓ ServiceLoader registration verified");
-                } else if (hasServiceLoaderMissing) {
-                    Console.red("✗ ServiceLoader registration missing");
-                } else {
-                    // Fallback: keep a visible line to satisfy 'always visible'
-                    Console.yellow("⚠ ServiceLoader registration: not verified explicitly");
-                }
-            }
-
-            // 5) Build final output for this plugin (summary counts include SUCCESS)
-            List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
-            finalValidationItems.addAll(nonPluginItems);           // pure BPMN/FHIR items
-            finalValidationItems.addAll(pluginResult.getItems());  // plugin-level items
-            if (leftoverItems != null && !leftoverItems.isEmpty()) // leftover plugin items (if any)
-                finalValidationItems.addAll(leftoverItems);
-
-            ValidationOutput finalOutput = new ValidationOutput(finalValidationItems);
-
-            // Prepare report folder per plugin (used by HTML report generator)
-            Path pluginReportPath = config.reportPath().resolve(pluginName);
-            Files.createDirectories(pluginReportPath);
-
-            // Store result for later reporting/summary
-            validations.put(pluginName, new PluginValidation(
+            PluginValidation pluginValidation = buildPluginValidationResult(
                     pluginName,
-                    plugin.adapter().sourceClass().getName(),
-                    plugin.apiVersion(),
-                    finalOutput,
-                    pluginReportPath
-            ));
+                    plugin,
+                    itemsCollection,
+                    pluginResult,
+                    leftoverItems
+            );
 
-            // Print the per-plugin summary (✓/⚠/✓/✓) using your ReportGenerator
-            reportGenerator.printPluginSummary(finalOutput);
+            validations.put(pluginName, pluginValidation);
+
+            reportGenerator.printPluginSummary(pluginValidation.output());
         }
 
         return validations;
     }
 
-
     /**
-     * Prints validation items grouped by severity for a specific type (BPMN, FHIR, or Plugin).
-     * Only prints non-SUCCESS items.
+     * Collects validation items from BPMN and FHIR validators.
+     * Separates plugin-level items from pure BPMN/FHIR items.
      *
-     * @param items The items to print
-     * @param typeName The name of the type (e.g., "BPMN", "FHIR", "Plugin")
+     * @param pluginName The name of the plugin
+     * @param plugin     The plugin discovery information
+     * @return A collection containing all validation items
      */
-    private void printItemsByType(List<AbstractValidationItem> items, String typeName) {
-        // Filter out SUCCESS items
-        List<AbstractValidationItem> nonSuccessItems = items.stream()
-                .filter(item -> item.getSeverity() != ValidationSeverity.SUCCESS)
+    private ValidationItemsCollection collectValidationItems(
+            String pluginName,
+            ResourceDiscoveryService.PluginDiscovery plugin)
+            throws ResourceValidationException, IOException {
+
+        ValidationResult bpmnResult = bpmnValidator.validate(
+                pluginName,
+                plugin.bpmnFiles(),
+                plugin.missingBpmnRefs()
+        );
+
+        ValidationResult fhirResult = fhirValidator.validate(
+                pluginName,
+                plugin.fhirFiles(),
+                plugin.missingFhirRefs()
+        );
+
+        List<AbstractValidationItem> allValidationItems = new ArrayList<>(bpmnResult.getItems());
+        allValidationItems.addAll(fhirResult.getItems());
+
+        List<AbstractValidationItem> pluginLevelItems = allValidationItems.stream()
+                .filter(i -> i instanceof PluginValidationItem)
                 .toList();
 
-        if (nonSuccessItems.isEmpty()) {
-            return;
-        }
+        List<AbstractValidationItem> nonPluginItems = allValidationItems.stream()
+                .filter(i -> !(i instanceof PluginValidationItem))
+                .toList();
 
-        // Group by severity
-        List<AbstractValidationItem> errors = ValidationUtils.filterBySeverity(nonSuccessItems, ValidationSeverity.ERROR);
-        List<AbstractValidationItem> warnings = ValidationUtils.filterBySeverity(nonSuccessItems, ValidationSeverity.WARN);
-        List<AbstractValidationItem> infos = ValidationUtils.filterBySeverity(nonSuccessItems, ValidationSeverity.INFO);
-
-        // Print ERROR items
-        if (!errors.isEmpty()) {
-            Console.red("  ✗ ERROR items:");
-            for (AbstractValidationItem item : errors) {
-                Console.red("    * " + formatItemMessage(item));
-            }
-        }
-
-        // Print WARN items
-        if (!warnings.isEmpty()) {
-            Console.yellow("  ⚠ WARN items:");
-            for (AbstractValidationItem item : warnings) {
-                Console.yellow("    * " + formatItemMessage(item));
-            }
-        }
-
-        // Print INFO items
-        if (!infos.isEmpty()) {
-            logger.info("  ℹ INFO items:");
-            for (AbstractValidationItem item : infos) {
-                logger.info("    * " + formatItemMessage(item));
-            }
-        }
+        return new ValidationItemsCollection(nonPluginItems, pluginLevelItems);
     }
 
     /**
-     * Formats a validation item message for display.
-     * Removes redundant severity prefix if present in toString().
+     * Builds the final PluginValidation result for a single plugin.
+     *
+     * @param pluginName       The name of the plugin
+     * @param plugin           The plugin discovery information
+     * @param itemsCollection  The collected validation items
+     * @param pluginResult     The plugin validation result
+     * @param leftoverItems    The leftover resource items
+     * @return The complete PluginValidation result
      */
-    private String formatItemMessage(AbstractValidationItem item) {
-        String message = item.toString();
-        String severityPrefix = "[" + item.getSeverity() + "] ";
-        if (message.startsWith(severityPrefix)) {
-            message = message.substring(severityPrefix.length());
+    private PluginValidation buildPluginValidationResult(
+            String pluginName,
+            ResourceDiscoveryService.PluginDiscovery plugin,
+            ValidationItemsCollection itemsCollection,
+            PluginValidationService.ValidationResult pluginResult,
+            List<AbstractValidationItem> leftoverItems) throws IOException {
+
+        List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
+        finalValidationItems.addAll(itemsCollection.nonPluginItems);
+        finalValidationItems.addAll(pluginResult.getItems());
+        if (leftoverItems != null && !leftoverItems.isEmpty()) {
+            finalValidationItems.addAll(leftoverItems);
         }
-        return message;
+
+        ValidationOutput finalOutput = new ValidationOutput(finalValidationItems);
+
+        Path pluginReportPath = config.reportPath().resolve(pluginName);
+        Files.createDirectories(pluginReportPath);
+
+        return new PluginValidation(
+                pluginName,
+                plugin.adapter().sourceClass().getName(),
+                plugin.apiVersion(),
+                finalOutput,
+                pluginReportPath
+        );
     }
 
     /**
-     * Computes the count of ERROR, WARNING, and INFO severities for a given list of validation items.
+     * Gets non-SUCCESS plugin items including leftover items.
+     *
+     * @param pluginResult  The plugin validation result
+     * @param leftoverItems The leftover resource items
+     * @return List of non-SUCCESS plugin items
      */
-    private static class SeverityCount {
-        final long errors;
-        final long warnings;
-        final long infos;
-        final long total;
+    private List<AbstractValidationItem> getPluginNonSuccessItems(
+            PluginValidationService.ValidationResult pluginResult,
+            List<AbstractValidationItem> leftoverItems) {
 
-        SeverityCount(long errors, long warnings, long infos) {
-            this.errors = errors;
-            this.warnings = warnings;
-            this.infos = infos;
-            this.total = errors + warnings + infos;
+        List<AbstractValidationItem> allPluginItemsForDisplay = new ArrayList<>(pluginResult.getItems());
+        if (leftoverItems != null && !leftoverItems.isEmpty()) {
+            allPluginItemsForDisplay.addAll(leftoverItems);
         }
+
+        return ValidationUtils.onlyPluginItems(allPluginItemsForDisplay).stream()
+                .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
+                .toList();
     }
 
-    private static SeverityCount countSeverities(List<? extends AbstractValidationItem> items) {
-        long errors = items.stream().filter(i -> i.getSeverity() == ValidationSeverity.ERROR).count();
-        long warnings = items.stream().filter(i -> i.getSeverity() == ValidationSeverity.WARN).count();
-        long infos = items.stream().filter(i -> i.getSeverity() == ValidationSeverity.INFO).count();
-        return new SeverityCount(errors, warnings, infos);
+    /**
+     * Internal record to hold separated validation items.
+     */
+    private record ValidationItemsCollection(
+            List<AbstractValidationItem> nonPluginItems,
+            List<AbstractValidationItem> pluginLevelItems
+    ) {
+        List<AbstractValidationItem> getBpmnNonSuccessItems() {
+            return ValidationUtils.onlyBpmnItems(nonPluginItems).stream()
+                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
+                    .toList();
+        }
+
+        List<AbstractValidationItem> getFhirNonSuccessItems() {
+            return ValidationUtils.onlyFhirItems(nonPluginItems).stream()
+                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
+                    .toList();
+        }
     }
 }
