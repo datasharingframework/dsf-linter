@@ -52,20 +52,17 @@ public class BpmnValidationService {
      * @throws ResourceValidationException if a severe, unrecoverable error occurs during validation.
      */
     public ValidationResult validate(String pluginName, List<File> bpmnFiles, List<String> missingBpmnRefs)
-            throws ResourceValidationException
-    {
+            throws ResourceValidationException {
         List<AbstractValidationItem> allItems = new ArrayList<>();
 
-        // Process existing files first (so "Validating BPMN file:" appears before summary)
-        allItems.addAll(validateExistingFiles(bpmnFiles));
+        // Process existing files first
+        allItems.addAll(validateExistingFiles(pluginName, bpmnFiles));
 
         // Then add missing reference errors
         allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
 
-        // Return ALL items (including Plugin items) for further processing
         return new ValidationResult(allItems);
     }
-
 
     /**
      * Creates validation items for missing BPMN references.
@@ -96,12 +93,12 @@ public class BpmnValidationService {
      * @return list of all validation items from file validation
      * @throws ResourceValidationException if any BPMN file contains parsing errors
      */
-    private List<AbstractValidationItem> validateExistingFiles(List<File> bpmnFiles)
+    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> bpmnFiles)
             throws ResourceValidationException {
         List<AbstractValidationItem> allItems = new ArrayList<>();
 
         for (File bpmnFile : bpmnFiles) {
-            List<AbstractValidationItem> fileItems = validateSingleBpmnFile(bpmnFile);
+            List<AbstractValidationItem> fileItems = validateSingleBpmnFile(pluginName, bpmnFile);
             allItems.addAll(fileItems);
         }
 
@@ -109,13 +106,9 @@ public class BpmnValidationService {
     }
 
     /**
-     * Validates a single BPMN file.
-     *
-     * @param bpmnFile the BPMN file to validate
-     * @return list of validation items for this file
-     * @throws ResourceValidationException if the file contains parsing errors
+     * Validates a single BPMN file and adds success items for successfully parsed files.
      */
-    private List<AbstractValidationItem> validateSingleBpmnFile(File bpmnFile)
+    private List<AbstractValidationItem> validateSingleBpmnFile(String pluginName, File bpmnFile)
             throws ResourceValidationException {
 
         logger.info("Validating BPMN file: " + bpmnFile.getName());
@@ -124,9 +117,24 @@ public class BpmnValidationService {
         ValidationOutput output = bpmnValidator.validateBpmnFile(bpmnFile.toPath());
         List<AbstractValidationItem> itemsForThisFile = new ArrayList<>(output.validationItems());
 
-        // Extract process ID and add success item
+        // Check if file was successfully parsed (no Unparsable items)
+        boolean hasUnparsableItem = itemsForThisFile.stream()
+                .anyMatch(item -> item instanceof PluginDefinitionUnparsableBpmnResourceValidationItem);
+
+        if (!hasUnparsableItem) {
+            // Add PluginDefinitionValidationItemSuccess for successful parsing
+            PluginDefinitionValidationItemSuccess pluginSuccessItem = new PluginDefinitionValidationItemSuccess(
+                    bpmnFile,
+                    pluginName,
+                    String.format("BPMN file '%s' successfully parsed and validated for plugin '%s'",
+                            bpmnFile.getName(), pluginName)
+            );
+            itemsForThisFile.add(pluginSuccessItem);
+        }
+
+        // Extract process ID and add BPMN-specific success item
         String processId = extractProcessId(output);
-        itemsForThisFile.add(createSuccessItem(bpmnFile, processId));
+        itemsForThisFile.add(createBpmnSuccessItem(bpmnFile, processId));
 
         return itemsForThisFile;
     }
@@ -143,13 +151,9 @@ public class BpmnValidationService {
     }
 
     /**
-     * Creates a success validation item for a found and readable BPMN file.
-     *
-     * @param bpmnFile the BPMN file
-     * @param processId the process ID
-     * @return a success validation item
+     * Creates a BPMN-specific success validation item.
      */
-    private BpmnElementValidationItemSuccess createSuccessItem(File bpmnFile, String processId) {
+    private BpmnElementValidationItemSuccess createBpmnSuccessItem(File bpmnFile, String processId) {
         return new BpmnElementValidationItemSuccess(
                 processId,
                 bpmnFile,
@@ -166,8 +170,8 @@ public class BpmnValidationService {
      * @param processId the process ID
      * @return file report metadata
      */
-    public FileReportMetadata createFileReport(                   //this logic is ignored, but we can use it again, whenever we want
-                                                                  List<AbstractValidationItem> items, File bpmnFile, String processId) {
+    public FileReportMetadata createFileReport(
+            List<AbstractValidationItem> items, File bpmnFile, String processId) {
 
         String normalizedProcessId = normalizeProcessIdForReport(processId, bpmnFile);
         String parentFolderName = extractParentFolderName(bpmnFile);
@@ -220,5 +224,4 @@ public class BpmnValidationService {
      */
     public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
     }
-
 }

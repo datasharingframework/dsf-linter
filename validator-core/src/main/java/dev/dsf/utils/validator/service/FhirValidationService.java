@@ -59,9 +59,8 @@ public class FhirValidationService {
             return new ValidationResult(allItems);
         }
 
-        allItems.addAll(validateExistingFiles(fhirFiles));
+        allItems.addAll(validateExistingFiles(pluginName, fhirFiles));
 
-        // Return ALL items (including Plugin items) for further processing
         return new ValidationResult(allItems);
     }
 
@@ -91,17 +90,13 @@ public class FhirValidationService {
 
     /**
      * Validates all existing FHIR files.
-     *
-     * @param fhirFiles list of FHIR files to validate
-     * @return list of all validation items from file validation
-     * @throws ResourceValidationException if any FHIR file contains parsing errors
      */
-    private List<AbstractValidationItem> validateExistingFiles(List<File> fhirFiles)
+    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> fhirFiles)
             throws ResourceValidationException {
         List<AbstractValidationItem> allItems = new ArrayList<>();
 
         for (File fhirFile : fhirFiles) {
-            List<AbstractValidationItem> fileItems = validateSingleFhirFile(fhirFile);
+            List<AbstractValidationItem> fileItems = validateSingleFhirFile(pluginName, fhirFile);
             allItems.addAll(fileItems);
         }
 
@@ -109,13 +104,9 @@ public class FhirValidationService {
     }
 
     /**
-     * Validates a single FHIR file.
-     *
-     * @param fhirFile the FHIR file to validate
-     * @return list of validation items for this file
-     * @throws ResourceValidationException if the file contains parsing errors
+     * Validates a single FHIR file and adds success items for successfully parsed files.
      */
-    private List<AbstractValidationItem> validateSingleFhirFile(File fhirFile)
+    private List<AbstractValidationItem> validateSingleFhirFile(String pluginName, File fhirFile)
             throws ResourceValidationException {
 
         logger.info("Validating FHIR file: " + fhirFile.getName());
@@ -123,8 +114,24 @@ public class FhirValidationService {
         ValidationOutput output = fhirResourceValidator.validateSingleFile(fhirFile.toPath());
         List<AbstractValidationItem> itemsForThisFile = new ArrayList<>(output.validationItems());
 
+        // Check if file was successfully parsed (no Unparsable items)
+        boolean hasUnparsableItem = itemsForThisFile.stream()
+                .anyMatch(item -> item instanceof PluginDefinitionUnparsableFhirResourceValidationItem);
+
+        if (!hasUnparsableItem) {
+            // Add PluginDefinitionValidationItemSuccess for successful parsing
+            PluginDefinitionValidationItemSuccess pluginSuccessItem = new PluginDefinitionValidationItemSuccess(
+                    fhirFile,
+                    pluginName,
+                    String.format("FHIR file '%s' successfully parsed and validated for plugin '%s'",
+                            fhirFile.getName(), pluginName)
+            );
+            itemsForThisFile.add(pluginSuccessItem);
+        }
+
+        // Extract FHIR reference and add FHIR-specific success item
         String fhirReference = extractFhirReference(itemsForThisFile);
-        itemsForThisFile.add(createSuccessItem(fhirFile, fhirReference));
+        itemsForThisFile.add(createFhirSuccessItem(fhirFile, fhirReference));
 
         return itemsForThisFile;
     }
@@ -151,7 +158,7 @@ public class FhirValidationService {
      * @param fhirReference the extracted FHIR reference
      * @return a success validation item
      */
-    private FhirElementValidationItemSuccess createSuccessItem(File fhirFile, String fhirReference) {
+    private FhirElementValidationItemSuccess createFhirSuccessItem(File fhirFile, String fhirReference) {
         return new FhirElementValidationItemSuccess(
                 fhirFile,
                 fhirReference,
@@ -203,5 +210,4 @@ public class FhirValidationService {
      */
     public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
     }
-
 }
