@@ -24,6 +24,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static dev.dsf.utils.validator.util.Console.ANSI_GREEN;
+
 /**
  * Generates HTML validation reports and console output with a unified structure.
  * ALWAYS creates subdirectories for each plugin, regardless of count.
@@ -186,7 +188,7 @@ public class ValidationReportGenerator {
             System.out.println("\u001B[31m  ✗ Errors:   " + errorCount + "\u001B[0m");
             System.out.flush();
         } else {
-            System.out.println("\u001B[32m  ✓ Errors:   " + errorCount + "\u001B[0m");
+            System.out.println( ANSI_GREEN + "  ✓ Errors:   " + errorCount + "\u001B[0m");
             System.out.flush();
         }
 
