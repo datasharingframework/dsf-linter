@@ -67,14 +67,11 @@ public class ProjectSetupHandler {
             buildMavenProject(projectDir);
             projectClassLoader = createProjectClassLoader(projectDir);
 
-            // Determine resources directory for Maven project
-            File srcMainResources = new File(projectDir, "src/main/resources");
-            resourcesDir = srcMainResources.isDirectory()
-                    ? srcMainResources
-                    : new File(projectDir, "target/classes");
-
+            // Always use the compiled target/classes directory for resources
+            resourcesDir = new File(projectDir, "target/classes");
             logger.info("Using Maven resource directory: " + resourcesDir.getAbsolutePath());
-        } else {
+        }
+        else {
             logger.info("No 'pom.xml' found. Assuming exploded plugin layout – skipping Maven build.");
             logger.info("Building runtime classpath from: " + projectDir.getAbsolutePath());
 
