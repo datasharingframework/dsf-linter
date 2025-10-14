@@ -10,35 +10,29 @@ import static dev.dsf.utils.validator.classloading.ProjectClassLoaderFactory.get
 
 /**
  * Utility class for resolving resource references in various formats to concrete files, URLs, or streams.
- * <p>
- * This class provides functionality to normalize resource paths and resolve them from
- * multiple sources including the file system and classpath. It handles various path
- * formats commonly used in plugin definitions and Maven project structures.
- * </p>
- * <p>
- * The resolver supports lookups in the following order:
+ *
+ * <p>This class provides functionality to normalize resource paths and resolve them from
+ * multiple sources including the file system and classpath. It integrates with {@link ResourceRootResolver}
+ * for consistent resource root directory determination.</p>
+ *
+ * <p>The resolver supports lookups in the following order:</p>
  * <ol>
- *   <li>Direct file path relative to project root</li>
- *   <li>src/main/resources directory</li>
- *   <li>target/classes directory (compiled resources)</li>
- *   <li>Additional search paths (bpmn, fhir subdirectories)</li>
+ *   <li>Resource root directory (determined by {@link ResourceRootResolver})</li>
+ *   <li>Additional search paths within resource root (bpmn, fhir subdirectories)</li>
  *   <li>Absolute file paths</li>
  *   <li>Classpath resources (from dependencies and plugin JARs)</li>
  * </ol>
- * </p>
- * <p>
- * For classpath resources that cannot be accessed directly as files (e.g., resources
- * inside JAR files), the resolver provides multiple access methods:
- * </p>
+ *
+ * <p>For classpath resources that cannot be accessed directly as files (e.g., resources
+ * inside JAR files), the resolver provides multiple access methods:</p>
  * <ul>
  *   <li>{@link #resolveToFile(String, File)} - Materializes resources as temporary files</li>
  *   <li>{@link #resolveToURL(String, File)} - Returns URL for direct access (more efficient)</li>
  *   <li>{@link #resolveToStream(String, File)} - Returns InputStream for one-time reading (most efficient)</li>
  * </ul>
- * <p>
- * A cache is maintained for materialized temporary files to avoid repeated I/O operations
- * when using the file-based API. The cache can be cleared using {@link #clearCache()}.
- * </p>
+ *
+ * <p>A cache is maintained for materialized temporary files to avoid repeated I/O operations
+ * when using the file-based API. The cache can be cleared using {@link #clearCache()}.</p>
  *
  * @since 1.0
  */
@@ -49,6 +43,13 @@ public final class ResourceResolver {
      * Key format: "canonicalProjectRoot::classpathPath"
      */
     private static final Map<String, File> MATERIALIZED_CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * Cache for resolved resource roots to avoid repeated resolution.
+     * Key: canonical project root path
+     * Value: resolved resource root directory
+     */
+    private static final Map<String, File> RESOURCE_ROOT_CACHE = new ConcurrentHashMap<>();
 
     private ResourceResolver() {}
 
@@ -101,14 +102,14 @@ public final class ResourceResolver {
 
     /**
      * Resolve a resource reference to a concrete File:
-     * 1) Check disk (projectRoot, src/main/resources, target/classes, additional paths)
+     * 1) Check disk using centralized resource root resolution
      * 2) Fallback: resolve via project URLClassLoader and materialize to a temp file
      *
      * This keeps the existing File-based validator API without duplicating parsing logic.
      *
      * @param ref the resource reference to resolve
      * @param projectRoot the project root directory
-     * @param additionalSearchPaths additional subdirectories to search in src/main/resources
+     * @param additionalSearchPaths additional subdirectories to search in resource root
      * @return Optional containing the resolved File, or empty if not found
      */
     public static Optional<File> resolveToFile(String ref, File projectRoot, String... additionalSearchPaths) {
@@ -116,7 +117,7 @@ public final class ResourceResolver {
         String cpPath = normalizeRef(ref);
         if (cpPath.isEmpty()) return Optional.empty();
 
-        // 1) Disk lookups
+        // 1) Disk lookups using centralized resource root
         Optional<File> diskResult = searchOnDisk(cpPath, projectRoot, additionalSearchPaths);
         if (diskResult.isPresent()) {
             return diskResult;
@@ -145,7 +146,7 @@ public final class ResourceResolver {
         String cpPath = normalizeRef(ref);
         if (cpPath.isEmpty()) return Optional.empty();
 
-        // 1) Check disk first
+        // 1) Check disk first using centralized resource root
         Optional<File> diskResult = searchOnDisk(cpPath, projectRoot);
         if (diskResult.isPresent()) {
             try {
@@ -178,7 +179,7 @@ public final class ResourceResolver {
         String cpPath = normalizeRef(ref);
         if (cpPath.isEmpty()) return Optional.empty();
 
-        // 1) Check disk first
+        // 1) Check disk first using centralized resource root
         Optional<File> diskResult = searchOnDisk(cpPath, projectRoot);
         if (diskResult.isPresent()) {
             try {
@@ -199,7 +200,8 @@ public final class ResourceResolver {
     }
 
     /**
-     * Clears the cache of materialized resources. Useful for testing or memory management.
+     * Clears all caches (materialized resources and resolved resource roots).
+     * Useful for testing or memory management.
      */
     public static void clearCache() {
         // Clean up temp files before clearing cache
@@ -222,40 +224,70 @@ public final class ResourceResolver {
             }
         });
         MATERIALIZED_CACHE.clear();
+        RESOURCE_ROOT_CACHE.clear();
     }
 
     //  Private helper methods
 
     /**
-     * Searches for the resource on disk in various standard locations.
+     * Searches for the resource on disk using centralized resource root resolution.
+     *
+     * OPTIMIZATION: This method now uses {@link ResourceRootResolver} to determine
+     * the resource root directory, eliminating duplicate logic and ensuring consistency.
+     *
+     * @param cpPath the normalized classpath-style resource path
+     * @param projectRoot the project root directory
+     * @param additionalSearchPaths additional subdirectories to search (e.g., "bpmn", "fhir")
+     * @return Optional containing the resolved File, or empty if not found
      */
     private static Optional<File> searchOnDisk(String cpPath, File projectRoot, String... additionalSearchPaths) {
-        // Direct path relative to project root
-        File direct = new File(projectRoot, cpPath);
-        if (direct.isFile()) return Optional.of(direct);
+        try {
+            // Get or compute cached resource root
+            String cacheKey = projectRoot.getCanonicalPath();
+            File resourceRoot = RESOURCE_ROOT_CACHE.computeIfAbsent(cacheKey, k -> {
+                ResourceRootResolver.ResolutionResult result =
+                        ResourceRootResolver.resolveResourceRoot(projectRoot);
+                return result.resourceRoot();
+            });
 
-        // src/main/resources
-        File srcMain = new File(new File(projectRoot, "src/main/resources"), cpPath);
-        if (srcMain.isFile()) return Optional.of(srcMain);
+            // 1) Direct lookup in resource root
+            File direct = new File(resourceRoot, cpPath);
+            if (direct.isFile()) {
+                return Optional.of(direct);
+            }
 
-        // target/classes
-        File targetClasses = new File(new File(projectRoot, "target/classes"), cpPath);
-        if (targetClasses.isFile()) return Optional.of(targetClasses);
+            // 2) Check additional search paths within resource root
+            for (String additionalPath : additionalSearchPaths) {
+                File additional = new File(resourceRoot, additionalPath + "/" + cpPath);
+                if (additional.isFile()) {
+                    return Optional.of(additional);
+                }
+            }
 
-        // Additional search paths (e.g., src/main/resources/bpmn, src/main/resources/fhir)
-        for (String additionalPath : additionalSearchPaths) {
-            File additional = new File(new File(projectRoot, "src/main/resources/" + additionalPath), cpPath);
-            if (additional.isFile()) return Optional.of(additional);
+            // 3) Special case: Check if the path already contains one of the additional paths
+            // This handles cases like "bpmn/process.bpmn" when resource is at "resourceRoot/bpmn/process.bpmn"
+            for (String additionalPath : additionalSearchPaths) {
+                if (cpPath.startsWith(additionalPath + "/")) {
+                    // Path already includes the subdirectory, try direct lookup again
+                    // This is already covered by step 1, so we can skip
+                    break;
+                }
+            }
 
-            File additionalTarget = new File(new File(projectRoot, "target/classes/" + additionalPath), cpPath);
-            if (additionalTarget.isFile()) return Optional.of(additionalTarget);
+            return Optional.empty();
+
+        } catch (Exception e) {
+            // If anything fails, return empty
+            return Optional.empty();
         }
-
-        return Optional.empty();
     }
 
     /**
      * Materializes a classpath resource to a temporary file with caching and directory structure preservation.
+     *
+     * @param cpPath the normalized classpath-style resource path
+     * @param projectRoot the project root directory
+     * @return Optional containing the materialized File, or empty if not found
      */
     private static Optional<File> materializeFromClasspath(String cpPath, File projectRoot) {
         try {

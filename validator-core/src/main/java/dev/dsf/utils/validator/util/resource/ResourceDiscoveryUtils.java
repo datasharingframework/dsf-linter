@@ -2,9 +2,6 @@ package dev.dsf.utils.validator.util.resource;
 
 import dev.dsf.utils.validator.plugin.PluginDefinitionDiscovery.PluginAdapter;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -22,74 +19,6 @@ public final class ResourceDiscoveryUtils {
      * Result container for resolved resources
      */
     public record ResolvedResources(List<File> resolvedFiles, List<String> missingRefs) {}
-
-    /**
-     * Determines the resources root directory based on plugin location and project structure.
-     * Supports both Maven and Gradle layouts.
-     *
-     * @param projectDir the project directory
-     * @param pluginAdapter the plugin adapter to inspect for location
-     * @param fallback optional fallback directory
-     * @return the determined resources root directory
-     */
-    public static File determineResourcesRoot(File projectDir, PluginAdapter pluginAdapter, File fallback) {
-        try {
-            Class<?> pluginClass = pluginAdapter.sourceClass();
-            if (pluginClass != null) {
-                java.security.ProtectionDomain pd = pluginClass.getProtectionDomain();
-                if (pd != null) {
-                    java.security.CodeSource cs = pd.getCodeSource();
-                    if (cs != null && cs.getLocation() != null) {
-                        java.net.URI uri = cs.getLocation().toURI();
-                        Path loc = Paths.get(uri);
-
-                        if (Files.isDirectory(loc)) {
-                            String norm = loc.toString().replace('\\', '/');
-
-                            // Maven: <module>/target/classes → use directly
-                            if (norm.endsWith("/target/classes")) {
-                                return loc.toFile();
-                            }
-
-                            // Gradle: prefer <module>/build/resources/main if classes root is returned
-                            if (norm.endsWith("/build/classes/java/main")) {
-                                Path gradleRes = loc.getParent() // java
-                                        .getParent() // classes
-                                        .resolve("resources")
-                                        .resolve("main");
-                                if (Files.isDirectory(gradleRes)) {
-                                    return gradleRes.toFile();
-                                }
-                                // Fall back to classes dir if resources dir is missing
-                                return loc.toFile();
-                            }
-
-                            // Unknown layout but still a directory on the classpath — use it
-                            return loc.toFile();
-                        }
-
-                        // Code source points to a JAR or non-directory → use fallback
-                        return (fallback != null) ? fallback : projectDir;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Log error if logger is available, otherwise silent fallback
-            System.err.println("Error determining resources root from code source: " + e.getMessage());
-        }
-
-        // Local source checkout fallbacks (Maven/Gradle)
-        File mavenResources = new File(projectDir, "src/main/resources");
-        if (mavenResources.isDirectory()) return mavenResources;
-
-        File mavenClasses = new File(projectDir, "target/classes");
-        if (mavenClasses.isDirectory()) return mavenClasses;
-
-        File gradleResources = new File(projectDir, "build/resources/main");
-        if (gradleResources.isDirectory()) return gradleResources;
-
-        return (fallback != null) ? fallback : projectDir;
-    }
 
     /**
      * Collects all BPMN paths referenced by the plugin.

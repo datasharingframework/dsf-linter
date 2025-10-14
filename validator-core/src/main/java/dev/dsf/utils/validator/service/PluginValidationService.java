@@ -123,7 +123,7 @@ public class PluginValidationService {
             // Look for specific service file
             for (Path servicesDir : standardPaths) {
                 if (Files.exists(servicesDir.resolve(expectedServiceFile))) {
-                    logger.debug("Found service file at: " + servicesDir);
+                    logger.debug("Found service file under project root: " + projectPath.toAbsolutePath());
                     return true;
                 }
             }
@@ -131,7 +131,7 @@ public class PluginValidationService {
             // Look for any ProcessPluginDefinition service file
             for (Path servicesDir : standardPaths) {
                 if (containsProcessPluginDefinitionFile(servicesDir)) {
-                    logger.debug("Found service file at: " + servicesDir);
+                    logger.debug("Found service file under project root: " + projectPath.toAbsolutePath());
                     return true;
                 }
             }

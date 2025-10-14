@@ -9,6 +9,7 @@ import dev.dsf.utils.validator.util.api.ApiVersionDetector;
 import dev.dsf.utils.validator.util.api.DetectedVersion;
 import dev.dsf.utils.validator.util.resource.FhirAuthorizationCache;
 import dev.dsf.utils.validator.util.resource.ResourceDiscoveryUtils;
+import dev.dsf.utils.validator.util.resource.ResourceRootResolver;
 import dev.dsf.utils.validator.setup.ProjectSetupHandler.ProjectContext;
 
 import java.io.File;
@@ -108,14 +109,16 @@ public class ResourceDiscoveryService {
 
         logger.info("Found " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");
 
-        // 2. Determine shared resources directory
-        File sharedResourcesDir = ResourceDiscoveryUtils.determineResourcesRoot(
-                context.projectDir(),
-                pluginDiscovery.getAllPlugins().get(0),
-                context.resourcesDir()
-        );
+        // Use centralized resource root resolution with first plugin
+        // This allows plugin-specific resource root detection via CodeSource
+        ResourceRootResolver.ResolutionResult resourceRootResult =
+                ResourceRootResolver.resolveResourceRoot(
+                        context.projectDir(),
+                        pluginDiscovery.getAllPlugins().get(0)
+                );
 
-        logger.info("Resources root: " + sharedResourcesDir.getAbsolutePath());
+        File sharedResourcesDir = resourceRootResult.resourceRoot();
+        logger.info("Resolved shared resources directory: " + resourceRootResult);
 
         // 3. Initialize shared components
         FhirAuthorizationCache.seedFromProjectAndClasspath(context.projectDir());
@@ -179,7 +182,7 @@ public class ResourceDiscoveryService {
         logger.debug("Referenced BPMN: " + referencedBpmnPaths.size() +
                 ", Referenced FHIR: " + referencedFhirPaths.size());
 
-        // Resolve files
+        // Resolve files using the already-determined resourcesDir
         ResourceDiscoveryUtils.ResolvedResources bpmnResources =
                 ResourceDiscoveryUtils.resolveResourceFiles(referencedBpmnPaths, resourcesDir);
         ResourceDiscoveryUtils.ResolvedResources fhirResources =
