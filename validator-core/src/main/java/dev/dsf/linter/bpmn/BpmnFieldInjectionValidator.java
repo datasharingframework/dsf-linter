@@ -191,13 +191,23 @@ public class BpmnFieldInjectionValidator {
             String fieldName = field.getCamundaName();
             FieldValue fv = readFieldValue(field);
 
-            //  expression? -> immediate info + skip further processing of this field
+            // If field value is a plain string literal, record a success for clarity.
+            if (fv != null && fv.type == FieldValueType.STRING) {
+                issues.add(new BpmnElementValidationItemSuccess(
+                        elementId,
+                        bpmnFile,
+                        processId,
+                        "Field injection '" + fieldName + "' provided as string literal"));
+            }
+
+            // expression? -> immediate error + skip further processing of this field
             if (fv != null && fv.type == FieldValueType.EXPRESSION) {
                 issues.add(new BpmnFieldInjectionNotStringLiteralValidationItem(
                         elementId, bpmnFile, processId, fieldName,
                         "Field injection '" + fieldName + "' is provided as expression, expected string literal"));
                 continue;
             }
+
 
             String literal = (fv != null) ? fv.value : null;
 
@@ -207,6 +217,11 @@ public class BpmnFieldInjectionValidator {
                     profileVal = literal;
                     if (!isEmpty(literal) && FhirResourceLocator.structureDefinitionExists(literal, projectRoot)) {
                         structureFoundForProfile = true;
+                        issues.add(new BpmnElementValidationItemSuccess(
+                                elementId,
+                                bpmnFile,
+                                processId,
+                                "StructureDefinition for profile '" + literal + "' found"));
                     }
                 }
                 case "messageName" -> {
