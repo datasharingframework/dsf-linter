@@ -9,37 +9,11 @@ import java.util.Optional;
 
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
 import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.constants.DsfApiConstants.DSF_TASK_INTERFACES;
 
 public class ClassInspector {
 
-    private static final Logger logger = new ConsoleLogger(false);
-
-    /**
-     * List of all DSF task-related interface class names supported for validation purposes.
-     * <p>
-     * This array includes:
-     * <ul>
-     *   <li><b>API v1:</b> {@code org.camunda.bpm.engine.delegate.JavaDelegate}</li>
-     *   <li><b>API v2:</b> {@code dev.dsf.bpe.v2.activity.ServiceTask},
-     *       {@code dev.dsf.bpe.v2.activity.MessageSendTask},
-     *       {@code dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent},
-     *       {@code dev.dsf.bpe.v2.activity.MessageEndEvent},
-     *       as well as {@code dev.dsf.bpe.v2.activity.UserTaskListener}</li>
-     * </ul>
-     * These interfaces define valid implementations for service tasks, message events, and user task listeners
-     * in both legacy and modern DSF process definitions.
-     * </p>
-     */
-    private static final String[] DSF_TASK_INTERFACES = {
-            /* API v1 */
-            "org.camunda.bpm.engine.delegate.JavaDelegate",
-            /* API v2 */
-            "dev.dsf.bpe.v2.activity.ServiceTask",
-            "dev.dsf.bpe.v2.activity.MessageSendTask",
-            "dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent",
-            "dev.dsf.bpe.v2.activity.MessageEndEvent",
-            "dev.dsf.bpe.v2.activity.UserTaskListener"
-    };
+    public static final Logger logger = new ConsoleLogger(false);
 
 
     /**

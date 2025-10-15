@@ -17,6 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static dev.dsf.linter.constants.DsfApiConstants.V1_SERVICE_FILE;
+import static dev.dsf.linter.constants.DsfApiConstants.V2_SERVICE_FILE;
+
 /**
  * Service for validating plugin-specific configurations.
  * Primarily checks for ServiceLoader registrations and collects all plugin-related items.
@@ -192,9 +195,9 @@ public class PluginValidationService {
         }
 
         Set<String> knownServiceFiles = Set.of(
-                "dev.dsf.bpe.v1.ProcessPluginDefinition",
-                "dev.dsf.bpe.v2.ProcessPluginDefinition",
-                "dev.dsf.ProcessPluginDefinition"
+                V1_SERVICE_FILE,
+                V2_SERVICE_FILE,
+                "dev.dsf.ProcessPluginDefinition" // Legacy fallback
         );
 
         try (var stream = Files.list(servicesDir)) {

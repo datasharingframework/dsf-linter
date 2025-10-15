@@ -1,5 +1,8 @@
 package dev.dsf.linter.plugin;
 
+import dev.dsf.linter.util.LogUtils;
+import dev.dsf.linter.util.ReflectionUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,7 +21,10 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
+import static dev.dsf.linter.classloading.ClassInspector.logger;
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateRecursiveProjectClassLoader;
+import static dev.dsf.linter.constants.DsfApiConstants.V1_PLUGIN_INTERFACE;
+import static dev.dsf.linter.constants.DsfApiConstants.V2_PLUGIN_INTERFACE;
 
 /**
  * Discovers and loads ProcessPluginDefinition implementations from the classpath.
@@ -116,14 +122,8 @@ public final class PluginDefinitionDiscovery
          *                         exception wrapped and the method name included in the error message
          */
         @Override
-        @SuppressWarnings("unchecked")
         public Map<String, List<String>> getFhirResourcesByProcessId() {
-            try {
-                Map<String, List<String>> r = (Map<String, List<String>>) delegateClass.getMethod("getFhirResourcesByProcessId").invoke(delegate);
-                return r != null ? r : Collections.emptyMap();
-            } catch (Exception e) {
-                throw new RuntimeException("getFhirResourcesByProcessId", e);
-            }
+            return ReflectionUtils.getFhirResourcesByProcessId(delegate, delegateClass);
         }
 
         /**
@@ -217,14 +217,8 @@ public final class PluginDefinitionDiscovery
          *                         exception wrapped and the method name included in the error message
          */
         @Override
-        @SuppressWarnings("unchecked")
         public Map<String, List<String>> getFhirResourcesByProcessId() {
-            try {
-                Map<String, List<String>> r = (Map<String, List<String>>) delegateClass.getMethod("getFhirResourcesByProcessId").invoke(delegate);
-                return r != null ? r : Collections.emptyMap();
-            } catch (Exception e) {
-                throw new RuntimeException("getFhirResourcesByProcessId", e);
-            }
+            return ReflectionUtils.getFhirResourcesByProcessId(delegate, delegateClass);
         }
 
         /**
@@ -243,15 +237,18 @@ public final class PluginDefinitionDiscovery
 
 
     /**
-     * Scans project root recursively for plugin definitions.
+     * Scans the project root for plugin definitions using a recursive project ClassLoader.
+     * Prefers ServiceLoader discovery (V2 first, then V1). If nothing is found, falls back
+     * to a direct class scan with the same loader.
+     *
      * @param projectRoot the project root directory
-     * @return list of discovered plugins
+     * @return list of discovered PluginAdapter instances
      */
     static List<PluginAdapter> scanProjectRoot(File projectRoot) {
         List<PluginAdapter> found = new ArrayList<>();
 
         try {
-            // 1) Get cached recursive project class loader from the utils
+            // 1) Get cached recursive project class loader
             ClassLoader projectCl = getOrCreateRecursiveProjectClassLoader(projectRoot);
 
             // 2) Temporarily set TCCL so ServiceLoader.load(service) uses it
@@ -259,19 +256,23 @@ public final class PluginDefinitionDiscovery
             Thread.currentThread().setContextClassLoader(projectCl);
 
             try {
-                System.out.println("[DEBUG] Classpath (recursive) built via BpmnValidationUtils. Trying ServiceLoader discovery...");
+                System.out.println("[DEBUG] Classpath (recursive) prepared via BpmnValidationUtils. Trying ServiceLoader discovery...");
 
-                // 3) Try v2 first (prefer v2 if both exist)
+                // 3) Try V2 first (prefer V2 if both exist)
                 try {
-                    Class<?> v2Class = Class.forName("dev.dsf.bpe.v2.ProcessPluginDefinition", false, projectCl);
+                    Class<?> v2Class = Class.forName(V2_PLUGIN_INTERFACE, false, projectCl);
                     ServiceLoader.load(v2Class, projectCl).forEach(instance -> found.add(new V2Adapter(instance)));
-                } catch (ClassNotFoundException ignored) {}
+                } catch (ClassNotFoundException ignored) {
+                    // V2 interface not present on classpath — continue with V1
+                }
 
-                // 4) Then try v1
+                // 4) Then try V1
                 try {
-                    Class<?> v1Class = Class.forName("dev.dsf.bpe.v1.ProcessPluginDefinition", false, projectCl);
+                    Class<?> v1Class = Class.forName(V1_PLUGIN_INTERFACE, false, projectCl);
                     ServiceLoader.load(v1Class, projectCl).forEach(instance -> found.add(new V1Adapter(instance)));
-                } catch (ClassNotFoundException ignored) {}
+                } catch (ClassNotFoundException ignored) {
+                    // V1 interface not present on classpath — continue to fallback
+                }
 
                 if (!found.isEmpty()) {
                     System.out.println("[DEBUG] SUCCESS: Plugin found via ServiceLoader with recursive classpath.");
@@ -286,12 +287,14 @@ public final class PluginDefinitionDiscovery
             }
 
         } catch (Exception e) {
-            System.err.println("WARNING: Project root scanning failed critically: " + e.getMessage());
-            e.printStackTrace();
+            LogUtils.logAndRethrow(logger, "Plugin discovery failed", e);
         }
+
+
 
         return found;
     }
+
 
     /**
      * Performs direct class scanning in project build directories.
@@ -486,25 +489,19 @@ public final class PluginDefinitionDiscovery
         return out;
     }
 
-    /**
-     * Checks if class implements ProcessPluginDefinition interface.
-     * @param c the class to check
-     * @param cl class loader for interface lookup
-     * @return true if class implements the interface
-     */
-    private static boolean implementsProcessPluginDefinition(Class<?> c, ClassLoader cl) {
-        try {
-            if (Class.forName("dev.dsf.bpe.v2.ProcessPluginDefinition", false, cl).isAssignableFrom(c)) return true;
-        } catch (ClassNotFoundException ignored) {
-
+        private static boolean implementsProcessPluginDefinition(Class<?> c, ClassLoader cl) {
+            try {
+                if (Class.forName(V2_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c)) return true;
+            } catch (ClassNotFoundException ignored) {
+                // V2 not available, try V1
+            }
+            try {
+                if (Class.forName(V1_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c)) return true;
+            } catch (ClassNotFoundException ignored) {
+                // V1 not available either
+            }
+            return false;
         }
-        try {
-            if (Class.forName("dev.dsf.bpe.v1.ProcessPluginDefinition", false, cl).isAssignableFrom(c)) return true;
-        } catch (ClassNotFoundException ignored) {
-
-        }
-        return false;
-    }
 
     /**
      * Verifies class has required plugin method signatures.
@@ -534,16 +531,19 @@ public final class PluginDefinitionDiscovery
     }
 
     /**
-     * Checks if class is assignable to v2 plugin interface.
-     * @param c the class to check
-     * @param cl class loader for interface lookup
-     * @return true if assignable to v2 interface
+     * Determines if the given class is assignable to the V2 ProcessPluginDefinition interface.
+     * This helper is used to decide whether to wrap with V2Adapter (else V1Adapter).
+     *
+     * @param c  the class to check
+     * @param cl the ClassLoader to resolve the DSF API interface
+     * @return true if {@code c} implements the V2 ProcessPluginDefinition interface
      */
     private static boolean isAssignableTo(Class<?> c, ClassLoader cl) {
         try {
-            return Class.forName("dev.dsf.bpe.v2.ProcessPluginDefinition", false, cl).isAssignableFrom(c);
+            return Class.forName(V2_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c);
         } catch (ClassNotFoundException e) {
             return false;
         }
     }
+
 }

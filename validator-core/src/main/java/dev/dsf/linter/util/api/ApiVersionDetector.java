@@ -7,6 +7,9 @@ import java.nio.file.*;
 import java.util.List;
 import java.util.Optional;
 
+import static dev.dsf.linter.constants.DsfApiConstants.V1_SERVICE_FILE;
+import static dev.dsf.linter.constants.DsfApiConstants.V2_SERVICE_FILE;
+
 /**
  * <h2>DSF API Version Detection Utility</h2>
  *
@@ -53,8 +56,8 @@ public final class ApiVersionDetector
             "build/classes/java/main/META-INF/services"     // Gradle classes
     );
 
-    private static final String V2_FILE = "dev.dsf.bpe.v2.ProcessPluginDefinition";
-    private static final String V1_FILE = "dev.dsf.bpe.v1.ProcessPluginDefinition";
+    private static final String V2_FILE = V2_SERVICE_FILE;
+    private static final String V1_FILE = V1_SERVICE_FILE;
 
     /**
      * Attempts to detect the DSF BPE API version by scanning known ServiceLoader paths
