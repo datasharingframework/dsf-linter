@@ -71,7 +71,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>dev.dsf.utils.validator.Main</mainClass>
+                                    <mainClass>dev.dsf.linter.Main</mainClass>
                                 </transformer>
                             </transformers>
                             <!-- Remove existing signatures so they don't break the repackaged JAR -->

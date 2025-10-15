@@ -1,0 +1,50 @@
+package dev.dsf.linter.item;
+
+import dev.dsf.linter.ValidationSeverity;
+import dev.dsf.linter.ValidationType;
+
+import java.io.File;
+
+/**
+ * Validation item indicating that a {@code concept} element in a CodeSystem resource
+ * is missing the required {@code <code>} sub-element.
+ *
+ * <p>According to the DSF CodeSystem base profile, each concept must define a code
+ * that uniquely identifies the entry.</p>
+ *
+ * <p>This issue corresponds to {@link ValidationType#CODE_SYSTEM_CONCEPT_MISSING_CODE}.</p>
+ */
+public class FhirCodeSystemConceptMissingCodeValidationItem extends FhirElementValidationItem
+{
+    /**
+     * Constructs a new validation item using the default description.
+     *
+     * @param resourceFile  the file containing the CodeSystem
+     * @param fhirReference the canonical or local reference of the CodeSystem
+     */
+    public FhirCodeSystemConceptMissingCodeValidationItem(File resourceFile, String fhirReference)
+    {
+        this(resourceFile, fhirReference,
+                "CodeSystem <concept> element is missing required <code>.", false);
+    }
+
+    /**
+     * Constructs a new validation item with a custom message.
+     *
+     * @param resourceFile  the file containing the CodeSystem
+     * @param fhirReference the canonical or local reference of the CodeSystem
+     * @param description   a custom validation message
+     * @param custom        whether the message is custom or not
+     */
+    public FhirCodeSystemConceptMissingCodeValidationItem(File resourceFile,
+                                                          String fhirReference,
+                                                          String description,
+                                                          boolean custom)
+    {
+        super(ValidationSeverity.ERROR,
+                resourceFile != null ? resourceFile.getName() : "unknown.xml",
+                fhirReference,
+                ValidationType.CODE_SYSTEM_CONCEPT_MISSING_CODE,
+                description);
+    }
+}

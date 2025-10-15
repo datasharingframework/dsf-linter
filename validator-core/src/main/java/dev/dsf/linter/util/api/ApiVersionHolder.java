@@ -1,0 +1,58 @@
+package dev.dsf.linter.util.api;
+
+import java.util.Objects;
+
+/**
+ * Holds the detected DSF BPE API version for use throughout the validator.
+ * Provides a single source of truth for the detected version on a per-thread basis.
+ * This class is thread-safe.
+ */
+public final class ApiVersionHolder {
+
+    private static final ThreadLocal<ApiVersion> version =
+            ThreadLocal.withInitial(() -> ApiVersion.UNKNOWN);
+
+    private ApiVersionHolder() {
+    }
+
+    /**
+     * Sets the DSF BPE API version for the current thread.
+     *
+     * @param v the API version to set; must not be null.
+     */
+    public static void setVersion(ApiVersion v) {
+        version.set(Objects.requireNonNull(v, "version must not be null"));
+    }
+
+    /**
+     * Returns the DSF BPE API version for the current thread.
+     *
+     * @return the current thread's API version, defaults to {@link ApiVersion#UNKNOWN}.
+     */
+    public static ApiVersion getVersion() {
+        return version.get();
+    }
+
+    /**
+     * Clears the API version for the current thread, resetting it to the initial value (UNKNOWN).
+     * This should be called after a validation run to prevent memory leaks in thread pools.
+     */
+    public static void clear() {
+        version.remove();
+    }
+
+    /**
+     * Legacy string-based accessor kept for backwards compatibility.
+     *
+     * @return "v1", "v2" or "unknown" based on the current thread's API version.
+     * @deprecated Use {@link #getVersion()} instead and handle the enum directly.
+     */
+    @Deprecated
+    public static String getVersionString() {
+        return switch (version.get()) {
+            case V1 -> "v1";
+            case V2 -> "v2";
+            case UNKNOWN -> "unknown";
+        };
+    }
+}
