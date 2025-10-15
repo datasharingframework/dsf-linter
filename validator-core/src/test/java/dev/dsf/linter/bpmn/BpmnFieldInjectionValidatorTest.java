@@ -1,5 +1,6 @@
 package dev.dsf.linter.bpmn;
 
+import dev.dsf.linter.ValidationSeverity;
 import dev.dsf.linter.item.BpmnElementValidationItem;
 import dev.dsf.linter.item.BpmnFieldInjectionMessageValueEmptyValidationItem;
 import dev.dsf.linter.item.BpmnFieldInjectionNotStringLiteralValidationItem;
@@ -41,6 +42,21 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class BpmnFieldInjectionValidatorTest
 {
+
+    private static List<BpmnElementValidationItem> nonSuccess(List<BpmnElementValidationItem> items) {
+        List<BpmnElementValidationItem> out = new ArrayList<>();
+        for (BpmnElementValidationItem it : items) {
+            try {
+                if (it.getSeverity() != ValidationSeverity.SUCCESS) {
+                    out.add(it);
+                }
+            } catch (Throwable ignored) {
+                out.add(it); // fail-open if getSeverity is unavailable
+            }
+        }
+        return out;
+    }
+
     /**
      * A sample BPMN file reference (not actually used to load from disk here).
      * In a real scenario, this might point to a file containing the BPMN.
@@ -158,22 +174,27 @@ public class BpmnFieldInjectionValidatorTest
         CamundaField field = model.newInstance(CamundaField.class);
         field.setCamundaName("messageName");
 
-        // Use <camunda:string> as a nested element
+        // Use <camunda:string> as a nested element (empty => should trigger the "empty messageName" validation item)
         CamundaString stringElement = model.newInstance(CamundaString.class);
-        // leaving it empty => triggers BpmnFieldInjectionMessageValueEmptyValidationItem
         field.addChildElement(stringElement);
 
         extensionElements.addChildElement(field);
 
         // Validate
+        File bpmnFile = new File("testProcessLiteral.bpmn");
         List<BpmnElementValidationItem> issues = new ArrayList<>();
         BpmnFieldInjectionValidator.validateMessageSendFieldInjections(
                 serviceTask, issues, bpmnFile, "testProcessLiteral", projectRoot
         );
 
-        // We expect 1 issue => because messageName was empty
-        assertEquals(1, issues.size(), "Expected exactly one validation issue for empty messageName");
-        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyValidationItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem");
+        // We expect exactly 1 non-success issue (the empty messageName). SUCCESS items (e.g., "provided as string literal")
+        // are intentionally ignored.
+        List<BpmnElementValidationItem> nonSuccess = nonSuccess(issues);
+        assertEquals(1, nonSuccess.size(), "Expected exactly one non-success issue for empty messageName");
+        assertTrue(
+                nonSuccess.stream().anyMatch(i -> i instanceof BpmnFieldInjectionMessageValueEmptyValidationItem),
+                "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyValidationItem"
+        );
     }
 
     /**
