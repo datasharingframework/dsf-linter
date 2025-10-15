@@ -1,7 +1,6 @@
 package dev.dsf.linter.plugin;
 
 import dev.dsf.linter.util.LogUtils;
-import dev.dsf.linter.util.ReflectionUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
@@ -50,191 +48,6 @@ public final class PluginDefinitionDiscovery
         Class<?> sourceClass();
     }
 
-    /**
-     * Adapter for v1 ProcessPluginDefinition implementations.
-     */
-    public static final class V1Adapter implements PluginAdapter
-    {
-        /** The wrapped v1 ProcessPluginDefinition instance. */
-        private final Object delegate;
-        /** The Class object representing the v1 plugin implementation. */
-        private final Class<?> delegateClass;
-
-
-        /**
-         * Creates adapter wrapping a v1 plugin instance.
-         * @param delegate the v1 plugin implementation
-         */
-        public V1Adapter(Object delegate) {
-            this.delegate = delegate;
-            this.delegateClass = delegate.getClass();
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V1 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getName()} method on the v1 plugin instance using reflection.
-         * The v1 API typically returns simple string names that may be used for basic identification purposes.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        public String getName() {
-            try {
-                String r = (String) delegateClass.getMethod("getName").invoke(delegate);
-                return r != null ? r : "";
-            } catch (Exception e) {
-                throw new RuntimeException("getName", e);
-            }
-        }
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V1 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getProcessModels()} method on the v1 plugin instance using reflection.
-         * The v1 API typically returns a simple list of process identifiers without complex metadata.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        @SuppressWarnings("unchecked")
-        public List<String> getProcessModels() {
-            try {
-                List<String> r = (List<String>) delegateClass.getMethod("getProcessModels").invoke(delegate);
-                return r != null ? r : Collections.emptyList();
-            } catch (Exception e) {
-                throw new RuntimeException("getProcessModels", e);
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V1 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getFhirResourcesByProcessId()} method on the v1 plugin instance
-         * using reflection. The v1 API typically returns a simpler mapping structure compared to v2,
-         * but maintains the same basic contract of mapping process IDs to FHIR resource lists.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        public Map<String, List<String>> getFhirResourcesByProcessId() {
-            return ReflectionUtils.getFhirResourcesByProcessId(delegate, delegateClass);
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V1 Implementation Details:</strong></p>
-         * <p>Returns the Class object representing the v1 ProcessPluginDefinition implementation.
-         * This can be used to identify the specific v1 plugin class and perform additional
-         * reflection operations if needed.</p>
-         */
-        @Override
-        public Class<?> sourceClass() {
-            return delegateClass;
-        }
-    }
-
-
-    /**
-     * Adapter for v2 ProcessPluginDefinition implementations.
-     */
-    public static final class V2Adapter implements PluginAdapter
-    {
-        /** The wrapped v2 ProcessPluginDefinition instance. */
-        private final Object delegate;
-        /** The Class object representing the v2 plugin implementation. */
-        private final Class<?> delegateClass;
-
-
-        /**
-         * Creates adapter wrapping a v2 plugin instance.
-         * @param delegate the v2 plugin implementation
-         */
-        public V2Adapter(Object delegate) {
-            this.delegate = delegate;
-            this.delegateClass = delegate.getClass();
-        }
-
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V2 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getName()} method on the v2 plugin instance using reflection.
-         * The v2 API may provide enhanced name information including localization support or
-         * additional metadata compared to v1 implementations.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        public String getName() {
-            try {
-                String r = (String) delegateClass.getMethod("getName").invoke(delegate);
-                return r != null ? r : "";
-            } catch (Exception e) {
-                throw new RuntimeException("getName", e);
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V2 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getProcessModels()} method on the v2 plugin instance using reflection.
-         * The v2 API may provide enhanced process model information with better metadata support,
-         * improved naming conventions, or additional process classification details.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        @SuppressWarnings("unchecked")
-        public List<String> getProcessModels() {
-            try {
-                List<String> r = (List<String>) delegateClass.getMethod("getProcessModels").invoke(delegate);
-                return r != null ? r : Collections.emptyList();
-            } catch (Exception e) {
-                throw new RuntimeException("getProcessModels", e);
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V2 Implementation Details:</strong></p>
-         * <p>This method invokes the {@code getFhirResourcesByProcessId()} method on the v2 plugin instance
-         * using reflection. The v2 API may provide enhanced FHIR resource mapping with additional
-         * relationship metadata, better resource categorization, or improved resource profile support.</p>
-         *
-         * @throws RuntimeException if the reflection-based method call fails, with the original
-         *                         exception wrapped and the method name included in the error message
-         */
-        @Override
-        public Map<String, List<String>> getFhirResourcesByProcessId() {
-            return ReflectionUtils.getFhirResourcesByProcessId(delegate, delegateClass);
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p><strong>V2 Implementation Details:</strong></p>
-         * <p>Returns the Class object representing the v2 ProcessPluginDefinition implementation.
-         * This can be used to identify the specific v2 plugin class, access v2-specific annotations,
-         * or perform advanced reflection operations that leverage v2 API enhancements.</p>
-         */
-        @Override
-        public Class<?> sourceClass() {
-            return delegateClass;
-        }
-    }
-
 
     /**
      * Scans the project root for plugin definitions using a recursive project ClassLoader.
@@ -261,24 +74,24 @@ public final class PluginDefinitionDiscovery
                 // 3) Try V2 first (prefer V2 if both exist)
                 try {
                     Class<?> v2Class = Class.forName(V2_PLUGIN_INTERFACE, false, projectCl);
-                    ServiceLoader.load(v2Class, projectCl).forEach(instance -> found.add(new V2Adapter(instance)));
-                } catch (ClassNotFoundException ignored) {
-                    // V2 interface not present on classpath — continue with V1
-                }
+                    ServiceLoader.load(v2Class, projectCl).forEach(instance ->
+                            found.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V2))
+                    );
+                } catch (ClassNotFoundException ignored) {}
 
                 // 4) Then try V1
                 try {
                     Class<?> v1Class = Class.forName(V1_PLUGIN_INTERFACE, false, projectCl);
-                    ServiceLoader.load(v1Class, projectCl).forEach(instance -> found.add(new V1Adapter(instance)));
-                } catch (ClassNotFoundException ignored) {
-                    // V1 interface not present on classpath — continue to fallback
-                }
+                    ServiceLoader.load(v1Class, projectCl).forEach(instance ->
+                            found.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V1))
+                    );
+                } catch (ClassNotFoundException ignored) {}
 
                 if (!found.isEmpty()) {
-                    System.out.println("[DEBUG] SUCCESS: Plugin found via ServiceLoader with recursive classpath.");
+                    logger.debug("[DEBUG] SUCCESS: Plugin found via ServiceLoader with recursive classpath.");
                 } else {
                     // 5) Fallback: direct class scan using the same loader
-                    System.out.println("[DEBUG] ServiceLoader found nothing. Starting direct scan with recursive classpath...");
+                    logger.debug("[DEBUG] ServiceLoader found nothing. Starting direct scan with recursive classpath...");
                     found.addAll(scanProjectClassesDirectly(projectRoot, projectCl));
                 }
             } finally {
@@ -306,14 +119,14 @@ public final class PluginDefinitionDiscovery
         final List<PluginAdapter> found = new ArrayList<>();
         final Path rootPath = projectRoot.toPath();
 
-        System.out.println("[DEBUG] Starting recursive scan for build directories in: " + rootPath);
+        logger.debug("[DEBUG] Starting recursive scan for build directories in: " + rootPath);
 
         try (Stream<Path> s = Files.walk(rootPath)) {
             s.filter(Files::isDirectory)
                     // Find common build output directories in any submodule
                     .filter(p -> p.endsWith(Paths.get("target", "classes")) || p.endsWith(Paths.get("build", "classes", "java", "main")))
                     .forEach(buildDir -> {
-                        System.out.println("[DEBUG] Found potential build directory, scanning: " + buildDir);
+                        logger.debug("[DEBUG] Found potential build directory, scanning: " + buildDir);
                         found.addAll(scanDirWithClassLoader(buildDir, projectCl));
                     });
         } catch (IOException e) {
@@ -366,9 +179,9 @@ public final class PluginDefinitionDiscovery
                         boolean implementsInterface = implementsProcessPluginDefinition(c, cl);
                         if (!implementsInterface) {
                             // FAILURE case 1: Does not implement the interface at all.
-                            System.out.println("[DEBUG] FAILED: Candidate class does not implement the 'ProcessPluginDefinition' interface.");
-                            System.out.println("  -> Candidate class: " + c.getName());
-                            System.out.println("     -> From root: " + root.toAbsolutePath());
+                            logger.debug("[DEBUG] FAILED: Candidate class does not implement the 'ProcessPluginDefinition' interface.");
+                            logger.debug("  -> Candidate class: " + c.getName());
+                            logger.debug("     -> From root: " + root.toAbsolutePath());
                             return; // Stop processing this class
                         }
 
@@ -377,21 +190,21 @@ public final class PluginDefinitionDiscovery
                         if (hasRequiredMethods) {
                             // --- SUCCESS CASE ---
                             // Only succeeds if it implements the interface AND has the methods.
-                            System.out.println("[DEBUG] SUCCESS: Found valid plugin definition.");
-                            System.out.println("  -> Found class: " + c.getName());
-                            System.out.println("     -> From root: " + root.toAbsolutePath());
-                            System.out.println("     -> Validation method: Implements Interface AND has required methods.");
+                            logger.debug("[DEBUG] SUCCESS: Found valid plugin definition.");
+                            logger.debug("  -> Found class: " + c.getName());
+                            logger.debug("     -> From root: " + root.toAbsolutePath());
+                            logger.debug("     -> Validation method: Implements Interface AND has required methods.");
 
                             Object inst = c.getDeclaredConstructor().newInstance();
-                            if (isAssignableTo(c, cl))
-                                out.add(new V2Adapter(inst));
-                            else
-                                out.add(new V1Adapter(inst));
+                            GenericPluginAdapter.ApiVersion version = isAssignableTo(c, cl)
+                                    ? GenericPluginAdapter.ApiVersion.V2
+                                    : GenericPluginAdapter.ApiVersion.V1;
+                            out.add(new GenericPluginAdapter(inst, version));
                         } else {
                             // FAILURE case 2: Implements interface, but is missing methods.
-                            System.out.println("[DEBUG] FAILED: Class implements 'ProcessPluginDefinition' but is missing required methods.");
-                            System.out.println("  -> Candidate class: " + c.getName());
-                            System.out.println("     -> From root: " + root.toAbsolutePath());
+                            logger.debug("[DEBUG] FAILED: Class implements 'ProcessPluginDefinition' but is missing required methods.");
+                            logger.debug("  -> Candidate class: " + c.getName());
+                            logger.debug("     -> From root: " + root.toAbsolutePath());
                         }
                     } catch (Throwable ignored) {}
                 });
@@ -424,29 +237,29 @@ public final class PluginDefinitionDiscovery
                             boolean implementsInterface = implementsProcessPluginDefinition(c, jarCl);
                             if (!implementsInterface) {
                                 // FAILURE case 1
-                                System.out.println("[DEBUG] FAILED: Candidate in JAR does not implement 'ProcessPluginDefinition' interface.");
-                                System.out.println("  -> Candidate class: " + c.getName());
-                                System.out.println("     -> From root: " + e);
+                                logger.debug("[DEBUG] FAILED: Candidate in JAR does not implement 'ProcessPluginDefinition' interface.");
+                                logger.debug("  -> Candidate class: " + c.getName());
+                                logger.debug("     -> From root: " + e);
                                 continue; // Skip to next class in JAR
                             }
 
                             boolean hasRequiredMethods = hasPluginSignature(c);
                             if (hasRequiredMethods) {
                                 // --- SUCCESS CASE ---
-                                System.out.println("[DEBUG] SUCCESS: Found valid plugin definition in JAR.");
-                                System.out.println("  -> Found class: " + c.getName());
-                                System.out.println("     -> From root: " + e);
+                                logger.debug("[DEBUG] SUCCESS: Found valid plugin definition in JAR.");
+                                logger.debug("  -> Found class: " + c.getName());
+                                logger.debug("     -> From root: " + e);
 
                                 Object inst = c.getDeclaredConstructor().newInstance();
-                                if (isAssignableTo(c, jarCl))
-                                    found.add(new V2Adapter(inst));
-                                else
-                                    found.add(new V1Adapter(inst));
+                                GenericPluginAdapter.ApiVersion version = isAssignableTo(c, jarCl)
+                                        ? GenericPluginAdapter.ApiVersion.V2
+                                        : GenericPluginAdapter.ApiVersion.V1;
+                                found.add(new GenericPluginAdapter(inst, version));
                             } else {
                                 // FAILURE case 2
-                                System.out.println("[DEBUG] FAILED: Class in JAR implements interface but is missing required methods.");
-                                System.out.println("  -> Candidate class: " + c.getName());
-                                System.out.println("     -> From root: " + e);
+                                logger.debug("[DEBUG] FAILED: Class in JAR implements interface but is missing required methods.");
+                                logger.debug("  -> Candidate class: " + c.getName());
+                                logger.debug("     -> From root: " + e);
                             }
                         } catch (Throwable ignored) {}
                     }

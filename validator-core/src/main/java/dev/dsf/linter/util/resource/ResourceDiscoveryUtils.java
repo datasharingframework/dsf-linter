@@ -1,6 +1,6 @@
 package dev.dsf.linter.util.resource;
 
-import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
+import dev.dsf.linter.plugin.GenericPluginAdapter;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 import java.io.File;
 import java.util.*;
@@ -112,8 +112,7 @@ public final class ResourceDiscoveryUtils {
 
         // Add version suffix if needed
         if (counter > 0 || existingNames.contains(name)) {
-            String version = (plugin instanceof PluginDefinitionDiscovery.V2Adapter)
-                    ? "v2" : "v1";
+            String version = getVersionSuffix(plugin);
             name = baseName + "_" + version;
 
             if (counter > 0 || existingNames.contains(name)) {
@@ -139,5 +138,18 @@ public final class ResourceDiscoveryUtils {
         return name.replaceAll("[^a-zA-Z0-9._-]", "_")
                 .replaceAll("_{2,}", "_")
                 .toLowerCase();
+    }
+
+    /**
+     * Extracts version suffix from a plugin adapter.
+     *
+     * @param plugin the plugin adapter
+     * @return "v1" or "v2"
+     */
+    private static String getVersionSuffix(PluginAdapter plugin) {
+        if (plugin instanceof GenericPluginAdapter generic) {
+            return generic.getApiVersion() == GenericPluginAdapter.ApiVersion.V2 ? "v2" : "v1";
+        }
+        return "v1"; // fallback for unknown adapter types
     }
 }

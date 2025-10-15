@@ -6,6 +6,10 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static dev.dsf.linter.classloading.ClassInspector.logger;
+import static dev.dsf.linter.constants.DsfApiConstants.V1_PLUGIN_INTERFACE;
+import static dev.dsf.linter.constants.DsfApiConstants.V2_PLUGIN_INTERFACE;
+
 /**
  * Plugin discovery that supports any number of ProcessPluginDefinition implementations.
  * A single plugin is simply a special case with one entry in the result.
@@ -22,12 +26,17 @@ public final class EnhancedPluginDefinitionDiscovery {
         private final Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> pluginsByName;
 
         public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins) {
+            // Filter v1 and v2 plugins based on GenericPluginAdapter version
             this.v1Plugins = plugins.stream()
-                    .filter(p -> p instanceof PluginDefinitionDiscovery.V1Adapter)
+                    .filter(p -> p instanceof GenericPluginAdapter)
+                    .map(p -> (GenericPluginAdapter) p)
+                    .filter(p -> p.getApiVersion() == GenericPluginAdapter.ApiVersion.V1)
                     .collect(Collectors.toList());
 
             this.v2Plugins = plugins.stream()
-                    .filter(p -> p instanceof PluginDefinitionDiscovery.V2Adapter)
+                    .filter(p -> p instanceof GenericPluginAdapter)
+                    .map(p -> (GenericPluginAdapter) p)
+                    .filter(p -> p.getApiVersion() == GenericPluginAdapter.ApiVersion.V2)
                     .collect(Collectors.toList());
 
             // Group by plugin name for report structure
@@ -46,8 +55,6 @@ public final class EnhancedPluginDefinitionDiscovery {
             return all;
         }
 
-        public List<PluginDefinitionDiscovery.PluginAdapter> getV1Plugins() { return v1Plugins; }
-        public List<PluginDefinitionDiscovery.PluginAdapter> getV2Plugins() { return v2Plugins; }
         public Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> getPluginsByName() { return pluginsByName; }
     }
 
@@ -68,16 +75,22 @@ public final class EnhancedPluginDefinitionDiscovery {
 
         // Debug output for ServiceLoader results
         if (!allCandidates.isEmpty()) {
-            System.out.println("[DEBUG] Found " + allCandidates.size() + " plugin(s) via ServiceLoader");
+            logger.debug("[DEBUG] Found " + allCandidates.size() + " plugin(s) via ServiceLoader");
             allCandidates.forEach(p -> {
-                System.out.println("  -> Plugin: " + p.getName() + " (" + p.sourceClass().getName() + ")");
-                System.out.println("     Version: " + (p instanceof PluginDefinitionDiscovery.V2Adapter ? "v2" : "v1"));
+                logger.debug("  -> Plugin: " + p.getName() + " (" + p.sourceClass().getName() + ")");
+
+                // Determine version from GenericPluginAdapter
+                String version = "unknown";
+                if (p instanceof GenericPluginAdapter generic) {
+                    version = generic.getApiVersion() == GenericPluginAdapter.ApiVersion.V2 ? "v2" : "v1";
+                }
+                logger.debug("     Version: " + version);
             });
         }
 
         // Step 2: If ServiceLoader found nothing, use the public scan methods from PluginDefinitionDiscovery
         if (allCandidates.isEmpty()) {
-            System.out.println("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
+            logger.debug("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
 
             // Use the now-public methods from PluginDefinitionDiscovery
             allCandidates.addAll(PluginDefinitionDiscovery.scanJars(cl));
@@ -107,24 +120,25 @@ public final class EnhancedPluginDefinitionDiscovery {
      * Discovers plugins using ServiceLoader for both v1 and v2.
      * Collects ALL plugins instead of stopping at the first one.
      */
+
     private static List<PluginDefinitionDiscovery.PluginAdapter> discoverViaServiceLoader(ClassLoader cl) {
         List<PluginDefinitionDiscovery.PluginAdapter> plugins = new ArrayList<>();
 
         // Try v2
         try {
-            Class<?> v2Class = Class.forName("dev.dsf.bpe.v2.ProcessPluginDefinition", false, cl);
+            Class<?> v2Class = Class.forName(V2_PLUGIN_INTERFACE, false, cl);
             ServiceLoader<?> v2Loader = ServiceLoader.load(v2Class, cl);
             for (Object instance : v2Loader) {
-                plugins.add(new PluginDefinitionDiscovery.V2Adapter(instance));
+                plugins.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V2));
             }
         } catch (ClassNotFoundException ignored) {}
 
         // Try v1
         try {
-            Class<?> v1Class = Class.forName("dev.dsf.bpe.v1.ProcessPluginDefinition", false, cl);
+            Class<?> v1Class = Class.forName(V1_PLUGIN_INTERFACE, false, cl);
             ServiceLoader<?> v1Loader = ServiceLoader.load(v1Class, cl);
             for (Object instance : v1Loader) {
-                plugins.add(new PluginDefinitionDiscovery.V1Adapter(instance));
+                plugins.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V1));
             }
         } catch (ClassNotFoundException ignored) {}
 

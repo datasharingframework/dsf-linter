@@ -3,6 +3,7 @@ package dev.dsf.linter.service;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.EnhancedPluginDefinitionDiscovery;
+import dev.dsf.linter.plugin.GenericPluginAdapter;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionDetector;
@@ -211,16 +212,19 @@ public class ResourceDiscoveryService {
     private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter, Path projectPath)
             throws MissingServiceRegistrationException {
 
-        // Check adapter type directly
-        if (adapter instanceof PluginDefinitionDiscovery.V2Adapter) {
-            logger.debug("Plugin uses API v2 (determined by adapter type)");
-            return ApiVersion.V2;
-        } else if (adapter instanceof PluginDefinitionDiscovery.V1Adapter) {
-            logger.debug("Plugin uses API v1 (determined by adapter type)");
-            return ApiVersion.V1;
+        // Check if it's a GenericPluginAdapter (should always be the case now)
+        if (adapter instanceof GenericPluginAdapter generic) {
+            GenericPluginAdapter.ApiVersion version = generic.getApiVersion();
+            ApiVersion mappedVersion = version == GenericPluginAdapter.ApiVersion.V2
+                    ? ApiVersion.V2
+                    : ApiVersion.V1;
+            logger.debug("Plugin uses API " + mappedVersion + " (determined by adapter)");
+            return mappedVersion;
         }
 
-        // Fallback to detector
+        // Fallback: Use detector if adapter is not GenericPluginAdapter
+        // This should rarely happen in normal operation
+        logger.debug("Adapter is not GenericPluginAdapter, falling back to detector");
         return apiVersionDetector.detect(projectPath)
                 .map(DetectedVersion::version)
                 .orElseGet(() -> {
