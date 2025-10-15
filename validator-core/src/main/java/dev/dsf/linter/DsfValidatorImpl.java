@@ -13,6 +13,7 @@ import dev.dsf.linter.util.ValidationUtils;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.service.ValidationResult;
 
 import java.io.File;
 import java.io.IOException;
@@ -248,16 +249,14 @@ public class DsfValidatorImpl {
 
             ValidationItemsCollection itemsCollection = collectValidationItems(pluginName, plugin);
             // 2) Run Plugin validation (ServiceLoader etc.) on the items collected above
-            PluginValidationService.ValidationResult pluginResult = pluginValidator.validatePlugin(
+            ValidationResult pluginResult = pluginValidator.validatePlugin(
                     context.projectPath(),
                     plugin.adapter(),
                     plugin.apiVersion(),
                     itemsCollection.pluginLevelItems
             );
 
-            // ---------------------------------------------------------------------
             // 3) Leftover analysis items (project-wide, but attributed per plugin)
-            // ---------------------------------------------------------------------
             List<AbstractValidationItem> leftoverItems = leftoverDetector.getItemsForPlugin(
                     leftoverAnalysis,
                     pluginName,
@@ -349,7 +348,7 @@ public class DsfValidatorImpl {
             String pluginName,
             ResourceDiscoveryService.PluginDiscovery plugin,
             ValidationItemsCollection itemsCollection,
-            PluginValidationService.ValidationResult pluginResult,
+            ValidationResult pluginResult,
             List<AbstractValidationItem> leftoverItems) throws IOException {
 
         List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
@@ -381,8 +380,8 @@ public class DsfValidatorImpl {
      * @return List of non-SUCCESS plugin items
      */
     private List<AbstractValidationItem> getPluginNonSuccessItems(
-            PluginValidationService.ValidationResult pluginResult,
-            List<AbstractValidationItem> leftoverItems) {
+            ValidationResult pluginResult,
+            List<AbstractValidationItem> leftoverItems)  {
 
         List<AbstractValidationItem> allPluginItemsForDisplay = new ArrayList<>(pluginResult.getItems());
         if (leftoverItems != null && !leftoverItems.isEmpty()) {

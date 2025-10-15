@@ -16,6 +16,8 @@ public final class DsfApiConstants {
 
     // V1 API - Task Interfaces
     public static final String V1_JAVA_DELEGATE = "org.camunda.bpm.engine.delegate.JavaDelegate";
+    public static final String V1_TASK_LISTENER = "org.camunda.bpm.engine.delegate.TaskListener";
+    public static final String V1_DEFAULT_USER_TASK_LISTENER = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
 
     // V2 API - Activity Interfaces
     public static final String V2_SERVICE_TASK = "dev.dsf.bpe.v2.activity.ServiceTask";
@@ -23,6 +25,7 @@ public final class DsfApiConstants {
     public static final String V2_MESSAGE_INTERMEDIATE_THROW = "dev.dsf.bpe.v2.activity.MessageIntermediateThrowEvent";
     public static final String V2_MESSAGE_END_EVENT = "dev.dsf.bpe.v2.activity.MessageEndEvent";
     public static final String V2_USER_TASK_LISTENER = "dev.dsf.bpe.v2.activity.UserTaskListener";
+    public static final String V2_DEFAULT_USER_TASK_LISTENER = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
 
     // Combined Arrays for Validation
     public static final String[] DSF_TASK_INTERFACES = {

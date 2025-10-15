@@ -1,6 +1,5 @@
 package dev.dsf.linter.service;
 
-import dev.dsf.linter.ValidationSeverity;
 import dev.dsf.linter.item.AbstractValidationItem;
 import dev.dsf.linter.item.PluginDefinitionMissingServiceLoaderRegistrationValidationItem;
 import dev.dsf.linter.item.PluginDefinitionValidationItemSuccess;
@@ -86,8 +85,8 @@ public class PluginValidationService {
         // Priority 1: Use explicit API version if available
         if (apiVersion != null) {
             return switch (apiVersion) {
-                case V1 -> "dev.dsf.bpe.v1.ProcessPluginDefinition";
-                case V2 -> "dev.dsf.bpe.v2.ProcessPluginDefinition";
+                case V1 -> V1_SERVICE_FILE;
+                case V2 -> V2_SERVICE_FILE;
                 default -> null;
             };
         }
@@ -96,12 +95,11 @@ public class PluginValidationService {
         if (pluginAdapter != null) {
             String className = pluginAdapter.sourceClass().getName();
             if (className.contains(".v1.")) {
-                return "dev.dsf.bpe.v1.ProcessPluginDefinition";
+                return V1_SERVICE_FILE;
             } else if (className.contains(".v2.")) {
-                return "dev.dsf.bpe.v2.ProcessPluginDefinition";
+                return V2_SERVICE_FILE;
             }
         }
-
         // Unable to determine specific version
         return null;
     }
@@ -355,55 +353,5 @@ public class PluginValidationService {
                 pluginInfo,
                 projectPath
         );
-    }
-
-    /**
-     * Validation result containing items and statistics.
-     */
-    public static class ValidationResult {
-        private final List<AbstractValidationItem> items;
-        private final int errorCount;
-        private final int warningCount;
-        private final int successCount;
-
-        public ValidationResult(List<AbstractValidationItem> items) {
-            this.items = items;
-
-            this.errorCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.ERROR)
-                    .count();
-
-            this.warningCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.WARN)
-                    .count();
-
-            this.successCount = (int) items.stream()
-                    .filter(item -> item.getSeverity() == ValidationSeverity.SUCCESS)
-                    .count();
-        }
-
-        public List<AbstractValidationItem> getItems() {
-            return items;
-        }
-
-        public int getErrorCount() {
-            return errorCount;
-        }
-
-        public int getWarningCount() {
-            return warningCount;
-        }
-
-        public int getSuccessCount() {
-            return successCount;
-        }
-
-        public boolean hasErrors() {
-            return errorCount > 0;
-        }
-
-        public boolean hasWarnings() {
-            return warningCount > 0;
-        }
     }
 }

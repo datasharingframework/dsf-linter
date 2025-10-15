@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static dev.dsf.linter.classloading.ClassInspector.*;
+import static dev.dsf.linter.constants.DsfApiConstants.*;
 import static dev.dsf.linter.util.ValidationUtils.containsPlaceholder;
 import static dev.dsf.linter.util.ValidationUtils.isEmpty;
 
@@ -271,12 +272,12 @@ public class BpmnElementValidator {
             // First, determine the required class names based on the API version.
             switch (apiVersion) {
                 case V2:
-                    defaultSuperClass = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
-                    requiredInterface = "dev.dsf.bpe.v2.activity.UserTaskListener";
+                    defaultSuperClass = V2_DEFAULT_USER_TASK_LISTENER;
+                    requiredInterface = V2_USER_TASK_LISTENER;
                     break;
                 case V1:
-                    defaultSuperClass = "dev.dsf.bpe.v1.activity.DefaultUserTaskListener";
-                    requiredInterface = "org.camunda.bpm.engine.delegate.TaskListener";
+                    defaultSuperClass = V1_DEFAULT_USER_TASK_LISTENER;
+                    requiredInterface = V1_TASK_LISTENER;
                     break;
                 case UNKNOWN:
                     // Log or handle the case where the API version is unknown and no checks can be performed.

@@ -6,8 +6,8 @@ import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.item.AbstractValidationItem;
 import dev.dsf.linter.logger.LogDecorators;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.service.PluginValidationService;
 import dev.dsf.linter.service.ResourceDiscoveryService;
+import dev.dsf.linter.service.ValidationResult;
 import dev.dsf.linter.util.Console;
 import dev.dsf.linter.util.ValidationUtils;
 import dev.dsf.linter.util.validation.ValidationOutput;
@@ -83,7 +83,7 @@ public class ValidationConsolePrinter {
             List<AbstractValidationItem> bpmnNonSuccess,
             List<AbstractValidationItem> fhirNonSuccess,
             List<AbstractValidationItem> pluginNonSuccess,
-            PluginValidationService.ValidationResult pluginResult,
+            ValidationResult pluginResult,
             String pluginNameShort) {
 
         printBpmnSection(bpmnNonSuccess);
@@ -128,7 +128,7 @@ public class ValidationConsolePrinter {
      */
     private void printPluginSection(
             List<AbstractValidationItem> pluginNonSuccess,
-            PluginValidationService.ValidationResult pluginResult,
+            ValidationResult pluginResult,
             String pluginNameShort) {
 
         ValidationUtils.SeverityCount pluginCount = ValidationUtils.countSeverities(pluginNonSuccess);
@@ -148,7 +148,7 @@ public class ValidationConsolePrinter {
     /**
      * Prints the ServiceLoader registration status.
      */
-    private void printServiceLoaderStatus(PluginValidationService.ValidationResult pluginResult) {
+    private void printServiceLoaderStatus(ValidationResult pluginResult) {
         boolean hasServiceLoaderSuccess =
                 pluginResult.getItems().stream()
                         .anyMatch(i -> i.getClass().getSimpleName().equals("PluginDefinitionValidationItemSuccess"));

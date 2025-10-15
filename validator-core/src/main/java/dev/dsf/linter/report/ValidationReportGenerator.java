@@ -4,8 +4,8 @@ import dev.dsf.linter.DsfValidatorImpl;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.item.AbstractValidationItem;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.service.PluginValidationService;
 import dev.dsf.linter.service.ResourceDiscoveryService;
+import dev.dsf.linter.service.ValidationResult;
 import dev.dsf.linter.util.validation.ValidationOutput;
 
 import java.io.IOException;
@@ -146,8 +146,8 @@ public class ValidationReportGenerator {
             List<AbstractValidationItem> bpmnNonSuccess,
             List<AbstractValidationItem> fhirNonSuccess,
             List<AbstractValidationItem> pluginNonSuccess,
-            PluginValidationService.ValidationResult pluginResult,
-            String pluginNameShort) {
+            ValidationResult pluginResult,
+            String pluginNameShort){
 
         consolePrinter.printValidationSections(
                 bpmnNonSuccess,
