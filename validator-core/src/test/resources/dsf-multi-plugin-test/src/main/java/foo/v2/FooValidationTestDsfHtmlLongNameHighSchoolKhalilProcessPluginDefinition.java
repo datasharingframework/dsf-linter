@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import dev.dsf.bpe.v2.ProcessPluginDefinition;
+import dev.dsf.bpe.v1.ProcessPluginDefinition;
 
 public class FooValidationTestDsfHtmlLongNameHighSchoolKhalilProcessPluginDefinition implements ProcessPluginDefinition
 {

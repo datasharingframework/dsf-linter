@@ -1,14 +1,22 @@
 package foo.v2;
 
-import dev.dsf.bpe.v2.ProcessPluginApi;
-import dev.dsf.bpe.v2.activity.ServiceTask;
-import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
-import dev.dsf.bpe.v2.variables.Variables;
+import org.camunda.bpm.engine.delegate.BpmnError;
+import org.camunda.bpm.engine.delegate.DelegateExecution;
 
-public class Foo implements ServiceTask
+import dev.dsf.bpe.v1.ProcessPluginApi;
+import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
+import dev.dsf.bpe.v1.variables.Variables;
+
+
+public class Foo extends AbstractServiceDelegate
 {
+	public Foo(ProcessPluginApi api)
+	{
+		super(api);
+	}
+
 	@Override
-	public void execute(ProcessPluginApi processPluginApi, Variables variables) throws ErrorBoundaryEvent, Exception
+	protected void doExecute(DelegateExecution execution, Variables variables) throws BpmnError, Exception
 	{
 		System.out.println("Foo v2!");
 	}

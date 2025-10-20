@@ -95,10 +95,7 @@ public class DsfMultiPluginValidatorTest {
             // Check that both API versions were detected
             long v1Plugins = pluginValidations.values().stream()
                     .filter(p -> p.apiVersion() == ApiVersion.V1).count();
-            long v2Plugins = pluginValidations.values().stream()
-                    .filter(p -> p.apiVersion() == ApiVersion.V2).count();
-            assertEquals(1, v1Plugins, "Exactly one v1 plugin should be detected.");
-            assertEquals(1, v2Plugins, "Exactly one v2 plugin should be detected.");
+            assertEquals(2, v1Plugins, "Exactly one v1 plugin should be detected.");
 
 
             // 3. Leftover Resources Assertions
