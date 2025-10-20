@@ -3,22 +3,17 @@ package dev.dsf.linter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.exception.ResourceValidationException;
-import dev.dsf.linter.item.AbstractValidationItem;
-import dev.dsf.linter.item.PluginValidationItem;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.ValidationReportGenerator;
 import dev.dsf.linter.service.*;
 import dev.dsf.linter.setup.ProjectSetupHandler;
 import dev.dsf.linter.util.laoder.ClassLoaderUtils;
-import dev.dsf.linter.util.validation.ValidationUtils;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.validation.ValidationOutput;
-import dev.dsf.linter.service.ValidationResult;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -100,22 +95,29 @@ public class DsfValidatorImpl {
     private final Logger logger;
     private final ProjectSetupHandler setupHandler;
     private final ResourceDiscoveryService discoveryService;
-    private final BpmnValidationService bpmnValidator;
-    private final FhirValidationService fhirValidator;
-    private final PluginValidationService pluginValidator;
     private final LeftoverResourceDetector leftoverDetector;
     private final ValidationReportGenerator reportGenerator;
+    private final PluginValidationOrchestrator pluginOrchestrator;
 
     public DsfValidatorImpl(Config config) {
         this.config = config;
         this.logger = config.logger();
         this.setupHandler = new ProjectSetupHandler(logger);
         this.discoveryService = new ResourceDiscoveryService(logger);
-        this.bpmnValidator = new BpmnValidationService(logger);
-        this.fhirValidator = new FhirValidationService(logger);
-        this.pluginValidator = new PluginValidationService(logger);
+        BpmnValidationService bpmnValidator = new BpmnValidationService(logger);
+        FhirValidationService fhirValidator = new FhirValidationService(logger);
+        PluginValidationService pluginValidator = new PluginValidationService(logger);
         this.leftoverDetector = new LeftoverResourceDetector(logger);
         this.reportGenerator = new ValidationReportGenerator(logger);
+        this.pluginOrchestrator = new PluginValidationOrchestrator(
+                bpmnValidator,
+                fhirValidator,
+                pluginValidator,
+                leftoverDetector,
+                reportGenerator,
+                config.reportPath(),
+                logger
+        );
     }
 
     /**
@@ -240,9 +242,10 @@ public class DsfValidatorImpl {
 
     /**
      * Validates all discovered plugins uniformly (works for one or many).
-     * Prints a clean, fixed console structure per plugin:
-     * BPMN → FHIR → Plugin (always shown, even when zero issues),
-     * then prints the per-plugin summary.
+     * Delegates the complex per-plugin orchestration to PluginValidationOrchestrator.
+     * This method now has only two responsibilities:
+     * 1. Loop coordination (iteration, context calculation)
+     * 2. Result aggregation
      */
     private Map<String, PluginValidation> validateAllPlugins(
             ProjectSetupHandler.ProjectContext context,
@@ -253,8 +256,8 @@ public class DsfValidatorImpl {
         Map<String, PluginValidation> validations = new LinkedHashMap<>();
 
         final boolean isSinglePluginProject = (discovery.plugins().size() == 1);
-        int currentPluginIndex = 0;
         final int totalPlugins = discovery.plugins().size();
+        int currentPluginIndex = 0;
 
         for (Map.Entry<String, ResourceDiscoveryService.PluginDiscovery> entry : discovery.plugins().entrySet()) {
             final String pluginName = entry.getKey();
@@ -263,175 +266,27 @@ public class DsfValidatorImpl {
             currentPluginIndex++;
             final boolean isLastPlugin = (currentPluginIndex == totalPlugins);
 
-            // Phase header for this plugin
-            reportGenerator.printPluginHeader(pluginName, currentPluginIndex, totalPlugins);
+            // Create validation context
+            PluginValidationOrchestrator.PluginValidationContext validationContext =
+                    new PluginValidationOrchestrator.PluginValidationContext(
+                            currentPluginIndex,
+                            totalPlugins,
+                            isLastPlugin,
+                            isSinglePluginProject
+                    );
 
-            // Ensure downstream validators know the API version
-            ApiVersionHolder.setVersion(plugin.apiVersion());
-
-            ValidationItemsCollection itemsCollection = collectValidationItems(pluginName, plugin);
-            // 2) Run Plugin validation (ServiceLoader etc.) on the items collected above
-            ValidationResult pluginResult = pluginValidator.validatePlugin(
-                    context.projectPath(),
-                    plugin.adapter(),
-                    plugin.apiVersion(),
-                    itemsCollection.pluginLevelItems
-            );
-
-            // 3) Leftover analysis items (project-wide, but attributed per plugin)
-            List<AbstractValidationItem> leftoverItems = leftoverDetector.getItemsForPlugin(
+            // Delegate complete plugin validation to orchestrator
+            PluginValidation pluginValidation = pluginOrchestrator.validateSinglePlugin(
+                    pluginName,
+                    plugin,
+                    context,
                     leftoverAnalysis,
-                    pluginName,
-                    plugin,
-                    isLastPlugin,
-                    isSinglePluginProject
-            );
-
-            // Build the three strictly separated groups used for console sections
-            List<AbstractValidationItem> bpmnNonSuccess = itemsCollection.getBpmnNonSuccessItems();
-            List<AbstractValidationItem> fhirNonSuccess = itemsCollection.getFhirNonSuccessItems();
-            List<AbstractValidationItem> pluginNonSuccess = getPluginNonSuccessItems(pluginResult, leftoverItems);
-
-            String pluginNameShort = plugin.adapter().sourceClass().getSimpleName();
-            reportGenerator.printValidationSections(
-                    bpmnNonSuccess,
-                    fhirNonSuccess,
-                    pluginNonSuccess,
-                    pluginResult,
-                    pluginNameShort
-            );
-
-            PluginValidation pluginValidation = buildPluginValidationResult(
-                    pluginName,
-                    plugin,
-                    itemsCollection,
-                    pluginResult,
-                    leftoverItems
+                    validationContext
             );
 
             validations.put(pluginName, pluginValidation);
-
-            reportGenerator.printPluginSummary(pluginValidation.output());
         }
 
         return validations;
-    }
-
-    /**
-     * Collects validation items from BPMN and FHIR validators.
-     * Separates plugin-level items from pure BPMN/FHIR items.
-     *
-     * @param pluginName The name of the plugin
-     * @param plugin     The plugin discovery information
-     * @return A collection containing all validation items
-     */
-    private ValidationItemsCollection collectValidationItems(
-            String pluginName,
-            ResourceDiscoveryService.PluginDiscovery plugin)
-            throws ResourceValidationException, IOException {
-
-        ValidationResult bpmnResult = bpmnValidator.validate(
-                pluginName,
-                plugin.bpmnFiles(),
-                plugin.missingBpmnRefs()
-        );
-
-        ValidationResult fhirResult = fhirValidator.validate(
-                pluginName,
-                plugin.fhirFiles(),
-                plugin.missingFhirRefs()
-        );
-
-        List<AbstractValidationItem> allValidationItems = new ArrayList<>(bpmnResult.getItems());
-        allValidationItems.addAll(fhirResult.getItems());
-
-        List<AbstractValidationItem> pluginLevelItems = allValidationItems.stream()
-                .filter(i -> i instanceof PluginValidationItem)
-                .toList();
-
-        List<AbstractValidationItem> nonPluginItems = allValidationItems.stream()
-                .filter(i -> !(i instanceof PluginValidationItem))
-                .toList();
-
-        return new ValidationItemsCollection(nonPluginItems, pluginLevelItems);
-    }
-
-    /**
-     * Builds the final PluginValidation result for a single plugin.
-     *
-     * @param pluginName       The name of the plugin
-     * @param plugin           The plugin discovery information
-     * @param itemsCollection  The collected validation items
-     * @param pluginResult     The plugin validation result
-     * @param leftoverItems    The leftover resource items
-     * @return The complete PluginValidation result
-     */
-    private PluginValidation buildPluginValidationResult(
-            String pluginName,
-            ResourceDiscoveryService.PluginDiscovery plugin,
-            ValidationItemsCollection itemsCollection,
-            ValidationResult pluginResult,
-            List<AbstractValidationItem> leftoverItems) throws IOException {
-
-        List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
-        finalValidationItems.addAll(itemsCollection.nonPluginItems);
-        finalValidationItems.addAll(pluginResult.getItems());
-        if (leftoverItems != null && !leftoverItems.isEmpty()) {
-            finalValidationItems.addAll(leftoverItems);
-        }
-
-        ValidationOutput finalOutput = new ValidationOutput(finalValidationItems);
-
-        Path pluginReportPath = config.reportPath().resolve(pluginName);
-        Files.createDirectories(pluginReportPath);
-
-        return new PluginValidation(
-                pluginName,
-                plugin.adapter().sourceClass().getName(),
-                plugin.apiVersion(),
-                finalOutput,
-                pluginReportPath
-        );
-    }
-
-    /**
-     * Gets non-SUCCESS plugin items including leftover items.
-     *
-     * @param pluginResult  The plugin validation result
-     * @param leftoverItems The leftover resource items
-     * @return List of non-SUCCESS plugin items
-     */
-    private List<AbstractValidationItem> getPluginNonSuccessItems(
-            ValidationResult pluginResult,
-            List<AbstractValidationItem> leftoverItems)  {
-
-        List<AbstractValidationItem> allPluginItemsForDisplay = new ArrayList<>(pluginResult.getItems());
-        if (leftoverItems != null && !leftoverItems.isEmpty()) {
-            allPluginItemsForDisplay.addAll(leftoverItems);
-        }
-
-        return ValidationUtils.onlyPluginItems(allPluginItemsForDisplay).stream()
-                .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                .toList();
-    }
-
-    /**
-     * Internal record to hold separated validation items.
-     */
-    private record ValidationItemsCollection(
-            List<AbstractValidationItem> nonPluginItems,
-            List<AbstractValidationItem> pluginLevelItems
-    ) {
-        List<AbstractValidationItem> getBpmnNonSuccessItems() {
-            return ValidationUtils.onlyBpmnItems(nonPluginItems).stream()
-                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
-        }
-
-        List<AbstractValidationItem> getFhirNonSuccessItems() {
-            return ValidationUtils.onlyFhirItems(nonPluginItems).stream()
-                    .filter(i -> i.getSeverity() != ValidationSeverity.SUCCESS)
-                    .toList();
-        }
     }
 }
