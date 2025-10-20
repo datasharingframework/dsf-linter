@@ -5,6 +5,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.fhir.FhirResourceValidator;
 import dev.dsf.linter.exception.ResourceValidationException;
 import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.util.FileUtils;
 import dev.dsf.linter.ValidationSeverity;
 
 import java.io.File;
@@ -91,8 +92,7 @@ public class FhirValidationService {
     /**
      * Validates all existing FHIR files.
      */
-    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> fhirFiles)
-            throws ResourceValidationException {
+    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> fhirFiles) {
         List<AbstractValidationItem> allItems = new ArrayList<>();
 
         for (File fhirFile : fhirFiles) {
@@ -106,20 +106,17 @@ public class FhirValidationService {
     /**
      * Validates a single FHIR file and adds success items for successfully parsed files.
      */
-    private List<AbstractValidationItem> validateSingleFhirFile(String pluginName, File fhirFile)
-            throws ResourceValidationException {
+    private List<AbstractValidationItem> validateSingleFhirFile(String pluginName, File fhirFile) {
 
         logger.info("Validating FHIR file: " + fhirFile.getName());
 
         ValidationOutput output = fhirResourceValidator.validateSingleFile(fhirFile.toPath());
         List<AbstractValidationItem> itemsForThisFile = new ArrayList<>(output.validationItems());
 
-        // Check if file was successfully parsed (no Unparsable items)
         boolean hasUnparsableItem = itemsForThisFile.stream()
                 .anyMatch(item -> item instanceof PluginDefinitionUnparsableFhirResourceValidationItem);
 
         if (!hasUnparsableItem) {
-            // Add PluginDefinitionValidationItemSuccess for successful parsing
             PluginDefinitionValidationItemSuccess pluginSuccessItem = new PluginDefinitionValidationItemSuccess(
                     fhirFile,
                     pluginName,
@@ -129,7 +126,6 @@ public class FhirValidationService {
             itemsForThisFile.add(pluginSuccessItem);
         }
 
-        // Extract FHIR reference and add FHIR-specific success item
         String fhirReference = extractFhirReference(itemsForThisFile);
         itemsForThisFile.add(createFhirSuccessItem(fhirFile, fhirReference));
 
@@ -173,36 +169,13 @@ public class FhirValidationService {
      * @param fhirFile the FHIR file being validated
      * @return file report metadata
      */
+    @Deprecated  // This method is no longer used and can be reused in future versions.
     public FileReportMetadata createFileReport(List<AbstractValidationItem> items, File fhirFile) {
-        String baseName = extractBaseName(fhirFile);
-        String parentFolderName = extractParentFolderName(fhirFile);
+        String baseName = FileUtils.getFileNameWithoutExtension(fhirFile);
+        String parentFolderName = FileUtils.getParentFolderName(fhirFile);
         String fileName = "fhir_issues_" + parentFolderName + "_" + baseName + ".json";
 
         return new FileReportMetadata(fileName, items);
-    }
-
-    /**
-     * Extracts the base name (without extension) from a file.
-     *
-     * @param file the file
-     * @return base name without extension
-     */
-    private String extractBaseName(File file) {
-        String name = file.getName();
-        int idx = name.lastIndexOf('.');
-        return (idx > 0) ? name.substring(0, idx) : name;
-    }
-
-    /**
-     * Extracts the parent folder name from a file.
-     *
-     * @param file the file
-     * @return parent folder name or "root" if no parent
-     */
-    private String extractParentFolderName(File file) {
-        return file.getParentFile() != null
-                ? file.getParentFile().getName()
-                : "root";
     }
 
     /**

@@ -5,6 +5,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.bpmn.BPMNValidator;
 import dev.dsf.linter.exception.ResourceValidationException;
 import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.util.FileUtils;
 import dev.dsf.linter.ValidationSeverity;
 
 import java.io.File;
@@ -91,10 +92,8 @@ public class BpmnValidationService {
      *
      * @param bpmnFiles list of BPMN files to validate
      * @return list of all validation items from file validation
-     * @throws ResourceValidationException if any BPMN file contains parsing errors
      */
-    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> bpmnFiles)
-            throws ResourceValidationException {
+    private List<AbstractValidationItem> validateExistingFiles(String pluginName, List<File> bpmnFiles) {
         List<AbstractValidationItem> allItems = new ArrayList<>();
 
         for (File bpmnFile : bpmnFiles) {
@@ -108,8 +107,7 @@ public class BpmnValidationService {
     /**
      * Validates a single BPMN file and adds success items for successfully parsed files.
      */
-    private List<AbstractValidationItem> validateSingleBpmnFile(String pluginName, File bpmnFile)
-            throws ResourceValidationException {
+    private List<AbstractValidationItem> validateSingleBpmnFile(String pluginName, File bpmnFile) {
 
         logger.info("Validating BPMN file: " + bpmnFile.getName());
 
@@ -170,11 +168,12 @@ public class BpmnValidationService {
      * @param processId the process ID
      * @return file report metadata
      */
+    @Deprecated // This method is no longer used and can be reused in future versions
     public FileReportMetadata createFileReport(
             List<AbstractValidationItem> items, File bpmnFile, String processId) {
 
         String normalizedProcessId = normalizeProcessIdForReport(processId, bpmnFile);
-        String parentFolderName = extractParentFolderName(bpmnFile);
+        String parentFolderName = FileUtils.getParentFolderName(bpmnFile);
         String fileName = "bpmn_issues_" + parentFolderName + "_" + normalizedProcessId + ".json";
 
         return new FileReportMetadata(fileName, items);
@@ -189,34 +188,9 @@ public class BpmnValidationService {
      */
     private String normalizeProcessIdForReport(String processId, File bpmnFile) {
         if (processId == null || processId.isBlank()) {
-            return extractBaseNameWithoutExtension(bpmnFile);
+            return FileUtils.getFileNameWithoutExtension(bpmnFile, ".bpmn");
         }
         return processId;
-    }
-
-    /**
-     * Extracts the base name without the specified extension from a file.
-     *
-     * @param file the file
-     * @return base name without extension
-     */
-    private String extractBaseNameWithoutExtension(File file) {
-        String name = file.getName();
-        return name.endsWith(".bpmn")
-                ? name.substring(0, name.length() - ".bpmn".length())
-                : name;
-    }
-
-    /**
-     * Extracts the parent folder name from a file.
-     *
-     * @param file the file
-     * @return parent folder name or "root" if no parent
-     */
-    private String extractParentFolderName(File file) {
-        return file.getParentFile() != null
-                ? file.getParentFile().getName()
-                : "root";
     }
 
     /**
