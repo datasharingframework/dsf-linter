@@ -46,6 +46,39 @@ public class Main implements Callable<Integer> {
             description = "Enable verbose logging output.")
     private boolean verbose = false;
 
+    /**
+     * Maven goals to add to the build.
+     * These goals are added to the default goals (avoiding duplicates).
+     * Properties with "=" will override defaults if the value differs.
+     *
+     * <p><b>Examples:</b></p>
+     * <pre>
+     * --mvn validate test                        // Adds validate and test goals
+     * --mvn -Dformatter.skip=false              // Overrides default property value
+     * --mvn clean validate                       // clean already in defaults (1x), validate added
+     * </pre>
+     */
+    @Option(names = "--mvn",
+            arity = "0..*",
+            description = "Add Maven goals to the build. " +
+                    "Example: --mvn validate test")
+    private String[] mavenGoals;
+
+    /**
+     * Maven goals to remove from the default build.
+     *
+     * <p><b>Examples:</b></p>
+     * <pre>
+     * --skip clean package                       // Removes clean and package from defaults
+     * --skip compile                             // Removes compile from defaults
+     * </pre>
+     */
+    @Option(names = "--skip",
+            arity = "1..*",
+            description = "Remove Maven goals from the default build. " +
+                    "Example: --skip clean package")
+    private String[] skipGoals;
+
 
     public static void main(String[] args) {
         boolean verbose = Arrays.stream(args).anyMatch(a -> a.equals("-v") || a.equals("--verbose"));
@@ -93,6 +126,8 @@ public class Main implements Callable<Integer> {
                     reportPath.toAbsolutePath(),
                     generateHtmlReport,
                     !noFailOnErrors,
+                    mavenGoals,
+                    skipGoals,
                     logger
             );
 

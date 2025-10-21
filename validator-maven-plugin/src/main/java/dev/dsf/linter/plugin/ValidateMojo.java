@@ -13,6 +13,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * DSF Validator Maven Plugin – Mojo: verify
@@ -80,16 +81,8 @@ public class ValidateMojo extends AbstractMojo {
         logger.info("Starting DSF validation...");
 
         // Create configuration for the unified validator
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
-                baseDirectory.toPath().toAbsolutePath(),
-                reportDirectory.toPath().toAbsolutePath(),
-                generateHtmlReport,
-                failOnErrors,
-                validatorLogger
-        );
-
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
-        DsfValidatorImpl.OverallValidationResult result = validator.validate();
+        // Maven build is disabled (mavenGoals=null) because the project is already compiled by Maven
+        DsfValidatorImpl.OverallValidationResult result = getOverallValidationResult(validatorLogger);
 
         // Provide unified feedback for any number of plugins
         logger.info("Completed validation for {} plugin(s).", result.pluginValidations().size());
@@ -101,5 +94,20 @@ public class ValidateMojo extends AbstractMojo {
         }
 
         logger.info("DSF validation finished successfully.");
+    }
+
+    private DsfValidatorImpl.OverallValidationResult getOverallValidationResult(Logger validatorLogger) throws IOException {
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                baseDirectory.toPath().toAbsolutePath(),
+                reportDirectory.toPath().toAbsolutePath(),
+                generateHtmlReport,
+                failOnErrors,
+                null, // mavenGoals: null in Maven plugin context (project already compiled)
+                null, // skipGoals: null in Maven plugin context (not applicable)
+                validatorLogger
+        );
+
+        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        return validator.validate();
     }
 }

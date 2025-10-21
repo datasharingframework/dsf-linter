@@ -9,6 +9,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Handles project setup, build operations, and classpath configuration
@@ -44,12 +46,16 @@ public class ProjectSetupHandler {
      * Sets up the complete validation environment for a project.
      *
      * @param projectPath the path to the project directory
+     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, no Maven build is performed.
+     *                   Goals are added to defaults (avoiding duplicates).
+     *                   Properties with "=" override defaults if value differs.
+     * @param skipGoals optional Maven goals to remove from default build. Ignored if {@code mavenGoals} is {@code null}.
      * @return a ProjectContext containing all necessary setup information
      * @throws IllegalStateException if setup fails
      * @throws IOException if file operations fail
      * @throws InterruptedException if Maven build is interrupted
      */
-    public ProjectContext setupValidationEnvironment(Path projectPath)
+    public ProjectContext setupValidationEnvironment(Path projectPath, String[] mavenGoals, String[] skipGoals)
             throws IllegalStateException, IOException, InterruptedException {
 
         if (!Files.isDirectory(projectPath)) {
@@ -62,13 +68,17 @@ public class ProjectSetupHandler {
         ClassLoader projectClassLoader;
 
         if (isMavenProject) {
-            logger.info("Detected Maven project ('pom.xml' exists), executing build...");
-            buildMavenProject(projectDir);
-        }
-        else {
+            if (mavenGoals != null) {
+                logger.info("Maven build enabled via --mvn option. Executing build...");
+                buildMavenProject(projectDir, mavenGoals, skipGoals);
+            } else {
+                logger.info("Maven project detected but build skipped (use --mvn to enable build).");
+            }
+        } else {
             logger.info("No 'pom.xml' found. Assuming exploded plugin layout – skipping Maven build.");
             logger.info("Building runtime classpath from: " + projectDir.getAbsolutePath());
         }
+
         projectClassLoader = createProjectClassLoader(projectDir);
 
         // Initial resource root resolution based on standard conventions
@@ -98,33 +108,116 @@ public class ProjectSetupHandler {
     }
 
     /**
-     * Builds a Maven project using clean, package, and dependency:copy-dependencies goals.
+     * Builds a Maven project with default goals, optional user goals, and optional skip goals.
+     *
+     * <p><b>Build process:</b></p>
+     * <ol>
+     *   <li>Start with default goals</li>
+     *   <li>Remove goals specified in {@code skipGoals}</li>
+     *   <li>Add goals from {@code userGoals} (avoiding duplicates, handling property overrides)</li>
+     * </ol>
+     *
+     * <p><b>Default goals:</b></p>
+     * <ul>
+     *   <li>{@code -B} - Non-interactive batch mode</li>
+     *   <li>{@code -DskipTests} - Skip test execution</li>
+     *   <li>{@code -Dformatter.skip=true} - Skip code formatting</li>
+     *   <li>{@code -Dexec.skip=true} - Skip exec plugin</li>
+     *   <li>{@code clean} - Clean build artifacts</li>
+     *   <li>{@code package} - Package the project</li>
+     *   <li>{@code compile} - Compile sources</li>
+     *   <li>{@code dependency:copy-dependencies} - Copy dependencies</li>
+     * </ul>
+     *
+     * <p><b>Goal handling:</b></p>
+     * <ul>
+     *   <li><b>Goals without "="</b>: Added if not already present (duplicate prevention)</li>
+     *   <li><b>Properties with "="</b>: Override default value if different, prevent duplicates if same</li>
+     * </ul>
+     *
+     * <p><b>Examples:</b></p>
+     * <pre>
+     * userGoals=["validate"], skipGoals=null
+     *   → mvn -B -DskipTests ... clean package compile dependency:copy-dependencies validate
+     *
+     * userGoals=["clean"], skipGoals=null
+     *   → mvn -B -DskipTests ... clean package compile dependency:copy-dependencies
+     *   (clean already in defaults, not duplicated)
+     *
+     * userGoals=null, skipGoals=["clean", "package"]
+     *   → mvn -B -DskipTests ... compile dependency:copy-dependencies
+     *   (clean and package removed)
+     *
+     * userGoals=["-Dformatter.skip=false", "validate"], skipGoals=["clean"]
+     *   → mvn -B -DskipTests -Dformatter.skip=false ... package compile dependency:copy-dependencies validate
+     *   (property overridden, clean removed, validate added)
+     * </pre>
      *
      * @param projectDir the project directory
+     * @param userGoals additional Maven goals to add (can be null or empty)
+     * @param skipGoals Maven goals to remove from defaults (can be null or empty)
      * @throws IllegalStateException if Maven is not found or build fails
      * @throws InterruptedException if the build process is interrupted
+     * @throws IOException if I/O errors occur during build
      */
-    private void buildMavenProject(File projectDir) throws IllegalStateException, InterruptedException, IOException {
+    private void buildMavenProject(File projectDir, String[] userGoals, String[] skipGoals)
+            throws IllegalStateException, InterruptedException, IOException {
         String mavenExecutable = MavenUtil.locateMavenExecutable();
         if (mavenExecutable == null) {
             throw new IllegalStateException("Maven executable not found in PATH.");
         }
 
+        // Step 1: Define default goals
+        List<String> allGoals = new ArrayList<>();
+        allGoals.add("-B");
+        allGoals.add("-DskipTests");
+        allGoals.add("-Dformatter.skip=true");
+        allGoals.add("-Dexec.skip=true");
+        allGoals.add("clean");
+        allGoals.add("package");
+        allGoals.add("compile");
+        allGoals.add("dependency:copy-dependencies");
+
+        // Step 2: Remove skip goals
+        if (skipGoals != null && skipGoals.length > 0) {
+            for (String skipGoal : skipGoals) {
+                allGoals.remove(skipGoal);
+            }
+            logger.debug("Removed goals: " + String.join(", ", skipGoals));
+        }
+
+        // Step 3: Add user goals (with duplicate prevention and property override handling)
+        if (userGoals != null && userGoals.length > 0) {
+            for (String userGoal : userGoals) {
+                if (userGoal.contains("=")) {
+                    // Property with "=" - check for override
+                    String propertyKey = userGoal.substring(0, userGoal.indexOf('='));
+
+                    // Remove any existing property with same key
+                    allGoals.removeIf(goal -> goal.startsWith(propertyKey + "="));
+
+                    // Add user property
+                    allGoals.add(userGoal);
+                } else {
+                    // Regular goal - add only if not present (duplicate prevention)
+                    if (!allGoals.contains(userGoal)) {
+                        allGoals.add(userGoal);
+                    }
+                }
+            }
+            logger.debug("Added user goals: " + String.join(", ", userGoals));
+        }
+
+        logger.info("Executing Maven with goals: " + String.join(" ", allGoals));
+
         boolean buildOk = mavenBuilder.buildProject(
                 projectDir,
                 mavenExecutable,
-                "-B",
-                "-DskipTests",
-                "-Dformatter.skip=true", //todo
-                "-Dexec.skip=true", //todo
-                "clean", //todo
-                "package", //todo optional
-                "compile",
-                "dependency:copy-dependencies" //todo
+                allGoals.toArray(new String[0])
         );
 
         if (!buildOk) {
-            throw new RuntimeException("Maven 'package' phase failed.");
+            throw new RuntimeException("Maven build failed.");
         }
 
         logger.info("Maven build completed successfully.");

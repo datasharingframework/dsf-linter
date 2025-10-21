@@ -31,6 +31,8 @@ public class DsfValidatorImpl {
             Path reportPath,
             boolean generateHtmlReport,
             boolean failOnErrors,
+            String[] mavenGoals,
+            String[] skipGoals,
             Logger logger
     ) {
     }
@@ -131,7 +133,11 @@ public class DsfValidatorImpl {
         try {
             // Phase 1: Project Setup
             reportGenerator.printPhaseHeader("Phase 1: Project Setup");
-            ProjectSetupHandler.ProjectContext context = setupHandler.setupValidationEnvironment(config.projectPath());
+            ProjectSetupHandler.ProjectContext context = setupHandler.setupValidationEnvironment(
+                    config.projectPath(),
+                    config.mavenGoals(),
+                    config.skipGoals()
+            );
 
             // Execute all validation phases with temporary context classloader
             return ClassLoaderUtils.withTemporaryContextClassLoader(context.projectClassLoader(), () -> {
