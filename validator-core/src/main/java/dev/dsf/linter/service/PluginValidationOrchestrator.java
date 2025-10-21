@@ -22,9 +22,7 @@ import java.util.List;
 
 /**
  * Orchestrates the complete validation process for a single plugin.
- * This class encapsulates all the complex logic required to validate one plugin,
- * including collecting validation items from BPMN and FHIR validators, running
- * plugin-level validation, handling leftover resources, and coordinating console output.
+ * Enhanced with resource root validation support.
  */
 public class PluginValidationOrchestrator {
 
@@ -45,9 +43,6 @@ public class PluginValidationOrchestrator {
             boolean isSinglePluginProject
     ) {}
 
-    /**
-     * Constructs a new orchestrator with required dependencies.
-     */
     public PluginValidationOrchestrator(
             BpmnValidationService bpmnValidator,
             FhirValidationService fhirValidator,
@@ -66,17 +61,7 @@ public class PluginValidationOrchestrator {
     }
 
     /**
-     * Validates a single plugin completely.
-     * This method orchestrates all validation steps:
-     * 1. Sets API version context
-     * 2. Prints plugin header
-     * 3. Collects BPMN and FHIR validation items
-     * 4. Runs plugin-level validation
-     * 5. Assigns leftover resource items
-     * 6. Groups and filters items for display
-     * 7. Prints validation sections
-     * 8. Builds final result
-     * 9. Prints plugin summary
+     * Validates a single plugin completely with enhanced resource root validation.
      *
      * @param pluginName The unique name of the plugin
      * @param plugin The plugin discovery information
@@ -157,23 +142,28 @@ public class PluginValidationOrchestrator {
 
     /**
      * Collects validation items from BPMN and FHIR validators.
-     * Separates plugin-level items from pure BPMN/FHIR items.
+     * Includes resource root validation items and individual success items.
      */
     private ValidationItemsCollection collectValidationItems(
             String pluginName,
             ResourceDiscoveryService.PluginDiscovery plugin)
-            throws ResourceValidationException, IOException {
+            throws ResourceValidationException {
 
+        // Call ENHANCED validate methods with outsideRoot maps and resource root
         ValidationResult bpmnResult = bpmnValidator.validate(
                 pluginName,
                 plugin.bpmnFiles(),
-                plugin.missingBpmnRefs()
+                plugin.missingBpmnRefs(),
+                plugin.bpmnOutsideRoot(),
+                plugin.pluginSpecificResourceRoot()
         );
 
         ValidationResult fhirResult = fhirValidator.validate(
                 pluginName,
                 plugin.fhirFiles(),
-                plugin.missingFhirRefs()
+                plugin.missingFhirRefs(),
+                plugin.fhirOutsideRoot(),
+                plugin.pluginSpecificResourceRoot()
         );
 
         List<AbstractValidationItem> allValidationItems = new ArrayList<>(bpmnResult.getItems());
@@ -192,7 +182,6 @@ public class PluginValidationOrchestrator {
 
     /**
      * Groups and filters validation items for console display.
-     * Returns only non-SUCCESS items for each category (BPMN, FHIR, Plugin).
      */
     private GroupedValidationItems groupAndFilterItems(
             ValidationItemsCollection itemsCollection,

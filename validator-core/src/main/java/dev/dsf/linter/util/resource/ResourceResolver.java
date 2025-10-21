@@ -11,22 +11,68 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
 
 /**
  * Utility class for resolving resource references in various formats to concrete files, URLs, or streams.
- *
- * <p>The resolver supports lookups in the following order:</p>
- * <ol>
- *   <li>Resource root directory (determined by {@link ResourceRootResolver})</li>
- *   <li>Additional search paths within resource root (bpmn, fhir subdirectories)</li>
- *   <li>Absolute file paths</li>
- *   <li>Classpath resources (from dependencies and plugin JARs)</li>
- * </ol>
+ * Enhanced with strict resource root validation to prevent classpath pollution.
  *
  * @since 1.0
  */
 public final class ResourceResolver {
 
     /**
-     * Cache key format: "canonicalProjectRoot::classpathPath"
+     * Result of resource resolution with location tracking.
      */
+    public enum ResolutionSource {
+        DISK_IN_ROOT,           // Found on disk within expected resource root
+        DISK_OUTSIDE_ROOT,      // Found on disk but outside expected resource root
+        CLASSPATH_MATERIALIZED, // Found via classpath and materialized
+        NOT_FOUND               // Not found anywhere
+    }
+
+    /**
+     * Enhanced resolution result with metadata about where resource was found.
+     */
+    public record ResolutionResult(
+            Optional<File> file,
+            ResolutionSource source,
+            String expectedRoot,
+            String actualLocation
+    ) {
+        public static ResolutionResult notFound(String expectedRoot) {
+            return new ResolutionResult(
+                    Optional.empty(),
+                    ResolutionSource.NOT_FOUND,
+                    expectedRoot,
+                    null
+            );
+        }
+
+        public static ResolutionResult inRoot(File file, File expectedRoot) {
+            return new ResolutionResult(
+                    Optional.of(file),
+                    ResolutionSource.DISK_IN_ROOT,
+                    expectedRoot.getAbsolutePath(),
+                    file.getAbsolutePath()
+            );
+        }
+
+        public static ResolutionResult outsideRoot(File file, File expectedRoot) {
+            return new ResolutionResult(
+                    Optional.of(file),
+                    ResolutionSource.DISK_OUTSIDE_ROOT,
+                    expectedRoot.getAbsolutePath(),
+                    file.getAbsolutePath()
+            );
+        }
+
+        public boolean isValid() {
+            return source == ResolutionSource.DISK_IN_ROOT;
+        }
+
+        public boolean hasIssue() {
+            return source == ResolutionSource.DISK_OUTSIDE_ROOT ||
+                    source == ResolutionSource.CLASSPATH_MATERIALIZED;
+        }
+    }
+
     private static final ConcurrentCache<String, File> MATERIALIZED_CACHE = new ConcurrentCache<>(file -> {
         try {
             if (file.exists()) {
@@ -37,33 +83,19 @@ public final class ResourceResolver {
                     try {
                         Files.deleteIfExists(parent);
                     } catch (Exception ignored) {
-                        // Parent might not be empty
                     }
                 }
             }
         } catch (Exception ignored) {
-            // Best effort cleanup
         }
     });
 
-    /**
-     * Cache for resolved resource roots.
-     * Key: canonical project root path
-     * Value: resolved resource root directory
-     */
     private static final ConcurrentCache<String, File> RESOURCE_ROOT_CACHE = new ConcurrentCache<>();
 
     private ResourceResolver() {}
 
     /**
      * Normalizes a resource reference coming from plugin definitions.
-     * Accepts variants like:
-     *  - "src/main/resources/fhir/CodeSystem/x.xml"
-     *  - "fhir/CodeSystem/x.xml"
-     *  - "/fhir/CodeSystem/x.xml"
-     *  - "classpath:fhir/CodeSystem/x.xml"
-     *  - "fhir\\CodeSystem\\x.xml" (Windows backslashes)
-     * Returns a classpath-friendly path such as "fhir/CodeSystem/x.xml".
      */
     public static String normalizeRef(String ref) {
         if (ref == null) return "";
@@ -84,34 +116,78 @@ public final class ResourceResolver {
             r = r.substring(1);
         }
 
-        // Convert Windows backslashes to forward slashes for classpath compatibility
-        // ClassLoader.getResource() expects forward slashes regardless of OS
         r = r.replace('\\', '/');
 
         return r;
     }
 
     /**
-     * Resolve a resource reference to a concrete File with default search paths.
+     * Resolves resource with strict validation against expected resource root.
+     * This is the recommended method for validation scenarios.
      *
-     * @param ref the resource reference to resolve
-     * @param projectRoot the project root directory
-     * @return Optional containing the resolved File, or empty if not found
+     * @param ref the resource reference from plugin definition
+     * @param expectedResourceRoot the resource root directory for this specific plugin
+     * @return resolution result with metadata about where the file was found
      */
+    public static ResolutionResult resolveToFileStrict(String ref, File expectedResourceRoot) {
+        Objects.requireNonNull(expectedResourceRoot, "expectedResourceRoot");
+        String cpPath = normalizeRef(ref);
+        if (cpPath.isEmpty()) {
+            return ResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
+        }
+
+        // 1. Disk search
+        Optional<File> diskResult = searchOnDisk(cpPath, expectedResourceRoot);
+
+        if (diskResult.isEmpty()) {
+            return ResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
+        }
+
+        File resolved = diskResult.get();
+
+        // 2. Validate: File must be under expected resource root
+        if (isUnderDirectory(resolved, expectedResourceRoot)) {
+            return ResolutionResult.inRoot(resolved, expectedResourceRoot);
+        } else {
+            return ResolutionResult.outsideRoot(resolved, expectedResourceRoot);
+        }
+    }
+
+    /**
+     * Checks if file is located under the specified directory.
+     *
+     * @param file the file to check
+     * @param directory the directory that should contain the file
+     * @return true if file is under directory, false otherwise
+     */
+    public static boolean isUnderDirectory(File file, File directory) {
+        try {
+            Path filePath = file.getCanonicalFile().toPath();
+            Path dirPath = directory.getCanonicalFile().toPath();
+            return filePath.startsWith(dirPath);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Legacy method - resolves to file with default search paths.
+     * Kept for backward compatibility.
+     *
+     * @deprecated Use resolveToFileStrict() for validation scenarios
+     */
+    @Deprecated
     public static Optional<File> resolveToFile(String ref, File projectRoot) {
         return resolveToFile(ref, projectRoot, "bpmn", "fhir");
     }
 
     /**
-     * Resolve a resource reference to a concrete File:
-     * 1) Check disk using centralized resource root resolution
-     * 2) Fallback: resolve via project URLClassLoader and materialize to a temp file
+     * Legacy method - resolves to file with classpath fallback.
+     * Kept for backward compatibility.
      *
-     * @param ref the resource reference to resolve
-     * @param projectRoot the project root directory
-     * @param additionalSearchPaths additional subdirectories to search in resource root
-     * @return Optional containing the resolved File, or empty if not found
+     * @deprecated Use resolveToFileStrict() for validation scenarios
      */
+    @Deprecated
     public static Optional<File> resolveToFile(String ref, File projectRoot, String... additionalSearchPaths) {
         Objects.requireNonNull(projectRoot, "projectRoot");
         String cpPath = normalizeRef(ref);
@@ -131,93 +207,6 @@ public final class ResourceResolver {
 
         // 2) Classpath lookup (dependencies and plugin JAR) with caching
         return materializeFromClasspath(cpPath, projectRoot);
-    }
-
-    /**
-     * Alternative method that returns a URL instead of materializing to a file.
-     * More efficient when the consumer can work with URLs/InputStreams directly.
-     *
-     * @param ref the resource reference to resolve
-     * @param projectRoot the project root directory
-     * @return Optional containing the resolved URL, or empty if not found
-     */
-    public static Optional<URL> resolveToURL(String ref, File projectRoot) {
-        Objects.requireNonNull(projectRoot, "projectRoot");
-        String cpPath = normalizeRef(ref);
-        if (cpPath.isEmpty()) return Optional.empty();
-
-        // 1) Check disk first using centralized resource root
-        Optional<File> diskResult = searchOnDisk(cpPath, projectRoot);
-        if (diskResult.isPresent()) {
-            try {
-                return Optional.of(diskResult.get().toURI().toURL());
-            } catch (Exception e) {
-                // fall through to classpath
-            }
-        }
-
-        // 2) Classpath lookup
-        try {
-            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
-            URL url = cl.getResource(cpPath);
-            return Optional.ofNullable(url);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Alternative method that returns an InputStream directly.
-     * Most efficient when the consumer only needs to read the resource once.
-     *
-     * @param ref the resource reference to resolve
-     * @param projectRoot the project root directory
-     * @return Optional containing the InputStream, or empty if not found
-     */
-    public static Optional<InputStream> resolveToStream(String ref, File projectRoot) {
-        Objects.requireNonNull(projectRoot, "projectRoot");
-        String cpPath = normalizeRef(ref);
-        if (cpPath.isEmpty()) return Optional.empty();
-
-        // 1) Check disk first using centralized resource root
-        Optional<File> diskResult = searchOnDisk(cpPath, projectRoot);
-        if (diskResult.isPresent()) {
-            try {
-                return Optional.of(new FileInputStream(diskResult.get()));
-            } catch (Exception e) {
-                // fall through to classpath
-            }
-        }
-
-        // 2) Classpath lookup
-        try {
-            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
-            InputStream stream = cl.getResourceAsStream(cpPath);
-            return Optional.ofNullable(stream);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Clears all caches (materialized resources and resolved resource roots).
-     * Invokes cleanup callbacks to delete temporary files.
-     */
-    public static void clearCache() {
-        MATERIALIZED_CACHE.clear();
-        RESOURCE_ROOT_CACHE.clear();
-    }
-
-    /**
-     * Returns cache statistics for monitoring and debugging.
-     *
-     * @return a map containing cache names and their sizes
-     */
-    public static Map<String, Integer> getCacheStats() {
-        Map<String, Integer> stats = new HashMap<>();
-        stats.put("materialized", MATERIALIZED_CACHE.size());
-        stats.put("resourceRoot", RESOURCE_ROOT_CACHE.size());
-        return stats;
     }
 
     private static Optional<File> searchOnDisk(String cpPath, File projectRoot, String... additionalSearchPaths) {

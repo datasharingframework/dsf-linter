@@ -10,6 +10,7 @@ import dev.dsf.linter.util.api.ApiVersionDetector;
 import dev.dsf.linter.util.api.DetectedVersion;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
+import dev.dsf.linter.util.resource.ResourceResolver;
 import dev.dsf.linter.util.resource.ResourceRootResolver;
 import dev.dsf.linter.setup.ProjectSetupHandler.ProjectContext;
 
@@ -18,9 +19,8 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * Unified resource discovery service that handles any number of plugins.
- * Always returns a Map of plugins for consistent processing.
- * A single plugin is simply a special case with one entry in the Map.
+ * Unified resource discovery service with enhanced resource root validation.
+ * Tracks plugin-specific resource roots and validates resource locations.
  */
 public class ResourceDiscoveryService {
 
@@ -28,59 +28,62 @@ public class ResourceDiscoveryService {
     private final ApiVersionDetector apiVersionDetector;
 
     /**
-     * Single plugin discovery result containing all resource information
+     * Enhanced plugin discovery result with resource root validation.
      */
     public record PluginDiscovery(
             PluginDefinitionDiscovery.PluginAdapter adapter,
             ApiVersion apiVersion,
             File resourcesDir,
+            File pluginSpecificResourceRoot,
             List<File> bpmnFiles,
             List<File> fhirFiles,
             List<String> missingBpmnRefs,
             List<String> missingFhirRefs,
+            Map<String, ResourceResolver.ResolutionResult> bpmnOutsideRoot,
+            Map<String, ResourceResolver.ResolutionResult> fhirOutsideRoot,
             Set<String> referencedPaths
     ) {}
 
     /**
      * Discovery result that always contains a Map of plugins.
-     * This Map may contain one or more entries.
      */
     public record DiscoveryResult(
             Map<String, PluginDiscovery> plugins,
             File sharedResourcesDir,
             Set<ApiVersion> detectedVersions
     ) {
-        /**
-         * Get combined statistics across all plugins
-         */
         public DiscoveryStatistics getStatistics() {
             int totalBpmnFiles = 0;
             int totalFhirFiles = 0;
             int totalMissingBpmn = 0;
             int totalMissingFhir = 0;
+            int totalOutsideRoot = 0;
 
             for (PluginDiscovery plugin : plugins.values()) {
                 totalBpmnFiles += plugin.bpmnFiles().size();
                 totalFhirFiles += plugin.fhirFiles().size();
                 totalMissingBpmn += plugin.missingBpmnRefs().size();
                 totalMissingFhir += plugin.missingFhirRefs().size();
+                totalOutsideRoot += plugin.bpmnOutsideRoot().size() + plugin.fhirOutsideRoot().size();
             }
 
             return new DiscoveryStatistics(
                     totalBpmnFiles, totalFhirFiles,
-                    totalMissingBpmn, totalMissingFhir
+                    totalMissingBpmn, totalMissingFhir,
+                    totalOutsideRoot
             );
         }
     }
 
     /**
-     * Statistics holder for discovery results
+     * Enhanced statistics with outside-root tracking.
      */
     public record DiscoveryStatistics(
             int bpmnFiles,
             int fhirFiles,
             int missingBpmn,
-            int missingFhir
+            int missingFhir,
+            int outsideRoot
     ) {}
 
     public ResourceDiscoveryService(Logger logger) {
@@ -89,18 +92,13 @@ public class ResourceDiscoveryService {
     }
 
     /**
-     * Main discovery method that always returns a Map of plugins.
-     * Works uniformly for any number of plugins (one or more).
-     *
-     * @param context the project context
-     * @return discovery result containing all plugins as a Map
+     * Main discovery method with enhanced resource root validation.
      */
     public DiscoveryResult discover(ProjectContext context)
             throws IllegalStateException, MissingServiceRegistrationException {
 
-        logger.info("Starting unified plugin resource discovery...");
+        logger.info("Starting unified plugin resource discovery with root validation...");
 
-        // 1. Discover all plugins
         EnhancedPluginDefinitionDiscovery.DiscoveryResult pluginDiscovery =
                 EnhancedPluginDefinitionDiscovery.discoverAll(context.projectDir());
 
@@ -151,15 +149,7 @@ public class ResourceDiscoveryService {
                 plugins.put(uniqueName, discovery);
                 detectedVersions.add(discovery.apiVersion());
 
-                // Log statistics
-                logger.info(String.format(
-                        "Plugin '%s': BPMN files=%d (missing=%d), FHIR files=%d (missing=%d)",
-                        uniqueName,
-                        discovery.bpmnFiles().size(),
-                        discovery.missingBpmnRefs().size(),
-                        discovery.fhirFiles().size(),
-                        discovery.missingFhirRefs().size()
-                ));
+                logPluginStatistics(uniqueName, discovery);
             }
         }
 
@@ -167,29 +157,29 @@ public class ResourceDiscoveryService {
     }
 
     /**
-     * Discovers resources for a single plugin.
+     * Discovers resources for a single plugin with strict root validation.
      */
     private PluginDiscovery discoverSinglePlugin(
-            PluginDefinitionDiscovery.PluginAdapter adapter, File resourcesDir, Path projectPath)
+            PluginDefinitionDiscovery.PluginAdapter adapter, File sharedResourcesDir, Path projectPath)
             throws MissingServiceRegistrationException {
 
-        // Detect API version
         ApiVersion apiVersion = detectPluginApiVersion(adapter, projectPath);
 
-        // Collect references
+        File pluginSpecificRoot = resolvePluginSpecificResourceRoot(adapter, sharedResourcesDir);
+
+        logger.debug("Plugin-specific resource root: " + pluginSpecificRoot.getAbsolutePath());
+
         Set<String> referencedBpmnPaths = ResourceDiscoveryUtils.collectBpmnPaths(adapter);
         Set<String> referencedFhirPaths = ResourceDiscoveryUtils.collectFhirPaths(adapter);
 
         logger.debug("Referenced BPMN: " + referencedBpmnPaths.size() +
                 ", Referenced FHIR: " + referencedFhirPaths.size());
 
-        // Resolve files using the already-determined resourcesDir
-        ResourceDiscoveryUtils.ResolvedResources bpmnResources =
-                ResourceDiscoveryUtils.resolveResourceFiles(referencedBpmnPaths, resourcesDir);
-        ResourceDiscoveryUtils.ResolvedResources fhirResources =
-                ResourceDiscoveryUtils.resolveResourceFiles(referencedFhirPaths, resourcesDir);
+        ResourceDiscoveryUtils.StrictResolvedResources bpmnResources =
+                ResourceDiscoveryUtils.resolveResourceFilesStrict(referencedBpmnPaths, pluginSpecificRoot);
+        ResourceDiscoveryUtils.StrictResolvedResources fhirResources =
+                ResourceDiscoveryUtils.resolveResourceFilesStrict(referencedFhirPaths, pluginSpecificRoot);
 
-        // Combine all referenced paths
         Set<String> allReferencedPaths = new HashSet<>();
         allReferencedPaths.addAll(referencedBpmnPaths);
         allReferencedPaths.addAll(referencedFhirPaths);
@@ -197,13 +187,32 @@ public class ResourceDiscoveryService {
         return new PluginDiscovery(
                 adapter,
                 apiVersion,
-                resourcesDir,
-                bpmnResources.resolvedFiles(),
-                fhirResources.resolvedFiles(),
+                sharedResourcesDir,
+                pluginSpecificRoot,
+                bpmnResources.validFiles(),
+                fhirResources.validFiles(),
                 bpmnResources.missingRefs(),
                 fhirResources.missingRefs(),
+                bpmnResources.outsideRootFiles(),
+                fhirResources.outsideRootFiles(),
                 allReferencedPaths
         );
+    }
+
+    /**
+     * Resolves plugin-specific resource root directory.
+     */
+    private File resolvePluginSpecificResourceRoot(
+            PluginDefinitionDiscovery.PluginAdapter adapter,
+            File fallbackRoot) {
+
+        ResourceRootResolver.ResolutionResult result =
+                ResourceRootResolver.resolveResourceRootForPlugin(
+                        fallbackRoot.getParentFile(),
+                        adapter
+                );
+
+        return result.resourceRoot();
     }
 
     /**
@@ -231,5 +240,31 @@ public class ResourceDiscoveryService {
                     logger.warn("Could not detect API version. Using UNKNOWN.");
                     return ApiVersion.UNKNOWN;
                 });
+    }
+
+    /**
+     * Logs statistics for a single plugin.
+     */
+    private void logPluginStatistics(String pluginName, PluginDiscovery discovery) {
+        logger.info(String.format(
+                "Plugin '%s': BPMN files=%d (missing=%d, outside-root=%d), FHIR files=%d (missing=%d, outside-root=%d)",
+                pluginName,
+                discovery.bpmnFiles().size(),
+                discovery.missingBpmnRefs().size(),
+                discovery.bpmnOutsideRoot().size(),
+                discovery.fhirFiles().size(),
+                discovery.missingFhirRefs().size(),
+                discovery.fhirOutsideRoot().size()
+        ));
+
+        if (!discovery.bpmnOutsideRoot().isEmpty()) {
+            logger.warn("Found " + discovery.bpmnOutsideRoot().size() +
+                    " BPMN file(s) outside expected resource root");
+        }
+
+        if (!discovery.fhirOutsideRoot().isEmpty()) {
+            logger.warn("Found " + discovery.fhirOutsideRoot().size() +
+                    " FHIR file(s) outside expected resource root");
+        }
     }
 }

@@ -27,8 +27,34 @@ public abstract class PluginValidationItem extends AbstractValidationItem {
 
     @JsonGetter("file")
     public String getFileName() {
-        String name = file.getName();
-        return name.replaceFirst("^dsf-validator-", "");
+        if (file == null) {
+            return "unknown";
+        }
+
+        String absolutePath = file.getAbsolutePath();
+
+        // Remove dsf-validator prefix from temp directories
+        absolutePath = absolutePath.replace("dsf-validator-", "");
+
+        // Look for common project root indicators and extract from there
+        String[] rootIndicators = {
+                "target" + File.separator + "classes",
+                "build" + File.separator + "resources" + File.separator + "main",
+                "build" + File.separator + "classes" + File.separator + "java" + File.separator + "main"
+        };
+
+        for (String indicator : rootIndicators) {
+            int index = absolutePath.indexOf(indicator);
+            if (index != -1) {
+                // Extract from the root indicator onwards
+                String relativePath = absolutePath.substring(index);
+                // Normalize separators to forward slashes
+                return relativePath.replace(File.separator, "/");
+            }
+        }
+
+        // Fallback: return just the file name
+        return file.getName();
     }
 
     public String getLocation() {

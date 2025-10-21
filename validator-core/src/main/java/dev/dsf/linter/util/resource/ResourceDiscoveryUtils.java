@@ -8,24 +8,29 @@ import java.util.stream.Collectors;
 
 /**
  * Utility class containing shared resource discovery methods.
- * Eliminates code duplication between ResourceDiscoveryService and EnhancedResourceDiscoveryService.
+ * Enhanced with strict resource root validation.
  */
 public final class ResourceDiscoveryUtils {
 
     private ResourceDiscoveryUtils() {
-        // Utility class, prevent instantiation
     }
 
     /**
-     * Result container for resolved resources
+     * Result container for resolved resources with legacy structure.
      */
     public record ResolvedResources(List<File> resolvedFiles, List<String> missingRefs) {}
 
     /**
+     * Enhanced result container with resource root validation.
+     */
+    public record StrictResolvedResources(
+            List<File> validFiles,
+            List<String> missingRefs,
+            Map<String, ResourceResolver.ResolutionResult> outsideRootFiles
+    ) {}
+
+    /**
      * Collects all BPMN paths referenced by the plugin.
-     *
-     * @param pluginAdapter the plugin adapter
-     * @return set of normalized BPMN resource paths
      */
     public static Set<String> collectBpmnPaths(PluginAdapter pluginAdapter) {
         return pluginAdapter.getProcessModels().stream()
@@ -35,9 +40,6 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Collects all FHIR paths referenced by the plugin.
-     *
-     * @param pluginAdapter the plugin adapter
-     * @return set of normalized FHIR resource paths
      */
     public static Set<String> collectFhirPaths(PluginAdapter pluginAdapter) {
         return pluginAdapter.getFhirResourcesByProcessId().values().stream()
@@ -47,12 +49,52 @@ public final class ResourceDiscoveryUtils {
     }
 
     /**
-     * Resolves resource files from their reference paths.
+     * Resolves resource files with strict validation against expected resource root.
+     * This method validates that all resolved files are within the expected resource root.
      *
      * @param referencedPaths the set of referenced resource paths
-     * @param resourcesDir the resources directory to search in
-     * @return resolved resources with files found and missing references
+     * @param expectedResourceRoot the expected resource root directory for validation
+     * @return enhanced resolved resources with validation results
      */
+    public static StrictResolvedResources resolveResourceFilesStrict(
+            Set<String> referencedPaths,
+            File expectedResourceRoot) {
+
+        List<File> validFiles = new ArrayList<>();
+        List<String> missingRefs = new ArrayList<>();
+        Map<String, ResourceResolver.ResolutionResult> outsideRootFiles = new LinkedHashMap<>();
+
+        for (String ref : referencedPaths) {
+            String cleanedRef = cleanRef(ref);
+            ResourceResolver.ResolutionResult result =
+                    ResourceResolver.resolveToFileStrict(cleanedRef, expectedResourceRoot);
+
+            switch (result.source()) {
+                case DISK_IN_ROOT:
+                    result.file().ifPresent(validFiles::add);
+                    break;
+
+                case DISK_OUTSIDE_ROOT:
+                case CLASSPATH_MATERIALIZED:
+                    outsideRootFiles.put(ref, result);
+                    break;
+
+                case NOT_FOUND:
+                    missingRefs.add(ref);
+                    break;
+            }
+        }
+
+        return new StrictResolvedResources(validFiles, missingRefs, outsideRootFiles);
+    }
+
+    /**
+     * Legacy method - resolves resource files without strict validation.
+     * Kept for backward compatibility.
+     *
+     * @deprecated Use resolveResourceFilesStrict() for validation scenarios
+     */
+    @Deprecated
     public static ResolvedResources resolveResourceFiles(Set<String> referencedPaths, File resourcesDir) {
         List<File> resolvedFiles = referencedPaths.stream()
                 .map(ResourceDiscoveryUtils::cleanRef)
@@ -72,10 +114,6 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Cleans and normalizes a resource reference.
-     * Removes classpath: prefix, normalizes separators, and removes leading slashes.
-     *
-     * @param ref the reference to clean
-     * @return cleaned reference string
      */
     public static String cleanRef(String ref) {
         if (ref == null) return "";
@@ -99,18 +137,11 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Generates a unique name for a plugin to avoid directory conflicts.
-     *
-     * @param baseName the base name from the plugin
-     * @param plugin the plugin adapter
-     * @param counter counter for multiple plugins with same name
-     * @param existingNames set of already used names
-     * @return unique plugin name suitable for directory creation
      */
     public static String generateUniquePluginName(String baseName, PluginAdapter plugin,
                                                   int counter, Set<String> existingNames) {
         String name = baseName;
 
-        // Add version suffix if needed
         if (counter > 0 || existingNames.contains(name)) {
             String version = getVersionSuffix(plugin);
             name = baseName + "_" + version;
@@ -125,16 +156,11 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Sanitizes a plugin name for use as directory name.
-     * Removes invalid filesystem characters.
-     *
-     * @param name the plugin name to sanitize
-     * @return sanitized name suitable for filesystem use
      */
     public static String sanitizePluginName(String name) {
         if (name == null || name.isEmpty()) {
             return "unnamed_plugin";
         }
-        // Remove invalid filesystem characters
         return name.replaceAll("[^a-zA-Z0-9._-]", "_")
                 .replaceAll("_{2,}", "_")
                 .toLowerCase();
@@ -142,14 +168,11 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Extracts version suffix from a plugin adapter.
-     *
-     * @param plugin the plugin adapter
-     * @return "v1" or "v2"
      */
     private static String getVersionSuffix(PluginAdapter plugin) {
         if (plugin instanceof GenericPluginAdapter generic) {
             return generic.getApiVersion() == GenericPluginAdapter.ApiVersion.V2 ? "v2" : "v1";
         }
-        return "v1"; // fallback for unknown adapter types
+        return "v1";
     }
 }

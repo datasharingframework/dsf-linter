@@ -9,17 +9,7 @@ import java.nio.file.Paths;
 
 /**
  * Centralized utility for determining the resource root directory.
- * This class consolidates all logic for locating the base directory
- * containing project resources (BPMN, FHIR files, etc.).
- *
- * <p>The resolution strategy follows this priority order:</p>
- * <ol>
- *   <li>CodeSource-based detection from plugin class</li>
- *   <li>Maven project structure (target/classes)</li>
- *   <li>Gradle project structure (build/resources/main)</li>
- *   <li>Source directory fallback (src/main/resources)</li>
- *   <li>Project root as last resort</li>
- * </ol>
+ * Enhanced with plugin-specific resource root resolution.
  *
  * @since 1.0.0
  */
@@ -30,20 +20,19 @@ public final class ResourceRootResolver {
     }
 
     /**
-         * Result of resource root resolution containing both the determined
-         * directory and information about how it was resolved.
-         */
-        public record ResolutionResult(File resourceRoot, ResolutionStrategy strategy, String description) {
+     * Result of resource root resolution.
+     */
+    public record ResolutionResult(File resourceRoot, ResolutionStrategy strategy, String description) {
 
         @Override
-            public String toString() {
-                return String.format("ResourceRoot[%s]: %s (%s)",
-                        strategy, resourceRoot.getAbsolutePath(), description);
-            }
+        public String toString() {
+            return String.format("ResourceRoot[%s]: %s (%s)",
+                    strategy, resourceRoot.getAbsolutePath(), description);
         }
+    }
 
     /**
-     * Enumeration of resolution strategies used to determine the resource root.
+     * Enumeration of resolution strategies.
      */
     public enum ResolutionStrategy {
         CODE_SOURCE_MAVEN,
@@ -57,12 +46,7 @@ public final class ResourceRootResolver {
     }
 
     /**
-     * Determines the resource root directory for a project.
-     * This is the primary entry point that should be used throughout the application.
-     *
-     * @param projectDir the project directory
-     * @param pluginAdapter optional plugin adapter for CodeSource-based detection
-     * @return resolution result containing the resource root and metadata
+     * Determines the resource root directory for a project with optional plugin context.
      */
     public static ResolutionResult resolveResourceRoot(File projectDir, PluginAdapter pluginAdapter) {
         if (projectDir == null) {
@@ -99,11 +83,45 @@ public final class ResourceRootResolver {
 
     /**
      * Simplified overload without plugin adapter.
-     *
-     * @param projectDir the project directory
-     * @return resolution result containing the resource root and metadata
      */
     public static ResolutionResult resolveResourceRoot(File projectDir) {
+        return resolveResourceRoot(projectDir, null);
+    }
+
+    /**
+     * Resolves plugin-specific resource root directory.
+     * This is the primary method for validation scenarios where each plugin
+     * needs its own resource root tracking.
+     *
+     * @param projectDir the project directory
+     * @param pluginAdapter the plugin adapter for CodeSource-based detection
+     * @return resolution result with plugin-specific resource root
+     */
+    public static ResolutionResult resolveResourceRootForPlugin(
+            File projectDir,
+            PluginAdapter pluginAdapter) {
+
+        if (projectDir == null) {
+            throw new IllegalArgumentException("projectDir cannot be null");
+        }
+
+        if (pluginAdapter == null) {
+            return resolveResourceRoot(projectDir, null);
+        }
+
+        ResolutionResult codeSourceResult = tryCodeSourceResolution(pluginAdapter);
+        if (codeSourceResult != null) {
+            return codeSourceResult;
+        }
+
+        Class<?> pluginClass = pluginAdapter.sourceClass();
+        if (pluginClass != null) {
+            ResolutionResult packageBasedResult = tryPackageBasedResolution(projectDir, pluginClass);
+            if (packageBasedResult != null) {
+                return packageBasedResult;
+            }
+        }
+
         return resolveResourceRoot(projectDir, null);
     }
 
@@ -142,8 +160,8 @@ public final class ResourceRootResolver {
 
             // Gradle: <module>/build/classes/java/main → prefer resources/main
             if (norm.endsWith("/build/classes/java/main")) {
-                Path gradleRes = loc.getParent() // java
-                        .getParent() // classes
+                Path gradleRes = loc.getParent()
+                        .getParent()
                         .resolve("resources")
                         .resolve("main");
 
@@ -171,7 +189,51 @@ public final class ResourceRootResolver {
             );
 
         } catch (Exception e) {
-            // Silent failure, try next strategy
+            return null;
+        }
+    }
+
+    /**
+     * Attempts to resolve resource root based on plugin package structure.
+     * This helps in multi-module projects where each plugin has its own module.
+     */
+    private static ResolutionResult tryPackageBasedResolution(File projectDir, Class<?> pluginClass) {
+        try {
+            String packageName = pluginClass.getPackage().getName();
+            String[] packageParts = packageName.split("\\.");
+
+            if (packageParts.length < 2) {
+                return null;
+            }
+
+            String moduleName = packageParts[packageParts.length - 1];
+
+            Path moduleDir = projectDir.toPath().resolve(moduleName);
+            if (!Files.isDirectory(moduleDir)) {
+                return null;
+            }
+
+            Path mavenClasses = moduleDir.resolve("target").resolve("classes");
+            if (Files.isDirectory(mavenClasses)) {
+                return new ResolutionResult(
+                        mavenClasses.toFile(),
+                        ResolutionStrategy.MAVEN_TARGET_CLASSES,
+                        "Detected from package-based module resolution (Maven)"
+                );
+            }
+
+            Path gradleResources = moduleDir.resolve("build").resolve("resources").resolve("main");
+            if (Files.isDirectory(gradleResources)) {
+                return new ResolutionResult(
+                        gradleResources.toFile(),
+                        ResolutionStrategy.GRADLE_BUILD_RESOURCES,
+                        "Detected from package-based module resolution (Gradle)"
+                );
+            }
+
+            return null;
+
+        } catch (Exception e) {
             return null;
         }
     }

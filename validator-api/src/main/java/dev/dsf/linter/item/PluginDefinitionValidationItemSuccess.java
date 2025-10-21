@@ -19,7 +19,7 @@ public class PluginDefinitionValidationItemSuccess extends PluginValidationItem 
         return String.format("[%s] %s (file=%s, location=%s, message=%s)",
                 getSeverity(),
                 this.getClass().getSimpleName(),
-                getFile(),
+                getFileName(),
                 getLocation(),
                 getMessage());
     }

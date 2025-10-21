@@ -5,23 +5,17 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.fhir.FhirResourceValidator;
 import dev.dsf.linter.exception.ResourceValidationException;
 import dev.dsf.linter.util.validation.ValidationOutput;
-import dev.dsf.linter.util.FileUtils;
+import dev.dsf.linter.util.resource.ResourceResolver;
 import dev.dsf.linter.ValidationSeverity;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for validating FHIR resources.
- *
- * <p>This service handles:
- * <ul>
- * <li>Individual FHIR file validation</li>
- * <li>Batch FHIR validation</li>
- * <li>Missing reference tracking</li>
- * <li>Validation result categorization</li>
- * </ul>
+ * Enhanced with resource root validation.
  *
  * @author DSF Development Team
  * @since 1.0.0
@@ -31,11 +25,6 @@ public class FhirValidationService {
     private final Logger logger;
     private final FhirResourceValidator fhirResourceValidator;
 
-    /**
-     * Constructs a new FhirValidationService.
-     *
-     * @param logger the logger for output messages
-     */
     public FhirValidationService(Logger logger) {
         this.logger = logger;
         this.fhirResourceValidator = new FhirResourceValidator(logger);
@@ -44,12 +33,9 @@ public class FhirValidationService {
     /**
      * Validates all FHIR files and missing references for a given plugin.
      *
-     * @param pluginName      The name of the plugin being validated.
-     * @param fhirFiles       List of FHIR files to validate.
-     * @param missingFhirRefs List of missing FHIR references.
-     * @return Validation result containing all items.
-     * @throws ResourceValidationException if any FHIR file contains parsing errors.
+     * @deprecated Use {@link #validate(String, List, List, Map, File)} for enhanced resource root validation
      */
+    @Deprecated
     public ValidationResult validate(String pluginName, List<File> fhirFiles, List<String> missingFhirRefs)
             throws ResourceValidationException {
 
@@ -66,11 +52,72 @@ public class FhirValidationService {
     }
 
     /**
-     * Creates validation items for missing FHIR references.
+     * Enhanced validation method that includes resource root validation.
+     * This is the new method that should be called from orchestrator.
      *
-     * @param pluginName      The name of the plugin.
-     * @param missingFhirRefs list of missing FHIR file references
-     * @return list of validation items for missing references
+     * @param pluginName      The name of the plugin being validated
+     * @param fhirFiles       List of FHIR files to validate
+     * @param missingFhirRefs List of missing FHIR references
+     * @param fhirOutsideRoot Map of FHIR files found outside expected resource root
+     * @param pluginResourceRoot The plugin-specific resource root for success items
+     * @return ValidationResult containing all items
+     * @throws ResourceValidationException if any FHIR file contains parsing errors
+     */
+    public ValidationResult validate(
+            String pluginName,
+            List<File> fhirFiles,
+            List<String> missingFhirRefs,
+            Map<String, ResourceResolver.ResolutionResult> fhirOutsideRoot,
+            File pluginResourceRoot)
+            throws ResourceValidationException {
+
+        List<AbstractValidationItem> allItems = new ArrayList<>();
+
+        allItems.addAll(createMissingReferenceItems(pluginName, missingFhirRefs));
+        allItems.addAll(validateExistingFiles(pluginName, fhirFiles));
+        allItems.addAll(createOutsideRootItems(pluginName, fhirOutsideRoot));
+        allItems.addAll(createSuccessItemsForValidResources(pluginName, fhirFiles, pluginResourceRoot));
+
+        return new ValidationResult(allItems);
+    }
+
+    /**
+     * Creates validation items for FHIR files found outside expected resource root.
+     *
+     * @param pluginName the plugin name
+     * @param fhirOutsideRoot map of files found outside root
+     * @return list of validation items
+     */
+    private List<AbstractValidationItem> createOutsideRootItems(
+            String pluginName,
+            Map<String, ResourceResolver.ResolutionResult> fhirOutsideRoot) {
+
+        List<AbstractValidationItem> items = new ArrayList<>();
+
+        if (fhirOutsideRoot == null || fhirOutsideRoot.isEmpty()) {
+            return items;
+        }
+
+        for (Map.Entry<String, ResourceResolver.ResolutionResult> entry : fhirOutsideRoot.entrySet()) {
+            String reference = entry.getKey();
+            ResourceResolver.ResolutionResult result = entry.getValue();
+
+            if (result.file().isPresent()) {
+                items.add(new PluginDefinitionFhirFileReferencedFoundOutsideExpectedRootValidationItem(
+                        pluginName,
+                        result.file().get(),
+                        reference,
+                        result.expectedRoot(),
+                        result.actualLocation()
+                ));
+            }
+        }
+
+        return items;
+    }
+
+    /**
+     * Creates validation items for missing FHIR references.
      */
     private List<AbstractValidationItem> createMissingReferenceItems(String pluginName, List<String> missingFhirRefs) {
         List<AbstractValidationItem> items = new ArrayList<>();
@@ -104,7 +151,7 @@ public class FhirValidationService {
     }
 
     /**
-     * Validates a single FHIR file and adds success items for successfully parsed files.
+     * Validates a single FHIR file.
      */
     private List<AbstractValidationItem> validateSingleFhirFile(String pluginName, File fhirFile) {
 
@@ -133,10 +180,7 @@ public class FhirValidationService {
     }
 
     /**
-     * Extracts the FHIR reference from validation items.
-     *
-     * @param items validation items to search
-     * @return the FHIR reference or "unknown_reference" if not found
+     * Extracts FHIR reference from validation items.
      */
     private String extractFhirReference(List<AbstractValidationItem> items) {
         return items.stream()
@@ -148,11 +192,7 @@ public class FhirValidationService {
     }
 
     /**
-     * Creates a success validation item for a found and readable FHIR file.
-     *
-     * @param fhirFile the FHIR file
-     * @param fhirReference the extracted FHIR reference
-     * @return a success validation item
+     * Creates success item for FHIR file.
      */
     private FhirElementValidationItemSuccess createFhirSuccessItem(File fhirFile, String fhirReference) {
         return new FhirElementValidationItemSuccess(
@@ -163,24 +203,30 @@ public class FhirValidationService {
     }
 
     /**
-     * Creates individual file reports for FHIR validation.
+     * Creates success items for FHIR resources that are correctly located in resource root.
+     * One success item per valid resource.
      *
-     * @param items validation items
-     * @param fhirFile the FHIR file being validated
-     * @return file report metadata
+     * @param pluginName the plugin name
+     * @param fhirFiles list of valid FHIR files
+     * @param pluginResourceRoot the plugin's resource root
+     * @return list of success validation items
      */
-    @Deprecated  // This method is no longer used and can be reused in future versions.
-    public FileReportMetadata createFileReport(List<AbstractValidationItem> items, File fhirFile) {
-        String baseName = FileUtils.getFileNameWithoutExtension(fhirFile);
-        String parentFolderName = FileUtils.getParentFolderName(fhirFile);
-        String fileName = "fhir_issues_" + parentFolderName + "_" + baseName + ".json";
+    private List<AbstractValidationItem> createSuccessItemsForValidResources(
+            String pluginName,
+            List<File> fhirFiles,
+            File pluginResourceRoot) {
 
-        return new FileReportMetadata(fileName, items);
-    }
+        List<AbstractValidationItem> items = new ArrayList<>();
 
-    /**
-     * Data class for file report metadata.
-     */
-    public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
+        for (File fhirFile : fhirFiles) {
+            items.add(new PluginDefinitionValidationItemSuccess(
+                    fhirFile,
+                    pluginName,
+                    String.format("FHIR resource '%s' correctly located in resource root",
+                            fhirFile.getName())
+            ));
+        }
+
+        return items;
     }
 }

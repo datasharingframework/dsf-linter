@@ -5,23 +5,17 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.bpmn.BPMNValidator;
 import dev.dsf.linter.exception.ResourceValidationException;
 import dev.dsf.linter.util.validation.ValidationOutput;
-import dev.dsf.linter.util.FileUtils;
+import dev.dsf.linter.util.resource.ResourceResolver;
 import dev.dsf.linter.ValidationSeverity;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for validating BPMN resources.
- *
- * <p>This service handles:
- * <ul>
- * <li>Individual BPMN file validation</li>
- * <li>Batch BPMN validation</li>
- * <li>Missing reference tracking</li>
- * <li>Validation result categorization</li>
- * </ul>
+ * Enhanced with resource root validation.
  *
  * @author DSF Development Team
  * @since 1.0.0
@@ -31,26 +25,20 @@ public class BpmnValidationService {
     private final Logger logger;
     private final BPMNValidator bpmnValidator;
 
-    /**
-     * Constructs a new BpmnValidationService.
-     *
-     * @param logger the logger for output messages
-     */
     public BpmnValidationService(Logger logger) {
         this.logger = logger;
         this.bpmnValidator = new BPMNValidator();
     }
 
     /**
-     * Validates all BPMN aspects for a specific plugin, including referenced but missing files
-     * and the content of existing BPMN files. This method centralizes the collection of
-     * all validation items.
+     * Validates all BPMN aspects for a specific plugin.
+     * Enhanced to include validation of resource locations.
      *
-     * @param pluginName       The name of the plugin being validated. Used for context in error messages.
-     * @param bpmnFiles        A list of existing BPMN files to be validated.
-     * @param missingBpmnRefs  A list of BPMN file paths that were referenced but not found.
-     * @return A {@link ValidationResult} object containing all collected validation items (errors and warnings).
-     * @throws ResourceValidationException if a severe, unrecoverable error occurs during validation.
+     * @param pluginName       The name of the plugin being validated
+     * @param bpmnFiles        List of existing BPMN files to validate
+     * @param missingBpmnRefs  List of BPMN file paths that were referenced but not found
+     * @return ValidationResult containing all collected validation items
+     * @throws ResourceValidationException if a severe error occurs during validation
      */
     public ValidationResult validate(String pluginName, List<File> bpmnFiles, List<String> missingBpmnRefs)
             throws ResourceValidationException {
@@ -63,6 +51,71 @@ public class BpmnValidationService {
         allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
 
         return new ValidationResult(allItems);
+    }
+
+    /**
+     * Enhanced validation method that includes resource root validation.
+     * This is the new method that should be called from orchestrator.
+     *
+     * @param pluginName       The name of the plugin being validated
+     * @param bpmnFiles        List of existing BPMN files to validate
+     * @param missingBpmnRefs  List of BPMN file paths that were referenced but not found
+     * @param bpmnOutsideRoot  Map of BPMN files found outside expected resource root
+     * @param pluginResourceRoot The plugin-specific resource root for success items
+     * @return ValidationResult containing all collected validation items
+     * @throws ResourceValidationException if a severe error occurs during validation
+     */
+    public ValidationResult validate(
+            String pluginName,
+            List<File> bpmnFiles,
+            List<String> missingBpmnRefs,
+            Map<String, ResourceResolver.ResolutionResult> bpmnOutsideRoot,
+            File pluginResourceRoot)
+            throws ResourceValidationException {
+
+        List<AbstractValidationItem> allItems = new ArrayList<>();
+
+        allItems.addAll(validateExistingFiles(pluginName, bpmnFiles));
+        allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
+        allItems.addAll(createOutsideRootItems(pluginName, bpmnOutsideRoot));
+        allItems.addAll(createSuccessItemsForValidResources(pluginName, bpmnFiles, pluginResourceRoot));
+
+        return new ValidationResult(allItems);
+    }
+
+    /**
+     * Creates validation items for BPMN files found outside expected resource root.
+     *
+     * @param pluginName the plugin name
+     * @param bpmnOutsideRoot map of files found outside root
+     * @return list of validation items
+     */
+    private List<AbstractValidationItem> createOutsideRootItems(
+            String pluginName,
+            Map<String, ResourceResolver.ResolutionResult> bpmnOutsideRoot) {
+
+        List<AbstractValidationItem> items = new ArrayList<>();
+
+        if (bpmnOutsideRoot == null || bpmnOutsideRoot.isEmpty()) {
+            return items;
+        }
+
+        for (Map.Entry<String, ResourceResolver.ResolutionResult> entry : bpmnOutsideRoot.entrySet()) {
+            String reference = entry.getKey();
+            ResourceResolver.ResolutionResult result = entry.getValue();
+
+            if (result.file().isPresent()) {
+                items.add(new PluginDefinitionBpmnFileReferencedFoundOutsideExpectedRootValidationItem(
+                        pluginName,
+                        result.file().get(),
+                        reference,
+                        result.expectedRoot(),
+                        result.actualLocation()
+                ));
+            }
+        }
+
+        return items;
     }
 
     /**
@@ -105,7 +158,7 @@ public class BpmnValidationService {
     }
 
     /**
-     * Validates a single BPMN file and adds success items for successfully parsed files.
+     * Validates a single BPMN file.
      */
     private List<AbstractValidationItem> validateSingleBpmnFile(String pluginName, File bpmnFile) {
 
@@ -149,7 +202,7 @@ public class BpmnValidationService {
     }
 
     /**
-     * Creates a BPMN-specific success validation item.
+     * Creates BPMN-specific success item.
      */
     private BpmnElementValidationItemSuccess createBpmnSuccessItem(File bpmnFile, String processId) {
         return new BpmnElementValidationItemSuccess(
@@ -161,41 +214,30 @@ public class BpmnValidationService {
     }
 
     /**
-     * Creates individual file reports for BPMN validation.
+     * Creates success items for BPMN resources that are correctly located in resource root.
+     * One success item per valid resource.
      *
-     * @param items validation items
-     * @param bpmnFile the BPMN file being validated
-     * @param processId the process ID
-     * @return file report metadata
+     * @param pluginName the plugin name
+     * @param bpmnFiles list of valid BPMN files
+     * @param pluginResourceRoot the plugin's resource root
+     * @return list of success validation items
      */
-    @Deprecated // This method is no longer used and can be reused in future versions
-    public FileReportMetadata createFileReport(
-            List<AbstractValidationItem> items, File bpmnFile, String processId) {
+    private List<AbstractValidationItem> createSuccessItemsForValidResources(
+            String pluginName,
+            List<File> bpmnFiles,
+            File pluginResourceRoot) {
 
-        String normalizedProcessId = normalizeProcessIdForReport(processId, bpmnFile);
-        String parentFolderName = FileUtils.getParentFolderName(bpmnFile);
-        String fileName = "bpmn_issues_" + parentFolderName + "_" + normalizedProcessId + ".json";
+        List<AbstractValidationItem> items = new ArrayList<>();
 
-        return new FileReportMetadata(fileName, items);
-    }
-
-    /**
-     * Normalizes the process ID for report naming.
-     *
-     * @param processId the process ID to normalize
-     * @param bpmnFile the BPMN file (used as fallback for naming)
-     * @return normalized process ID
-     */
-    private String normalizeProcessIdForReport(String processId, File bpmnFile) {
-        if (processId == null || processId.isBlank()) {
-            return FileUtils.getFileNameWithoutExtension(bpmnFile, ".bpmn");
+        for (File bpmnFile : bpmnFiles) {
+            items.add(new PluginDefinitionValidationItemSuccess(
+                    bpmnFile,
+                    pluginName,
+                    String.format("BPMN resource '%s' correctly located in resource root",
+                            bpmnFile.getName())
+            ));
         }
-        return processId;
-    }
 
-    /**
-     * Data class for file report metadata.
-     */
-    public record FileReportMetadata(String fileName, List<AbstractValidationItem> items) {
+        return items;
     }
 }
