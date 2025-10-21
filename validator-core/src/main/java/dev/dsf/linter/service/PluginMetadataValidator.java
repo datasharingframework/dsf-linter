@@ -1,10 +1,9 @@
-// validator-core/src/main/java/dev/dsf/utils/validator/service/PluginMetadataValidator.java
-
 package dev.dsf.linter.service;
 
 import dev.dsf.linter.item.AbstractValidationItem;
 import dev.dsf.linter.item.PluginDefinitionNoFhirResourcesDefinedValidationItem;
 import dev.dsf.linter.item.PluginDefinitionNoProcessModelDefinedValidationItem;
+import dev.dsf.linter.item.PluginDefinitionValidationItemSuccess;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 
 import java.nio.file.Path;
@@ -18,7 +17,6 @@ import java.util.List;
 public final class PluginMetadataValidator {
 
     private PluginMetadataValidator() {
-
     }
 
     /**
@@ -31,24 +29,37 @@ public final class PluginMetadataValidator {
      */
     public static List<AbstractValidationItem> validatePluginMetadata(
             PluginAdapter plugin, Path projectPath) {
-
         List<AbstractValidationItem> items = new ArrayList<>();
 
-        // Check for empty process models
+        // Check for process models
         if (plugin.getProcessModels().isEmpty()) {
             items.add(new PluginDefinitionNoProcessModelDefinedValidationItem(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No BPMN process models are defined in this plugin."
             ));
+        } else {
+            // Success case: Process models are defined
+            items.add(new PluginDefinitionValidationItemSuccess(
+                    projectPath.toFile(),
+                    plugin.sourceClass().getName(),
+                    "Process models are defined in this plugin."
+            ));
         }
 
-        // Check for empty FHIR resources
+        // Check for FHIR resources
         if (plugin.getFhirResourcesByProcessId().isEmpty()) {
             items.add(new PluginDefinitionNoFhirResourcesDefinedValidationItem(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No FHIR resources are defined in this plugin."
+            ));
+        } else {
+            // Success case: FHIR resources are defined
+            items.add(new PluginDefinitionValidationItemSuccess(
+                    projectPath.toFile(),
+                    plugin.sourceClass().getName(),
+                    "FHIR resources are defined in this plugin."
             ));
         }
 

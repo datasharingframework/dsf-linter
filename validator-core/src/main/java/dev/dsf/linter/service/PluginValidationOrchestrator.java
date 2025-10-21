@@ -51,7 +51,6 @@ public class PluginValidationOrchestrator {
             ValidationReportGenerator reportGenerator,
             Path reportBasePath,
             Logger logger) {
-
         this.bpmnValidator = bpmnValidator;
         this.fhirValidator = fhirValidator;
         this.pluginValidator = pluginValidator;
@@ -99,6 +98,12 @@ public class PluginValidationOrchestrator {
                 itemsCollection.pluginLevelItems
         );
 
+        // Step 4.5: Run plugin metadata validation
+        List<AbstractValidationItem> metadataItems = PluginMetadataValidator.validatePluginMetadata(
+                plugin.adapter(),
+                context.projectPath()
+        );
+
         // Step 5: Get leftover items for this plugin
         List<AbstractValidationItem> leftoverItems = leftoverDetector.getItemsForPlugin(
                 leftoverAnalysis,
@@ -112,6 +117,7 @@ public class PluginValidationOrchestrator {
         GroupedValidationItems groupedItems = groupAndFilterItems(
                 itemsCollection,
                 pluginResult,
+                metadataItems,
                 leftoverItems
         );
 
@@ -131,6 +137,7 @@ public class PluginValidationOrchestrator {
                 plugin,
                 itemsCollection,
                 pluginResult,
+                metadataItems,
                 leftoverItems
         );
 
@@ -186,6 +193,7 @@ public class PluginValidationOrchestrator {
     private GroupedValidationItems groupAndFilterItems(
             ValidationItemsCollection itemsCollection,
             ValidationResult pluginResult,
+            List<AbstractValidationItem> metadataItems,
             List<AbstractValidationItem> leftoverItems) {
 
         List<AbstractValidationItem> bpmnNonSuccess = ValidationUtils.onlyBpmnItems(
@@ -201,6 +209,12 @@ public class PluginValidationOrchestrator {
                 .toList();
 
         List<AbstractValidationItem> allPluginItems = new ArrayList<>(pluginResult.getItems());
+
+        // Add metadata validation items
+        if (metadataItems != null && !metadataItems.isEmpty()) {
+            allPluginItems.addAll(metadataItems);
+        }
+
         if (leftoverItems != null && !leftoverItems.isEmpty()) {
             allPluginItems.addAll(leftoverItems);
         }
@@ -222,11 +236,18 @@ public class PluginValidationOrchestrator {
             ResourceDiscoveryService.PluginDiscovery plugin,
             ValidationItemsCollection itemsCollection,
             ValidationResult pluginResult,
+            List<AbstractValidationItem> metadataItems,
             List<AbstractValidationItem> leftoverItems) throws IOException {
 
         List<AbstractValidationItem> finalValidationItems = new ArrayList<>();
         finalValidationItems.addAll(itemsCollection.nonPluginItems);
         finalValidationItems.addAll(pluginResult.getItems());
+
+        // Add metadata validation items to final result
+        if (metadataItems != null && !metadataItems.isEmpty()) {
+            finalValidationItems.addAll(metadataItems);
+        }
+
         if (leftoverItems != null && !leftoverItems.isEmpty()) {
             finalValidationItems.addAll(leftoverItems);
         }
