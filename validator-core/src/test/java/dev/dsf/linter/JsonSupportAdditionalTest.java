@@ -84,7 +84,15 @@ public class JsonSupportAdditionalTest {
               ]
             }""";
         Files.writeString(fhirDir.resolve("test-codesystem.json"), jsonCodeSystem);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                tempDir,
+                tempDir.resolve("report"),
+                false,
+                true,
+                null,  // mavenGoals
+                null,  // skipGoals
+                new NoOpLogger()
+        );
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
 
         assertThrows(IOException.class, validator::validate,
@@ -119,7 +127,15 @@ public class JsonSupportAdditionalTest {
               }
             }""";
         Files.writeString(fhirDir.resolve("test-valueset.json"), jsonValueSet);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                tempDir,
+                tempDir.resolve("report"),
+                false,
+                true,
+                null,  // mavenGoals
+                null,  // skipGoals
+                new NoOpLogger()
+        );
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
 
         assertThrows(IOException.class, validator::validate,
@@ -150,7 +166,15 @@ public class JsonSupportAdditionalTest {
               ]
             }""";
         Files.writeString(fhirDir.resolve("test-codesystem.json"), jsonCodeSystem);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                tempDir,
+                tempDir.resolve("report"),
+                false,
+                true,
+                null,  // mavenGoals
+                null,  // skipGoals
+                new NoOpLogger()
+        );
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
 
         assertThrows(IOException.class, validator::validate,

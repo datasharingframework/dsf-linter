@@ -231,7 +231,9 @@ public class BpmnFieldInjectionValidatorTest
                 serviceTask, issues, bpmnFile, "testProcessUnknown", projectRoot
         );
 
-        assertEquals(1, issues.size(), "Expected exactly one validation issue for unknown field name");
+        // Filter out SUCCESS items to get only actual validation errors
+        List<BpmnElementValidationItem> nonSuccess = nonSuccess(issues);
+        assertEquals(1, nonSuccess.size(), "Expected exactly one non-success validation issue for unknown field name");
         // We expect a BpmnUnknownFieldInjectionValidationItem, if present in your codebase.
     }
 

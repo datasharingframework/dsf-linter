@@ -68,6 +68,8 @@ public class DsfMultiPluginValidatorTest {
                 tempReportDir,
                 true,  // generateHtmlReport
                 false, // failOnErrors (we want the test to complete and check the results).
+                new String[0],  // mavenGoals (execute Maven with default goals)
+                null,  // skipGoals (not applicable)
                 new ConsoleTestLogger()
         );
 

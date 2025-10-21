@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test class for JSON support in FHIR resource validation.
- *
  * Note: The current DsfValidatorImpl only supports complete Maven projects
  * with ProcessPluginDefinition. This test demonstrates the behavior when
  * validating projects with both XML and JSON FHIR resources.
@@ -130,7 +129,15 @@ public class JsonSupportTest {
 
     @Test
     void testJsonSupportBehaviorWithoutCompleteProject() {
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                tempDir,
+                tempDir.resolve("report"),
+                false,
+                true,
+                null,  // mavenGoals
+                null,  // skipGoals
+                new NoOpLogger()
+        );
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
         assertThrows(IOException.class, validator::validate,
                 "Should fail validation for incomplete project structure (Maven build failure)");
@@ -139,7 +146,15 @@ public class JsonSupportTest {
     @Test
     void testJsonSupportBehaviorWithMinimalMavenProject() throws IOException {
         createMinimalMavenProject();
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                tempDir,
+                tempDir.resolve("report"),
+                false,
+                true,
+                null,  // mavenGoals
+                null,  // skipGoals
+                new NoOpLogger()
+        );
         DsfValidatorImpl validator = new DsfValidatorImpl(config);
         assertThrows(IOException.class, validator::validate,
                 "Should fail during ProcessPluginDefinition discovery");

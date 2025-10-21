@@ -55,7 +55,15 @@ class TestDsfValidatorImpl
         @Test
         @DisplayName("Should handle empty project directory")
         void testEmptyProjectDirectory(@TempDir Path tempDir) {
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Empty project should fail validation with an IOException");
@@ -65,7 +73,15 @@ class TestDsfValidatorImpl
         @DisplayName("Should handle directory without pom.xml")
         void testDirectoryWithoutPom(@TempDir Path tempDir) throws IOException {
             createBasicProjectStructure(tempDir);
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project without pom.xml should fail during ProcessPluginDefinition discovery");
@@ -75,7 +91,15 @@ class TestDsfValidatorImpl
         @DisplayName("Should handle project with minimal Maven structure")
         void testMinimalMavenProject(@TempDir Path tempDir) throws IOException {
             createMinimalMavenProject(tempDir);
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project without ProcessPluginDefinition should fail during discovery");
@@ -90,7 +114,15 @@ class TestDsfValidatorImpl
         @DisplayName("Should handle project with only BPMN files")
         void testProjectWithOnlyBpmnFiles(@TempDir Path tempDir) throws IOException {
             createBpmnOnlyProjectStructure(tempDir);
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project without ProcessPluginDefinition should fail");
@@ -100,7 +132,15 @@ class TestDsfValidatorImpl
         @DisplayName("Should handle project with only FHIR files")
         void testProjectWithOnlyFhirFiles(@TempDir Path tempDir) throws IOException {
             createFhirOnlyProjectStructure(tempDir);
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project without ProcessPluginDefinition should fail");
@@ -110,7 +150,15 @@ class TestDsfValidatorImpl
         @DisplayName("Should handle project with complete structure but no ProcessPluginDefinition")
         void testCompleteProjectWithoutPluginDefinition(@TempDir Path tempDir) throws IOException {
             createCompleteProjectStructure(tempDir);
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project without ProcessPluginDefinition should fail during discovery");
@@ -126,7 +174,15 @@ class TestDsfValidatorImpl
         void testCorruptedPomXml(@TempDir Path tempDir) throws IOException {
             createBasicProjectStructure(tempDir);
             Files.writeString(tempDir.resolve("pom.xml"), "invalid xml content");
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(tempDir, tempDir.resolve("report"), false, true, new NoOpLogger());
+            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+                    tempDir,
+                    tempDir.resolve("report"),
+                    false,
+                    true,
+                    null,  // mavenGoals
+                    null,  // skipGoals
+                    new NoOpLogger()
+            );
             DsfValidatorImpl validator = new DsfValidatorImpl(config);
             assertThrows(IOException.class, validator::validate,
                     "Project with corrupted pom.xml should fail during Maven build");
