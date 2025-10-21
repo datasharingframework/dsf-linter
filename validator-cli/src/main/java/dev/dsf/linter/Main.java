@@ -88,7 +88,7 @@ public class Main implements Callable<Integer> {
     }
 
     @Override
-    public Integer call() throws Exception {
+    public Integer call() {
         Logger logger = new ConsoleLogger(verbose);
         logger.info("DSF Validator v3.0.0");
 
@@ -108,7 +108,13 @@ public class Main implements Callable<Integer> {
         if (reportPath == null) {
             reportPath = projectPath.resolve("target").resolve("dsf-validation-report");
         }
-        reportPath.toFile().mkdirs();
+
+        try {
+            Files.createDirectories(reportPath);
+        } catch (IOException e) {
+            logger.error("ERROR: Failed to create report directory: " + reportPath, e);
+            return 1;
+        }
 
         // Execute unified validation
         return runValidation(projectPath, logger);
