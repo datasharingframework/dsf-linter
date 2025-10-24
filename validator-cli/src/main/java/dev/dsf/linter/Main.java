@@ -1,37 +1,35 @@
 package dev.dsf.linter;
 
+import dev.dsf.linter.input.InputResolver;
+import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.repo.RepositoryManager;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.stream.Stream;
 
 @Command(
         name = "dsf-validator",
         mixinStandardHelpOptions = true,
         version = "3.0.0",
-        description = "Validates DSF process plugins from a local project or a remote Git repository."
+        description = "Validates DSF process plugins from local projects, Git repositories, or JAR files."
 )
 public class Main implements Callable<Integer> {
 
     @Option(names = {"-p", "--path"},
-            description = "Path to the local project directory or URL of a remote Git repository.")
+            description = "Path to local project directory, Git repository URL, or JAR file (local or remote).")
     private String inputPath;
 
     @Option(names = {"-r", "--report-path"},
-            description = "Directory for validation reports. Default: <project-path>/target/dsf-validation-report")
+            description = "Directory for validation reports. Default: <temp-dir>/dsf-validator-<name>/target/dsf-validation-report")
     private Path reportPath;
 
     @Option(names = "--html",
@@ -94,19 +92,35 @@ public class Main implements Callable<Integer> {
 
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
-            logger.error("ERROR: Specify a path using --path (local directory or Git repository URL).");
+            logger.error("ERROR: Specify a path using --path (local directory, Git repository URL, or JAR file).");
             return 1;
         }
 
-        // Determine project path (local or cloned)
-        Path projectPath = resolveProjectPath(inputPath, logger);
-        if (projectPath == null) {
+        // Resolve input using unified InputResolver
+        InputResolver resolver = new InputResolver(logger);
+        Optional<InputResolver.ResolutionResult> resolutionResult = resolver.resolve(inputPath);
+
+        if (resolutionResult.isEmpty()) {
+            logger.error("ERROR: Failed to resolve input: " + inputPath);
             return 1;
         }
 
-        // Set default report path if not specified
+        InputResolver.ResolutionResult resolution = resolutionResult.get();
+        Path projectPath = resolution.resolvedPath();
+
+        logger.info("Resolved project path: " + projectPath.toAbsolutePath());
+
+        // Set default report path if not specified (always in temp directory)
         if (reportPath == null) {
-            reportPath = projectPath.resolve("target").resolve("dsf-validation-report");
+            Path tempBase = Paths.get(System.getProperty("java.io.tmpdir"));
+            String inputName = extractInputName(inputPath, resolution.inputType());
+
+            // Create report directory separately from project extraction directory
+            // This ensures the report survives cleanup of temporary resources
+            Path reportBaseDir = tempBase.resolve("dsf-validator-report-" + inputName);
+            reportPath = reportBaseDir.resolve("dsf-validation-report");
+
+            logger.info("Validation report will be saved to: " + reportPath.toAbsolutePath());
         }
 
         try {
@@ -116,14 +130,22 @@ public class Main implements Callable<Integer> {
             return 1;
         }
 
-        // Execute unified validation
-        return runValidation(projectPath, logger);
+        try {
+            // Execute validation
+            return runValidation(projectPath, logger);
+
+        } finally {
+            // Cleanup temporary resources if needed
+            if (resolution.requiresCleanup()) {
+                logger.info("\n=== Cleanup Phase ===");
+                logger.info("Removing temporary extraction directory...");
+                resolver.cleanup(resolution);
+                logger.info("Temporary extraction directory removed.");
+                logger.info("Validation reports remain available at: " + reportPath.toAbsolutePath());
+            }
+        }
     }
 
-    /**
-     * Run validation using the unified validator.
-     * The validator handles any number of plugins uniformly.
-     */
     private Integer runValidation(Path projectPath, Logger logger) {
         try {
             // Create configuration
@@ -176,83 +198,46 @@ public class Main implements Callable<Integer> {
         logger.info("Reports written to: " + result.masterReportPath().toUri());
     }
 
-    /**
-     * Resolves the project path from input (local or remote).
-     */
-    private Path resolveProjectPath(String input, Logger logger) {
-        if (isRemoteRepository(input)) {
-            // Clone remote repository
-            Optional<Path> clonedPath = cloneRepository(input, logger);
-            if (clonedPath.isEmpty()) {
-                logger.error("Failed to clone repository");
-                return null;
-            }
-            logger.info("Successfully cloned repository to: " + clonedPath.get());
-            return clonedPath.get();
-        } else {
-            // Local path
-            Path localPath = Path.of(input);
-            if (!Files.exists(localPath) || !Files.isDirectory(localPath)) {
-                logger.error("ERROR: Path does not exist or is not a directory: " + input);
-                return null;
-            }
-            return localPath;
-        }
-    }
-
-    private boolean isRemoteRepository(String input) {
-        return input != null && (
-                input.startsWith("http://") ||
-                        input.startsWith("https://") ||
-                        input.startsWith("git://") ||
-                        input.startsWith("ssh://") ||
-                        input.contains("git@")
-        );
-    }
-
-    private Optional<Path> cloneRepository(String remoteUrl, Logger logger) {
-        String repositoryName = remoteUrl.substring(remoteUrl.lastIndexOf('/') + 1)
-                .replace(".git", "");
-        //dsf-validator-<repositoryName> to avoid collisions with real project directories
-        Path clonePath = Path.of(System.getProperty("java.io.tmpdir"), "dsf-validator-" + repositoryName);
-
-        if (Files.exists(clonePath)) {
-            deleteDirectoryRecursively(clonePath);
-        }
-
-        RepositoryManager repoManager = new RepositoryManager();
-        try {
-            File result = repoManager.getRepository(remoteUrl, clonePath.toFile());
-            return Optional.ofNullable(result).map(File::toPath);
-        } catch (GitAPIException e) {
-            logger.error("ERROR: Failed to clone repository: " + e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-    private void deleteDirectoryRecursively(Path path) {
-        try (Stream<Path> walk = Files.walk(path)) {
-            walk.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(file -> {
-                        if (!file.delete()) {
-                            System.err.println("Warning: Could not delete file: " + file);
-                        }
-                    });
-        } catch (IOException e) {
-            System.err.println("Warning: Could not recursively delete directory: " + path);
-        }
-    }
-
-    /**
-     * Configures the logging framework based on the verbose flag.
-     *
-     * @param verbose If true, loads the verbose logging configuration.
-     * Otherwise, loads the default (non-verbose) configuration.
-     */
     private static void configureLogging(boolean verbose)
     {
         String logbackConfigurationFile = verbose ? "logback-verbose.xml" : "logback.xml";
         System.setProperty("logback.configurationFile", logbackConfigurationFile);
+    }
+
+    /**
+     * Extracts a safe name from the input path for use in temporary directory names.
+     *
+     * @param inputPath the original input path
+     * @param inputType the detected input type
+     * @return a sanitized name suitable for directory names
+     */
+    private String extractInputName(String inputPath, InputType inputType) {
+        String name;
+
+        final Path path1 = Paths.get(inputPath);
+        switch (inputType) {
+            case LOCAL_DIRECTORY -> {
+                name = path1.getFileName().toString();
+            }
+            case GIT_REPOSITORY -> {
+                name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
+                        .replace(".git", "");
+            }
+            case LOCAL_JAR_FILE -> {
+                name = path1.getFileName().toString().replace(".jar", "");
+            }
+            case REMOTE_JAR_URL -> {
+                String path = inputPath.substring(inputPath.lastIndexOf('/') + 1);
+                int queryIndex = path.indexOf('?');
+                if (queryIndex > 0) {
+                    path = path.substring(0, queryIndex);
+                }
+                name = path.replace(".jar", "");
+            }
+            default -> name = "unknown";
+        }
+
+        // Sanitize name for use in file system
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 }
