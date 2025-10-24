@@ -8,6 +8,7 @@ import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionDetector;
 import dev.dsf.linter.util.api.DetectedVersion;
+import dev.dsf.linter.util.laoder.ClassLoaderUtils;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
 import dev.dsf.linter.util.resource.ResourceResolver;
@@ -99,8 +100,16 @@ public class ResourceDiscoveryService {
 
         logger.info("Starting unified plugin resource discovery with root validation...");
 
-        EnhancedPluginDefinitionDiscovery.DiscoveryResult pluginDiscovery =
-                EnhancedPluginDefinitionDiscovery.discoverAll(context.projectDir());
+        EnhancedPluginDefinitionDiscovery.DiscoveryResult pluginDiscovery;
+
+        try {
+            pluginDiscovery = ClassLoaderUtils.withTemporaryContextClassLoader(
+                    context.projectClassLoader(),
+                    () -> EnhancedPluginDefinitionDiscovery.discoverAll(context.projectDir())
+            );
+        } catch (Exception e) {
+            throw new IllegalStateException("Plugin discovery failed: " + e.getMessage(), e);
+        }
 
         if (pluginDiscovery.getAllPlugins().isEmpty()) {
             throw new IllegalStateException("No ProcessPluginDefinition implementations found");
