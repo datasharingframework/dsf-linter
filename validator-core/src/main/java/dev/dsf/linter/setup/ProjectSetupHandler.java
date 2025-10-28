@@ -1,5 +1,6 @@
 package dev.dsf.linter.setup;
 
+import dev.dsf.linter.input.DependencyResolver;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.util.maven.MavenUtil;
 import dev.dsf.linter.classloading.ProjectClassLoaderFactory;
@@ -20,6 +21,7 @@ import java.util.List;
  * <ul>
  *   <li>Detecting project layout (Maven vs exploded plugin)</li>
  *   <li>Building Maven projects when necessary</li>
+ *   <li>Resolving dependencies (stub and/or project-specific)</li>
  *   <li>Creating and managing project ClassLoaders</li>
  *   <li>Setting up the validation environment</li>
  * </ul>
@@ -31,6 +33,7 @@ public class ProjectSetupHandler {
 
     private final Logger logger;
     private final MavenBuilder mavenBuilder;
+    private final DependencyResolver dependencyResolver;
 
     /**
      * Constructs a new ProjectSetupHandler with the specified logger.
@@ -40,15 +43,15 @@ public class ProjectSetupHandler {
     public ProjectSetupHandler(Logger logger) {
         this.logger = logger;
         this.mavenBuilder = new MavenBuilder();
+        this.dependencyResolver = new DependencyResolver(logger);
     }
 
     /**
      * Sets up the complete validation environment for a project.
      *
      * @param projectPath the path to the project directory
-     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, no Maven build is performed.
-     *                   Goals are added to defaults (avoiding duplicates).
-     *                   Properties with "=" override defaults if value differs.
+     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, no full Maven build is performed,
+     *                   but dependencies are still resolved.
      * @param skipGoals optional Maven goals to remove from default build. Ignored if {@code mavenGoals} is {@code null}.
      * @return a ProjectContext containing all necessary setup information
      * @throws IllegalStateException if setup fails
@@ -65,24 +68,32 @@ public class ProjectSetupHandler {
         File projectDir = projectPath.toFile();
         boolean isMavenProject = detectProjectLayout(projectPath);
 
-        ClassLoader projectClassLoader;
-
-        if (isMavenProject) {
-            if (mavenGoals != null) {
-                logger.info("Maven build enabled via --mvn option. Executing build...");
-                buildMavenProject(projectDir, mavenGoals, skipGoals);
+        if (mavenGoals != null) {
+            // User explicitly requested Maven build via --mvn
+            logger.info("Maven build enabled via --mvn option. Executing full build...");
+            if (!isMavenProject) {
+                logger.warn("--mvn specified but no pom.xml found. Maven build will be skipped.");
             } else {
-                logger.info("Maven project detected but build skipped (use --mvn to enable build).");
+                buildMavenProject(projectDir, mavenGoals, skipGoals);
             }
         } else {
-            logger.info("No 'pom.xml' found. Assuming exploded plugin layout – skipping Maven build.");
-            logger.info("Building runtime classpath from: " + projectDir.getAbsolutePath());
+            // No --mvn specified: minimal build for validation
+            logger.info("No --mvn option specified. Executing minimal build for validation...");
+
+            if (isMavenProject) {
+                // Maven project: compile + merged dependencies (stub + project)
+                logger.info("pom.xml detected. Compiling sources and resolving merged dependencies...");
+                performMinimalBuild(projectDir);
+            } else {
+                // No pom.xml: only stub dependencies (for exploded JARs)
+                logger.info("No pom.xml found. Using only stub dependencies...");
+                dependencyResolver.resolveStubDependencies(projectPath);
+            }
         }
 
-        projectClassLoader = createProjectClassLoader(projectDir);
+        ClassLoader projectClassLoader = createProjectClassLoader(projectDir);
 
         // Initial resource root resolution based on standard conventions
-        // This initial resolution provides a baseline, but plugins can override it
         ResourceRootResolver.ResolutionResult initialResourceRoot =
                 ResourceRootResolver.resolveResourceRoot(projectDir);
 
@@ -108,6 +119,37 @@ public class ProjectSetupHandler {
     }
 
     /**
+     * Performs a minimal Maven build for validation purposes.
+     * <p>
+     * This method creates a merged POM combining stub dependencies with project dependencies
+     * extracted from the effective POM. It then executes:
+     * <ul>
+     *   <li>{@code compile} - Compile sources to generate .class files</li>
+     *   <li>{@code dependency:copy-dependencies} - Copy all dependencies (stub + project) to target/dependency</li>
+     * </ul>
+     * </p>
+     * <p>
+     * This is used when --mvn is NOT specified, ensuring that:
+     * <ul>
+     *   <li>Source code is compiled (required for ClassLoader to find plugin implementations)</li>
+     *   <li>All dependencies are available (stub + project dependencies)</li>
+     *   <li>No unnecessary build steps are executed (no clean, no package, no tests)</li>
+     * </ul>
+     * </p>
+     *
+     * @param projectDir the project directory
+     * @throws IllegalStateException if Maven is not found or build fails
+     * @throws InterruptedException if the build process is interrupted
+     * @throws IOException if I/O errors occur during build
+     */
+    private void performMinimalBuild(File projectDir)
+            throws IllegalStateException, InterruptedException, IOException {
+
+        dependencyResolver.resolveMergedDependencies(projectDir.toPath());
+        logger.info("Minimal build completed successfully.");
+    }
+
+    /**
      * Builds a Maven project with default goals, optional user goals, and optional skip goals.
      *
      * <p><b>Build process:</b></p>
@@ -120,6 +162,7 @@ public class ProjectSetupHandler {
      * <p><b>Default goals:</b></p>
      * <ul>
      *   <li>{@code -B} - Non-interactive batch mode</li>
+     *   <li>{@code -q} - Quiet mode, reduces output to only warnings and errors</li>
      *   <li>{@code -DskipTests} - Skip test execution</li>
      *   <li>{@code -Dformatter.skip=true} - Skip code formatting</li>
      *   <li>{@code -Dexec.skip=true} - Skip exec plugin</li>
@@ -170,6 +213,7 @@ public class ProjectSetupHandler {
         // Step 1: Define default goals
         List<String> allGoals = new ArrayList<>();
         allGoals.add("-B");
+        allGoals.add("-q");
         allGoals.add("-DskipTests");
         allGoals.add("-Dformatter.skip=true");
         allGoals.add("-Dexec.skip=true");
