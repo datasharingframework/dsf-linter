@@ -27,13 +27,6 @@
     </properties>
 
     <dependencies>
-        <!-- If needed for your project -->
-        <dependency>
-            <groupId>dev.dsf.utils.validator</groupId>
-            <artifactId>validator-api</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-
         <!-- Camunda model API -->
         <dependency>
             <groupId>org.camunda.bpm.model</groupId>
