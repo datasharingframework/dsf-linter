@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 /**
  * Resolves DSF plugin dependencies by generating stub POMs and/or using project POMs.
  * <p>
- * This class provides dependency resolution for validation projects, ensuring that
+ * This class provides dependency resolution for linter projects, ensuring that
  * all required DSF and Camunda dependencies are available for the ClassLoader.
  * It supports two modes:
  * <ul>
@@ -77,7 +77,7 @@ public class DependencyResolver {
                     "      <artifactId>httpcore</artifactId>\n" +
                     "      <version>4.4.13</version>\n" +
                     "    </dependency>\n" +
-                    "    <!-- Camunda BPM engine (required for JavaDelegate validation) -->\n" +
+                    "    <!-- Camunda BPM engine (required for JavaDelegate linting) -->\n" +
                     "    <dependency>\n" +
                     "      <groupId>org.camunda.bpm</groupId>\n" +
                     "      <artifactId>camunda-engine</artifactId>\n" +
@@ -89,12 +89,6 @@ public class DependencyResolver {
                     "      <groupId>dev.dsf</groupId>\n" +
                     "      <artifactId>dsf-bpe-process-api-v1</artifactId>\n" +
                     "      <version>1.7.0</version>\n" +
-                    "      <scope>provided</scope>\n" +
-                    "    </dependency>\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>dev.dsf</groupId>\n" +
-                    "      <artifactId>dsf-bpe-process-api-v2</artifactId>\n" +
-                    "      <version>2.0.0-M2</version>\n" +
                     "      <scope>provided</scope>\n" +
                     "    </dependency>\n" +
                     "  </dependencies>\n" +
@@ -198,12 +192,12 @@ public class DependencyResolver {
                             Failed to resolve merged dependencies via Maven.
                             Possible causes:
                               - The project is not set up correctly as a DSF Process Plugin project
-                              - You try to validate multi-module project, but currently, the linter does not fully support that
+                              - You try to lint a multi-module project, but currently, the linter does not fully support that
                               - Invalid dependencies in project POM
                             
                             Try:
                               1. Running the linter again with the --mvn option (for more information, see the README.md file)
-                              2. Build a JAR for the project you want to validate and pass that JAR to the linter
+                              2. Build a JAR for the project you want to lint and pass that JAR to the linter
                               3. Verify project POM is valid"""
             );
         }
@@ -443,7 +437,7 @@ public class DependencyResolver {
         mergedPom.append("      <artifactId>httpcore</artifactId>\n");
         mergedPom.append("      <version>4.4.13</version>\n");
         mergedPom.append("    </dependency>\n");
-        mergedPom.append("    <!-- Camunda BPM engine (required for JavaDelegate validation) -->\n");
+        mergedPom.append("    <!-- Camunda BPM engine (required for JavaDelegate linting) -->\n");
         mergedPom.append("    <dependency>\n");
         mergedPom.append("      <groupId>org.camunda.bpm</groupId>\n");
         mergedPom.append("      <artifactId>camunda-engine</artifactId>\n");

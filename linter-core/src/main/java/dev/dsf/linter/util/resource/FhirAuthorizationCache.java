@@ -22,12 +22,12 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
 
 
 /**
- * <h2>FHIR CodeSystem Cache for DSF Validators – v3 (2025‑05)</h2>
+ * <h2>FHIR CodeSystem Cache for DSF linters – v1 (2025‑05)</h2>
  *
  * <p>
  * This class implements a centralized, thread-safe cache for known FHIR {@code CodeSystem} codes
- * used throughout the DSF (Data Sharing Framework) validation process. It is used by multiple
- * validators to verify whether a referenced {@code Coding} is declared and recognized.
+ * used throughout the DSF (Data Sharing Framework) linting process. It is used by multiple
+ * linters to verify whether a referenced {@code Coding} is declared and recognized.
  * </p>
  *
  * <h3>Main Responsibilities</h3>
@@ -35,7 +35,7 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
  *   <li>Registers core DSF {@code CodeSystem} entries at startup</li>
  *   <li>Dynamically discovers additional {@code CodeSystem} definitions by scanning
  *       {@code src/main/resources/fhir/CodeSystem} directories</li>
- *   <li>Supports fast lookup of known codes per system for validation use cases</li>
+ *   <li>Supports fast lookup of known codes per system for linting use cases</li>
  *   <li>Offers utilities to register, clear, and debug the contents of the cache</li>
  *   <li>Loads both XML and JSON CodeSystem definitions</li>
  * </ul>
@@ -43,7 +43,7 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
  * <h3>Concurrency</h3>
  * <p>
  * Internally, the class uses a {@link ConcurrentHashMap} with thread-safe sets to store code
- * values per system. It is safe to use concurrently across threads during validation.
+ * values per system. It is safe to use concurrently across threads during linting.
  * </p>
  *
  * <h3>Debugging</h3>

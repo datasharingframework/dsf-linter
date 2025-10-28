@@ -27,7 +27,7 @@ public final class DsfApiConstants {
     public static final String V2_USER_TASK_LISTENER = "dev.dsf.bpe.v2.activity.UserTaskListener";
     public static final String V2_DEFAULT_USER_TASK_LISTENER = "dev.dsf.bpe.v2.activity.DefaultUserTaskListener";
 
-    // Combined Arrays for Validation
+    // Combined Arrays for Linting
     public static final String[] DSF_TASK_INTERFACES = {
             V1_JAVA_DELEGATE,
             V2_SERVICE_TASK,

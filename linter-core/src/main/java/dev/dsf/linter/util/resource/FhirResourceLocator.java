@@ -319,7 +319,7 @@ public class FhirResourceLocator {
      * Scans a specific subdirectory under the given {@code projectRoot} for Questionnaire XML files
      * and checks whether any of them declare a {@code <url>} element matching the provided {@code baseKey}.
      *
-     * <p>This method supports both Maven-style and flat folder layouts. It validates each file by:
+     * <p>This method supports both Maven-style and flat folder layouts. It lints each file by:
      * <ol>
      *   <li>Parsing the XML document</li>
      *   <li>Verifying that the root element is {@code Questionnaire}</li>

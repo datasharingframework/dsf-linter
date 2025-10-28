@@ -1,13 +1,13 @@
 package dev.dsf.linter.report;
 
-import dev.dsf.linter.DsfValidatorImpl;
+import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
-import dev.dsf.linter.output.item.AbstractValidationItem;
+import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.service.ResourceDiscoveryService;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
-import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.util.linting.LintingOutput;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
@@ -22,7 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Generates HTML validation reports using Thymeleaf templates.
+ * Generates HTML linter reports using Thymeleaf templates.
  * Responsible for creating both individual plugin reports and master summary reports.
  */
 public class HtmlReportGenerator {
@@ -53,17 +53,17 @@ public class HtmlReportGenerator {
      * Generates an HTML report for a single plugin.
      *
      * @param pluginName The name of the plugin
-     * @param validation The plugin validation result
+     * @param lints The plugin linting result
      * @param outputPath The path where the HTML report should be saved
      */
     public void generatePluginReport(
             String pluginName,
-            DsfValidatorImpl.PluginValidation validation,
+            DsfLinter.PluginLinter lints,
             Path outputPath) throws IOException {
 
         logger.debug("Generating HTML report for plugin: " + pluginName);
 
-        String html = formatPluginHtml(pluginName, validation);
+        String html = formatPluginHtml(pluginName, lints);
         Files.writeString(outputPath, html);
 
         logger.debug("HTML report written to: " + outputPath);
@@ -72,22 +72,22 @@ public class HtmlReportGenerator {
     /**
      * Generates the master HTML report that aggregates all plugins.
      *
-     * @param validations     Map of all plugin validations
+     * @param lints     Map of all plugin lints
      * @param discovery       Resource discovery results
      * @param leftoverResults Leftover analysis results
      * @param outputPath      The path where the master HTML report should be saved
-     * @param config          Validator configuration
+     * @param config          Linter configuration
      */
     public void generateMasterReport(
-            Map<String, DsfValidatorImpl.PluginValidation> validations,
+            Map<String, DsfLinter.PluginLinter> lints,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             Path outputPath,
-            DsfValidatorImpl.Config config) throws IOException {
+            DsfLinter.Config config) throws IOException {
 
         logger.debug("Generating master HTML report...");
 
-        String html = formatMasterHtml(validations, discovery, leftoverResults, config);
+        String html = formatMasterHtml(lints, discovery, leftoverResults, config);
         Files.writeString(outputPath, html);
 
         logger.debug("Master HTML report written to: " + outputPath);
@@ -96,16 +96,16 @@ public class HtmlReportGenerator {
     /**
      * Formats the HTML content for a single plugin report.
      */
-    private String formatPluginHtml(String pluginName, DsfValidatorImpl.PluginValidation validation) {
+    private String formatPluginHtml(String pluginName, DsfLinter.PluginLinter lints) {
         Context context = new Context();
 
-        ApiVersion apiVersion = validation.apiVersion();
+        ApiVersion apiVersion = lints.apiVersion();
         ApiVersionHolder.setVersion(apiVersion);
 
         addLogosToContext(context);
-        addPluginMetadata(context, pluginName, validation, apiVersion);
-        addValidationCounts(context, validation);
-        addValidationItems(context, validation);
+        addPluginMetadata(context, pluginName, lints, apiVersion);
+        addLintsCounts(context, lints);
+        addLintingItems(context, lints);
 
         ApiVersionHolder.clear();
 
@@ -116,21 +116,21 @@ public class HtmlReportGenerator {
      * Adds plugin metadata to the Thymeleaf context.
      */
     private void addPluginMetadata(Context context, String pluginName,
-                                   DsfValidatorImpl.PluginValidation validation,
+                                   DsfLinter.PluginLinter lints,
                                    ApiVersion apiVersion) {
         context.setVariable("pluginName", pluginName);
-        context.setVariable("pluginClass", validation.pluginClass());
+        context.setVariable("pluginClass", lints.pluginClass());
         context.setVariable("apiVersion", apiVersion.toString());
     }
 
     /**
-     * Adds validation counts to the Thymeleaf context.
+     * Adds lints counts to the Thymeleaf context.
      */
-    private void addValidationCounts(Context context, DsfValidatorImpl.PluginValidation validation) {
-        int errorCount = validation.output().getErrorCount();
-        int warningCount = validation.output().getWarningCount();
-        int infoCount = validation.output().getInfoCount();
-        int successCount = validation.output().getSuccessCount();
+    private void addLintsCounts(Context context, DsfLinter.PluginLinter lints) {
+        int errorCount = lints.output().getErrorCount();
+        int warningCount = lints.output().getWarningCount();
+        int infoCount = lints.output().getInfoCount();
+        int successCount = lints.output().getSuccessCount();
 
         context.setVariable("errorCount", errorCount);
         context.setVariable("warningCount", warningCount);
@@ -140,14 +140,14 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Adds validation items to the Thymeleaf context, grouped by severity.
+     * Adds lints items to the Thymeleaf context, grouped by severity.
      */
-    private void addValidationItems(Context context, DsfValidatorImpl.PluginValidation validation) {
-        List<AbstractValidationItem> sortedItems = new ArrayList<>(validation.output().validationItems());
+    private void addLintingItems(Context context, DsfLinter.PluginLinter lints) {
+        List<AbstractLintItem> sortedItems = new ArrayList<>(lints.output().LintItems());
         sortedItems.sort(
-                Comparator.comparingInt((AbstractValidationItem i) ->
-                                ValidationOutput.SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
-                        .thenComparing(AbstractValidationItem::toString)
+                Comparator.comparingInt((AbstractLintItem i) ->
+                                LintingOutput.SEVERITY_RANK.getOrDefault(i.getSeverity(), Integer.MAX_VALUE))
+                        .thenComparing(AbstractLintItem::toString)
         );
 
         Map<String, List<Map<String, Object>>> itemsBySeverity = groupItemsBySeverity(sortedItems);
@@ -157,16 +157,16 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Groups validation items by severity and converts them to Maps for template rendering.
+     * Groups lint items by severity and converts them to Maps for template rendering.
      */
-    private Map<String, List<Map<String, Object>>> groupItemsBySeverity(List<AbstractValidationItem> sortedItems) {
+    private Map<String, List<Map<String, Object>>> groupItemsBySeverity(List<AbstractLintItem> sortedItems) {
         Map<String, List<Map<String, Object>>> itemsBySeverity = new LinkedHashMap<>();
         itemsBySeverity.put("ERROR", new ArrayList<>());
         itemsBySeverity.put("WARN", new ArrayList<>());
         itemsBySeverity.put("INFO", new ArrayList<>());
         itemsBySeverity.put("SUCCESS", new ArrayList<>());
 
-        for (AbstractValidationItem item : sortedItems) {
+        for (AbstractLintItem item : sortedItems) {
             Map<String, Object> itemMap = convertItemToMap(item);
             String severity = item.getSeverity().toString();
             if (itemsBySeverity.containsKey(severity)) {
@@ -178,9 +178,9 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Converts a validation item to a Map for template rendering.
+     * Converts a lint item to a Map for template rendering.
      */
-    private Map<String, Object> convertItemToMap(AbstractValidationItem item) {
+    private Map<String, Object> convertItemToMap(AbstractLintItem item) {
         Map<String, Object> itemMap = new LinkedHashMap<>();
         itemMap.put("severity", item.getSeverity().toString());
 
@@ -203,10 +203,10 @@ public class HtmlReportGenerator {
      * Formats the HTML content for the master report.
      */
     private String formatMasterHtml(
-            Map<String, DsfValidatorImpl.PluginValidation> validations,
+            Map<String, DsfLinter.PluginLinter> lints,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
-            DsfValidatorImpl.Config config) {
+            DsfLinter.Config config) {
 
         Context context = new Context();
 
@@ -214,8 +214,8 @@ public class HtmlReportGenerator {
         context.setVariable("projectName", projectName);
 
         addLogosToContext(context);
-        addPluginValidationsToContext(context, validations);
-        addTotalCounts(context, validations);
+        addPluginLintsToContext(context, lints);
+        addTotalCounts(context, lints);
 
         if (leftoverResults != null) {
             context.setVariable("leftoverAnalysis", leftoverResults);
@@ -227,50 +227,50 @@ public class HtmlReportGenerator {
     /**
      * Extracts a clean project name from the project path.
      */
-    private String extractProjectName(DsfValidatorImpl.Config config) {
+    private String extractProjectName(DsfLinter.Config config) {
         String projectName = config.projectPath().getFileName().toString();
-        return projectName.replaceFirst("^dsf-validator-", "");
+        return projectName.replaceFirst("^dsf-lint-", "");
     }
 
     /**
-     * Adds plugin validations to the Thymeleaf context.
+     * Adds plugin lints to the Thymeleaf context.
      */
-    private void addPluginValidationsToContext(
+    private void addPluginLintsToContext(
             Context context,
-            Map<String, DsfValidatorImpl.PluginValidation> validations) {
+            Map<String, DsfLinter.PluginLinter> lints) {
 
-        List<Map<String, Object>> validationList = validations.values().stream()
-                .map(this::convertValidationToMap)
+        List<Map<String, Object>> lintsList = lints.values().stream()
+                .map(this::convertLintsToMap)
                 .collect(Collectors.toList());
 
-        context.setVariable("validations", validationList);
+        context.setVariable("lints", lintsList);
     }
 
     /**
-     * Converts a plugin validation to a Map for template rendering.
+     * Converts a plugin lints to a Map for template rendering.
      */
-    private Map<String, Object> convertValidationToMap(DsfValidatorImpl.PluginValidation validation) {
-        Map<String, Object> validationMap = new LinkedHashMap<>();
-        validationMap.put("pluginName", validation.pluginName());
-        validationMap.put("pluginClass", validation.pluginClass());
-        validationMap.put("apiVersion", validation.apiVersion());
-        validationMap.put("errors", validation.output().getErrorCount());
-        validationMap.put("warnings", validation.output().getWarningCount());
-        validationMap.put("infos", validation.output().getInfoCount());
-        validationMap.put("htmlReportPath", "./" + validation.pluginName() + "/validation.html");
-        return validationMap;
+    private Map<String, Object> convertLintsToMap(DsfLinter.PluginLinter lints) {
+        Map<String, Object> lintMap = new LinkedHashMap<>();
+        lintMap.put("pluginName", lints.pluginName());
+        lintMap.put("pluginClass", lints.pluginClass());
+        lintMap.put("apiVersion", lints.apiVersion());
+        lintMap.put("errors", lints.output().getErrorCount());
+        lintMap.put("warnings", lints.output().getWarningCount());
+        lintMap.put("infos", lints.output().getInfoCount());
+        lintMap.put("htmlReportPath", "./" + lints.pluginName() + "/lints.html");
+        return lintMap;
     }
 
     /**
      * Adds total counts across all plugins to the Thymeleaf context.
      */
-    private void addTotalCounts(Context context, Map<String, DsfValidatorImpl.PluginValidation> validations) {
-        context.setVariable("totalPlugins", validations.size());
+    private void addTotalCounts(Context context, Map<String, DsfLinter.PluginLinter> lints) {
+        context.setVariable("totalPlugins", lints.size());
 
-        int totalErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
-        int totalWarnings = validations.values().stream().mapToInt(v -> v.output().getWarningCount()).sum();
-        int totalSuccesses = validations.values().stream().mapToInt(v -> v.output().getSuccessCount()).sum();
-        int totalInfos = validations.values().stream().mapToInt(v -> v.output().getInfoCount()).sum();
+        int totalErrors = lints.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
+        int totalWarnings = lints.values().stream().mapToInt(v -> v.output().getWarningCount()).sum();
+        int totalSuccesses = lints.values().stream().mapToInt(v -> v.output().getSuccessCount()).sum();
+        int totalInfos = lints.values().stream().mapToInt(v -> v.output().getInfoCount()).sum();
 
         context.setVariable("totalErrors", totalErrors);
         context.setVariable("totalWarnings", totalWarnings);

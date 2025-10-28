@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Test class for JSON support in FHIR resource validation.
+ * Test class for JSON support in FHIR resource linting.
  */
 public class JsonSupportAdditionalTest {
 
@@ -62,7 +62,7 @@ public class JsonSupportAdditionalTest {
     }
 
     @Test
-    @DisplayName("Should fail validation for CodeSystem without a complete project structure")
+    @DisplayName("Should fail linting for CodeSystem without a complete project structure")
     void testJsonSupportForCodeSystem_WithoutCompleteProject() throws IOException {
         String jsonCodeSystem = """
             {
@@ -84,7 +84,7 @@ public class JsonSupportAdditionalTest {
               ]
             }""";
         Files.writeString(fhirDir.resolve("test-codesystem.json"), jsonCodeSystem);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+        DsfLinter.Config config = new DsfLinter.Config(
                 tempDir,
                 tempDir.resolve("report"),
                 false,
@@ -93,14 +93,14 @@ public class JsonSupportAdditionalTest {
                 null,  // skipGoals
                 new NoOpLogger()
         );
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        DsfLinter linter = new DsfLinter(config);
 
-        assertThrows(IOException.class, validator::validate,
-                "Should fail validation for incomplete project structure");
+        assertThrows(IOException.class, linter::lint,
+                "Should fail linting for incomplete project structure");
     }
 
     @Test
-    @DisplayName("Should fail validation for ValueSet without a complete project structure")
+    @DisplayName("Should fail linting for ValueSet without a complete project structure")
     void testJsonSupportForValueSet_WithoutCompleteProject() throws IOException {
         String jsonValueSet = """
             {
@@ -127,7 +127,7 @@ public class JsonSupportAdditionalTest {
               }
             }""";
         Files.writeString(fhirDir.resolve("test-valueset.json"), jsonValueSet);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+        DsfLinter.Config config = new DsfLinter.Config(
                 tempDir,
                 tempDir.resolve("report"),
                 false,
@@ -136,15 +136,15 @@ public class JsonSupportAdditionalTest {
                 null,  // skipGoals
                 new NoOpLogger()
         );
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        DsfLinter linter = new DsfLinter(config);
 
-        assertThrows(IOException.class, validator::validate,
-                "Should fail validation for incomplete project structure");
+        assertThrows(IOException.class, linter::lint,
+                "Should fail linting for incomplete project structure");
     }
 
     @Test
-    @DisplayName("Should fail validation for JSON files even with a minimal Maven project if no ProcessPluginDefinition exists")
-    void testJsonFileValidation_WithMinimalMavenProject() throws IOException {
+    @DisplayName("Should fail linting for JSON files even with a minimal Maven project if no ProcessPluginDefinition exists")
+    void testJsonFileLinting_WithMinimalMavenProject() throws IOException {
         createMinimalMavenProject();
         String jsonCodeSystem = """
             {
@@ -166,7 +166,7 @@ public class JsonSupportAdditionalTest {
               ]
             }""";
         Files.writeString(fhirDir.resolve("test-codesystem.json"), jsonCodeSystem);
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+        DsfLinter.Config config = new DsfLinter.Config(
                 tempDir,
                 tempDir.resolve("report"),
                 false,
@@ -175,9 +175,9 @@ public class JsonSupportAdditionalTest {
                 null,  // skipGoals
                 new NoOpLogger()
         );
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
+        DsfLinter linter = new DsfLinter(config);
 
-        assertThrows(IOException.class, validator::validate,
+        assertThrows(IOException.class, linter::lint,
                 "Should fail during ProcessPluginDefinition discovery");
     }
 

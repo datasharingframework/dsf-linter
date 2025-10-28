@@ -55,7 +55,7 @@ public class FhirResourceParser {
 
     /**
      * Parses a JSON FHIR file and converts it to a DOM Document by first converting to XML.
-     * Uses the same JSON-to-XML conversion logic as FhirResourceValidator.
+     * Uses the same JSON-to-XML conversion logic as FhirResourceLinter.
      *
      * @param filePath the path to the JSON file
      * @return a Document representing the parsed content

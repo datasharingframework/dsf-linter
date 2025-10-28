@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="">
 <head>
     <meta charset="UTF-8">
-    <title th:text="'DSF Validation Report - ' + ${pluginName}">DSF Validation Report - Plugin</title>
+    <title th:text="'DSF Linter Report - ' + ${pluginName}">DSF Linter Report - Plugin</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&display=swap');
 
@@ -238,7 +238,7 @@
             margin-top: 0.5rem;
         }
 
-        .validation-section {
+        .lint-section {
             margin: 3rem auto;
             max-width: 1400px;
             background: var(--surface-color);
@@ -248,7 +248,7 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .validation-section h2 {
+        .lint-section h2 {
             margin: 0 0 2rem 0;
             font-size: 1.8rem;
             font-weight: 600;
@@ -258,33 +258,33 @@
             user-select: none;
         }
 
-        .validation-section h2::after {
+        .lint-section h2::after {
             content: ' ▼';
             font-size: 0.8em;
             float: right;
         }
 
-        .validation-section.error-section h2 {
+        .lint-section.error-section h2 {
             color: var(--error-color);
             border-bottom: 2px solid var(--error-color);
         }
 
-        .validation-section.warning-section h2 {
+        .lint-section.warning-section h2 {
             color: var(--warning-color);
             border-bottom: 2px solid var(--warning-color);
         }
 
-        .validation-section.info-section h2 {
+        .lint-section.info-section h2 {
             color: var(--info-color);
             border-bottom: 2px solid var(--info-color);
         }
 
-        .validation-section.success-section h2 {
+        .lint-section.success-section h2 {
             color: var(--success-color);
             border-bottom: 2px solid var(--success-color);
         }
 
-        .validation-item {
+        .lint-item {
             background: var(--background-medium);
             border-left: 4px solid;
             padding: 1.2rem;
@@ -294,29 +294,29 @@
             word-break: break-word;
         }
 
-        .validation-item:hover {
+        .lint-item:hover {
             background: var(--surface-hover);
             transform: translateX(4px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .validation-item.error {
+        .lint-item.error {
             border-left-color: var(--error-color);
         }
 
-        .validation-item.warning {
+        .lint-item.warning {
             border-left-color: var(--warning-color);
         }
 
-        .validation-item.info {
+        .lint-item.info {
             border-left-color: var(--info-color);
         }
 
-        .validation-item.success {
+        .lint-item.success {
             border-left-color: var(--success-color);
         }
 
-        .validation-item .severity-badge {
+        .lint-item .severity-badge {
             display: inline-block;
             padding: 0.3rem 0.8rem;
             border-radius: 6px;
@@ -327,31 +327,31 @@
             margin-bottom: 0.5rem;
         }
 
-        .validation-item.error .severity-badge {
+        .lint-item.error .severity-badge {
             background: rgba(255, 60, 95, 0.2);
             color: var(--error-color);
         }
 
-        .validation-item.warning .severity-badge {
+        .lint-item.warning .severity-badge {
             background: rgba(255, 215, 0, 0.2);
             color: var(--warning-color);
         }
 
-        .validation-item.info .severity-badge {
+        .lint-item.info .severity-badge {
             background: rgba(107, 155, 209, 0.2);
             color: var(--info-color);
         }
 
-        .validation-item.success .severity-badge {
+        .lint-item.success .severity-badge {
             background: rgba(99, 199, 166, 0.2);
             color: var(--success-color);
         }
 
-        .validation-item .details {
+        .lint-item .details {
             margin-top: 0.5rem;
         }
 
-        .validation-item .detail-row {
+        .lint-item .detail-row {
             display: grid;
             grid-template-columns: 150px 1fr;
             gap: 1rem;
@@ -359,7 +359,7 @@
             font-size: 0.9rem;
         }
 
-        .validation-item .detail-label {
+        .lint-item .detail-label {
             color: var(--text-muted);
             font-weight: 600;
             text-transform: uppercase;
@@ -367,7 +367,7 @@
             letter-spacing: 0.5px;
         }
 
-        .validation-item .detail-value {
+        .lint-item .detail-value {
             color: var(--text-color);
             word-break: break-word;
             font-family: 'Courier New', monospace;
@@ -465,7 +465,7 @@
                 font-size: 2.5rem;
             }
 
-            .validation-section {
+            .lint-section {
                 margin: 2rem 1rem;
                 padding: 1.5rem;
             }
@@ -524,17 +524,17 @@
 </div>
 
 <div th:if="${hasErrors}" class="status-banner failed">
-    ⚠ VALIDATION FAILED - This plugin has errors that need to be addressed
+    ⚠ LINTING FAILED - This plugin has errors that need to be addressed
 </div>
 
 <div th:if="${!hasErrors}" class="status-banner success">
-    ✓ VALIDATION PASSED - All checks completed successfully
+    ✓ LINTING PASSED - All checks completed successfully
 </div>
 
-<div th:if="${itemsBySeverity['ERROR'].size() > 0}" class="validation-section error-section">
+<div th:if="${itemsBySeverity['ERROR'].size() > 0}" class="lint-section error-section">
     <h2>Errors (<span th:text="${itemsBySeverity['ERROR'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['ERROR']}" class="validation-item error">
+        <div th:each="item : ${itemsBySeverity['ERROR']}" class="lint-item error">
             <span class="severity-badge">ERROR</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
@@ -586,10 +586,10 @@
     </div>
 </div>
 
-<div th:if="${itemsBySeverity['WARN'].size() > 0}" class="validation-section warning-section">
+<div th:if="${itemsBySeverity['WARN'].size() > 0}" class="lint-section warning-section">
     <h2>Warnings (<span th:text="${itemsBySeverity['WARN'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['WARN']}" class="validation-item warning">
+        <div th:each="item : ${itemsBySeverity['WARN']}" class="lint-item warning">
             <span class="severity-badge">Warning</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
@@ -641,10 +641,10 @@
     </div>
 </div>
 
-<div th:if="${itemsBySeverity['INFO'].size() > 0}" class="validation-section info-section">
+<div th:if="${itemsBySeverity['INFO'].size() > 0}" class="lint-section info-section">
     <h2>Information (<span th:text="${itemsBySeverity['INFO'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['INFO']}" class="validation-item info">
+        <div th:each="item : ${itemsBySeverity['INFO']}" class="lint-item info">
             <span class="severity-badge">Info</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
@@ -696,10 +696,10 @@
     </div>
 </div>
 
-<div th:if="${itemsBySeverity['SUCCESS'].size() > 0}" class="validation-section success-section">
+<div th:if="${itemsBySeverity['SUCCESS'].size() > 0}" class="lint-section success-section">
     <h2>Successful Checks (<span th:text="${itemsBySeverity['SUCCESS'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['SUCCESS']}" class="validation-item success">
+        <div th:each="item : ${itemsBySeverity['SUCCESS']}" class="lint-item success">
             <span class="severity-badge">Success</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
@@ -751,8 +751,8 @@
     </div>
 </div>
 
-<div th:if="${!hasItems}" class="validation-section">
-    <div class="no-items">No validation items to display</div>
+<div th:if="${!hasItems}" class="lint-section">
+    <div class="no-items">No lint items to display</div>
 </div>
 
 <div class="back-container">
@@ -760,7 +760,7 @@
 </div>
 
 <div class="footer">
-    <p>Detailed validation report for individual plugin analysis</p>
+    <p>Detailed linter report for individual plugin analysis</p>
 </div>
 
 <script>
@@ -790,7 +790,7 @@
     }
 
     function initCollapsibleSections() {
-        const headers = document.querySelectorAll('.validation-section > h2');
+        const headers = document.querySelectorAll('.lint-section > h2');
         headers.forEach(header => {
             const content = header.nextElementSibling;
 

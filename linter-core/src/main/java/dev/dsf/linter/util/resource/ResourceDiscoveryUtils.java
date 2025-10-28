@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 /**
  * Utility class containing shared resource discovery methods.
- * Enhanced with strict resource root validation and dependency JAR scanning.
+ * Enhanced with strict resource root linter and dependency JAR scanning.
  */
 public final class ResourceDiscoveryUtils {
 
@@ -21,10 +21,10 @@ public final class ResourceDiscoveryUtils {
     public record ResolvedResources(List<File> resolvedFiles, List<String> missingRefs) {}
 
     /**
-     * Enhanced result container with resource root validation and dependency tracking.
+     * Enhanced result container with resource root linter and dependency tracking.
      */
     public record StrictResolvedResources(
-            List<File> validFiles,
+            List<File> lintFiles,
             List<String> missingRefs,
             Map<String, ResourceResolver.ResolutionResult> outsideRootFiles,
             Map<String, ResourceResolver.ResolutionResult> dependencyFiles
@@ -50,24 +50,24 @@ public final class ResourceDiscoveryUtils {
     }
 
     /**
-     * Resolves resource files with strict validation against expected resource root.
+     * Resolves resource files with strict linting against expected resource root.
      * Enhanced to search in dependency JARs if not found locally.
      * <p>
-     * This method validates that all resolved files are within the expected resource root
+     * This method lints that all resolved files are within the expected resource root
      * or come from dependency JARs.
      * </p>
      *
      * @param referencedPaths the set of referenced resource paths
-     * @param expectedResourceRoot the expected resource root directory for validation
+     * @param expectedResourceRoot the expected resource root directory for linting
      * @param projectRoot the project root for dependency JAR search
-     * @return enhanced resolved resources with validation results
+     * @return enhanced resolved resources with linting results
      */
     public static StrictResolvedResources resolveResourceFilesStrict(
             Set<String> referencedPaths,
             File expectedResourceRoot,
             File projectRoot) {
 
-        List<File> validFiles = new ArrayList<>();
+        List<File> lintFiles = new ArrayList<>();
         List<String> missingRefs = new ArrayList<>();
         Map<String, ResourceResolver.ResolutionResult> outsideRootFiles = new LinkedHashMap<>();
         Map<String, ResourceResolver.ResolutionResult> dependencyFiles = new LinkedHashMap<>();
@@ -79,12 +79,12 @@ public final class ResourceDiscoveryUtils {
 
             switch (result.source()) {
                 case DISK_IN_ROOT:
-                    result.file().ifPresent(validFiles::add);
+                    result.file().ifPresent(lintFiles::add);
                     break;
 
                 case CLASSPATH_DEPENDENCY:
                     // Found in dependency JAR - treat as valid but track separately
-                    result.file().ifPresent(validFiles::add);
+                    result.file().ifPresent(lintFiles::add);
                     dependencyFiles.put(ref, result);
                     break;
 
@@ -99,14 +99,14 @@ public final class ResourceDiscoveryUtils {
             }
         }
 
-        return new StrictResolvedResources(validFiles, missingRefs, outsideRootFiles, dependencyFiles);
+        return new StrictResolvedResources(lintFiles, missingRefs, outsideRootFiles, dependencyFiles);
     }
 
     /**
-     * Legacy method - resolves resource files without strict validation.
+     * Legacy method - resolves resource files without strict linting.
      * Kept for backward compatibility.
      *
-     * @deprecated Use resolveResourceFilesStrict() for validation scenarios
+     * @deprecated Use resolveResourceFilesStrict() for linting scenarios
      */
     @Deprecated
     public static ResolvedResources resolveResourceFiles(Set<String> referencedPaths, File resourcesDir) {

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Converts FHIR JSON resources to XML.
- * The implementation is extracted from existing validators to avoid duplication.
+ * The implementation is extracted from existing linters to avoid duplication.
  * All JavaDoc and comments are in English as requested.
  */
 public final class JsonXmlConverter {

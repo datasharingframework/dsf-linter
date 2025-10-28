@@ -8,7 +8,7 @@ import java.net.URLClassLoader;
 import java.util.Optional;
 
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
-import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 import static dev.dsf.linter.constants.DsfApiConstants.DSF_TASK_INTERFACES;
 
 public class ClassInspector {
@@ -178,7 +178,7 @@ public class ClassInspector {
             return Optional.of(Class.forName(className, false, cl));
         } catch (ClassNotFoundException | LinkageError e) {
             // LinkageError covers cases like NoClassDefFoundError.
-            // Log the error for debugging purposes without stopping the validation.
+            // Log the error for debugging purposes without stopping the linting.
             logger.debug("Could not load class '" + className + "': " + e.getMessage());
             return Optional.empty();
         }

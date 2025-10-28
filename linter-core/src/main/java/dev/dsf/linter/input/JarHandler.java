@@ -16,14 +16,14 @@ import java.util.stream.Stream;
  * Handler for JAR file operations including download, extraction, and cleanup.
  * <p>
  * This class provides utilities to work with JAR files as input sources for
- * the DSF validator. It handles both local and remote JAR files transparently.
+ * the DSF linter. It handles both local and remote JAR files transparently.
  * </p>
  *
  * <h3>Key Features:</h3>
  * <ul>
  *   <li>Download JAR files from HTTP/HTTPS URLs</li>
  *   <li>Extract JAR contents to temporary directory</li>
- *   <li>Validate JAR structure for DSF plugin requirements</li>
+ *   <li>lint JAR structure for DSF plugin requirements</li>
  *   <li>Automatic cleanup of temporary resources</li>
  * </ul>
  *
@@ -70,7 +70,7 @@ public class JarHandler {
      *
      * @param extractedDir the directory containing extracted JAR contents
      * @param jarName the original JAR file name
-     * @param isTemporary true if the directory should be cleaned up after validation
+     * @param isTemporary true if the directory should be cleaned up after linting
      */
     public record JarProcessingResult(Path extractedDir, String jarName, boolean isTemporary) {}
 
@@ -79,7 +79,7 @@ public class JarHandler {
      * <p>
      * This method handles both local JAR files and remote JAR URLs transparently.
      * For JAR files, it also resolves required DSF plugin dependencies via Maven
-     * to ensure all API interfaces are available for validation.
+     * to ensure all API interfaces are available for linting.
      * </p>
      *
      * @param jarPath the path or URL to the JAR file
@@ -114,15 +114,15 @@ public class JarHandler {
 
         logger.info("Processing JAR: " + jarName);
 
-        // Validate JAR structure before extraction
-        validateJarStructure(jarFile);
+        // lint JAR structure before extraction
+        lintJarStructure(jarFile);
 
         // Create extraction directory
         String cleanName = jarName.replaceAll("[^a-zA-Z0-9._-]", "_")
                 .replace(".jar", "");
 
         Path tempBase = Paths.get(System.getProperty("java.io.tmpdir"));
-        Path extractDir = tempBase.resolve("dsf-validator-" + cleanName);
+        Path extractDir = tempBase.resolve("dsf-linter-" + cleanName);
 
         // Delete if exists, then recreate
         if (Files.exists(extractDir)) {
@@ -210,7 +210,7 @@ public class JarHandler {
         URL url = new URL(urlString);
         String jarName = extractJarNameFromUrl(urlString);
 
-        Path tempJar = Files.createTempFile("dsf-validator-jar-", "-" + jarName);
+        Path tempJar = Files.createTempFile("dsf-linter-jar-", "-" + jarName);
 
         logger.debug("Downloading to temporary file: " + tempJar);
 
@@ -242,7 +242,7 @@ public class JarHandler {
     }
 
     /**
-     * Validates that a JAR file contains the required DSF plugin structure.
+     * lints that a JAR file contains the required DSF plugin structure.
      * <p>
      * Checks performed:
      * <ul>
@@ -253,12 +253,12 @@ public class JarHandler {
      * </ul>
      * </p>
      *
-     * @param jarFile the JAR file to validate
+     * @param jarFile the JAR file to lint
      * @throws IOException if JAR cannot be read
      * @throws IllegalStateException if required structure is missing
      */
-    private void validateJarStructure(Path jarFile) throws IOException, IllegalStateException {
-        logger.debug("Validating JAR structure: " + jarFile.getFileName());
+    private void lintJarStructure(Path jarFile) throws IOException, IllegalStateException {
+        logger.debug("Linting JAR structure: " + jarFile.getFileName());
 
         try (JarFile jar = new JarFile(jarFile.toFile())) {
             boolean hasClassFiles = false;
@@ -300,7 +300,7 @@ public class JarHandler {
                 );
             }
 
-            logger.debug("JAR structure validation passed");
+            logger.debug("JAR structure linting passed");
 
         } catch (IOException e) {
             throw new IOException("Failed to read JAR file: " + e.getMessage(), e);

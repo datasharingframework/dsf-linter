@@ -1,7 +1,7 @@
 package dev.dsf.linter.logger;
 
 /**
- * A simple logging interface to decouple the core validator logic
+ * A simple logging interface to decouple the core linter logic
  * from specific logging frameworks like System.out or Maven Log.
  */
 public interface Logger {

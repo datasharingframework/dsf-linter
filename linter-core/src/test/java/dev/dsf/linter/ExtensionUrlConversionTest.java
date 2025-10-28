@@ -1,9 +1,9 @@
 package dev.dsf.linter;
 
-import dev.dsf.linter.fhir.FhirResourceValidator;
+import dev.dsf.linter.fhir.FhirResourceLinter;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.util.linting.LintingOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,10 +21,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * <ul>
  *   <li>{@code extension.url} is rendered as an XML attribute, not as a child element</li>
  *   <li>The conversion is consistent across nested extensions</li>
- *   <li>The validator can process the file and produce validation output based on the expected structure</li>
+ *   <li>The linter can process the file and produce linting output based on the expected structure</li>
  * </ul>
  *
- * <p>This test verifies both the end-to-end validation behavior and the internal JSON-to-XML transformation.</p>
+ * <p>This test verifies both the end-to-end linting behavior and the internal JSON-to-XML transformation.</p>
  */
 public class ExtensionUrlConversionTest
 {
@@ -35,9 +35,9 @@ public class ExtensionUrlConversionTest
     Path tempDir;
 
     /**
-     * FHIR validator instance used for validating FHIR resources.
+     * FHIR linter instance used for linting FHIR resources.
      */
-    private FhirResourceValidator validator;
+    private FhirResourceLinter lint;
 
     /**
      * Directory under {@code src/main/resources/fhir} where test files will be written.
@@ -46,7 +46,7 @@ public class ExtensionUrlConversionTest
 
     /**
      * Initializes the test environment, creates required directory structure,
-     * and instantiates the FHIR validator.
+     * and instantiates the FHIR linter.
      *
      * @throws IOException if directory creation fails
      */
@@ -54,7 +54,7 @@ public class ExtensionUrlConversionTest
     void setUp() throws IOException
     {
         Logger logger = new ConsoleLogger(false);
-        validator = new FhirResourceValidator(logger);
+        lint = new FhirResourceLinter(logger);
 
         // Create test project structure under src/main/resources/fhir
         File projectRoot = tempDir.toFile();
@@ -64,17 +64,17 @@ public class ExtensionUrlConversionTest
     }
 
     /**
-     * Tests whether the validator can process a FHIR JSON resource with {@code extension.url} fields
+     * Tests whether the linter can process a FHIR JSON resource with {@code extension.url} fields
      * and internally convert them to XML where the {@code url} is an attribute (not a child element).
      *
      * <p>Ensures that:
      * <ul>
      *   <li>The file is processed without exceptions</li>
-     *   <li>Validation results are returned</li>
+     *   <li>Linting results are returned</li>
      *   <li>The conversion to XML did not skip the extension content</li>
      * </ul>
      *
-     * @throws Exception if file creation or validation fails
+     * @throws Exception if file creation or linting fails
      */
     @Test
     void testExtensionUrlConversionFromJson() throws Exception
@@ -120,20 +120,20 @@ public class ExtensionUrlConversionTest
         File jsonFile = new File(fhirDir, "test-activitydefinition.json");
         Files.writeString(jsonFile.toPath(), jsonActivityDefinition);
 
-        // Validate the file - JSON is internally converted to XML
-        ValidationOutput result = validator.validateSingleFile(jsonFile.toPath());
+        // Lint the file - JSON is internally converted to XML
+        LintingOutput result = lint.lintSingleFile(jsonFile.toPath());
 
         assertNotNull(result, "Should be able to process the JSON file");
 
         // Debug output
-        System.out.println("Validation items count: " + result.validationItems().size());
-        result.validationItems().forEach(item ->
-                System.out.println("Validation item: " + item.toString())
+        System.out.println("Lint items count: " + result.LintItems().size());
+        result.LintItems().forEach(item ->
+                System.out.println("Lint item: " + item.toString())
         );
 
-        // If the conversion worked, some validation items should be produced
-        assertFalse(result.validationItems().isEmpty(),
-                "Should have validation items - indicates the JSON file was processed and converted to XML");
+        // If the conversion worked, some lint items should be produced
+        assertFalse(result.LintItems().isEmpty(),
+                "Should have lint items - indicates the JSON file was processed and converted to XML");
     }
 
     /**
@@ -141,7 +141,7 @@ public class ExtensionUrlConversionTest
      * values are rendered as attributes and not as child elements in the XML structure.
      *
      * <p>This test uses the test helper method {@code convertJsonToXmlForTesting()} exposed
-     * by {@link FhirResourceValidator} to inspect the raw generated XML string.</p>
+     * by {@link FhirResourceLinter} to inspect the raw generated XML string.</p>
      *
      * @throws Exception if the conversion fails
      */
@@ -168,7 +168,7 @@ public class ExtensionUrlConversionTest
               ]
             }""";
 
-        String generatedXml = validator.convertJsonToXmlForTesting(jsonExtension);
+        String generatedXml = lint.convertJsonToXmlForTesting(jsonExtension);
 
         System.out.println("Generated XML:");
         System.out.println(generatedXml);

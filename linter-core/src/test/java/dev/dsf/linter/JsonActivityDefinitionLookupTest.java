@@ -1,12 +1,12 @@
 package dev.dsf.linter;
 
-import dev.dsf.linter.exception.ResourceValidationException;
-import dev.dsf.linter.output.item.AbstractValidationItem;
+import dev.dsf.linter.exception.ResourceLinterException;
+import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.service.FhirValidationService;
-import dev.dsf.linter.service.ValidationResult;
+import dev.dsf.linter.service.FhirLintingService;
+import dev.dsf.linter.service.LintingResult;
 import dev.dsf.linter.util.resource.FhirFileUtils;
-import dev.dsf.linter.util.validation.ValidationOutput;
+import dev.dsf.linter.util.linting.LintingOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,7 +31,7 @@ public class JsonActivityDefinitionLookupTest
     @TempDir
     Path tempDir;
 
-    private FhirValidationService fhirValidationService;
+    private FhirLintingService fhirLintingService;
     private File fhirDir;
     private File activityDefinitionDir;
 
@@ -62,13 +62,13 @@ public class JsonActivityDefinitionLookupTest
     }
 
     /**
-     * Creates a new validator and a directory structure under {@code src/main/resources/fhir}
+     * Creates a new linter and a directory structure under {@code src/main/resources/fhir}
      * for writing JSON/XML test files before each test.
      */
     @BeforeEach
     void setUp()
     {
-        fhirValidationService = new FhirValidationService(new NoOpLogger());
+        fhirLintingService = new FhirLintingService(new NoOpLogger());
 
         File projectRoot = tempDir.toFile();
         File srcMain = new File(projectRoot, "src/main/resources");
@@ -94,10 +94,10 @@ public class JsonActivityDefinitionLookupTest
      * <p>This test reproduces the unresolved canonical issue and ensures that
      * the bug is detectable by looking for the {@code TASK_UNKNOWN_INSTANTIATES_CANONICAL} error.</p>
      *
-     * @throws IOException if file writing or validation fails
+     * @throws IOException if file writing or linting fails
      */
     @Test
-    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException, ResourceValidationException {
+    void testJsonTaskCannotFindJsonActivityDefinition() throws IOException, ResourceLinterException {
         // Write JSON ActivityDefinition
         String jsonActivityDefinition = """
             {
@@ -193,20 +193,20 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
         List<File> fhirFiles = collectFhirFiles();
-        ValidationResult validationResult =
-                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
+        LintingResult lintingResult =
+                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
 
-        // FIX: getItems() is now called on the top-level ValidationResult object
-        List<AbstractValidationItem> items = validationResult.getItems();
-        ValidationOutput result = new ValidationOutput(items);
+        // FIX: getItems() is now called on the top-level LintingResult object
+        List<AbstractLintItem> items = lintingResult.getItems();
+        LintingOutput result = new LintingOutput(items);
 
-        System.out.println("Total validation items: " + result.validationItems().size());
-        result.validationItems().forEach(item -> System.out.println("* " + item));
+        System.out.println("Total lint items: " + result.LintItems().size());
+        result.LintItems().forEach(item -> System.out.println("* " + item));
 
-        boolean hasUnknownCanonicalError = result.validationItems().stream()
+        boolean hasUnknownCanonicalError = result.LintItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,
-                "Validation should succeed without a TASK_UNKNOWN_INSTANTIATES_CANONICAL error.");
+                "Linting should succeed without a TASK_UNKNOWN_INSTANTIATES_CANONICAL error.");
     }
     /**
      * Test case demonstrating that a {@code Task} in JSON format correctly resolves
@@ -215,10 +215,10 @@ public class JsonActivityDefinitionLookupTest
      * <p>This verifies that the lookup logic works correctly for XML resources,
      * and the canonical reference is resolved successfully.</p>
      *
-     * @throws IOException if file writing or validation fails
+     * @throws IOException if file writing or linting fails
      */
     @Test
-    void testJsonTaskCanFindXmlActivityDefinition() throws IOException, ResourceValidationException {
+    void testJsonTaskCanFindXmlActivityDefinition() throws IOException, ResourceLinterException {
         // Write XML ActivityDefinition
         String xmlActivityDefinition = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -303,16 +303,16 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
         List<File> fhirFiles = collectFhirFiles();
-        ValidationResult validationResult =
-                fhirValidationService.validate("test-plugin", fhirFiles, new ArrayList<>());
+        LintingResult lintingResult =
+                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
 
-        List<AbstractValidationItem> items = validationResult.getItems();
-        ValidationOutput result = new ValidationOutput(items);
+        List<AbstractLintItem> items = lintingResult.getItems();
+        LintingOutput result = new LintingOutput(items);
 
-        System.out.println("Total validation items: " + result.validationItems().size());
-        result.validationItems().forEach(item -> System.out.println("* " + item));
+        System.out.println("Total lint items: " + result.LintItems().size());
+        result.LintItems().forEach(item -> System.out.println("* " + item));
 
-        boolean hasUnknownCanonicalError = result.validationItems().stream()
+        boolean hasUnknownCanonicalError = result.LintItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,
                 "Should not have TASK_UNKNOWN_INSTANTIATES_CANONICAL error when XML ActivityDefinition exists");

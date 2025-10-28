@@ -11,7 +11,7 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
 
 /**
  * Utility class for resolving resource references in various formats to concrete files, URLs, or streams.
- * Enhanced with strict resource root validation and dependency JAR scanning.
+ * Enhanced with strict resource root linting and dependency JAR scanning.
  *
  * @since 1.0
  */
@@ -128,7 +128,7 @@ public final class ResourceResolver {
     }
 
     /**
-     * Resolves resource with strict validation against expected resource root.
+     * Resolves resource with strict linting against expected resource root.
      * Enhanced to search in dependency JARs if not found on disk.
      * <p>
      * Resolution order:
@@ -160,7 +160,7 @@ public final class ResourceResolver {
         if (diskResult.isPresent()) {
             File resolved = diskResult.get();
 
-            // 2. Validate: File must be under expected resource root
+            // 2. lint: File must be under expected resource root
             if (isUnderDirectory(resolved, expectedResourceRoot)) {
                 return ResolutionResult.inRoot(resolved, expectedResourceRoot);
             } else {
@@ -225,7 +225,7 @@ public final class ResourceResolver {
                     }
 
                     // Materialize resource
-                    Path tempRoot = Files.createTempDirectory("dsf-validator-dependency-");
+                    Path tempRoot = Files.createTempDirectory("dsf-linter-dependency-");
                     return getFile(cpPath, url, tempRoot);
                 } catch (Exception e) {
                     return null;
@@ -283,7 +283,7 @@ public final class ResourceResolver {
      * Legacy method - resolves to file with default search paths.
      * Kept for backward compatibility.
      *
-     * @deprecated Use resolveToFileStrict() for validation scenarios
+     * @deprecated Use resolveToFileStrict() for linting scenarios
      */
     @Deprecated
     public static Optional<File> resolveToFile(String ref, File projectRoot) {
@@ -294,7 +294,7 @@ public final class ResourceResolver {
      * Legacy method - resolves to file with classpath fallback.
      * Kept for backward compatibility.
      *
-     * @deprecated Use resolveToFileStrict() for validation scenarios
+     * @deprecated Use resolveToFileStrict() for linting scenarios
      */
     @Deprecated
     public static Optional<File> resolveToFile(String ref, File projectRoot, String... additionalSearchPaths) {
@@ -360,7 +360,7 @@ public final class ResourceResolver {
                     URL url = cl.getResource(cpPath);
                     if (url == null) return null;
 
-                    Path tempRoot = Files.createTempDirectory("dsf-validator-resources-");
+                    Path tempRoot = Files.createTempDirectory("dsf-linter-resources-");
                     return getFile(cpPath, url, tempRoot);
                 } catch (Exception e) {
                     return null;

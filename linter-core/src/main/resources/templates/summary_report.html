@@ -481,22 +481,22 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="validation : ${validations}">
+        <tr th:each="lint : ${lints}">
             <td>
-                <span th:if="${validation.errors == 0}" class="status-nominal">Passed</span>
-                <span th:if="${validation.errors > 0}" class="status-anomaly">Failed</span>
+                <span th:if="${lint.errors == 0}" class="status-nominal">Passed</span>
+                <span th:if="${lint.errors > 0}" class="status-anomaly">Failed</span>
             </td>
-            <td th:text="${validation.pluginName}" class="line-break">Plugin Name</td>
-            <td th:text="${validation.pluginClass}" class="line-break plugin-class-col">Plugin Class</td>
-            <td th:text="${validation.apiVersion}">1.0.0</td>
+            <td th:text="${lint.pluginName}" class="line-break">Plugin Name</td>
+            <td th:text="${lint.pluginClass}" class="line-break plugin-class-col">Plugin Class</td>
+            <td th:text="${lint.apiVersion}">1.0.0</td>
             <td>
-                <span th:if="${validation.errors > 0}" class="status-anomaly" th:text="${validation.errors}">0</span>
-                <span th:if="${validation.errors == 0}" th:text="${validation.errors}">0</span>
+                <span th:if="${lint.errors > 0}" class="status-anomaly" th:text="${lint.errors}">0</span>
+                <span th:if="${lint.errors == 0}" th:text="${lint.errors}">0</span>
             </td>
-            <td th:text="${validation.warnings}">0</td>
-            <td th:text="${validation.infos}">0</td>
+            <td th:text="${lint.warnings}">0</td>
+            <td th:text="${lint.infos}">0</td>
             <td>
-                <a th:href="${validation.htmlReportPath}"
+                <a th:href="${lint.htmlReportPath}"
                    class="telemetry-link"
                    target="_blank">View Details</a>
             </td>

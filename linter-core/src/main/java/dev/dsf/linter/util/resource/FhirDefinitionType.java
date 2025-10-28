@@ -2,7 +2,7 @@ package dev.dsf.linter.util.resource;
 
 /**
  * Enumeration representing different types of FHIR definition resources
- * that can be validated by the FhirValidator utility.
+ * that can be linted by the FhirLinter utility.
  */
 public enum FhirDefinitionType {
     /**

@@ -20,9 +20,9 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * Unified resource discovery service with enhanced resource root validation
+ * Unified resource discovery service with enhanced resource root linter
  * and dependency JAR scanning.
- * Tracks plugin-specific resource roots and validates resource locations.
+ * Tracks plugin-specific resource roots and lints resource locations.
  */
 public class ResourceDiscoveryService {
 
@@ -30,7 +30,7 @@ public class ResourceDiscoveryService {
     private final ApiVersionDetector apiVersionDetector;
 
     /**
-     * Enhanced plugin discovery result with resource root validation and dependency tracking.
+     * Enhanced plugin discovery result with resource root linter and dependency tracking.
      */
     public record PluginDiscovery(
             PluginDefinitionDiscovery.PluginAdapter adapter,
@@ -99,12 +99,12 @@ public class ResourceDiscoveryService {
     }
 
     /**
-     * Main discovery method with enhanced resource root validation and dependency scanning.
+     * Main discovery method with enhanced resource root linter and dependency scanning.
      */
     public DiscoveryResult discover(ProjectContext context)
             throws IllegalStateException, MissingServiceRegistrationException {
 
-        logger.info("Starting unified plugin resource discovery with root validation and dependency scanning...");
+        logger.info("Starting unified plugin resource discovery with root linting and dependency scanning...");
 
         EnhancedPluginDefinitionDiscovery.DiscoveryResult pluginDiscovery;
 
@@ -122,9 +122,9 @@ public class ResourceDiscoveryService {
                     No ProcessPluginDefinition implementations found
                     Possible causes:
                       - The project is not set up correctly as a DSF Process Plugin project
-                      - You try to validate multi-module project, but currently, the linter does not fully support that
+                      - You try to lint multi-module project, but currently, the linter does not fully support that
                       - Try running the linter again with the --mvn option (for more information, see the README.md file)
-                      - Build a JAR for the project you want to validate and pass that JAR to the linter
+                      - Build a JAR for the project you want to lint and pass that JAR to the linter
                       If it still doesn’t work, please report the issue in a pull request on GitHub.""");
         }
 
@@ -178,7 +178,7 @@ public class ResourceDiscoveryService {
     }
 
     /**
-     * Discovers resources for a single plugin with strict root validation and dependency scanning.
+     * Discovers resources for a single plugin with strict root linting and dependency scanning.
      */
     private PluginDiscovery discoverSinglePlugin(
             PluginDefinitionDiscovery.PluginAdapter adapter,
@@ -218,8 +218,8 @@ public class ResourceDiscoveryService {
                 apiVersion,
                 sharedResourcesDir,
                 pluginSpecificRoot,
-                bpmnResources.validFiles(),
-                fhirResources.validFiles(),
+                bpmnResources.lintFiles(),
+                fhirResources.lintFiles(),
                 bpmnResources.missingRefs(),
                 fhirResources.missingRefs(),
                 bpmnResources.outsideRootFiles(),

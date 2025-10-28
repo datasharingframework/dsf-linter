@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 /**
  * Utility class for extracting values and checking content within FHIR resource documents.
- * Provides XPath-based extraction and validation methods.
+ * Provides XPath-based extraction and linter methods.
  */
 public class FhirResourceExtractor {
 

@@ -1,10 +1,10 @@
 package dev.dsf.linter.input;
 
 /**
- * Enumeration of supported input types for the DSF validator.
+ * Enumeration of supported input types for the DSF linter.
  * <p>
  * This enum defines the different types of input sources that can be
- * validated by the DSF validator, enabling unified handling of various
+ * linted by the DSF linter, enabling unified handling of various
  * project formats and locations.
  * </p>
  *
@@ -34,7 +34,7 @@ public enum InputType {
      * Remote Git repository URL.
      * <p>
      * Supports protocols: http://, https://, git://, ssh://, git@
-     * Repository will be cloned to temporary directory before validation.
+     * Repository will be cloned to temporary directory before linting.
      * </p>
      */
     GIT_REPOSITORY,

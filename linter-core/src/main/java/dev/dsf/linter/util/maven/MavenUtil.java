@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * The {@code MavenUtil} class provides helper methods for locating the Maven
  * executable on the system. It is designed to assist in environments where Maven
- * must be invoked programmatically (e.g., validation tools, CI/CD wrappers).
+ * must be invoked programmatically (e.g., linting tools, CI/CD wrappers).
  * </p>
  *
  * <p>

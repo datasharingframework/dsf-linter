@@ -11,7 +11,7 @@ import java.util.Objects;
  *
  * <p>
  * The {@code RepositoryManager} class provides a simple mechanism to clone a remote Git repository
- * using the JGit library. It is designed for use in automated validation pipelines or tooling
+ * using the JGit library. It is designed for use in automated linting pipelines or tooling
  * where project resources need to be downloaded dynamically.
  * </p>
  *

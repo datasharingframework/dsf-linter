@@ -2,7 +2,7 @@ package dev.dsf.linter.plugin;
 
 import dev.dsf.linter.util.LogUtils;
 import dev.dsf.linter.util.loader.ClassLoaderUtils;
-import dev.dsf.linter.util.validation.PluginValidationUtils;
+import dev.dsf.linter.util.linting.PluginLintingUtils;
 import dev.dsf.linter.util.loader.ServiceLoaderUtils;
 
 import java.io.File;
@@ -138,10 +138,10 @@ public final class PluginDefinitionDiscovery
     }
 
     /**
-     * Filters and validates ProcessPluginDefinition class files from stream.
-     * Performs interface implementation and method signature validation.
+     * Filters and lints ProcessPluginDefinition class files from stream.
+     * Performs interface implementation and method signature linting.
      * @param root the root path for class loading
-     * @param cl class loader for validation
+     * @param cl class loader for linting
      * @param out output list to add valid plugins
      * @param s stream of file paths to process
      */
@@ -154,8 +154,8 @@ public final class PluginDefinitionDiscovery
                     try {
                         Class<?> c = Class.forName(fqdn, false, cl);
 
-                        // --- Strict, step-by-step validation logic ---
-                        boolean implementsInterface = PluginValidationUtils.implementsProcessPluginDefinition(c, cl);
+                        // --- Strict, step-by-step linting logic ---
+                        boolean implementsInterface = PluginLintingUtils.implementsProcessPluginDefinition(c, cl);
                         if (!implementsInterface) {
                             // FAILURE case 1: Does not implement the interface at all.
                             logger.debug("[DEBUG] FAILED: Candidate class does not implement the 'ProcessPluginDefinition' interface.");
@@ -165,17 +165,17 @@ public final class PluginDefinitionDiscovery
                         }
 
                         // At this point, the class IMPLEMENTS the interface. Now check if methods are also present.
-                        boolean hasRequiredMethods = PluginValidationUtils.hasPluginSignature(c);
+                        boolean hasRequiredMethods = PluginLintingUtils.hasPluginSignature(c);
                         if (hasRequiredMethods) {
                             // --- SUCCESS CASE ---
                             // Only succeeds if it implements the interface AND has the methods.
                             logger.debug("[DEBUG] SUCCESS: Found valid plugin definition.");
                             logger.debug("  -> Found class: " + c.getName());
                             logger.debug("     -> From root: " + root.toAbsolutePath());
-                            logger.debug("     -> Validation method: Implements Interface AND has required methods.");
+                            logger.debug("     -> Linter method: Implements Interface AND has required methods.");
 
                             Object inst = c.getDeclaredConstructor().newInstance();
-                            GenericPluginAdapter.ApiVersion version = PluginValidationUtils.isV2Plugin(c, cl)
+                            GenericPluginAdapter.ApiVersion version = PluginLintingUtils.isV2Plugin(c, cl)
                                     ? GenericPluginAdapter.ApiVersion.V2
                                     : GenericPluginAdapter.ApiVersion.V1;
                             out.add(new GenericPluginAdapter(inst, version));
@@ -213,7 +213,7 @@ public final class PluginDefinitionDiscovery
                         try {
                             Class<?> c = Class.forName(fqcn, false, jarCl);
 
-                            boolean implementsInterface = PluginValidationUtils.implementsProcessPluginDefinition(c, jarCl);
+                            boolean implementsInterface = PluginLintingUtils.implementsProcessPluginDefinition(c, jarCl);
                             if (!implementsInterface) {
                                 // FAILURE case 1
                                 logger.debug("[DEBUG] FAILED: Candidate in JAR does not implement 'ProcessPluginDefinition' interface.");
@@ -222,7 +222,7 @@ public final class PluginDefinitionDiscovery
                                 continue; // Skip to next class in JAR
                             }
 
-                            boolean hasRequiredMethods = PluginValidationUtils.hasPluginSignature(c);
+                            boolean hasRequiredMethods = PluginLintingUtils.hasPluginSignature(c);
                             if (hasRequiredMethods) {
                                 // --- SUCCESS CASE ---
                                 logger.debug("[DEBUG] SUCCESS: Found valid plugin definition in JAR.");
@@ -230,7 +230,7 @@ public final class PluginDefinitionDiscovery
                                 logger.debug("     -> From root: " + e);
 
                                 Object inst = c.getDeclaredConstructor().newInstance();
-                                GenericPluginAdapter.ApiVersion version = PluginValidationUtils.isV2Plugin(c, jarCl)
+                                GenericPluginAdapter.ApiVersion version = PluginLintingUtils.isV2Plugin(c, jarCl)
                                         ? GenericPluginAdapter.ApiVersion.V2
                                         : GenericPluginAdapter.ApiVersion.V1;
                                 found.add(new GenericPluginAdapter(inst, version));

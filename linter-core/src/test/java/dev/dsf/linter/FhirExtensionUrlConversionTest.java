@@ -92,7 +92,7 @@ public class FhirExtensionUrlConversionTest
 
         XPath xpath = XPathFactory.newInstance().newXPath();
 
-        // Validate main extension
+        // lint main extension
         NodeList mainExtensions = (NodeList) xpath.evaluate(
                 "//*[local-name()='extension' and @url='http://dsf.dev/fhir/StructureDefinition/extension-process-authorization']",
                 doc, XPathConstants.NODESET);
@@ -103,7 +103,7 @@ public class FhirExtensionUrlConversionTest
         assertEquals("http://dsf.dev/fhir/StructureDefinition/extension-process-authorization",
                 mainExtension.getAttribute("url"));
 
-        // Validate nested extensions
+        // lint nested extensions
         NodeList nestedExtensions = (NodeList) xpath.evaluate(
                 "//*[local-name()='extension' and @url='message-name']",
                 doc, XPathConstants.NODESET);
@@ -170,7 +170,7 @@ public class FhirExtensionUrlConversionTest
 
         XPath xpath = XPathFactory.newInstance().newXPath();
 
-        // Validate that url is a child element, not attribute
+        // lint that url is a child element, not attribute
         NodeList urlElements = (NodeList) xpath.evaluate(
                 "//*[local-name()='url' and @value='http://dsf.dev/fhir/ValueSet/test']",
                 doc, XPathConstants.NODESET);
@@ -191,7 +191,7 @@ public class FhirExtensionUrlConversionTest
      * Tests that {@code extension} elements without a {@code url} property
      * do not produce a {@code url} attribute in the resulting XML.
      *
-     * <p>This validates that optional fields are respected during transformation.</p>
+     * <p>This lints that optional fields are respected during transformation.</p>
      *
      * @throws Exception if parsing or conversion fails
      */

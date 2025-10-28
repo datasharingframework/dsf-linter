@@ -12,10 +12,10 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Test class for JSON support in FHIR resource validation.
- * Note: The current DsfValidatorImpl only supports complete Maven projects
+ * Test class for JSON support in FHIR resource linting.
+ * Note: The current DsfLinter only supports complete Maven projects
  * with ProcessPluginDefinition. This test demonstrates the behavior when
- * validating projects with both XML and JSON FHIR resources.
+ * linting projects with both XML and JSON FHIR resources.
  */
 public class JsonSupportTest {
 
@@ -129,7 +129,7 @@ public class JsonSupportTest {
 
     @Test
     void testJsonSupportBehaviorWithoutCompleteProject() {
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+        DsfLinter.Config config = new DsfLinter.Config(
                 tempDir,
                 tempDir.resolve("report"),
                 false,
@@ -138,15 +138,15 @@ public class JsonSupportTest {
                 null,  // skipGoals
                 new NoOpLogger()
         );
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
-        assertThrows(IOException.class, validator::validate,
-                "Should fail validation for incomplete project structure (Maven build failure)");
+        DsfLinter linter = new DsfLinter(config);
+        assertThrows(IOException.class, linter::lint,
+                "Should fail linting for incomplete project structure (Maven build failure)");
     }
 
     @Test
     void testJsonSupportBehaviorWithMinimalMavenProject() throws IOException {
         createMinimalMavenProject();
-        DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+        DsfLinter.Config config = new DsfLinter.Config(
                 tempDir,
                 tempDir.resolve("report"),
                 false,
@@ -155,8 +155,8 @@ public class JsonSupportTest {
                 null,  // skipGoals
                 new NoOpLogger()
         );
-        DsfValidatorImpl validator = new DsfValidatorImpl(config);
-        assertThrows(IOException.class, validator::validate,
+        DsfLinter linter = new DsfLinter(config);
+        assertThrows(IOException.class, linter::lint,
                 "Should fail during ProcessPluginDefinition discovery");
     }
 

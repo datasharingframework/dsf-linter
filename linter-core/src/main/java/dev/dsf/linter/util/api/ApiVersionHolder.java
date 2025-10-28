@@ -3,7 +3,7 @@ package dev.dsf.linter.util.api;
 import java.util.Objects;
 
 /**
- * Holds the detected DSF BPE API version for use throughout the validator.
+ * Holds the detected DSF BPE API version for use throughout the linter.
  * Provides a single source of truth for the detected version on a per-thread basis.
  * This class is thread-safe.
  */
@@ -35,7 +35,7 @@ public final class ApiVersionHolder {
 
     /**
      * Clears the API version for the current thread, resetting it to the initial value (UNKNOWN).
-     * This should be called after a validation run to prevent memory leaks in thread pools.
+     * This should be called after a linting run to prevent memory leaks in thread pools.
      */
     public static void clear() {
         version.remove();

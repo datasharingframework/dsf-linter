@@ -11,10 +11,10 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 /**
- * Unified input resolver that handles all supported input types for DSF validation.
+ * Unified input resolver that handles all supported input types for DSF Linter.
  * <p>
  * This class provides a single entry point for resolving various input sources
- * into a standardized directory structure that can be processed by the validator.
+ * into a standardized directory structure that can be processed by the linter.
  * It transparently handles local directories, Git repositories, and JAR files
  * (both local and remote).
  * </p>
@@ -47,7 +47,7 @@ public class InputResolver {
     /**
      * Result of input resolution containing the resolved directory and metadata.
      *
-     * @param resolvedPath the directory path ready for validation
+     * @param resolvedPath the directory path ready for linting
      * @param inputType the detected type of the original input
      * @param requiresCleanup true if the directory is temporary and needs cleanup
      * @param originalInput the original input string provided by the user
@@ -71,7 +71,7 @@ public class InputResolver {
     }
 
     /**
-     * Resolves an input path/URL to a directory that can be validated.
+     * Resolves an input path/URL to a directory that can be linted.
      * <p>
      * This method automatically detects the input type and applies the
      * appropriate resolution strategy. The returned directory is guaranteed
@@ -203,7 +203,7 @@ public class InputResolver {
 
         Path clonePath = Path.of(
                 System.getProperty("java.io.tmpdir"),
-                "dsf-validator-git-" + repositoryName
+                "dsf-linter-git-" + repositoryName
         );
 
         // Delete existing clone if present
@@ -282,7 +282,7 @@ public class InputResolver {
     /**
      * Cleans up temporary resources created during resolution.
      * <p>
-     * Should be called after validation is complete for inputs
+     * Should be called after linting is complete for inputs
      * that have requiresCleanup=true.
      * </p>
      *

@@ -17,10 +17,10 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Command(
-        name = "dsf-validator",
+        name = "dsf-linter",
         mixinStandardHelpOptions = true,
         version = "3.0.0",
-        description = "Validates DSF process plugins from local projects, Git repositories, or JAR files."
+        description = "lints DSF process plugins from local projects, Git repositories, or JAR files."
 )
 public class Main implements Callable<Integer> {
 
@@ -29,7 +29,7 @@ public class Main implements Callable<Integer> {
     private String inputPath;
 
     @Option(names = {"-r", "--report-path"},
-            description = "Directory for validation reports. Default: <temp-dir>/dsf-validator-<name>/target/dsf-validation-report")
+            description = "Directory for linter reports. Default: <temp-dir>/dsf-linter-<name>/target/dsf-linter-report")
     private Path reportPath;
 
     @Option(names = "--html",
@@ -37,7 +37,7 @@ public class Main implements Callable<Integer> {
     private boolean generateHtmlReport = false;
 
     @Option(names = "--no-fail",
-            description = "Exit with code 0 even if validation errors are found.")
+            description = "Exit with code 0 even if linter errors are found.")
     private boolean noFailOnErrors = false;
 
     @Option(names = {"-v", "--verbose"},
@@ -88,9 +88,9 @@ public class Main implements Callable<Integer> {
     @Override
     public Integer call() {
         Logger logger = new ConsoleLogger(verbose);
-        logger.info("DSF Validator v3.0.0");
+        logger.info("DSF Linter v1.0.0");
 
-        // Validate input
+        // lint input
         if (inputPath == null || inputPath.isBlank()) {
             logger.error("ERROR: Specify a path using --path (local directory, Git repository URL, or JAR file).");
             return 1;
@@ -117,10 +117,10 @@ public class Main implements Callable<Integer> {
 
             // Create report directory separately from project extraction directory
             // This ensures the report survives cleanup of temporary resources
-            Path reportBaseDir = tempBase.resolve("dsf-validator-report-" + inputName);
-            reportPath = reportBaseDir.resolve("dsf-validation-report");
+            Path reportBaseDir = tempBase.resolve("dsf-linter-report-" + inputName);
+            reportPath = reportBaseDir.resolve("dsf-linter-report");
 
-            logger.info("Validation report will be saved to: " + reportPath.toAbsolutePath());
+            logger.info("linter report will be saved to: " + reportPath.toAbsolutePath());
         }
 
         try {
@@ -131,8 +131,8 @@ public class Main implements Callable<Integer> {
         }
 
         try {
-            // Execute validation
-            return runValidation(projectPath, logger);
+            // Execute linting
+            return runLinter(projectPath, logger);
 
         } finally {
             // Cleanup temporary resources if needed
@@ -145,10 +145,10 @@ public class Main implements Callable<Integer> {
         }
     }
 
-    private Integer runValidation(Path projectPath, Logger logger) {
+    private Integer runLinter(Path projectPath, Logger logger) {
         try {
             // Create configuration
-            DsfValidatorImpl.Config config = new DsfValidatorImpl.Config(
+            DsfLinter.Config config = new DsfLinter.Config(
                     projectPath.toAbsolutePath(),
                     reportPath.toAbsolutePath(),
                     generateHtmlReport,
@@ -158,9 +158,9 @@ public class Main implements Callable<Integer> {
                     logger
             );
 
-            // Create and run validator - handles any number of plugins
-            DsfValidatorImpl validator = new DsfValidatorImpl(config);
-            DsfValidatorImpl.OverallValidationResult result = validator.validate();
+            // Create and run linter - handles any number of plugins
+            DsfLinter linter = new DsfLinter(config);
+            DsfLinter.OverallLinterResult result = linter.lint();
 
             // Output summary
             printResult(result, logger);
@@ -178,11 +178,11 @@ public class Main implements Callable<Integer> {
      * Print result summary.
      * Works uniformly for any number of plugins.
      */
-    private void printResult(DsfValidatorImpl.OverallValidationResult result, Logger logger) {
+    private void printResult(DsfLinter.OverallLinterResult result, Logger logger) {
         // Unified summary for any number of plugins
         logger.info(String.format(
-                "\nValidation completed for %d plugin(s) with %d total plugin errors and %d total plugin warnings.",
-                result.pluginValidations().size(),
+                "\nLinting completed for %d plugin(s) with %d total plugin errors and %d total plugin warnings.",
+                result.pluginLinter().size(),
                 result.getPluginErrors(),
                 result.getPluginWarnings()
         ));

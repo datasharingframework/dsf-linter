@@ -1,8 +1,8 @@
 package dev.dsf.linter.fhir;
 
-import dev.dsf.linter.output.item.FhirElementValidationItem;
-import dev.dsf.linter.output.item.FhirValueSetMissingReadAccessTagAllOrLocalValidationItem;
-import dev.dsf.linter.output.item.FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem;
+import dev.dsf.linter.output.item.FhirElementLintItem;
+import dev.dsf.linter.output.item.FhirValueSetMissingReadAccessTagAllOrLocalLintItem;
+import dev.dsf.linter.output.item.FhirValueSetOrganizationRoleMissingValidCodeValueLintItem;
 import dev.dsf.linter.util.resource.FhirResourceParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,28 +19,28 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for {@link FhirValueSetValidator}.
+ * Unit tests for {@link FhirValueSetLinter}.
  * <p>
- * These tests verify that ValueSet resources are validated correctly for the presence and correctness
+ * These tests verify that ValueSet resources are linted correctly for the presence and correctness
  * of the read-access-tag in the meta.tag section, specifically for the codes "ALL" or "LOCAL".
  * Various scenarios are covered, including valid and invalid tags, missing meta sections, and multiple tags.
  */
 class FhirValueSetValidatorTest {
 
-    private FhirValueSetValidator validator;
+    private FhirValueSetLinter linter;
     private File testFile;
 
     /**
-     * Initializes the validator and test file before each test.
+     * Initializes the linter and test file before each test.
      */
     @BeforeEach
     public void setUp() {
-        validator = new FhirValueSetValidator();
+        linter = new FhirValueSetLinter();
         testFile = new File("test-valueSet.json");
     }
 
     /**
-     * Validates several example ValueSet resource files to ensure they contain a valid read-access-tag
+     * lints several example ValueSet resource files to ensure they contain a valid read-access-tag
      * with code "ALL" or "LOCAL" in the meta.tag section.
      *
      * @throws Exception if file parsing or validation fails
@@ -62,7 +62,7 @@ class FhirValueSetValidatorTest {
     }
 
     /**
-     * Helper method to test a single resource file for correct validation results.
+     * Helper method to test a single resource file for correct linting results.
      *
      * @param filePath the path to the ValueSet resource file
      * @throws Exception if file parsing or validation fails
@@ -76,23 +76,23 @@ class FhirValueSetValidatorTest {
         Document doc = FhirResourceParser.parseFhirFile(filePath);
         assertNotNull(doc, "Document should be parseable");
 
-        List<FhirElementValidationItem> results = validator.validate(doc, filePath.toFile());
+        List<FhirElementLintItem> results = linter.lint(doc, filePath.toFile());
 
-        // Should contain at least one success item for meta.tag validation
+        // Should contain at least one success item for meta.tag linting
         boolean hasMetaTagSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag read-access-tag contains ALL or LOCAL – OK"));
 
-        assertTrue(hasMetaTagSuccess, "Should have successful meta.tag validation for file: " + filePath.getFileName());
+        assertTrue(hasMetaTagSuccess, "Should have successful meta.tag linting for file: " + filePath.getFileName());
 
         // Should not contain any missing read access tag errors
         boolean hasMissingTagError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalValidationItem);
+                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
 
         assertFalse(hasMissingTagError, "Should not have missing read access tag errors for file: " + filePath.getFileName());
     }
 
     /**
-     * Tests that a ValueSet with a valid "ALL" read-access-tag in the meta.tag section is validated successfully.
+     * Tests that a ValueSet with a valid "ALL" read-access-tag in the meta.tag section is linted successfully.
      *
      * @throws Exception if XML parsing or validation fails
      */
@@ -124,11 +124,11 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag read-access-tag contains ALL or LOCAL – OK"));
-        assertTrue(hasSuccess, "Should validate successfully with ALL tag");
+        assertTrue(hasSuccess, "Should lint successfully with ALL tag");
     }
 
     /**
@@ -164,11 +164,11 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag read-access-tag contains ALL or LOCAL – OK"));
-        assertTrue(hasSuccess, "Should validate successfully with LOCAL tag");
+        assertTrue(hasSuccess, "Should lint successfully with LOCAL tag");
     }
 
     /**
@@ -204,10 +204,10 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalValidationItem
+                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem
                         && item.getDescription().contains("meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
         assertTrue(hasError, "Should report error for missing read access tag");
     }
@@ -245,16 +245,16 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalValidationItem);
+                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
         assertTrue(hasError, "Should report error for wrong code in read access tag");
     }
 
     /**
      * Tests that a ValueSet with multiple tags, including at least one valid read-access-tag,
-     * is validated successfully.
+     * is linted successfully.
      *
      * @throws Exception if XML parsing or validation fails
      */
@@ -294,11 +294,11 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag read-access-tag contains ALL or LOCAL – OK"));
-        assertTrue(hasSuccess, "Should validate successfully with multiple tags including valid read access tag");
+        assertTrue(hasSuccess, "Should lint successfully with multiple tags including valid read access tag");
     }
 
     /**
@@ -328,10 +328,10 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalValidationItem);
+                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
         assertTrue(hasError, "Should report error when no meta section exists");
     }
 
@@ -364,16 +364,16 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalValidationItem);
+                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
         assertTrue(hasError, "Should report error when meta section is empty");
     }
 
     /**
      * Tests that a ValueSet with valid organization role codes in parent-organization-role extensions
-     * is validated successfully.
+     * is linted successfully.
      *
      * @throws Exception if XML parsing or validation fails
      */
@@ -413,11 +413,11 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag parent-organization-role code 'DIC' OK"));
-        assertTrue(hasSuccess, "Should validate successfully with valid organization role code");
+        assertTrue(hasSuccess, "Should lint successfully with valid organization role code");
     }
 
     /**
@@ -462,16 +462,16 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem
+                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem
                         && item.getDescription().contains("Invalid organization-role code 'INVALID_ROLE'"));
         assertTrue(hasError, "Should report error for invalid organization role code");
     }
 
     /**
-     * Tests that a ValueSet with multiple organization role codes validates each code correctly.
+     * Tests that a ValueSet with multiple organization role codes lints each code correctly.
      *
      * @throws Exception if XML parsing or validation fails
      */
@@ -519,20 +519,20 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasValidSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag parent-organization-role code 'DIC' OK"));
         boolean hasInvalidError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem
+                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem
                         && item.getDescription().contains("Invalid organization-role code 'INVALID_CODE'"));
 
-        assertTrue(hasValidSuccess, "Should validate successfully for valid organization role code");
+        assertTrue(hasValidSuccess, "Should lint successfully for valid organization role code");
         assertTrue(hasInvalidError, "Should report error for invalid organization role code");
     }
 
     /**
-     * Tests that a ValueSet without organization role extensions doesn't produce organization role validation errors.
+     * Tests that a ValueSet without organization role extensions doesn't produce organization role lint errors.
      *
      * @throws Exception if XML parsing or validation fails
      */
@@ -564,10 +564,10 @@ class FhirValueSetValidatorTest {
             """;
 
         Document doc = parseXmlString(xmlContent);
-        List<FhirElementValidationItem> results = validator.validate(doc, testFile);
+        List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasOrgRoleError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueValidationItem);
+                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem);
         assertFalse(hasOrgRoleError, "Should not report organization role errors when no extensions are present");
     }
 

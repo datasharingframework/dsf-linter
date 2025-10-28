@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Handles project setup, build operations, and classpath configuration
- * for DSF validation projects.
+ * for DSF projects.
  *
  * <p>This class is responsible for:
  * <ul>
@@ -23,7 +23,7 @@ import java.util.List;
  *   <li>Building Maven projects when necessary</li>
  *   <li>Resolving dependencies (stub and/or project-specific)</li>
  *   <li>Creating and managing project ClassLoaders</li>
- *   <li>Setting up the validation environment</li>
+ *   <li>Setting up the linting environment</li>
  * </ul>
  *
  * @author DSF Development Team
@@ -47,7 +47,7 @@ public class ProjectSetupHandler {
     }
 
     /**
-     * Sets up the complete validation environment for a project.
+     * Sets up the complete linting environment for a project.
      *
      * @param projectPath the path to the project directory
      * @param mavenGoals optional Maven goals to add to the build. If {@code null}, no full Maven build is performed,
@@ -58,7 +58,7 @@ public class ProjectSetupHandler {
      * @throws IOException if file operations fail
      * @throws InterruptedException if Maven build is interrupted
      */
-    public ProjectContext setupValidationEnvironment(Path projectPath, String[] mavenGoals, String[] skipGoals)
+    public ProjectContext setupLintingEnvironment(Path projectPath, String[] mavenGoals, String[] skipGoals)
             throws IllegalStateException, IOException, InterruptedException {
 
         if (!Files.isDirectory(projectPath)) {
@@ -77,8 +77,8 @@ public class ProjectSetupHandler {
                 buildMavenProject(projectDir, mavenGoals, skipGoals);
             }
         } else {
-            // No --mvn specified: minimal build for validation
-            logger.info("No --mvn option specified. Executing minimal build for validation...");
+            // No --mvn specified: minimal build for linting
+            logger.info("No --mvn option specified. Executing minimal build for linting...");
 
             if (isMavenProject) {
                 // Maven project: compile + merged dependencies (stub + project)
@@ -119,7 +119,7 @@ public class ProjectSetupHandler {
     }
 
     /**
-     * Performs a minimal Maven build for validation purposes.
+     * Performs a minimal Maven build for linting purposes.
      * <p>
      * This method creates a merged POM combining stub dependencies with project dependencies
      * extracted from the effective POM. It then executes:

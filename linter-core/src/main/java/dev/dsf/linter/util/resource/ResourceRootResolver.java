@@ -90,7 +90,7 @@ public final class ResourceRootResolver {
 
     /**
      * Resolves plugin-specific resource root directory.
-     * This is the primary method for validation scenarios where each plugin
+     * This is the primary method for linting scenarios where each plugin
      * needs its own resource root tracking.
      *
      * @param projectDir the project directory

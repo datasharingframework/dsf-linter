@@ -32,7 +32,7 @@ import static dev.dsf.linter.constants.DsfApiConstants.V2_SERVICE_FILE;
  * <h3>Usage Recommendations</h3>
  * <ul>
  *   <li>Use {@link #detect(Path)} for a non-throwing best-effort version detection.</li>
- *   <li>Use {@link #detectOrThrow(Path)} to enforce registration presence (e.g., in validation workflows).</li>
+ *   <li>Use {@link #detectOrThrow(Path)} to enforce registration presence (e.g., in linting workflows).</li>
  * </ul>
  *
  * <p>
