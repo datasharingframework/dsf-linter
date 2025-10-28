@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 /**
  * Utility class containing shared resource discovery methods.
- * Enhanced with strict resource root validation.
+ * Enhanced with strict resource root validation and dependency JAR scanning.
  */
 public final class ResourceDiscoveryUtils {
 
@@ -21,12 +21,13 @@ public final class ResourceDiscoveryUtils {
     public record ResolvedResources(List<File> resolvedFiles, List<String> missingRefs) {}
 
     /**
-     * Enhanced result container with resource root validation.
+     * Enhanced result container with resource root validation and dependency tracking.
      */
     public record StrictResolvedResources(
             List<File> validFiles,
             List<String> missingRefs,
-            Map<String, ResourceResolver.ResolutionResult> outsideRootFiles
+            Map<String, ResourceResolver.ResolutionResult> outsideRootFiles,
+            Map<String, ResourceResolver.ResolutionResult> dependencyFiles
     ) {}
 
     /**
@@ -50,28 +51,41 @@ public final class ResourceDiscoveryUtils {
 
     /**
      * Resolves resource files with strict validation against expected resource root.
-     * This method validates that all resolved files are within the expected resource root.
+     * Enhanced to search in dependency JARs if not found locally.
+     * <p>
+     * This method validates that all resolved files are within the expected resource root
+     * or come from dependency JARs.
+     * </p>
      *
      * @param referencedPaths the set of referenced resource paths
      * @param expectedResourceRoot the expected resource root directory for validation
+     * @param projectRoot the project root for dependency JAR search
      * @return enhanced resolved resources with validation results
      */
     public static StrictResolvedResources resolveResourceFilesStrict(
             Set<String> referencedPaths,
-            File expectedResourceRoot) {
+            File expectedResourceRoot,
+            File projectRoot) {
 
         List<File> validFiles = new ArrayList<>();
         List<String> missingRefs = new ArrayList<>();
         Map<String, ResourceResolver.ResolutionResult> outsideRootFiles = new LinkedHashMap<>();
+        Map<String, ResourceResolver.ResolutionResult> dependencyFiles = new LinkedHashMap<>();
 
         for (String ref : referencedPaths) {
             String cleanedRef = cleanRef(ref);
             ResourceResolver.ResolutionResult result =
-                    ResourceResolver.resolveToFileStrict(cleanedRef, expectedResourceRoot);
+                    ResourceResolver.resolveToFileStrict(cleanedRef, expectedResourceRoot, projectRoot);
 
             switch (result.source()) {
                 case DISK_IN_ROOT:
                     result.file().ifPresent(validFiles::add);
+                    break;
+
+                case CLASSPATH_DEPENDENCY:
+                    // Found in dependency JAR - treat as valid but track separately
+                    result.file().ifPresent(validFiles::add);
+                    dependencyFiles.put(ref, result);
                     break;
 
                 case DISK_OUTSIDE_ROOT:
@@ -85,7 +99,7 @@ public final class ResourceDiscoveryUtils {
             }
         }
 
-        return new StrictResolvedResources(validFiles, missingRefs, outsideRootFiles);
+        return new StrictResolvedResources(validFiles, missingRefs, outsideRootFiles, dependencyFiles);
     }
 
     /**

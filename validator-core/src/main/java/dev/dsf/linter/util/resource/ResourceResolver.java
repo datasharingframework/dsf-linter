@@ -11,7 +11,7 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
 
 /**
  * Utility class for resolving resource references in various formats to concrete files, URLs, or streams.
- * Enhanced with strict resource root validation to prevent classpath pollution.
+ * Enhanced with strict resource root validation and dependency JAR scanning.
  *
  * @since 1.0
  */
@@ -23,7 +23,8 @@ public final class ResourceResolver {
     public enum ResolutionSource {
         DISK_IN_ROOT,           // Found on disk within expected resource root
         DISK_OUTSIDE_ROOT,      // Found on disk but outside expected resource root
-        CLASSPATH_MATERIALIZED, // Found via classpath and materialized
+        CLASSPATH_MATERIALIZED, // Found via classpath and materialized (legacy)
+        CLASSPATH_DEPENDENCY,   // Found in dependency JAR (target/dependency/*.jar)
         NOT_FOUND               // Not found anywhere
     }
 
@@ -63,13 +64,18 @@ public final class ResourceResolver {
             );
         }
 
-        public boolean isValid() {
-            return source == ResolutionSource.DISK_IN_ROOT;
+        public static ResolutionResult fromDependency(File file, String dependencyJar, File expectedRoot) {
+            return new ResolutionResult(
+                    Optional.of(file),
+                    ResolutionSource.CLASSPATH_DEPENDENCY,
+                    expectedRoot.getAbsolutePath(),
+                    "dependency:" + dependencyJar
+            );
         }
 
-        public boolean hasIssue() {
-            return source == ResolutionSource.DISK_OUTSIDE_ROOT ||
-                    source == ResolutionSource.CLASSPATH_MATERIALIZED;
+        public boolean isValid() {
+            return source == ResolutionSource.DISK_IN_ROOT ||
+                    source == ResolutionSource.CLASSPATH_DEPENDENCY;
         }
     }
 
@@ -123,13 +129,25 @@ public final class ResourceResolver {
 
     /**
      * Resolves resource with strict validation against expected resource root.
-     * This is the recommended method for validation scenarios.
+     * Enhanced to search in dependency JARs if not found on disk.
+     * <p>
+     * Resolution order:
+     * <ol>
+     *   <li>Search on disk in expectedResourceRoot</li>
+     *   <li>If found and inside root → DISK_IN_ROOT</li>
+     *   <li>If found and outside root → DISK_OUTSIDE_ROOT</li>
+     *   <li>If not found on disk → search in dependency JARs</li>
+     *   <li>If found in dependencies → CLASSPATH_DEPENDENCY</li>
+     *   <li>Otherwise → NOT_FOUND</li>
+     * </ol>
+     * </p>
      *
      * @param ref the resource reference from plugin definition
      * @param expectedResourceRoot the resource root directory for this specific plugin
+     * @param projectRoot the project root directory for classpath search
      * @return resolution result with metadata about where the file was found
      */
-    public static ResolutionResult resolveToFileStrict(String ref, File expectedResourceRoot) {
+    public static ResolutionResult resolveToFileStrict(String ref, File expectedResourceRoot, File projectRoot) {
         Objects.requireNonNull(expectedResourceRoot, "expectedResourceRoot");
         String cpPath = normalizeRef(ref);
         if (cpPath.isEmpty()) {
@@ -139,18 +157,109 @@ public final class ResourceResolver {
         // 1. Disk search
         Optional<File> diskResult = searchOnDisk(cpPath, expectedResourceRoot);
 
-        if (diskResult.isEmpty()) {
-            return ResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
+        if (diskResult.isPresent()) {
+            File resolved = diskResult.get();
+
+            // 2. Validate: File must be under expected resource root
+            if (isUnderDirectory(resolved, expectedResourceRoot)) {
+                return ResolutionResult.inRoot(resolved, expectedResourceRoot);
+            } else {
+                return ResolutionResult.outsideRoot(resolved, expectedResourceRoot);
+            }
         }
 
-        File resolved = diskResult.get();
-
-        // 2. Validate: File must be under expected resource root
-        if (isUnderDirectory(resolved, expectedResourceRoot)) {
-            return ResolutionResult.inRoot(resolved, expectedResourceRoot);
-        } else {
-            return ResolutionResult.outsideRoot(resolved, expectedResourceRoot);
+        // 3. Not found on disk → search in dependency JARs
+        if (projectRoot != null) {
+            Optional<DependencyResolutionResult> dependencyResult = searchInDependencyJars(cpPath, projectRoot);
+            if (dependencyResult.isPresent()) {
+                return ResolutionResult.fromDependency(
+                        dependencyResult.get().materializedFile(),
+                        dependencyResult.get().sourceJar(),
+                        expectedResourceRoot
+                );
+            }
         }
+
+        // 4. Not found anywhere
+        return ResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
+    }
+
+    /**
+     * Result of dependency JAR search.
+     */
+    private record DependencyResolutionResult(File materializedFile, String sourceJar) {}
+
+    /**
+     * Searches for a resource in dependency JARs (target/dependency/*.jar).
+     * If found, materializes the resource to a temporary file.
+     *
+     * @param cpPath the normalized classpath path
+     * @param projectRoot the project root directory
+     * @return optional containing materialized file and source JAR name
+     */
+    private static Optional<DependencyResolutionResult> searchInDependencyJars(String cpPath, File projectRoot) {
+        try {
+            String canonicalRoot = projectRoot.getCanonicalPath();
+            String cacheKey = canonicalRoot + "::dep::" + cpPath;
+
+            File cachedFile = MATERIALIZED_CACHE.getOrCreate(cacheKey, k -> {
+                try {
+                    ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+                    URL url = cl.getResource(cpPath);
+                    if (url == null) return null;
+
+                    // Check if URL is from a JAR
+                    String urlString = url.toString();
+                    if (!urlString.startsWith("jar:file:")) {
+                        return null; // Not from JAR, skip
+                    }
+
+                    // Extract JAR name from URL
+                    // Format: jar:file:/path/to/project/target/dependency/some-lib.jar!/path/to/resource
+                    String jarPath = urlString.substring("jar:file:".length(), urlString.indexOf("!"));
+                    File jarFile = new File(jarPath);
+
+                    // Verify it's from target/dependency
+                    if (!jarFile.getAbsolutePath().contains("target" + File.separator + "dependency")) {
+                        return null; // Not from dependency folder
+                    }
+
+                    // Materialize resource
+                    Path tempRoot = Files.createTempDirectory("dsf-validator-dependency-");
+                    return getFile(cpPath, url, tempRoot);
+                } catch (Exception e) {
+                    return null;
+                }
+            });
+
+            if (cachedFile != null) {
+                // Extract JAR name for logging
+                String jarName = extractJarNameFromClasspath(cpPath, projectRoot);
+                return Optional.of(new DependencyResolutionResult(cachedFile, jarName));
+            }
+
+            return Optional.empty();
+
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Extracts the dependency JAR name from classpath for a given resource.
+     */
+    private static String extractJarNameFromClasspath(String cpPath, File projectRoot) {
+        try {
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+            URL url = cl.getResource(cpPath);
+            if (url != null && url.toString().startsWith("jar:file:")) {
+                String jarPath = url.toString().substring("jar:file:".length(), url.toString().indexOf("!"));
+                return new File(jarPath).getName();
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+        return "unknown-dependency.jar";
     }
 
     /**
@@ -252,19 +361,7 @@ public final class ResourceResolver {
                     if (url == null) return null;
 
                     Path tempRoot = Files.createTempDirectory("dsf-validator-resources-");
-                    tempRoot.toFile().deleteOnExit();
-
-                    Path targetPath = tempRoot.resolve(cpPath);
-                    Files.createDirectories(targetPath.getParent());
-
-                    try (InputStream in = url.openStream()) {
-                        Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    }
-
-                    File result = targetPath.toFile();
-                    result.deleteOnExit();
-
-                    return result;
+                    return getFile(cpPath, url, tempRoot);
                 } catch (Exception e) {
                     return null;
                 }
@@ -273,5 +370,21 @@ public final class ResourceResolver {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    private static File getFile(String cpPath, URL url, Path tempRoot) throws IOException {
+        tempRoot.toFile().deleteOnExit();
+
+        Path targetPath = tempRoot.resolve(cpPath);
+        Files.createDirectories(targetPath.getParent());
+
+        try (InputStream in = url.openStream()) {
+            Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        File result = targetPath.toFile();
+        result.deleteOnExit();
+
+        return result;
     }
 }
