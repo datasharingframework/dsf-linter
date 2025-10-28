@@ -1,4 +1,4 @@
-package dev.dsf.linter.util.laoder;
+package dev.dsf.linter.util.loader;
 
 import java.util.concurrent.Callable;
 

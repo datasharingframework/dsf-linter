@@ -8,7 +8,7 @@ import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionDetector;
 import dev.dsf.linter.util.api.DetectedVersion;
-import dev.dsf.linter.util.laoder.ClassLoaderUtils;
+import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
 import dev.dsf.linter.util.resource.ResourceResolver;

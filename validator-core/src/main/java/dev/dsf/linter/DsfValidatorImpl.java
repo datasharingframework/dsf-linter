@@ -7,7 +7,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.ValidationReportGenerator;
 import dev.dsf.linter.service.*;
 import dev.dsf.linter.setup.ProjectSetupHandler;
-import dev.dsf.linter.util.laoder.ClassLoaderUtils;
+import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.validation.ValidationOutput;

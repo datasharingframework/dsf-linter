@@ -1,9 +1,9 @@
 package dev.dsf.linter.plugin;
 
 import dev.dsf.linter.util.LogUtils;
-import dev.dsf.linter.util.laoder.ClassLoaderUtils;
+import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.validation.PluginValidationUtils;
-import dev.dsf.linter.util.laoder.ServiceLoaderUtils;
+import dev.dsf.linter.util.loader.ServiceLoaderUtils;
 
 import java.io.File;
 import java.io.IOException;

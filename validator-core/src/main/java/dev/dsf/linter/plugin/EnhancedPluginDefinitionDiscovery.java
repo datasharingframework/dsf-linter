@@ -1,6 +1,6 @@
 package dev.dsf.linter.plugin;
 
-import dev.dsf.linter.util.laoder.ServiceLoaderUtils;
+import dev.dsf.linter.util.loader.ServiceLoaderUtils;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
 
 import java.io.File;
