@@ -131,7 +131,6 @@ public class JarHandler {
 
         Files.createDirectories(extractDir);
 
-
         try {
             // Step 1: Copy JAR to extraction directory FIRST
             Path jarCopyPath = extractDir.resolve(jarName);
@@ -142,9 +141,11 @@ public class JarHandler {
             extractJarContents(jarFile, extractDir);
 
             // Step 3: Resolve DSF dependencies via Maven
-            // This creates a stub pom.xml and downloads required API JARs
-            JarDependencyResolver dependencyResolver = new JarDependencyResolver(logger);
-            dependencyResolver.resolveDependencies(extractDir);
+            // NOTE: This creates a stub pom.xml and downloads required API JARs.
+            // This is also handled in ProjectSetupHandler for all input types,
+            // but we keep it here for JAR-specific processing for backward compatibility.
+            DependencyResolver dependencyResolver = new DependencyResolver(logger);
+            dependencyResolver.resolveStubDependencies(extractDir);
 
             logger.info("JAR processing complete: " + extractDir.toAbsolutePath());
 
@@ -305,7 +306,6 @@ public class JarHandler {
             throw new IOException("Failed to read JAR file: " + e.getMessage(), e);
         }
     }
-
 
     /**
      * Extracts the JAR file name from a URL.
