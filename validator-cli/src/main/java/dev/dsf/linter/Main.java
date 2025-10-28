@@ -141,7 +141,6 @@ public class Main implements Callable<Integer> {
                 logger.info("Removing temporary extraction directory...");
                 resolver.cleanup(resolution);
                 logger.info("Temporary extraction directory removed.");
-                logger.info("Validation reports remain available at: " + reportPath.toAbsolutePath());
             }
         }
     }
@@ -214,18 +213,18 @@ public class Main implements Callable<Integer> {
     private String extractInputName(String inputPath, InputType inputType) {
         String name;
 
-        final Path path1 = Paths.get(inputPath);
         switch (inputType) {
-            case LOCAL_DIRECTORY -> {
-                name = path1.getFileName().toString();
+            case LOCAL_DIRECTORY, LOCAL_JAR_FILE -> {
+                Path path = Paths.get(inputPath);
+                name = path.getFileName().toString();
+                if (inputType == InputType.LOCAL_JAR_FILE) {
+                    name = name.replace(".jar", "");
+                }
             }
-            case GIT_REPOSITORY -> {
+            case GIT_REPOSITORY ->
                 name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
                         .replace(".git", "");
-            }
-            case LOCAL_JAR_FILE -> {
-                name = path1.getFileName().toString().replace(".jar", "");
-            }
+
             case REMOTE_JAR_URL -> {
                 String path = inputPath.substring(inputPath.lastIndexOf('/') + 1);
                 int queryIndex = path.indexOf('?');
