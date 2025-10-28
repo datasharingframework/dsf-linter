@@ -3,12 +3,16 @@ package dev.dsf.linter.util.validation;
 import dev.dsf.linter.item.BpmnValidationItem;
 import dev.dsf.linter.item.FhirValidationItem;
 import dev.dsf.linter.item.PluginValidationItem;
+import dev.dsf.linter.item.PluginDefinitionValidationItemSuccess;
 import dev.dsf.linter.ValidationSeverity;
 import dev.dsf.linter.item.AbstractValidationItem;
+import dev.dsf.linter.util.resource.ResourceResolver;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ValidationUtils {
@@ -170,5 +174,44 @@ public class ValidationUtils {
         return items.stream()
                 .filter(item -> item instanceof PluginValidationItem)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Creates SUCCESS validation items for resources found in dependency JARs.
+     * These items indicate that the resources were successfully resolved from dependencies.
+     *
+     * @param pluginName the name of the plugin being validated
+     * @param dependencyResources map of resources found in dependency JARs
+     * @param resourceType the type of resource (e.g., "BPMN" or "FHIR")
+     * @return list of SUCCESS validation items for dependency resources
+     */
+    public static List<AbstractValidationItem> createDependencySuccessItems(
+            String pluginName,
+            Map<String, ResourceResolver.ResolutionResult> dependencyResources,
+            String resourceType) {
+
+        List<AbstractValidationItem> items = new ArrayList<>();
+
+        if (dependencyResources == null || dependencyResources.isEmpty()) {
+            return items;
+        }
+
+        for (Map.Entry<String, ResourceResolver.ResolutionResult> entry : dependencyResources.entrySet()) {
+            String reference = entry.getKey();
+            ResourceResolver.ResolutionResult result = entry.getValue();
+
+            if (result.file().isPresent()) {
+                items.add(new PluginDefinitionValidationItemSuccess(
+                        result.file().get(),
+                        pluginName,
+                        String.format("%s resource '%s' found in dependency JAR (%s)",
+                                resourceType,
+                                reference,
+                                result.actualLocation())
+                ));
+            }
+        }
+
+        return items;
     }
 }

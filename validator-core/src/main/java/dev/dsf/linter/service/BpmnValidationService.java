@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * Service responsible for validating BPMN resources.
- * Enhanced with resource root validation.
+ * Enhanced with resource root validation and dependency JAR support.
  *
  * @author DSF Development Team
  * @since 1.0.0
@@ -54,14 +54,15 @@ public class BpmnValidationService {
     }
 
     /**
-     * Enhanced validation method that includes resource root validation.
+     * Enhanced validation method that includes resource root validation and dependency JAR support.
      * This is the new method that should be called from orchestrator.
      *
-     * @param pluginName       The name of the plugin being validated
-     * @param bpmnFiles        List of existing BPMN files to validate
-     * @param missingBpmnRefs  List of BPMN file paths that were referenced but not found
-     * @param bpmnOutsideRoot  Map of BPMN files found outside expected resource root
-     * @param pluginResourceRoot The plugin-specific resource root for success items
+     * @param pluginName          The name of the plugin being validated
+     * @param bpmnFiles           List of existing BPMN files to validate
+     * @param missingBpmnRefs     List of BPMN file paths that were referenced but not found
+     * @param bpmnOutsideRoot     Map of BPMN files found outside expected resource root
+     * @param bpmnFromDependencies Map of BPMN files found in dependency JARs
+     * @param pluginResourceRoot  The plugin-specific resource root for success items
      * @return ValidationResult containing all collected validation items
      * @throws ResourceValidationException if a severe error occurs during validation
      */
@@ -70,6 +71,7 @@ public class BpmnValidationService {
             List<File> bpmnFiles,
             List<String> missingBpmnRefs,
             Map<String, ResourceResolver.ResolutionResult> bpmnOutsideRoot,
+            Map<String, ResourceResolver.ResolutionResult> bpmnFromDependencies,
             File pluginResourceRoot)
             throws ResourceValidationException {
 
@@ -78,6 +80,7 @@ public class BpmnValidationService {
         allItems.addAll(validateExistingFiles(pluginName, bpmnFiles));
         allItems.addAll(createMissingReferenceItems(pluginName, missingBpmnRefs));
         allItems.addAll(createOutsideRootItems(pluginName, bpmnOutsideRoot));
+        allItems.addAll(createDependencyItems(pluginName, bpmnFromDependencies));
         allItems.addAll(createSuccessItemsForValidResources(pluginName, bpmnFiles, pluginResourceRoot));
 
         return new ValidationResult(allItems);
@@ -116,6 +119,25 @@ public class BpmnValidationService {
         }
 
         return items;
+    }
+
+    /**
+     * Creates INFO validation items for BPMN files found in dependency JARs.
+     * These are treated as SUCCESS since dependencies are expected to provide resources.
+     *
+     * @param pluginName the plugin name
+     * @param bpmnFromDependencies map of files found in dependencies
+     * @return list of INFO validation items
+     */
+    private List<AbstractValidationItem> createDependencyItems(
+            String pluginName,
+            Map<String, ResourceResolver.ResolutionResult> bpmnFromDependencies) {
+
+        return dev.dsf.linter.util.validation.ValidationUtils.createDependencySuccessItems(
+                pluginName,
+                bpmnFromDependencies,
+                "BPMN"
+        );
     }
 
     /**

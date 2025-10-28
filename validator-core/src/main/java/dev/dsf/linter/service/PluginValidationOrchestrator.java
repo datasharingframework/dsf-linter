@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * Orchestrates the complete validation process for a single plugin.
- * Enhanced with resource root validation support.
+ * Enhanced with resource root validation and dependency JAR support.
  */
 public class PluginValidationOrchestrator {
 
@@ -60,7 +60,8 @@ public class PluginValidationOrchestrator {
     }
 
     /**
-     * Validates a single plugin completely with enhanced resource root validation.
+     * Validates a single plugin completely with enhanced resource root validation
+     * and dependency JAR support.
      *
      * @param pluginName The unique name of the plugin
      * @param plugin The plugin discovery information
@@ -87,7 +88,7 @@ public class PluginValidationOrchestrator {
                 validationContext.totalPlugins()
         );
 
-        // Step 3: Collect BPMN and FHIR validation items
+        // Step 3: Collect BPMN and FHIR validation items (including dependency resources)
         ValidationItemsCollection itemsCollection = collectValidationItems(pluginName, plugin);
 
         // Step 4: Run plugin-level validation
@@ -149,19 +150,20 @@ public class PluginValidationOrchestrator {
 
     /**
      * Collects validation items from BPMN and FHIR validators.
-     * Includes resource root validation items and individual success items.
+     * Includes resource root validation items, dependency items, and individual success items.
      */
     private ValidationItemsCollection collectValidationItems(
             String pluginName,
             ResourceDiscoveryService.PluginDiscovery plugin)
             throws ResourceValidationException {
 
-        // Call ENHANCED validate methods with outsideRoot maps and resource root
+        // Call ENHANCED validate methods with outsideRoot maps, dependency maps, and resource root
         ValidationResult bpmnResult = bpmnValidator.validate(
                 pluginName,
                 plugin.bpmnFiles(),
                 plugin.missingBpmnRefs(),
                 plugin.bpmnOutsideRoot(),
+                plugin.bpmnFromDependencies(),
                 plugin.pluginSpecificResourceRoot()
         );
 
@@ -170,6 +172,7 @@ public class PluginValidationOrchestrator {
                 plugin.fhirFiles(),
                 plugin.missingFhirRefs(),
                 plugin.fhirOutsideRoot(),
+                plugin.fhirFromDependencies(),
                 plugin.pluginSpecificResourceRoot()
         );
 

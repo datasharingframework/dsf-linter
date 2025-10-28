@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * Service responsible for validating FHIR resources.
- * Enhanced with resource root validation.
+ * Enhanced with resource root validation and dependency JAR support.
  *
  * @author DSF Development Team
  * @since 1.0.0
@@ -33,7 +33,7 @@ public class FhirValidationService {
     /**
      * Validates all FHIR files and missing references for a given plugin.
      *
-     * @deprecated Use {@link #validate(String, List, List, Map, File)} for enhanced resource root validation
+     * @deprecated Use {@link #validate(String, List, List, Map, Map, File)} for enhanced resource root and dependency validation
      */
     @Deprecated
     public ValidationResult validate(String pluginName, List<File> fhirFiles, List<String> missingFhirRefs)
@@ -52,14 +52,15 @@ public class FhirValidationService {
     }
 
     /**
-     * Enhanced validation method that includes resource root validation.
+     * Enhanced validation method that includes resource root validation and dependency JAR support.
      * This is the new method that should be called from orchestrator.
      *
-     * @param pluginName      The name of the plugin being validated
-     * @param fhirFiles       List of FHIR files to validate
-     * @param missingFhirRefs List of missing FHIR references
-     * @param fhirOutsideRoot Map of FHIR files found outside expected resource root
-     * @param pluginResourceRoot The plugin-specific resource root for success items
+     * @param pluginName          The name of the plugin being validated
+     * @param fhirFiles           List of FHIR files to validate (from project or dependencies)
+     * @param missingFhirRefs     List of missing FHIR references
+     * @param fhirOutsideRoot     Map of FHIR files found outside expected resource root
+     * @param fhirFromDependencies Map of FHIR files found in dependency JARs
+     * @param pluginResourceRoot  The plugin-specific resource root for success items
      * @return ValidationResult containing all items
      * @throws ResourceValidationException if any FHIR file contains parsing errors
      */
@@ -68,6 +69,7 @@ public class FhirValidationService {
             List<File> fhirFiles,
             List<String> missingFhirRefs,
             Map<String, ResourceResolver.ResolutionResult> fhirOutsideRoot,
+            Map<String, ResourceResolver.ResolutionResult> fhirFromDependencies,
             File pluginResourceRoot)
             throws ResourceValidationException {
 
@@ -76,6 +78,7 @@ public class FhirValidationService {
         allItems.addAll(createMissingReferenceItems(pluginName, missingFhirRefs));
         allItems.addAll(validateExistingFiles(pluginName, fhirFiles));
         allItems.addAll(createOutsideRootItems(pluginName, fhirOutsideRoot));
+        allItems.addAll(createDependencyItems(pluginName, fhirFromDependencies));
         allItems.addAll(createSuccessItemsForValidResources(pluginName, fhirFiles, pluginResourceRoot));
 
         return new ValidationResult(allItems);
@@ -114,6 +117,25 @@ public class FhirValidationService {
         }
 
         return items;
+    }
+
+    /**
+     * Creates INFO validation items for FHIR files found in dependency JARs.
+     * These are treated as SUCCESS since dependencies are expected to provide resources.
+     *
+     * @param pluginName the plugin name
+     * @param fhirFromDependencies map of files found in dependencies
+     * @return list of INFO validation items
+     */
+    private List<AbstractValidationItem> createDependencyItems(
+            String pluginName,
+            Map<String, ResourceResolver.ResolutionResult> fhirFromDependencies) {
+
+        return dev.dsf.linter.util.validation.ValidationUtils.createDependencySuccessItems(
+                pluginName,
+                fhirFromDependencies,
+                "FHIR"
+        );
     }
 
     /**
