@@ -4,6 +4,7 @@ import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
+import dev.dsf.linter.util.Console;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -90,14 +91,60 @@ public class Main implements Callable<Integer> {
         Logger logger = new ConsoleLogger(verbose);
         logger.info("DSF Linter v1.0.0");
 
-        // lint input
+        // Validate input
         if (inputPath == null || inputPath.isBlank()) {
             logger.error("ERROR: Specify a path using --path (local directory, Git repository URL, or JAR file).");
             return 1;
         }
 
-        // Resolve input using unified InputResolver
+        // Early detection of input type BEFORE any resolution/cloning/downloading
         InputResolver resolver = new InputResolver(logger);
+        InputType inputType;
+
+        try {
+            inputType = resolver.detectInputType(inputPath);
+            logger.info("Detected input type: " + inputType);
+        } catch (IllegalArgumentException e) {
+            logger.error("ERROR: Invalid input: " + e.getMessage());
+            return 1;
+        }
+
+        // Check if non-JAR input without --mvn option BEFORE resolution
+        if (mavenGoals == null &&
+                inputType != InputType.LOCAL_JAR_FILE &&
+                inputType != InputType.REMOTE_JAR_URL) {
+
+            String errorMessage = String.format("""
+            
+            ═══════════════════════════════════════════════════════════════
+              ERROR: The linter is primarily designed for JAR files.
+              For project directories or Git repositories, please use
+              the --mvn option to ensure a proper build.
+            
+              Example: dsf-linter --path %s --mvn clean package
+            
+              See README.md for more details.
+            ═══════════════════════════════════════════════════════════════
+            """, inputPath);
+
+            Console.redErr(errorMessage);
+
+            return 1;
+        }
+
+        // Check if JAR with --mvn option (unnecessary but harmless)
+        if (mavenGoals != null &&
+                (inputType == InputType.LOCAL_JAR_FILE || inputType == InputType.REMOTE_JAR_URL)) {
+
+            logger.warn("");
+            logger.warn("═══════════════════════════════════════════════════════════════");
+            logger.warn("  NOTE: --mvn option has no effect on JAR files.");
+            logger.warn("  JAR files always use stub dependencies only.");
+            logger.warn("  The --mvn option will be ignored.");
+            logger.warn("═══════════════════════════════════════════════════════════════");
+            logger.warn("");
+        }
+
         Optional<InputResolver.ResolutionResult> resolutionResult = resolver.resolve(inputPath);
 
         if (resolutionResult.isEmpty()) {
@@ -120,7 +167,7 @@ public class Main implements Callable<Integer> {
             Path reportBaseDir = tempBase.resolve("dsf-linter-report-" + inputName);
             reportPath = reportBaseDir.resolve("dsf-linter-report");
 
-            logger.info("linter report will be saved to: " + reportPath.toAbsolutePath());
+            logger.info("Linter report will be saved to: " + reportPath.toAbsolutePath());
         }
 
         try {

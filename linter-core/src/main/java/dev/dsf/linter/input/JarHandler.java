@@ -132,7 +132,7 @@ public class JarHandler {
         Files.createDirectories(extractDir);
 
         try {
-            // Step 1: Copy JAR to extraction directory FIRST
+            // Step 1: Copy JAR to extraction directory
             Path jarCopyPath = extractDir.resolve(jarName);
             Files.copy(jarFile, jarCopyPath, StandardCopyOption.REPLACE_EXISTING);
             logger.info("Copied JAR to extraction directory: " + jarCopyPath.getFileName());
@@ -140,16 +140,9 @@ public class JarHandler {
             // Step 2: Extract JAR contents
             extractJarContents(jarFile, extractDir);
 
-            // Step 3: Resolve DSF dependencies via Maven
-            // NOTE: This creates a stub pom.xml and downloads required API JARs.
-            // This is also handled in ProjectSetupHandler for all input types,
-            // but we keep it here for JAR-specific processing for backward compatibility.
-            DependencyResolver dependencyResolver = new DependencyResolver(logger);
-            dependencyResolver.resolveStubDependencies(extractDir);
-
             logger.info("JAR processing complete: " + extractDir.toAbsolutePath());
 
-        } catch (IOException | IllegalStateException | InterruptedException e) {
+        } catch (IOException e) {
             // Cleanup on failure
             deleteDirectoryRecursively(extractDir);
             throw e;

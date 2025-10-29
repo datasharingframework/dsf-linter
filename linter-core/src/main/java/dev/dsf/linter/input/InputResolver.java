@@ -117,7 +117,11 @@ public class InputResolver {
      * @param input the input string to analyze
      * @return the detected InputType
      */
-    private InputType detectInputType(String input) {
+    public InputType detectInputType(String input) {
+        if (input == null || input.isBlank()) {
+            throw new IllegalArgumentException("Input cannot be null or blank");
+        }
+
         String normalized = input.trim().toLowerCase();
 
         // Check for JAR files first

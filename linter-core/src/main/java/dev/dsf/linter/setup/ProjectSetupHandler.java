@@ -50,8 +50,8 @@ public class ProjectSetupHandler {
      * Sets up the complete linting environment for a project.
      *
      * @param projectPath the path to the project directory
-     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, no full Maven build is performed,
-     *                   but dependencies are still resolved.
+     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, only stub dependencies
+     *                   are resolved (suitable for JAR inputs only).
      * @param skipGoals optional Maven goals to remove from default build. Ignored if {@code mavenGoals} is {@code null}.
      * @return a ProjectContext containing all necessary setup information
      * @throws IllegalStateException if setup fails
@@ -72,23 +72,16 @@ public class ProjectSetupHandler {
             // User explicitly requested Maven build via --mvn
             logger.info("Maven build enabled via --mvn option. Executing full build...");
             if (!isMavenProject) {
-                logger.warn("--mvn specified but no pom.xml found. Maven build will be skipped.");
+                logger.warn("--mvn specified but no pom.xml found. Using stub dependencies only...");
+                dependencyResolver.resolveStubDependencies(projectPath);
             } else {
                 buildMavenProject(projectDir, mavenGoals, skipGoals);
             }
         } else {
-            // No --mvn specified: minimal build for linting
-            logger.info("No --mvn option specified. Executing minimal build for linting...");
-
-            if (isMavenProject) {
-                // Maven project: compile + merged dependencies (stub + project)
-                logger.info("pom.xml detected. Compiling sources and resolving merged dependencies...");
-                performMinimalBuild(projectDir);
-            } else {
-                // No pom.xml: only stub dependencies (for exploded JARs)
-                logger.info("No pom.xml found. Using only stub dependencies...");
-                dependencyResolver.resolveStubDependencies(projectPath);
-            }
+            // No --mvn specified: This path is only reached for JAR inputs
+            // (non-JAR inputs without --mvn are blocked in Main.java)
+            logger.info("No --mvn option specified. Using stub dependencies only...");
+            dependencyResolver.resolveStubDependencies(projectPath);
         }
 
         ClassLoader projectClassLoader = createProjectClassLoader(projectDir);
@@ -116,37 +109,6 @@ public class ProjectSetupHandler {
      */
     private boolean detectProjectLayout(Path projectPath) {
         return Files.isRegularFile(projectPath.resolve("pom.xml"));
-    }
-
-    /**
-     * Performs a minimal Maven build for linting purposes.
-     * <p>
-     * This method creates a merged POM combining stub dependencies with project dependencies
-     * extracted from the effective POM. It then executes:
-     * <ul>
-     *   <li>{@code compile} - Compile sources to generate .class files</li>
-     *   <li>{@code dependency:copy-dependencies} - Copy all dependencies (stub + project) to target/dependency</li>
-     * </ul>
-     * </p>
-     * <p>
-     * This is used when --mvn is NOT specified, ensuring that:
-     * <ul>
-     *   <li>Source code is compiled (required for ClassLoader to find plugin implementations)</li>
-     *   <li>All dependencies are available (stub + project dependencies)</li>
-     *   <li>No unnecessary build steps are executed (no clean, no package, no tests)</li>
-     * </ul>
-     * </p>
-     *
-     * @param projectDir the project directory
-     * @throws IllegalStateException if Maven is not found or build fails
-     * @throws InterruptedException if the build process is interrupted
-     * @throws IOException if I/O errors occur during build
-     */
-    private void performMinimalBuild(File projectDir)
-            throws IllegalStateException, InterruptedException, IOException {
-
-        dependencyResolver.resolveMergedDependencies(projectDir.toPath());
-        logger.info("Minimal build completed successfully.");
     }
 
     /**

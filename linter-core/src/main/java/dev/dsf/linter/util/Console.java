@@ -23,6 +23,7 @@ public class Console {
         String term = System.getenv("TERM");
 
         if (os.contains("win")) {
+            // Modern Windows 10+ terminals support ANSI codes natively
             String ansicon = System.getenv("ANSICON");
             String wt = System.getenv("WT_SESSION");
             return ansicon != null || wt != null || System.console() != null;
@@ -33,6 +34,14 @@ public class Console {
 
     public static void red(String message) {
         printColored(message, ANSI_RED);
+    }
+
+    /**
+     * Prints a red error message to System.err instead of System.out.
+     * Use this for error messages that should appear in the error stream.
+     */
+    public static void redErr(String message) {
+        printColoredErr(message);
     }
 
     public static void green(String message) {
@@ -63,4 +72,11 @@ public class Console {
         }
     }
 
+    private static void printColoredErr(String message) {
+        if (COLOR_ENABLED) {
+            System.err.println(Console.ANSI_RED + message + ANSI_RESET);
+        } else {
+            System.err.println(message);
+        }
+    }
 }
