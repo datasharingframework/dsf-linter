@@ -112,6 +112,10 @@ public class ProjectClassLoaderFactory {
     /**
      * Creates a {@link URLClassLoader} configured to load classes and resources from the project's
      * standard build outputs and dependency directories.
+     * <p>
+     * This method supports loading dependencies from both the project directory and the
+     * global dependency cache (~/.dsf-linter/dependency-cache).
+     * </p>
      *
      * @param projectRoot the root directory of the project
      * @return a {@link URLClassLoader} that can load project classes and dependencies

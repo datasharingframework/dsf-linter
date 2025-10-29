@@ -1,32 +1,31 @@
 package dev.dsf.linter.input;
 
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.setup.MavenBuilder;
-import dev.dsf.linter.util.maven.MavenUtil;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
 import java.util.stream.Stream;
 
 /**
- * Resolves DSF plugin dependencies by generating stub POMs.
+ * Resolves DSF plugin dependencies using cached stub dependencies.
  * <p>
  * This class provides minimal dependency resolution for linter projects,
  * ensuring that all required DSF and Camunda dependencies are available
- * for the ClassLoader.
+ * for the ClassLoader via a persistent cache system.
  * </p>
  *
  * <h3>Strategy:</h3>
  * <ol>
- *   <li>Generate minimal stub pom.xml with fixed DSF dependencies</li>
- *   <li>Execute: mvn dependency:copy-dependencies</li>
- *   <li>Dependencies are placed in target/dependency</li>
+ *   <li>Check if stub dependencies exist in user's cache (~/.dsf-linter/dependency-cache)</li>
+ *   <li>If cached: Copy cached JARs to project's target/dependency</li>
+ *   <li>If not cached: Download via Maven once and cache for future use</li>
  *   <li>ProjectClassLoaderFactory automatically adds them to classpath</li>
  * </ol>
  *
- * <h3>Fixed Stub Dependencies:</h3>
+ /**
+ * <h3>Cached Stub Dependencies:</h3>
  * <ul>
  *   <li>hapi-fhir-base 5.1.0</li>
  *   <li>httpclient 4.5.13</li>
@@ -41,148 +40,83 @@ import java.util.stream.Stream;
  */
 public class DependencyResolver {
 
-    private static final String STUB_POM_TEMPLATE =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                    "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n" +
-                    "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
-                    "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0\n" +
-                    "                             http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" +
-                    "  <modelVersion>4.0.0</modelVersion>\n" +
-                    "  <groupId>dummy</groupId>\n" +
-                    "  <artifactId>dummy</artifactId>\n" +
-                    "  <version>1.0.0</version>\n" +
-                    "  <dependencies>\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>ca.uhn.hapi.fhir</groupId>\n" +
-                    "      <artifactId>hapi-fhir-base</artifactId>\n" +
-                    "      <version>5.1.0</version>\n" +
-                    "    </dependency>\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>org.apache.httpcomponents</groupId>\n" +
-                    "      <artifactId>httpclient</artifactId>\n" +
-                    "      <version>4.5.13</version>\n" +
-                    "    </dependency>\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>org.apache.httpcomponents</groupId>\n" +
-                    "      <artifactId>httpcore</artifactId>\n" +
-                    "      <version>4.4.13</version>\n" +
-                    "    </dependency>\n" +
-                    "    <!-- Camunda BPM engine (required for JavaDelegate linting) -->\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>org.camunda.bpm</groupId>\n" +
-                    "      <artifactId>camunda-engine</artifactId>\n" +
-                    "      <version>7.20.0</version>\n" +
-                    "      <scope>provided</scope>\n" +
-                    "    </dependency>\n" +
-                    "    <!-- DSF BPE API v1 & v2 (for all plugin versions) -->\n" +
-                    "    <dependency>\n" +
-                    "      <groupId>dev.dsf</groupId>\n" +
-                    "      <artifactId>dsf-bpe-process-api-v1</artifactId>\n" +
-                    "      <version>1.7.0</version>\n" +
-                    "      <scope>provided</scope>\n" +
-                    "    </dependency>\n" +
-                    "  </dependencies>\n" +
-                    "</project>\n";
-
     private final Logger logger;
-    private final MavenBuilder mavenBuilder;
+    private final DependencyCache dependencyCache;
 
     public DependencyResolver(Logger logger) {
         this.logger = logger;
-        this.mavenBuilder = new MavenBuilder();
+        this.dependencyCache = new DependencyCache(logger);
     }
 
     /**
-     * Resolves stub DSF plugin dependencies by creating a minimal POM and
-     * downloading dependencies via Maven.
+     * Resolves stub DSF plugin dependencies using the cache system.
+     * <p>
+     * This method retrieves stub dependencies from cache (downloading once if needed)
+     * and copies them to the project's target/dependency directory for the ClassLoader.
+     * </p>
      * <p>
      * This method should be called for JAR inputs or when --mvn is not specified.
      * </p>
      *
      * @param projectDir the project directory
-     * @throws IOException if POM creation or file operations fail
+     * @throws IOException if file operations fail
      * @throws IllegalStateException if Maven is not available or dependency resolution fails
      * @throws InterruptedException if Maven execution is interrupted
      */
     public void resolveStubDependencies(Path projectDir)
             throws IOException, IllegalStateException, InterruptedException {
 
-        logger.info("Resolving minimal DSF plugin dependencies (stub POM)...");
+        logger.info("Resolving minimal DSF plugin dependencies...");
 
-        String mavenExecutable = locateMavenOrThrow();
+        // Get cached stub dependencies (downloads once if needed)
+        Path cachedStubDir = dependencyCache.getOrDownloadStubDependencies();
 
-        Path stubPomFile = projectDir.resolve("stub-pom.xml");
-        Files.writeString(stubPomFile, STUB_POM_TEMPLATE,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        logger.info("Created stub POM with minimal DSF dependencies: " + stubPomFile.getFileName());
+        // Create target/dependency in project directory
+        Path projectDependencyDir = projectDir.resolve("target").resolve("dependency");
+        Files.createDirectories(projectDependencyDir);
 
-        logger.info("Downloading minimal DSF plugin dependencies via Maven...");
-        logger.info("This may take a moment on first run (dependencies are cached locally)");
+        // Copy cached JARs to project directory
+        logger.debug("Copying cached dependencies to project directory...");
+        copyCachedDependencies(cachedStubDir, projectDependencyDir);
 
-        String[] mavenGoals = {
-                "-B",
-                "-q",
-                "-f", stubPomFile.getFileName().toString(),
-                "dependency:copy-dependencies"
-        };
-
-        boolean success = mavenBuilder.buildProject(
-                projectDir.toFile(),
-                mavenExecutable,
-                mavenGoals
-        );
-
-        if (!success) {
-            throw new IllegalStateException(
-                    """
-                            Failed to resolve stub DSF dependencies via Maven.
-                            Possible causes:
-                              - No internet connection (dependencies cannot be downloaded)
-                              - Maven repository configuration issues
-                              - Corrupted local Maven cache (~/.m2/repository)
-                            
-                            Try:
-                              1. Check your internet connection
-                              2. Run 'mvn dependency:purge-local-repository' to clear cache"""
-            );
-        }
-
-        verifyDependenciesDownloaded(projectDir);
+        verifyDependenciesAvailable(projectDir);
         logger.info("Successfully resolved stub dependencies");
     }
 
     /**
-     * Locates the Maven executable or throws an exception.
+     * Copies cached dependency JARs to the project's target/dependency directory.
      *
-     * @return the Maven executable path
-     * @throws IllegalStateException if Maven is not found
+     * @param cacheDir the cache directory containing JARs
+     * @param targetDir the target directory in the project
+     * @throws IOException if copy operations fail
      */
-    private String locateMavenOrThrow() throws IllegalStateException {
-        String mavenExecutable = MavenUtil.locateMavenExecutable();
-        if (mavenExecutable == null) {
-            throw new IllegalStateException(
-                    """
-                            Maven executable not found. Maven is required for dependency resolution.
-                            Please ensure Maven is installed and either:
-                              - Available in PATH, or
-                              - MAVEN_HOME environment variable is set correctly."""
-            );
+    private void copyCachedDependencies(Path cacheDir, Path targetDir) throws IOException {
+        int copiedCount = 0;
+
+        try (Stream<Path> jars = Files.list(cacheDir)) {
+            for (Path jar : jars.filter(p -> p.toString().endsWith(".jar")).toList()) {
+                Path target = targetDir.resolve(jar.getFileName());
+                Files.copy(jar, target, StandardCopyOption.REPLACE_EXISTING);
+                copiedCount++;
+                logger.debug("Copied: " + jar.getFileName());
+            }
         }
-        return mavenExecutable;
+
+        logger.debug("Copied " + copiedCount + " dependency JARs to " + targetDir);
     }
 
     /**
-     * Verifies that dependencies were successfully downloaded.
+     * Verifies that dependencies are available in the project directory.
      *
      * @param projectDir the project directory
      * @throws IllegalStateException if dependency directory is missing or empty
      * @throws IOException if file operations fail
      */
-    private void verifyDependenciesDownloaded(Path projectDir) throws IllegalStateException, IOException {
+    private void verifyDependenciesAvailable(Path projectDir) throws IllegalStateException, IOException {
         Path dependencyDir = projectDir.resolve("target").resolve("dependency");
         if (!Files.exists(dependencyDir) || !Files.isDirectory(dependencyDir)) {
             throw new IllegalStateException(
-                    "Maven dependency resolution completed but target/dependency directory not found.\n" +
+                    "Dependency resolution completed but target/dependency directory not found.\n" +
                             "Expected location: " + dependencyDir.toAbsolutePath()
             );
         }
@@ -196,11 +130,30 @@ public class DependencyResolver {
 
         if (jarCount == 0) {
             throw new IllegalStateException(
-                    "No dependency JARs found in target/dependency after Maven execution.\n" +
-                            "This indicates a Maven configuration or network issue."
+                    "No dependency JARs found in target/dependency.\n" +
+                            "This indicates a cache or file system issue."
             );
         }
 
         logger.debug("Verified " + jarCount + " dependency JARs in " + dependencyDir.toAbsolutePath());
+    }
+
+    /**
+     * Clears the dependency cache.
+     * This is useful for troubleshooting or forcing a re-download of dependencies.
+     *
+     * @throws IOException if cache clearing fails
+     */
+    public void clearCache() throws IOException {
+        dependencyCache.clearCache();
+    }
+
+    /**
+     * Gets the cache directory path.
+     *
+     * @return the cache directory path
+     */
+    public static Path getCacheDirectory() {
+        return DependencyCache.getCacheDirectory();
     }
 }

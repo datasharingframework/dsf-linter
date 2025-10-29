@@ -1,5 +1,6 @@
 package dev.dsf.linter;
 
+import dev.dsf.linter.input.DependencyResolver;
 import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
@@ -21,7 +22,7 @@ import java.util.concurrent.Callable;
         name = "dsf-linter",
         mixinStandardHelpOptions = true,
         version = "3.0.0",
-        description = "lints DSF process plugins from local projects, Git repositories, or JAR files."
+        description = "Lints DSF process plugins from local projects, Git repositories, or JAR files."
 )
 public class Main implements Callable<Integer> {
 
@@ -78,6 +79,14 @@ public class Main implements Callable<Integer> {
                     "Example: --skip clean package")
     private String[] skipGoals;
 
+    /**
+     * Clears the dependency cache and exits.
+     * The cache is located at: ~/.dsf-linter/dependency-cache
+     */
+    @Option(names = "--clear-cache",
+            description = "Clear the dependency cache and exit. Cache location: ~/.dsf-linter/dependency-cache")
+    private boolean clearCache = false;
+
 
     public static void main(String[] args) {
         boolean verbose = Arrays.stream(args).anyMatch(a -> a.equals("-v") || a.equals("--verbose"));
@@ -90,6 +99,11 @@ public class Main implements Callable<Integer> {
     public Integer call() {
         Logger logger = new ConsoleLogger(verbose);
         logger.info("DSF Linter v1.0.0");
+
+        // Handle --clear-cache flag
+        if (clearCache) {
+            return handleClearCache(logger);
+        }
 
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
@@ -145,6 +159,7 @@ public class Main implements Callable<Integer> {
             logger.warn("");
         }
 
+        // NOW we can safely resolve the input (clone, download, etc.)
         Optional<InputResolver.ResolutionResult> resolutionResult = resolver.resolve(inputPath);
 
         if (resolutionResult.isEmpty()) {
@@ -189,6 +204,31 @@ public class Main implements Callable<Integer> {
                 resolver.cleanup(resolution);
                 logger.info("Temporary extraction directory removed.");
             }
+        }
+    }
+
+    /**
+     * Handles the --clear-cache flag.
+     *
+     * @param logger the logger instance
+     * @return exit code (0 for success, 1 for failure)
+     */
+    private Integer handleClearCache(Logger logger) {
+        try {
+            logger.info("Clearing dependency cache...");
+            logger.info("Cache location: " + DependencyResolver.getCacheDirectory());
+
+            DependencyResolver resolver = new DependencyResolver(logger);
+            resolver.clearCache();
+
+            logger.info("");
+            logger.info("✓ Cache cleared successfully");
+            logger.info("Dependencies will be re-downloaded on next linter run");
+            return 0;
+
+        } catch (Exception e) {
+            logger.error("Failed to clear cache: " + e.getMessage(), e);
+            return 1;
         }
     }
 
@@ -269,8 +309,8 @@ public class Main implements Callable<Integer> {
                 }
             }
             case GIT_REPOSITORY ->
-                name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
-                        .replace(".git", "");
+                    name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
+                            .replace(".git", "");
 
             case REMOTE_JAR_URL -> {
                 String path = inputPath.substring(inputPath.lastIndexOf('/') + 1);
