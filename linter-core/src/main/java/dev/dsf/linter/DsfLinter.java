@@ -3,6 +3,7 @@ package dev.dsf.linter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.exception.ResourceLinterException;
+import dev.dsf.linter.util.Console;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.LintingReportGenerator;
 import dev.dsf.linter.service.*;
@@ -104,6 +105,7 @@ public class DsfLinter {
     public DsfLinter(Config config) {
         this.config = config;
         this.logger = config.logger();
+        Console.init(logger);
         this.setupHandler = new ProjectSetupHandler(logger);
         this.discoveryService = new ResourceDiscoveryService(logger);
         BpmnLintingService bpmnLinter = new BpmnLintingService(logger);

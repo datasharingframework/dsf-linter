@@ -1,7 +1,10 @@
 package dev.dsf.linter.util;
 
+import dev.dsf.linter.logger.Logger;
+
 /**
  * Utility class for colored console output using ANSI escape codes.
+ * All output goes through the Logger to ensure consistent behavior across different environments.
  */
 public class Console {
 
@@ -14,69 +17,141 @@ public class Console {
     private static final String ANSI_BOLD = "\u001B[1m";
 
     private static final boolean COLOR_ENABLED = isColorSupported();
+    private static Logger logger;
 
     private Console() {
     }
 
-    private static boolean isColorSupported() {
-        String os = System.getProperty("os.name").toLowerCase();
-        String term = System.getenv("TERM");
-
-        if (os.contains("win")) {
-            // Modern Windows 10+ terminals support ANSI codes natively
-            String ansicon = System.getenv("ANSICON");
-            String wt = System.getenv("WT_SESSION");
-            return ansicon != null || wt != null || System.console() != null;
-        }
-
-        return term != null && !term.equals("dumb");
+    /**
+     * Initialize the Console with a Logger instance.
+     * Must be called before using any color methods.
+     *
+     * @param logger The logger instance to use for all console output
+     */
+    public static void init(Logger logger) {
+        Console.logger = logger;
     }
 
+    /**
+     * Prints a message in red color.
+     *
+     * @param message The message to print
+     */
     public static void red(String message) {
         printColored(message, ANSI_RED);
     }
 
     /**
-     * Prints a red error message to System.err instead of System.out.
-     * Use this for error messages that should appear in the error stream.
+     * Prints a red error message directly to System.err.
+     * This method bypasses the logger and is intended for critical errors
+     * that must be written to stderr regardless of logger configuration.
+     *
+     * @param message The error message to print
      */
     public static void redErr(String message) {
-        printColoredErr(message);
+        System.err.println(ANSI_RED + message + ANSI_RESET);
+        System.err.flush();
     }
 
+    /**
+     * Prints a message in green color.
+     *
+     * @param message The message to print
+     */
     public static void green(String message) {
         printColored(message, ANSI_GREEN);
     }
 
+    /**
+     * Prints a message in yellow color.
+     *
+     * @param message The message to print
+     */
     public static void yellow(String message) {
         printColored(message, ANSI_YELLOW);
     }
 
+    /**
+     * Prints a message in blue color.
+     *
+     * @param message The message to print
+     */
     public static void blue(String message) {
         printColored(message, ANSI_BLUE);
     }
 
+    /**
+     * Prints a message in cyan color.
+     *
+     * @param message The message to print
+     */
     public static void cyan(String message) {
         printColored(message, ANSI_CYAN);
     }
 
+    /**
+     * Prints a message in bold style.
+     *
+     * @param message The message to print
+     */
     public static void bold(String message) {
         printColored(message, ANSI_BOLD);
     }
 
+    /**
+     * Prints a colored message using the logger.
+     * Falls back to System.out if logger is not initialized.
+     *
+     * @param message   The message to print
+     * @param colorCode The ANSI color code to use
+     */
     private static void printColored(String message, String colorCode) {
-        if (COLOR_ENABLED) {
-            System.out.println(colorCode + message + ANSI_RESET);
+        String output = COLOR_ENABLED ? (colorCode + message + ANSI_RESET) : message;
+
+        if (logger != null) {
+            logger.info(output);
         } else {
-            System.out.println(message);
+            System.out.println(output);
         }
     }
 
-    private static void printColoredErr(String message) {
-        if (COLOR_ENABLED) {
-            System.err.println(Console.ANSI_RED + message + ANSI_RESET);
-        } else {
-            System.err.println(message);
+    /**
+     * Checks if ANSI color codes are supported in the current environment.
+     * Uses a more lenient approach suitable for build tools and CI environments.
+     *
+     * @return true if colors should be enabled
+     */
+    private static boolean isColorSupported() {
+        // Explicit disable via environment variable
+        String noColor = System.getenv("NO_COLOR");
+        if (noColor != null && !noColor.isEmpty()) {
+            return false;
         }
+
+        // Explicit enable via environment variable (common in CI)
+        String forceColor = System.getenv("FORCE_COLOR");
+        if (forceColor != null && !forceColor.equals("0")) {
+            return true;
+        }
+
+        // Check TERM environment variable
+        String term = System.getenv("TERM");
+        if (term != null && term.equals("dumb")) {
+            return false;
+        }
+
+        // On Windows, check for modern terminal support
+        String os = System.getProperty("os.name").toLowerCase();
+        if (os.contains("win")) {
+            String wt = System.getenv("WT_SESSION");
+            String ansicon = System.getenv("ANSICON");
+            // Windows Terminal or ANSICON present
+            if (wt != null || ansicon != null) {
+                return true;
+            }
+        }
+
+        // Default: enable colors (most modern environments support it)
+        return true;
     }
 }

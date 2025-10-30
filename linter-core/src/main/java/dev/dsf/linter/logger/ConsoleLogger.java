@@ -1,38 +1,41 @@
 package dev.dsf.linter.logger;
 
-import dev.dsf.linter.util.Console;
-
 /**
  * Implements the Logger interface to write messages to the standard
- * System.out and System.err console streams. It uses the Console
- * utility to colorize error messages.
+ * System.out and System.err console streams with colored output.
  */
 public record ConsoleLogger(boolean verbose) implements Logger {
+
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_RED = "\u001B[31m";
+    private static final String ANSI_YELLOW = "\u001B[33m";
 
     @Override
     public void info(String message) {
         System.out.println(message);
+        System.out.flush();
     }
 
     @Override
     public void warn(String message) {
-        // Using System.err for warnings, similar to errors.
-        Console.red("WARN: " + message);
+        System.err.println(ANSI_YELLOW + "WARN: " + message + ANSI_RESET);
+        System.err.flush();
     }
 
     @Override
     public void error(String message) {
-        // Reuse your existing Console class for red output.
-        Console.red("ERROR: " + message);
+        System.err.println(ANSI_RED + "ERROR: " + message + ANSI_RESET);
+        System.err.flush();
     }
 
     @Override
     public void error(String message, Throwable throwable) {
-        Console.red("ERROR: " + message);
+        System.err.println(ANSI_RED + "ERROR: " + message + ANSI_RESET);
         if (throwable != null) {
             // Print stack trace to standard error stream.
             throwable.printStackTrace(System.err);
         }
+        System.err.flush();
     }
 
     @Override
@@ -40,6 +43,7 @@ public record ConsoleLogger(boolean verbose) implements Logger {
         // Only print debug messages if verbose mode is enabled.
         if (verbose) {
             System.out.println("DEBUG: " + message);
+            System.out.flush();
         }
     }
 
@@ -47,5 +51,4 @@ public record ConsoleLogger(boolean verbose) implements Logger {
     public boolean isVerbose() {
         return verbose;
     }
-
 }
