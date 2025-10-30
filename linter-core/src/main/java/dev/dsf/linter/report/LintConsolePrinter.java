@@ -15,8 +15,6 @@ import dev.dsf.linter.util.linting.LintingUtils;
 import java.util.List;
 import java.util.Map;
 
-import static dev.dsf.linter.util.Console.ANSI_GREEN;
-
 /**
  * Handles all console output for linter reports.
  * Responsible for printing headers, linter sections, and summaries to the console.
@@ -275,11 +273,9 @@ public class LintConsolePrinter {
      */
     private void printErrorSummary(int errorCount) {
         if (errorCount > 0) {
-            System.out.println("\u001B[31m  ✗ Errors:   " + errorCount + "\u001B[0m");
-            System.out.flush();
+            Console.red("  ✗ Errors:   " + errorCount);
         } else {
-            System.out.println(ANSI_GREEN + "  ✓ Errors:   " + errorCount + "\u001B[0m");
-            System.out.flush();
+            Console.green("  ✓ Errors:   " + errorCount);
         }
     }
 

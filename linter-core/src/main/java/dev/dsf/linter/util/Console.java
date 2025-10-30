@@ -1,10 +1,12 @@
 package dev.dsf.linter.util;
 
+import dev.dsf.linter.logger.LogDecorators;
 import dev.dsf.linter.logger.Logger;
 
 /**
  * Utility class for colored console output using ANSI escape codes.
  * All output goes through the Logger to ensure consistent behavior across different environments.
+ * By default, colors are disabled and must be explicitly enabled via enableColors().
  */
 public class Console {
 
@@ -16,7 +18,7 @@ public class Console {
     private static final String ANSI_CYAN = "\u001B[36m";
     private static final String ANSI_BOLD = "\u001B[1m";
 
-    private static final boolean COLOR_ENABLED = isColorSupported();
+    private static boolean colorEnabled = false;
     private static Logger logger;
 
     private Console() {
@@ -33,6 +35,29 @@ public class Console {
     }
 
     /**
+     * Enable colored output.
+     * By default, colors are disabled.
+     * This also enables colors for LogDecorators.
+     * Respects environment variables like NO_COLOR and terminal capabilities.
+     */
+    public static void enableColors() {
+        // Only enable if the environment supports it
+        if (isColorSupported()) {
+            colorEnabled = true;
+            LogDecorators.enableColors();
+        }
+    }
+
+    /**
+     * Disable colored output.
+     * This also disables colors for LogDecorators.
+     */
+    public static void disableColors() {
+        colorEnabled = false;
+        LogDecorators.disableColors();
+    }
+
+    /**
      * Prints a message in red color.
      *
      * @param message The message to print
@@ -45,6 +70,7 @@ public class Console {
      * Prints a red error message directly to System.err.
      * This method bypasses the logger and is intended for critical errors
      * that must be written to stderr regardless of logger configuration.
+     * Note: This always shows color regardless of colorEnabled setting.
      *
      * @param message The error message to print
      */
@@ -101,12 +127,13 @@ public class Console {
     /**
      * Prints a colored message using the logger.
      * Falls back to System.out if logger is not initialized.
+     * Colors are only applied if colorEnabled is true.
      *
      * @param message   The message to print
      * @param colorCode The ANSI color code to use
      */
     private static void printColored(String message, String colorCode) {
-        String output = COLOR_ENABLED ? (colorCode + message + ANSI_RESET) : message;
+        String output = colorEnabled ? (colorCode + message + ANSI_RESET) : message;
 
         if (logger != null) {
             logger.info(output);
@@ -117,12 +144,12 @@ public class Console {
 
     /**
      * Checks if ANSI color codes are supported in the current environment.
-     * Uses a more lenient approach suitable for build tools and CI environments.
+     * Respects standard environment variables and terminal capabilities.
      *
      * @return true if colors should be enabled
      */
     private static boolean isColorSupported() {
-        // Explicit disable via environment variable
+        // Explicit disable via environment variable (takes precedence)
         String noColor = System.getenv("NO_COLOR");
         if (noColor != null && !noColor.isEmpty()) {
             return false;
