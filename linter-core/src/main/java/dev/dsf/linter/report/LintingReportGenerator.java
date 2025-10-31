@@ -16,7 +16,8 @@ import java.util.Map;
 
 /**
  * Coordinates linter report generation.
- * Delegates console output to LintConsolePrinter and HTML generation to HtmlReportGenerator.
+ * Delegates console output to LintConsolePrinter, HTML generation to HtmlReportGenerator,
+ * and JSON generation to JsonReportGenerator.
  * This class acts as a facade, orchestrating the work of its collaborators.
  */
 public class LintingReportGenerator {
@@ -24,21 +25,23 @@ public class LintingReportGenerator {
     private final Logger logger;
     private final LintConsolePrinter consolePrinter;
     private final HtmlReportGenerator htmlGenerator;
+    private final JsonReportGenerator jsonGenerator;
 
     public LintingReportGenerator(Logger logger) {
         this.logger = logger;
         this.consolePrinter = new LintConsolePrinter(logger);
         this.htmlGenerator = new HtmlReportGenerator(logger);
+        this.jsonGenerator = new JsonReportGenerator(logger);
     }
 
     /**
      * Generates linter reports for all plugins.
-     * Creates both HTML reports and console output.
+     * Creates HTML reports, JSON reports (if enabled), and console output.
      *
      * @param pluginLinter     Map of plugin linting
-     * @param discovery       Discovery results
-     * @param leftoverResults Leftover resource analysis (may be null)
-     * @param config          Linter configuration
+     * @param discovery        Discovery results
+     * @param leftoverResults  Leftover resource analysis (may be null)
+     * @param config           Linter configuration
      */
     public void generateReports(
             Map<String, DsfLinter.PluginLinter> pluginLinter,
@@ -46,23 +49,24 @@ public class LintingReportGenerator {
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             DsfLinter.Config config) throws IOException {
 
-        logger.info("Generating validation reports...");
+        logger.info("Generating lint reports...");
 
-        if (!config.generateHtmlReport()) {
-            logger.info("HTML report generation is disabled. Skipping report generation.");
+        // Check if any reports are enabled
+        if (!config.generateHtmlReport() && !config.generateJsonReport()) {
+            logger.info("HTML and JSON report generation are both disabled. Skipping report generation.");
             return;
         }
 
         Files.createDirectories(config.reportPath());
 
         generateIndividualPluginReports(pluginLinter, config);
-        generateMasterReport(pluginLinter, discovery, leftoverResults, config);
+        generateMasterReports(pluginLinter, discovery, leftoverResults, config);
 
         logger.info("Reports generated at: " + config.reportPath().toAbsolutePath());
     }
 
     /**
-     * Generates individual HTML reports for each plugin.
+     * Generates individual reports (HTML and/or JSON) for each plugin.
      */
     private void generateIndividualPluginReports(
             Map<String, DsfLinter.PluginLinter> validations,
@@ -75,33 +79,56 @@ public class LintingReportGenerator {
             Path pluginReportDir = config.reportPath().resolve(pluginName);
             Files.createDirectories(pluginReportDir);
 
-            Path htmlReportPath = pluginReportDir.resolve("validation.html");
-            htmlGenerator.generatePluginReport(pluginName, validation, htmlReportPath);
+            // Generate HTML report if enabled
+            if (config.generateHtmlReport()) {
+                Path htmlReportPath = pluginReportDir.resolve("lints.html");
+                htmlGenerator.generatePluginReport(pluginName, validation, htmlReportPath);
+            }
 
-            logger.debug("Plugin report saved to: " + pluginReportDir);
+            // Generate JSON report if enabled
+            if (config.generateJsonReport()) {
+                Path jsonReportPath = pluginReportDir.resolve("lints.json");
+                jsonGenerator.generatePluginReport(pluginName, validation, jsonReportPath);
+            }
+
+            logger.debug("Plugin reports saved to: " + pluginReportDir);
         }
     }
 
     /**
-     * Generates the master report that aggregates all plugins.
+     * Generates the master reports (HTML and/or JSON) that aggregate all plugins.
      */
-    private void generateMasterReport(
+    private void generateMasterReports(
             Map<String, DsfLinter.PluginLinter> validations,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             DsfLinter.Config config) throws IOException {
 
-        Path masterHtmlPath = config.reportPath().resolve("report.html");
+        // Generate HTML master report if enabled
+        if (config.generateHtmlReport()) {
+            Path masterHtmlPath = config.reportPath().resolve("report.html");
+            htmlGenerator.generateMasterReport(
+                    validations,
+                    discovery,
+                    leftoverResults,
+                    masterHtmlPath,
+                    config
+            );
+        }
 
-        htmlGenerator.generateMasterReport(
-                validations,
-                discovery,
-                leftoverResults,
-                masterHtmlPath,
-                config
-        );
+        // Generate JSON master report if enabled
+        if (config.generateJsonReport()) {
+            Path masterJsonPath = config.reportPath().resolve("report.json");
+            jsonGenerator.generateMasterReport(
+                    validations,
+                    discovery,
+                    leftoverResults,
+                    masterJsonPath,
+                    config
+            );
+        }
 
-        logger.debug("Master report saved to: " + config.reportPath());
+        logger.debug("Master reports saved to: " + config.reportPath());
     }
 
     /**

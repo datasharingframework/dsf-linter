@@ -31,6 +31,7 @@ public class DsfLinter {
             Path projectPath,
             Path reportPath,
             boolean generateHtmlReport,
+            boolean generateJsonReport,
             boolean failOnErrors,
             String[] mavenGoals,
             String[] skipGoals,

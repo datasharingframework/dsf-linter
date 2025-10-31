@@ -34,8 +34,12 @@ public class Main implements Callable<Integer> {
     private Path reportPath;
 
     @Option(names = "--html",
-            description = "Generate an additional HTML report.")
+            description = "Generate an HTML report.")
     private boolean generateHtmlReport = false;
+
+    @Option(names = "--json",
+            description = "Generate a JSON report.")
+    private boolean generateJsonReport = false;
 
     @Option(names = "--no-fail",
             description = "Exit with code 0 even if linter errors are found.")
@@ -126,7 +130,7 @@ public class Main implements Callable<Integer> {
 
             String errorMessage = String.format("""
             
-            ═══════════════════════════════════════════════════════════════
+            ╔═══════════════════════════════════════════════════════════════
               ERROR: The linter is primarily designed for JAR files.
               For project directories or Git repositories, please use
               the --mvn option to ensure a proper build.
@@ -134,7 +138,7 @@ public class Main implements Callable<Integer> {
               Example: dsf-linter --path %s --mvn clean package
             
               See README.md for more details.
-            ═══════════════════════════════════════════════════════════════
+            ╚═══════════════════════════════════════════════════════════════
             """, inputPath);
 
             Console.redErr(errorMessage);
@@ -147,11 +151,11 @@ public class Main implements Callable<Integer> {
                 (inputType == InputType.LOCAL_JAR_FILE || inputType == InputType.REMOTE_JAR_URL)) {
 
             logger.warn("");
-            logger.warn("═══════════════════════════════════════════════════════════════");
+            logger.warn("╔═══════════════════════════════════════════════════════════════");
             logger.warn("  NOTE: --mvn option has no effect on JAR files.");
             logger.warn("  JAR files always use stub dependencies only.");
             logger.warn("  The --mvn option will be ignored.");
-            logger.warn("═══════════════════════════════════════════════════════════════");
+            logger.warn("╚═══════════════════════════════════════════════════════════════");
             logger.warn("");
         }
 
@@ -211,6 +215,7 @@ public class Main implements Callable<Integer> {
                     projectPath.toAbsolutePath(),
                     reportPath.toAbsolutePath(),
                     generateHtmlReport,
+                    generateJsonReport,
                     !noFailOnErrors,
                     mavenGoals,
                     skipGoals,
