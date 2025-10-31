@@ -1,6 +1,5 @@
 package dev.dsf.linter.setup;
 
-import dev.dsf.linter.input.DependencyResolver;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.util.maven.MavenUtil;
 import dev.dsf.linter.classloading.ProjectClassLoaderFactory;
@@ -21,7 +20,6 @@ import java.util.List;
  * <ul>
  *   <li>Detecting project layout (Maven vs exploded plugin)</li>
  *   <li>Building Maven projects when necessary</li>
- *   <li>Resolving dependencies (stub and/or project-specific)</li>
  *   <li>Creating and managing project ClassLoaders</li>
  *   <li>Setting up the linting environment</li>
  * </ul>
@@ -33,7 +31,6 @@ public class ProjectSetupHandler {
 
     private final Logger logger;
     private final MavenBuilder mavenBuilder;
-    private final DependencyResolver dependencyResolver;
 
     /**
      * Constructs a new ProjectSetupHandler with the specified logger.
@@ -43,15 +40,14 @@ public class ProjectSetupHandler {
     public ProjectSetupHandler(Logger logger) {
         this.logger = logger;
         this.mavenBuilder = new MavenBuilder();
-        this.dependencyResolver = new DependencyResolver(logger);
     }
 
     /**
      * Sets up the complete linting environment for a project.
      *
      * @param projectPath the path to the project directory
-     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, only stub dependencies
-     *                   are resolved (suitable for JAR inputs only).
+     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, the project
+     *                   is linted without Maven build (suitable for JAR inputs only).
      * @param skipGoals optional Maven goals to remove from default build. Ignored if {@code mavenGoals} is {@code null}.
      * @return a ProjectContext containing all necessary setup information
      * @throws IllegalStateException if setup fails
@@ -69,19 +65,24 @@ public class ProjectSetupHandler {
         boolean isMavenProject = detectProjectLayout(projectPath);
 
         if (mavenGoals != null) {
-            // User explicitly requested Maven build via --mvn
-            logger.info("Maven build enabled via --mvn option. Executing full build...");
             if (!isMavenProject) {
-                logger.warn("--mvn specified but no pom.xml found. Using stub dependencies only...");
-                dependencyResolver.resolveStubDependencies(projectPath);
+                // JAR input with --mvn: Show clear warning that --mvn has no effect
+                logger.warn("");
+                logger.warn("═══════════════════════════════════════════════════════════════");
+                logger.warn("  NOTE: --mvn option has no effect on JAR files.");
+                logger.warn("  JAR files always use built-in dependencies.");
+                logger.warn("  The --mvn option will be ignored.");
+                logger.warn("═══════════════════════════════════════════════════════════════");
+                logger.warn("");
             } else {
+                // Maven project with --mvn: Execute full build
+                logger.info("Maven build enabled via --mvn option. Executing full build...");
                 buildMavenProject(projectDir, mavenGoals, skipGoals);
             }
         } else {
             // No --mvn specified: This path is only reached for JAR inputs
             // (non-JAR inputs without --mvn are blocked in Main.java)
-            logger.info("No --mvn option specified. Using stub dependencies only...");
-            dependencyResolver.resolveStubDependencies(projectPath);
+            logger.info("No --mvn option specified. Linting with built-in dependencies...");
         }
 
         ClassLoader projectClassLoader = createProjectClassLoader(projectDir);

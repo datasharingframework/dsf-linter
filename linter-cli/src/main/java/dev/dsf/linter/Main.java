@@ -1,6 +1,5 @@
 package dev.dsf.linter;
 
-import dev.dsf.linter.input.DependencyResolver;
 import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
@@ -49,10 +48,6 @@ public class Main implements Callable<Integer> {
     @Option(names = "--color",
             description = "Enable colored console output. (Default: disabled)")
     private boolean enableColor = false;
-
-    @Option(names = "--clear-cache",
-            description = "Clear the dependency cache and exit. Cache location: ~/.dsf-linter/dependency-cache")
-    private boolean clearCache = false;
 
     /**
      * Maven goals to add to the build.
@@ -105,10 +100,6 @@ public class Main implements Callable<Integer> {
         }
         logger.info("DSF Linter v1.0.0");
 
-        // Handle --clear-cache flag
-        if (clearCache) {
-            return handleClearCache(logger);
-        }
 
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
@@ -212,30 +203,6 @@ public class Main implements Callable<Integer> {
         }
     }
 
-    /**
-     * Handles the --clear-cache flag.
-     *
-     * @param logger the logger instance
-     * @return exit code (0 for success, 1 for failure)
-     */
-    private Integer handleClearCache(Logger logger) {
-        try {
-            logger.info("Clearing dependency cache...");
-            logger.info("Cache location: " + DependencyResolver.getCacheDirectory());
-
-            DependencyResolver resolver = new DependencyResolver(logger);
-            resolver.clearCache();
-
-            logger.info("");
-            logger.info("✓ Cache cleared successfully");
-            logger.info("Dependencies will be re-downloaded on next linter run");
-            return 0;
-
-        } catch (Exception e) {
-            logger.error("Failed to clear cache: " + e.getMessage(), e);
-            return 1;
-        }
-    }
 
     private Integer runLinter(Path projectPath, Logger logger) {
         try {
