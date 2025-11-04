@@ -5,14 +5,18 @@ import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.util.Console;
+import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -104,7 +108,6 @@ public class Main implements Callable<Integer> {
         }
         logger.info("DSF Linter v1.0.0");
 
-
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
             logger.error("ERROR: Specify a path using --path (local directory, Git repository URL, or JAR file).");
@@ -142,7 +145,6 @@ public class Main implements Callable<Integer> {
             """, inputPath);
 
             Console.redErr(errorMessage);
-
             return 1;
         }
 
@@ -151,11 +153,11 @@ public class Main implements Callable<Integer> {
                 (inputType == InputType.LOCAL_JAR_FILE || inputType == InputType.REMOTE_JAR_URL)) {
 
             logger.warn("");
-            logger.warn("╔═══════════════════════════════════════════════════════════════");
+            logger.warn("╔══════════════════════════════════════════════════════════════");
             logger.warn("  NOTE: --mvn option has no effect on JAR files.");
             logger.warn("  JAR files always use stub dependencies only.");
             logger.warn("  The --mvn option will be ignored.");
-            logger.warn("╚═══════════════════════════════════════════════════════════════");
+            logger.warn("╚══════════════════════════════════════════════════════════════");
             logger.warn("");
         }
 
@@ -186,9 +188,15 @@ public class Main implements Callable<Integer> {
         }
 
         try {
+            if (Files.exists(reportPath)) {
+                logger.debug("Removing existing report directory to avoid stale files...");
+                deleteDirectoryRecursively(reportPath);
+                logger.debug("Existing report directory removed.");
+            }
+
             Files.createDirectories(reportPath);
         } catch (IOException e) {
-            logger.error("ERROR: Failed to create report directory: " + reportPath, e);
+            logger.error("ERROR: Failed to prepare report directory: " + reportPath, e);
             return 1;
         }
 
@@ -207,6 +215,31 @@ public class Main implements Callable<Integer> {
         }
     }
 
+    /**
+     * Recursively deletes a directory and all its contents.
+     *
+     * @param directory the directory to delete
+     * @throws IOException if deletion fails
+     */
+    private void deleteDirectoryRecursively(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+
+        Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+            @Override
+            public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public @NotNull FileVisitResult postVisitDirectory(@NotNull Path dir, IOException exc) throws IOException {
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
 
     private Integer runLinter(Path projectPath, Logger logger) {
         try {
