@@ -5,12 +5,12 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating that a BPMN file, which was referenced in the class ProcessDefinition,
+ * Lint Item indicating that a BPMN file, which was referenced in the class ProcessDefinition,
  * could not be found in the resources.
  */
 public class PluginDefinitionBpmnFileReferencedButNotFoundLintItem extends PluginLintItem {
     /**
-     * Constructs a new validation item for a referenced but missing BPMN file.
+     * Constructs a new Lint Item for a referenced but missing BPMN file.
      *
      * @param pluginName  The name of the plugin referencing the file.
      * @param severity    The severity of the validation error (usually ERROR).

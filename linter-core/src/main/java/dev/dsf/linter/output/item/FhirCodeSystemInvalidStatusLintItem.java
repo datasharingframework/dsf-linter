@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code status} element of a CodeSystem
+ * Lint Item indicating that the {@code status} element of a CodeSystem
  * does not have the required value {@code unknown}.
  *
  * <p>This check is required by the DSF CodeSystem base profile to ensure
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirCodeSystemInvalidStatusLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item with the default description for invalid status value.
+     * Constructs a new Lint Item with the default description for invalid status value.
      *
      * @param resourceFile  the file containing the CodeSystem resource
      * @param fhirReference the canonical URL or local reference of the CodeSystem
@@ -31,11 +31,11 @@ public class FhirCodeSystemInvalidStatusLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param resourceFile  the file containing the CodeSystem resource
      * @param fhirReference the canonical URL or local reference of the CodeSystem
-     * @param description   a custom validation message describing the issue
+     * @param description   a custom lint description describing the issue
      * @param custom        whether this is a custom message
      */
     public FhirCodeSystemInvalidStatusLintItem(File resourceFile,

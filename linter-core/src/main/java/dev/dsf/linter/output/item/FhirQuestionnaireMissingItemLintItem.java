@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a Questionnaire contains no {@code <item>} elements.
+ * Lint Item indicating that a Questionnaire contains no {@code <item>} elements.
  *
  * <p>According to the DSF Questionnaire template, each Questionnaire should contain
  * one or more {@code <item>} elements defining the structure of the expected user input.</p>
@@ -16,7 +16,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireMissingItemLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with the standard message indicating that no items were found.
+     * Constructs a Lint Item with the standard message indicating that no items were found.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -27,7 +27,7 @@ public class FhirQuestionnaireMissingItemLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

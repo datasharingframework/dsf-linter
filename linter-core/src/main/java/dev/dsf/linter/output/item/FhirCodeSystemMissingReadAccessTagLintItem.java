@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a CodeSystem resource is missing the required
+ * Lint Item indicating that a CodeSystem resource is missing the required
  * read access tag (system = http://dsf.dev/fhir/CodeSystem/read-access-tag, code = ALL).
  *
  * <p>This validation rule is part of the DSF CodeSystem profile and ensures that
@@ -16,7 +16,7 @@ import java.io.File;
  */
 public class FhirCodeSystemMissingReadAccessTagLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using the default error message for a missing read access tag.
+     * Constructs a Lint Item using the default error message for a missing read access tag.
      *
      * @param resourceFile  the file in which the CodeSystem resource was found
      * @param fhirReference the canonical URL or local reference of the CodeSystem
@@ -27,11 +27,11 @@ public class FhirCodeSystemMissingReadAccessTagLintItem extends FhirElementLintI
     }
 
     /**
-     * Constructs a validation item with a custom error description.
+     * Constructs a Lint Item with a custom error description.
      *
      * @param resourceFile  the file in which the CodeSystem resource was found
      * @param fhirReference the canonical URL or local reference of the CodeSystem
-     * @param description   custom message describing the validation issue
+     * @param description   custom message describing the Lint issue
      */
     public FhirCodeSystemMissingReadAccessTagLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,

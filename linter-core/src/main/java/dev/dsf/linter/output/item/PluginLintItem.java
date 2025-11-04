@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import java.io.File;
 
 /**
- * Abstract base class for plugin-related validation items.
+ * Abstract base class for plugin-related Lint Items.
  * Contains common fields and functionality for all plugin validation scenarios.
  */
 public abstract class PluginLintItem extends AbstractLintItem {
@@ -66,7 +66,7 @@ public abstract class PluginLintItem extends AbstractLintItem {
     }
 
     /**
-     * Returns a formatted string representation of this validation item.
+     * Returns a formatted string representation of this Lint Item.
      * Format: [SEVERITY] Location: <location> - <message> (File: <filename>)
      *
      * @return formatted string representation for console output

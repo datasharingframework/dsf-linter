@@ -3,7 +3,7 @@ package dev.dsf.linter.output.item;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.dsf.linter.output.LinterSeverity;
 
-// FHIR Validation Items
+// FHIR Lint Items
 public abstract class FhirLintItem extends AbstractLintItem {
 
     @JsonProperty("resourceFile")  // JSON field name = "resourceFile"

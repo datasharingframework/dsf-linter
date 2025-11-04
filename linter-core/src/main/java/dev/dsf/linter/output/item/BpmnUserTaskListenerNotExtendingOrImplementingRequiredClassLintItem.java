@@ -6,13 +6,13 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code camunda:taskListener} class
+ * Lint Item indicating that a {@code camunda:taskListener} class
  * specified on a {@code UserTask} does not extend or implement the required class or interface.
  *
  * <p>
  * In Camunda BPMN extensions, {@code camunda:taskListener} classes are expected to implement
  * specific interfaces (such as {@code TaskListener}) or extend certain base classes to function
- * properly at runtime. This validation item is created when a listener class is found but does
+ * properly at runtime. This Lint Item is created when a listener class is found but does
  * not conform to the expected type hierarchy.
  * </p>
  *
@@ -28,7 +28,7 @@ public class BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem
     private final String requiredType;
 
     /**
-     * Constructs a new validation item for a listener class that does not extend or implement the required type.
+     * Constructs a new Lint Item for a listener class that does not extend or implement the required type.
      *
      * @param elementId    the BPMN element ID of the {@code UserTask}
      * @param bpmnFile     the BPMN file being validated

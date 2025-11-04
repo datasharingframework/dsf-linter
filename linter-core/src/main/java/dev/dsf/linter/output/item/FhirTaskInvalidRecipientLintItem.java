@@ -6,17 +6,17 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code <restriction.recipient.identifier.system>} element
+ * Lint Item indicating that the {@code <restriction.recipient.identifier.system>} element
  * of a FHIR {@code Task} resource is invalid.
  *
  * <p>According to the DSF {@code task-base} profile, the recipient's identifier system must be
  * {@code http://dsf.dev/sid/organization-identifier} to correctly reference the organization.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#INVALID_TASK_RECIPIENT_SYSTEM}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#INVALID_TASK_RECIPIENT_SYSTEM}.</p>
  */
 public class FhirTaskInvalidRecipientLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item for an invalid recipient identifier system with a custom message.
+     * Constructs a Lint Item for an invalid recipient identifier system with a custom message.
      *
      * @param resourceFile  the file where the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
@@ -31,7 +31,7 @@ public class FhirTaskInvalidRecipientLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item using the default message for an invalid recipient identifier system.
+     * Constructs a Lint Item using the default message for an invalid recipient identifier system.
      *
      * @param resourceFile  the file where the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource

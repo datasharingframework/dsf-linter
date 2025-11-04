@@ -5,7 +5,7 @@ import java.io.File;
 
 /**
  * <p>
- * Represents a validation item for a successful or "no-issue" BPMN validation result.
+ * Represents a Lint Item for a successful or "no-issue" BPMN validation result.
  * This class extends {@link BpmnElementLintItem} and uses a fixed
  * {@link LinterSeverity#SUCCESS}.
  * </p>
@@ -25,7 +25,7 @@ import java.io.File;
 public class BpmnElementLintItemSuccess extends BpmnElementLintItem
 {
     /**
-     * Constructs a new success validation item with the given parameters.
+     * Constructs a new success Lint Item with the given parameters.
      *
      * @param elementId   the BPMN element ID (e.g., "StartEvent_1")
      * @param bpmnFile    the BPMN file being validated (full path or short name)
@@ -48,7 +48,7 @@ public class BpmnElementLintItemSuccess extends BpmnElementLintItem
     }
 
     /**
-     * Returns the success description for this validation item.
+     * Returns the success description for this Lint Item.
      *
      * @return the description provided at construction
      */
@@ -65,7 +65,7 @@ public class BpmnElementLintItemSuccess extends BpmnElementLintItem
      *   (elementId=StartEvent_1, processId=dsfdev_downloadAllowList, file=download-allow-list.bpmn, description=ServiceTask has a name)
      * </pre>
      *
-     * @return a formatted string summarizing this validation item
+     * @return a formatted string summarizing this Lint Item
      */
     @Override
     public String toString()

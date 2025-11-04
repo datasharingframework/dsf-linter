@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code Task.input} element with the slice name
+ * Lint Item indicating that a {@code Task.input} element with the slice name
  * {@code correlation-key} is missing in the instance, although the corresponding slice
  * is defined with a minimum cardinality greater than zero in the associated {@code StructureDefinition}.
  *
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirTaskCorrelationMissingButRequiredLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item indicating that a {@code correlation-key} input
+     * Constructs a Lint Item indicating that a {@code correlation-key} input
      * is missing, although the StructureDefinition declares it as required.
      *
      * @param resourceFile  the FHIR Task XML file being validated (may be {@code null})
@@ -33,7 +33,7 @@ public class FhirTaskCorrelationMissingButRequiredLintItem extends FhirElementLi
     }
 
     /**
-     * Constructs a validation item using a custom message.
+     * Constructs a Lint Item using a custom message.
      *
      * @param resourceFile  the FHIR Task XML file being validated (may be {@code null})
      * @param fhirReference a logical reference or identifier used for reporting context

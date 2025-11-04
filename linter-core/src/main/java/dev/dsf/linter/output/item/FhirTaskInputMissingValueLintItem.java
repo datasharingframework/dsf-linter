@@ -6,18 +6,18 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code Task.input} element is missing the required
+ * Lint Item indicating that a {@code Task.input} element is missing the required
  * {@code value[x]} element.
  *
  * <p>According to the FHIR specification and the DSF {@code task-base} profile,
  * each {@code Task.input} must include a {@code value[x]} element representing the actual input value.
  * This value is required for the input to be meaningful and usable.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#TASK_INPUT_MISSING_VALUE}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#TASK_INPUT_MISSING_VALUE}.</p>
  */
 public class FhirTaskInputMissingValueLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with a custom message indicating that {@code Task.input} is missing {@code value[x]}.
+     * Constructs a Lint Item with a custom message indicating that {@code Task.input} is missing {@code value[x]}.
      *
      * @param resourceFile  the file where the Task resource was found
      * @param fhirReference the canonical URL or local reference to the resource
@@ -32,7 +32,7 @@ public class FhirTaskInputMissingValueLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item using the default error message for a missing {@code value[x]}.
+     * Constructs a Lint Item using the default error message for a missing {@code value[x]}.
      *
      * @param resourceFile  the file where the Task resource was found
      * @param fhirReference the canonical URL or local reference to the resource

@@ -24,7 +24,7 @@ import java.io.File;
 public class FhirElementLintItemSuccess extends FhirElementLintItem
 {
     /**
-     * Constructs a new success validation item for FHIR with the given parameters.
+     * Constructs a new success Lint Item for FHIR with the given parameters.
      *
      * @param resourceFile   the FHIR resource file being validated
      * @param fhirReference  a canonical URL or reference identifying the FHIR resource
@@ -39,7 +39,7 @@ public class FhirElementLintItemSuccess extends FhirElementLintItem
     }
 
     /**
-     * Constructs a new success validation item for FHIR with the given parameters, including a resource ID.
+     * Constructs a new success Lint Item for FHIR with the given parameters, including a resource ID.
      *
      * @param resourceFile   the FHIR resource file being validated
      * @param fhirReference  a canonical URL or reference identifying the FHIR resource

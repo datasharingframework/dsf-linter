@@ -6,17 +6,17 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR {@code Task} resource is missing the required
+ * Lint Item indicating that a FHIR {@code Task} resource is missing the required
  * {@code <instantiatesCanonical>} element.
  *
  * <p>According to the DSF {@code task-base} profile, the element {@code instantiatesCanonical}
  * must be present and reference the canonical URL of the associated {@code ActivityDefinition}.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#FHIR_TASK_MISSING_INSTANTIATES_CANONICAL}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#FHIR_TASK_MISSING_INSTANTIATES_CANONICAL}.</p>
  */
 public class FhirTaskMissingInstantiatesCanonicalLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item indicating a missing {@code <instantiatesCanonical>} element.
+     * Constructs a Lint Item indicating a missing {@code <instantiatesCanonical>} element.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
@@ -31,7 +31,7 @@ public class FhirTaskMissingInstantiatesCanonicalLintItem extends FhirElementLin
     }
 
     /**
-     * Constructs a validation item using a default description for the missing {@code instantiatesCanonical}.
+     * Constructs a Lint Item using a default description for the missing {@code instantiatesCanonical}.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource

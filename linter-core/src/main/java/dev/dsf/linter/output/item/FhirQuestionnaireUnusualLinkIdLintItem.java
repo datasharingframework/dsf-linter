@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code linkId} attribute in a Questionnaire item
+ * Lint Item indicating that a {@code linkId} attribute in a Questionnaire item
  * does not match the expected lowercase kebab-case pattern {@code [a-z0-9\\-]+}.
  *
  * <p>This is not a structural error but a convention used in DSF to promote consistency
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireUnusualLinkIdLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with a standardized warning message for unusual {@code linkId} format.
+     * Constructs a Lint Item with a standardized warning message for unusual {@code linkId} format.
      *
      * @param resourceFile  the file containing the Questionnaire resource
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -32,7 +32,7 @@ public class FhirQuestionnaireUnusualLinkIdLintItem extends FhirElementLintItem 
     }
 
     /**
-     * Constructs a validation item with a custom warning message.
+     * Constructs a Lint Item with a custom warning message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

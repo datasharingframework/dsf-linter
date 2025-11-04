@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code camunda:taskListener} class
+ * Lint Item indicating that a {@code camunda:taskListener} class
  * specified on a {@code UserTask} could not be found on the classpath.
  *
  * <p>
@@ -22,7 +22,7 @@ public class BpmnUserTaskListenerJavaClassNotFoundLintItem extends BpmnElementLi
     private final String className;
 
     /**
-     * Constructs a new validation item for a listener class that could not be found.
+     * Constructs a new Lint Item for a listener class that could not be found.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a Questionnaire {@code <item>} element
+ * Lint Item indicating that a Questionnaire {@code <item>} element
  * is missing the required {@code type} attribute.
  *
  * <p>Every item in a DSF Questionnaire must declare a valid {@code type} in
@@ -18,7 +18,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireItemMissingAttributesTypeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with the default error message for missing {@code type} attribute.
+     * Constructs a Lint Item with the default error message for missing {@code type} attribute.
      *
      * @param resourceFile  the file containing the Questionnaire resource
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -34,7 +34,7 @@ public class FhirQuestionnaireItemMissingAttributesTypeLintItem extends FhirElem
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

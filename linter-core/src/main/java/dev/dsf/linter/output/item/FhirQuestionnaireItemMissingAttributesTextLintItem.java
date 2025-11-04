@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a Questionnaire {@code <item>} element
+ * Lint Item indicating that a Questionnaire {@code <item>} element
  * is missing the optional but recommended {@code text} attribute.
  *
  * <p>Although the {@code text} attribute is not strictly required, its presence
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireItemMissingAttributesTextLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with the default message for missing {@code text} attribute.
+     * Constructs a Lint Item with the default message for missing {@code text} attribute.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -33,7 +33,7 @@ public class FhirQuestionnaireItemMissingAttributesTextLintItem extends FhirElem
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

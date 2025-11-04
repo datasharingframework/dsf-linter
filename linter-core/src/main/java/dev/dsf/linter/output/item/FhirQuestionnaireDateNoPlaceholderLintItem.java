@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code date} element in a Questionnaire
+ * Lint Item indicating that the {@code date} element in a Questionnaire
  * does not contain the required {@code #{date}} placeholder.
  *
  * <p>The DSF Questionnaire template requires the use of the {@code #{date}} placeholder
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireDateNoPlaceholderLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with the standard error message
+     * Constructs a Lint Item with the standard error message
      * for a missing {@code #{date}} placeholder.
      *
      * @param resourceFile  the file containing the Questionnaire resource
@@ -29,11 +29,11 @@ public class FhirQuestionnaireDateNoPlaceholderLintItem extends FhirElementLintI
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire resource
      * @param fhirReference the canonical URL or local reference of the Questionnaire
-     * @param description   a custom validation message
+     * @param description   a custom lint description
      * @param custom        whether the message was manually defined
      */
     public FhirQuestionnaireDateNoPlaceholderLintItem(File resourceFile,

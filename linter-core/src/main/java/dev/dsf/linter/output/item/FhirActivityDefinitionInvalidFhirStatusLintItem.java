@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the FHIR status is invalid.
+ * Lint Item indicating that the FHIR status is invalid.
  * Corresponds to {@link LintingType#INVALID_FHIR_STATUS}.
  */
 public class FhirActivityDefinitionInvalidFhirStatusLintItem extends FhirElementLintItem {

@@ -7,14 +7,14 @@ import java.io.File;
 import dev.dsf.linter.output.LintingType;
 
 /**
- * Validation item indicating that a field injection is not provided as a string literal.
+ * Lint Item indicating that a field injection is not provided as a string literal.
  * Corresponds to {@link LintingType#BPMN_FIELD_INJECTION_NOT_STRING_LITERAL}.
  */
 public class BpmnFieldInjectionNotStringLiteralLintItem extends BpmnElementLintItem {
     private final String fieldName;
 
     /**
-     * Constructs a new validation item indicating that a field injection is not a string literal.
+     * Constructs a new Lint Item indicating that a field injection is not a string literal.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated

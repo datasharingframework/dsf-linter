@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a mandatory Questionnaire item
+ * Lint Item indicating that a mandatory Questionnaire item
  * (e.g., {@code business-key} or {@code user-task-id}) has an invalid {@code type} attribute.
  *
  * <p>According to DSF specification, both items must be defined with <code>type="string"</code>.
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireMandatoryItemInvalidTypeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with a standardized message indicating that
+     * Constructs a Lint Item with a standardized message indicating that
      * the item has an incorrect {@code type} value.
      *
      * @param resourceFile  the file containing the Questionnaire
@@ -35,11 +35,11 @@ public class FhirQuestionnaireMandatoryItemInvalidTypeLintItem extends FhirEleme
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire
-     * @param description   a custom validation message
+     * @param description   a custom lint description
      * @param custom        whether the message is custom-defined
      */
     public FhirQuestionnaireMandatoryItemInvalidTypeLintItem(File resourceFile,

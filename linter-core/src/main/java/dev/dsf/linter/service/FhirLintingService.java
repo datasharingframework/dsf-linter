@@ -232,7 +232,7 @@ public class FhirLintingService {
      * @param pluginName the plugin name
      * @param fhirFiles list of valid FHIR files
      * @param pluginResourceRoot the plugin's resource root
-     * @return list of success validation items
+     * @return list of success Lint Items
      */
     private List<AbstractLintItem> createSuccessItemsForValidResources(
             String pluginName,

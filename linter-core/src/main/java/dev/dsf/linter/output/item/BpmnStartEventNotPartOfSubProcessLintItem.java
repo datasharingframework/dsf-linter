@@ -6,12 +6,12 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a start event is not part of a subprocess.
+ * Lint Item indicating that a start event is not part of a subprocess.
  * Corresponds to {@link LintingType#BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS}.
  */
 public class BpmnStartEventNotPartOfSubProcessLintItem extends BpmnElementLintItem {
     /**
-     * Constructs a new validation item for a start event that is not part of a subprocess.
+     * Constructs a new Lint Item for a start event that is not part of a subprocess.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
@@ -22,12 +22,12 @@ public class BpmnStartEventNotPartOfSubProcessLintItem extends BpmnElementLintIt
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated
      * @param processId   the process definition ID or key
-     * @param description the custom validation description
+     * @param description the custom lint description
      */
     public BpmnStartEventNotPartOfSubProcessLintItem(String elementId, File bpmnFile, String processId, String description) {
         super(LinterSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);

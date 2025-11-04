@@ -6,7 +6,7 @@ import java.io.File;
 
 /**
  * <p>
- * Represents a BPMN validation issue specifically related to FHIR ActivityDefinition.
+ * Represents a BPMN Lint issue specifically related to FHIR ActivityDefinition.
  * This class extends {@link BpmnElementLintItem} so that it can be
  * stored in a {@code List<BpmnElementLintItem>} while carrying FHIR-specific info.
  * </p>

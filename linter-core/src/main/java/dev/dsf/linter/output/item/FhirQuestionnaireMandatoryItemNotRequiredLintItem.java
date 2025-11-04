@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a mandatory DSF Questionnaire item
+ * Lint Item indicating that a mandatory DSF Questionnaire item
  * (e.g., {@code business-key} or {@code user-task-id}) is not marked as {@code required="true"}.
  *
  * <p>These mandatory items must always include the {@code required="true"} attribute
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireMandatoryItemNotRequiredLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with a standard error message when a mandatory item
+     * Constructs a Lint Item with a standard error message when a mandatory item
      * is not explicitly marked as required.
      *
      * @param resourceFile  the file containing the Questionnaire resource
@@ -33,7 +33,7 @@ public class FhirQuestionnaireMandatoryItemNotRequiredLintItem extends FhirEleme
     }
 
     /**
-     * Constructs a validation item with a custom error message.
+     * Constructs a Lint Item with a custom error message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

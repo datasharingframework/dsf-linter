@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code ValueSet.compose.include.system} URL does not match
+ * Lint Item indicating that a {@code ValueSet.compose.include.system} URL does not match
  * the canonical {@code CodeSystem.url} that actually contains the referenced {@code concept.code}.
  *
  * <p>Typical trigger:

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code linkId} in a Questionnaire
+ * Lint Item indicating that a {@code linkId} in a Questionnaire
  * is not unique across {@code <item>} elements.
  *
  * <p>According to the FHIR and DSF specifications, each {@code <item>} in a Questionnaire
@@ -18,7 +18,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireDuplicateLinkIdLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using the standard message for duplicate linkId values.
+     * Constructs a Lint Item using the standard message for duplicate linkId values.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -32,7 +32,7 @@ public class FhirQuestionnaireDuplicateLinkIdLintItem extends FhirElementLintIte
     }
 
     /**
-     * Constructs a validation item with a custom message for duplicate linkId values.
+     * Constructs a Lint Item with a custom message for duplicate linkId values.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code <concept>} entry in a CodeSystem
+ * Lint Item indicating that a {@code <concept>} entry in a CodeSystem
  * contains a {@code <code>} value that is not unique.
  *
  * <p>According to the DSF CodeSystem base profile, all codes must be unique
@@ -16,7 +16,7 @@ import java.io.File;
  */
 public class FhirCodeSystemDuplicateCodeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item for a duplicated concept code.
+     * Constructs a Lint Item for a duplicated concept code.
      *
      * @param resourceFile  the file containing the CodeSystem resource
      * @param fhirReference the canonical or local reference of the CodeSystem

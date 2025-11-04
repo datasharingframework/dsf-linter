@@ -6,17 +6,17 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR {@code Task} resource is missing the required
+ * Lint Item indicating that a FHIR {@code Task} resource is missing the required
  * {@code <status>} element or that it is empty.
  *
  * <p>According to the FHIR specification and the DSF {@code task-base} profile,
  * the {@code status} element is mandatory. It must be present and non-blank.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#Fhir_TASK_MISSING_STATUS}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#Fhir_TASK_MISSING_STATUS}.</p>
  */
 public class FhirTaskMissingStatusLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item indicating a missing or empty {@code <status>} element.
+     * Constructs a Lint Item indicating a missing or empty {@code <status>} element.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
@@ -31,7 +31,7 @@ public class FhirTaskMissingStatusLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item using the default error message for a missing {@code status}.
+     * Constructs a Lint Item using the default error message for a missing {@code status}.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource

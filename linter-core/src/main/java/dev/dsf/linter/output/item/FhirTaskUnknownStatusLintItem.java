@@ -6,18 +6,18 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR Task resource contains an unknown or invalid status value.
+ * Lint Item indicating that a FHIR Task resource contains an unknown or invalid status value.
  *
- * <p>This validation item is reported when the Task.status value is not recognized as one of the
+ * <p>This Lint Item is reported when the Task.status value is not recognized as one of the
  * standard FHIR Task status codes. Valid Task status values include: draft, requested, received,
  * accepted, rejected, ready, cancelled, in-progress, on-hold, failed, completed, entered-in-error.</p>
  *
- * <p>This validation item corresponds to an ERROR severity level and helps ensure that Task
+ * <p>This Lint Item corresponds to an ERROR severity level and helps ensure that Task
  * resources contain only valid status values as defined in the FHIR specification.</p>
  */
 public class FhirTaskUnknownStatusLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item indicating an unknown Task status.
+     * Constructs a Lint Item indicating an unknown Task status.
      *
      * @param resourceFile  the file where the Task resource was found
      * @param fhirReference the canonical URL or local reference to the resource

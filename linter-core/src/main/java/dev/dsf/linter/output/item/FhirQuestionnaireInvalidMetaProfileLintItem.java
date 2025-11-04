@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code meta.profile} element is present
+ * Lint Item indicating that the {@code meta.profile} element is present
  * but does not start with the required DSF Questionnaire profile URL.
  *
  * <p>The DSF specification requires the {@code meta.profile} to point to
@@ -17,7 +17,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireInvalidMetaProfileLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using a standard message, showing the invalid value.
+     * Constructs a Lint Item using a standard message, showing the invalid value.
      *
      * @param resourceFile  the file containing the Questionnaire resource
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -32,11 +32,11 @@ public class FhirQuestionnaireInvalidMetaProfileLintItem extends FhirElementLint
     }
 
     /**
-     * Constructs a validation item with a custom description message.
+     * Constructs a Lint Item with a custom description message.
      *
      * @param resourceFile  the file containing the Questionnaire resource
      * @param fhirReference the canonical URL or local reference of the Questionnaire
-     * @param description   a custom validation message
+     * @param description   a custom lint description
      * @param custom        whether this is a custom message
      */
     public FhirQuestionnaireInvalidMetaProfileLintItem(File resourceFile,

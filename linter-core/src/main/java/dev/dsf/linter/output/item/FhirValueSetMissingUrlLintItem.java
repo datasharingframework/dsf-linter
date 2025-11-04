@@ -9,7 +9,7 @@ import java.io.File;
  * Represents a FHIR validation error indicating that a ValueSet is missing the required <code>url</code> element.
  * <p>
  * The <code>url</code> field is essential in FHIR resources as it defines the canonical identifier of the ValueSet.
- * This validation item is used when the element is missing or empty.
+ * This Lint Item is used when the element is missing or empty.
  * </p>
  */
 public class FhirValueSetMissingUrlLintItem extends FhirElementLintItem {

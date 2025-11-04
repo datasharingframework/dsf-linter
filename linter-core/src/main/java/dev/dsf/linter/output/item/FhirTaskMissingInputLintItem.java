@@ -6,17 +6,17 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR {@code Task} resource is missing the required
+ * Lint Item indicating that a FHIR {@code Task} resource is missing the required
  * {@code <input>} element or that it is completely empty.
  *
  * <p>According to the DSF {@code task-base} profile, a Task must contain at least one input.
  * Inputs are used to pass necessary data for task execution.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#Fhir_TASK_MISSING_INPUT}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#Fhir_TASK_MISSING_INPUT}.</p>
  */
 public class FhirTaskMissingInputLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item indicating a missing or empty {@code <input>} element.
+     * Constructs a Lint Item indicating a missing or empty {@code <input>} element.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
@@ -31,7 +31,7 @@ public class FhirTaskMissingInputLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item using the default error message for a missing {@code input}.
+     * Constructs a Lint Item using the default error message for a missing {@code input}.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource

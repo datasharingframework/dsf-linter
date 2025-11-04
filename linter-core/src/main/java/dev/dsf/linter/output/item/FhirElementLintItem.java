@@ -109,10 +109,10 @@ public class FhirElementLintItem extends FhirLintItem {
 
 
     /**
-     * Minimal constructor for fallback use cases. Initializes a basic validation item
+     * Minimal constructor for fallback use cases. Initializes a basic Lint Item
      * with only a description and severity. All other fields are set to default values.
      *
-     * @param description  a message describing the validation issue
+     * @param description  a message describing the Lint issue
      * @param severity     the validation severity
      * @param resourceFile the name of the file containing the FHIR resource
      */
@@ -147,10 +147,10 @@ public class FhirElementLintItem extends FhirLintItem {
     }
 
     /**
-     * Generates a human-readable string representation of this validation item.
+     * Generates a human-readable string representation of this Lint Item.
      * Format: [SEVERITY] ClassName (reference=..., type=..., file=...) : description
      *
-     * @return string describing the validation issue
+     * @return string describing the Lint issue
      */
     @Override
     public String toString() {

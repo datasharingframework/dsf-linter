@@ -6,14 +6,14 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a Message Intermediate Throw Event has a message.
+ * Lint Item indicating that a Message Intermediate Throw Event has a message.
  * Corresponds to {@link LintingType#BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE}.
  */
 public class BpmnMessageIntermediateThrowEventHasMessageLintItem extends BpmnElementLintItem {
     private String message;
 
     /**
-     * Constructs a new validation item for a Message Intermediate Throw Event that has a message.
+     * Constructs a new Lint Item for a Message Intermediate Throw Event that has a message.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
@@ -24,7 +24,7 @@ public class BpmnMessageIntermediateThrowEventHasMessageLintItem extends BpmnEle
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated

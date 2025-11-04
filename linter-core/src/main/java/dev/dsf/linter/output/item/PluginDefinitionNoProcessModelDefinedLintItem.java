@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating a warning for a plugin-related issue.
+ * Lint Item indicating a warning for a plugin-related issue.
  */
 public class PluginDefinitionNoProcessModelDefinedLintItem extends PluginLintItem {
     public PluginDefinitionNoProcessModelDefinedLintItem(File file, String location, String message) {

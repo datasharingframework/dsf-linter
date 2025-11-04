@@ -6,13 +6,13 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the ActivityDefinition entry is missing the 'requester' extension
+ * Lint Item indicating that the ActivityDefinition entry is missing the 'requester' extension
  * in the process-authorization component.
  * Corresponds to {@link LintingType#MISSING_REQUESTER_EXTENSION}.
  */
 public class FhirActivityDefinitionEntryMissingRequesterLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item for a missing requester extension using a default description.
+     * Constructs a new Lint Item for a missing requester extension using a default description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
@@ -26,11 +26,11 @@ public class FhirActivityDefinitionEntryMissingRequesterLintItem extends FhirEle
     }
 
     /**
-     * Constructs a new validation item for a missing requester extension using a custom description.
+     * Constructs a new Lint Item for a missing requester extension using a custom description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
-     * @param description   a custom validation message describing the issue
+     * @param description   a custom lint description describing the issue
      */
     public FhirActivityDefinitionEntryMissingRequesterLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,

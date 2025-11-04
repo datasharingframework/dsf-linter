@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code <concept>} element in a CodeSystem resource
+ * Lint Item indicating that a {@code <concept>} element in a CodeSystem resource
  * is missing the required {@code <display>} child element.
  *
  * <p>According to the DSF CodeSystem base profile, each {@code concept} must provide
@@ -16,7 +16,7 @@ import java.io.File;
  */
 public class FhirCodeSystemConceptMissingDisplayLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using the default message for a missing <display> element.
+     * Constructs a Lint Item using the default message for a missing <display> element.
      *
      * @param resourceFile  the file containing the CodeSystem resource
      * @param fhirReference the canonical or local reference of the CodeSystem
@@ -27,7 +27,7 @@ public class FhirCodeSystemConceptMissingDisplayLintItem extends FhirElementLint
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the CodeSystem resource
      * @param fhirReference the canonical or local reference of the CodeSystem

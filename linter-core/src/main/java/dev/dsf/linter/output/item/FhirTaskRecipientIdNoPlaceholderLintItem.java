@@ -6,19 +6,19 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR {@code Task} resource contains a
+ * Lint Item indicating that a FHIR {@code Task} resource contains a
  * {@code restriction.recipient.identifier.value} without the required
  * {@code #{organization}} placeholder (development context).
  *
- * <p>This validation issue corresponds to {@link LintingType#Fhir_TASK_RECIPIENT_ID_NO_PLACEHOLDER}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#Fhir_TASK_RECIPIENT_ID_NO_PLACEHOLDER}.</p>
  */
 public class FhirTaskRecipientIdNoPlaceholderLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
-     * @param message       the message to describe the validation issue
+     * @param message       the message to describe the Lint issue
      */
     public FhirTaskRecipientIdNoPlaceholderLintItem(File resourceFile, String fhirReference, String message) {
         super(LinterSeverity.ERROR,
@@ -29,7 +29,7 @@ public class FhirTaskRecipientIdNoPlaceholderLintItem extends FhirElementLintIte
     }
 
     /**
-     * Constructs a validation item using the default message for a missing
+     * Constructs a Lint Item using the default message for a missing
      * {@code #{organization}} placeholder.
      *
      * @param resourceFile  the file in which the FHIR Task resource was found

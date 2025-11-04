@@ -6,14 +6,14 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a BPMN end event or BPMN IntermediateThroeEvent does not have a proper interface class implementation.
+ * Lint Item indicating that a BPMN end event or BPMN IntermediateThroeEvent does not have a proper interface class implementation.
  * Corresponds to {@link LintingType#BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING}.
  */
 public class BpmnEndOrIntermediateThrowEventMissingInterfaceLintItem extends BpmnElementLintItem {
     private final String className;
 
     /**
-     * Constructs a new validation item for an end event with no proper interface class implementation.
+     * Constructs a new Lint Item for an end event with no proper interface class implementation.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
@@ -26,13 +26,13 @@ public class BpmnEndOrIntermediateThrowEventMissingInterfaceLintItem extends Bpm
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated
      * @param processId   the process definition ID or key
      * @param className   the class name that does not implement the required interface
-     * @param description the custom validation description
+     * @param description the custom lint description
      */
     public BpmnEndOrIntermediateThrowEventMissingInterfaceLintItem(String elementId, File bpmnFile, String processId, String className, String description) {
         super(LinterSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);

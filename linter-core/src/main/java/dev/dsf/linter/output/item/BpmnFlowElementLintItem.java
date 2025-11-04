@@ -7,14 +7,14 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating an issue with a BPMN Flow Element.
+ * Lint Item indicating an issue with a BPMN Flow Element.
  */
 public class BpmnFlowElementLintItem extends BpmnElementLintItem {
     private final LintingType lintingTypeOverride;
     private final FlowElementType flowElementType;
 
     /**
-     * Constructs a new validation item for a BPMN Flow Element with a default error description.
+     * Constructs a new Lint Item for a BPMN Flow Element with a default error description.
      * The default severity is set to {@link LinterSeverity#WARN}.
      *
      * @param elementId              the BPMN element ID
@@ -32,14 +32,14 @@ public class BpmnFlowElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * Constructs a new validation item for a BPMN Flow Element with a custom description.
+     * Constructs a new Lint Item for a BPMN Flow Element with a custom description.
      *
      * @param elementId              the BPMN element ID
      * @param bpmnFile               the BPMN file being validated
      * @param processId              the process definition ID or key
-     * @param description            the custom validation description
+     * @param description            the custom lint description
      * @param lintingTypeOverride the validation type to associate with this issue
-     * @param severityOverride       the severity to assign to this validation issue
+     * @param severityOverride       the severity to assign to this Lint issue
      * @param flowElementType        the specific flow element type that categorizes this issue
      */
     public BpmnFlowElementLintItem(String elementId, File bpmnFile, String processId, String description,
@@ -57,16 +57,16 @@ public class BpmnFlowElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * Returns the validation type override for this flow element validation item.
+     * Returns the validation type override for this flow element Lint Item.
      *
-     * @return the {@link LintingType} associated with this validation issue.
+     * @return the {@link LintingType} associated with this Lint issue.
      */
-    public LintingType getValidationTypeOverride() {
+    public LintingType getLintTypeOverride() {
         return lintingTypeOverride;
     }
 
     /**
-     * Returns the flow element type that categorizes this validation issue.
+     * Returns the flow element type that categorizes this Lint issue.
      *
      * @return the {@link FlowElementType} if specified, or {@code null} if not.
      */

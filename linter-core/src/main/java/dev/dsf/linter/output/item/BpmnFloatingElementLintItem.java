@@ -12,14 +12,14 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
     private final FloatingElementType floatingElementType;
 
     /**
-     * Constructs a floating-element validation item with a custom severity and a specific {@link FloatingElementType}.
+     * Constructs a floating-element Lint Item with a custom severity and a specific {@link FloatingElementType}.
      *
-     * @param elementId              the BPMN element ID that caused the validation issue
+     * @param elementId              the BPMN element ID that caused the Lint issue
      * @param bpmnFile               the BPMN file being validated
      * @param processId              the ID or key of the process definition where the issue occurred
-     * @param description            a human-readable message describing the validation issue
+     * @param description            a human-readable message describing the Lint issue
      * @param lintingTypeOverride the validation type to associate with this issue
-     * @param severityOverride       the severity to assign to this validation issue
+     * @param severityOverride       the severity to assign to this Lint issue
      * @param floatingElementType    the specific floating element type that categorizes this issue
      */
     public BpmnFloatingElementLintItem(
@@ -44,7 +44,7 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * Gets the floating element type that categorizes this validation issue, if available.
+     * Gets the floating element type that categorizes this Lint issue, if available.
      *
      * @return the {@link FloatingElementType}, or {@code null} if not specified
      */
@@ -53,10 +53,10 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * Returns a string representation of this validation item including element ID, process ID, BPMN file,
+     * Returns a string representation of this Lint Item including element ID, process ID, BPMN file,
      * description, validation type override, floating element type (if any), and severity.
      *
-     * @return a string with detailed information about this validation item
+     * @return a string with detailed information about this Lint Item
      */
     @Override
     public String toString() {

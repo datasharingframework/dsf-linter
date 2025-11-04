@@ -6,7 +6,7 @@ import java.io.File;
 
 /**
  * <p>
- * Represents a validation issue specifically related to a StructureDefinition resource.
+ * Represents a Lint issue specifically related to a StructureDefinition resource.
  * Typically used when a StructureDefinition cannot be found, or does not match expected criteria.
  * </p>
  */

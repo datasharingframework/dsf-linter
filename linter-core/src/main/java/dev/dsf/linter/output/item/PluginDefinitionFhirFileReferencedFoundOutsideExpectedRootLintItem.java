@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR resource file referenced in the ProcessPluginDefinition
+ * Lint Item indicating that a FHIR resource file referenced in the ProcessPluginDefinition
  * was found, but exists outside the expected resource root directory for this plugin.
  * <p>
  * This typically indicates:
@@ -25,7 +25,7 @@ public class PluginDefinitionFhirFileReferencedFoundOutsideExpectedRootLintItem 
     private final String actualLocation;
 
     /**
-     * Constructs a validation item for a FHIR file found outside expected root.
+     * Constructs a Lint Item for a FHIR file found outside expected root.
      *
      * @param pluginName     The name of the plugin referencing the file
      * @param fhirFile       The FHIR resource file that was found

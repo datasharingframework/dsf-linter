@@ -5,12 +5,12 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR resource file, which was referenced,
+ * Lint Item indicating that a FHIR resource file, which was referenced,
  * could not be found.
  */
 public class PluginDefinitionFhirFileReferencedButNotFoundLintItem extends PluginLintItem {
     /**
-     * Constructs a new validation item for a referenced but missing FHIR file.
+     * Constructs a new Lint Item for a referenced but missing FHIR file.
      *
      * @param pluginName   The name of the plugin referencing the file.
      * @param severity     The validation severity (usually ERROR).

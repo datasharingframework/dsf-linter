@@ -6,12 +6,12 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the FHIR kind is invalid.
+ * Lint Item indicating that the FHIR kind is invalid.
  * Corresponds to {@link LintingType#INVALID_FHIR_KIND}.
  */
 public class FhirKindIsMissingOrEmptyLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item with a default description.
+     * Constructs a new Lint Item with a default description.
      *
      * @param resourceFile the file where the resource was loaded from
      * @param fhirKind     the FHIR kind (e.g., a string representing the kind)
@@ -22,11 +22,11 @@ public class FhirKindIsMissingOrEmptyLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param resourceFile the file where the resource was loaded from
      * @param fhirKind     the FHIR kind (e.g., a string representing the kind)
-     * @param description  a custom validation description
+     * @param description  a custom lint description
      */
     public FhirKindIsMissingOrEmptyLintItem(File resourceFile, String fhirKind, String description) {
         super(LinterSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirKind, LintingType.INVALID_FHIR_KIND, description);

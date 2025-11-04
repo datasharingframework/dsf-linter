@@ -6,13 +6,13 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code camunda:taskListener} on a {@code UserTask}
+ * Lint Item indicating that a {@code camunda:taskListener} on a {@code UserTask}
  * is missing the required {@code class} attribute.
  *
  * <p>
  * In Camunda BPMN extensions, each {@code camunda:taskListener} may define either a
  * {@code class}, {@code expression}, or {@code delegateExpression} to indicate how the listener
- * should be invoked at runtime. This validation item applies when the {@code class} attribute
+ * should be invoked at runtime. This Lint Item applies when the {@code class} attribute
  * is completely absent, which prevents further static validation of listener logic.
  * </p>
  *

@@ -6,12 +6,12 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the FHIR URL is invalid.
+ * Lint Item indicating that the FHIR URL is invalid.
  * Corresponds to {@link LintingType#INVALID_FHIR_URL}.
  */
 public class FhirActivityDefinitionInvalidFhirUrlLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item with a default description.
+     * Constructs a new Lint Item with a default description.
      *
      * @param resourceFile  the file where the resource was loaded from
      * @param fhirReference the FHIR reference (e.g., URL)
@@ -22,11 +22,11 @@ public class FhirActivityDefinitionInvalidFhirUrlLintItem extends FhirElementLin
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param resourceFile  the file where the resource was loaded from
      * @param fhirReference the FHIR reference (e.g., URL)
-     * @param description   a custom validation description
+     * @param description   a custom lint description
      */
     public FhirActivityDefinitionInvalidFhirUrlLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR, resourceFile != null ? resourceFile.getName() : "unknown.xml", fhirReference, LintingType.INVALID_FHIR_URL, description);

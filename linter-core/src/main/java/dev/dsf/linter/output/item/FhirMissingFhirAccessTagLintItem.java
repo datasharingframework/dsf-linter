@@ -6,12 +6,12 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the FHIR access tag is missing.
+ * Lint Item indicating that the FHIR access tag is missing.
  * Corresponds to {@link LintingType#MISSING_FHIR_ACCESS_TAG}.
  */
 public class FhirMissingFhirAccessTagLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item for a missing FHIR access tag using a default description.
+     * Constructs a new Lint Item for a missing FHIR access tag using a default description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
@@ -25,11 +25,11 @@ public class FhirMissingFhirAccessTagLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation item for a missing FHIR access tag using a custom description.
+     * Constructs a new Lint Item for a missing FHIR access tag using a custom description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
-     * @param description   a custom validation message describing the issue
+     * @param description   a custom lint description describing the issue
      */
     public FhirMissingFhirAccessTagLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,

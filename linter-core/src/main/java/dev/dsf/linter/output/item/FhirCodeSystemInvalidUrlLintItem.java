@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code url} element of a CodeSystem resource
+ * Lint Item indicating that the {@code url} element of a CodeSystem resource
  * does not begin with the required DSF namespace:
  * {@code http://dsf.dev/fhir/CodeSystem/}.
  *
@@ -18,7 +18,7 @@ import java.io.File;
 @Deprecated
 public class FhirCodeSystemInvalidUrlLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using the default error message for invalid CodeSystem URL.
+     * Constructs a Lint Item using the default error message for invalid CodeSystem URL.
      *
      * @param resourceFile  the file where the CodeSystem resource is defined
      * @param fhirReference the canonical or local reference of the CodeSystem
@@ -29,7 +29,7 @@ public class FhirCodeSystemInvalidUrlLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a validation item using a custom error message for invalid CodeSystem URL.
+     * Constructs a Lint Item using a custom error message for invalid CodeSystem URL.
      *
      * @param resourceFile  the file where the CodeSystem resource is defined
      * @param fhirReference the canonical or local reference of the CodeSystem

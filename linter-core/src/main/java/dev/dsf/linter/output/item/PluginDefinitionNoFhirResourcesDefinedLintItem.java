@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating a warning for a plugin-related issue.
+ * Lint Item indicating a warning for a plugin-related issue.
  */
 public class PluginDefinitionNoFhirResourcesDefinedLintItem extends PluginLintItem {
     public PluginDefinitionNoFhirResourcesDefinedLintItem(File file, String location, String message) {

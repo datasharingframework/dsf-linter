@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * A validation item that indicates a BPMN file referenced in the plugin definition
+ * A Lint Item that indicates a BPMN file referenced in the plugin definition
  * could not be parsed. This is a critical error that prevents further validation of the file.
  * <p>
  * This class inherits from {@link PluginLintItem} to provide context about the
@@ -14,7 +14,7 @@ import java.io.File;
 public class PluginDefinitionUnparsableBpmnResourceLintItem extends PluginLintItem {
 
     /**
-     * Constructs a new validation item for an unparsable BPMN file.
+     * Constructs a new Lint Item for an unparsable BPMN file.
      *
      * @param file     The file that could not be parsed.
      * @param location The location or plugin name for context.
@@ -25,7 +25,7 @@ public class PluginDefinitionUnparsableBpmnResourceLintItem extends PluginLintIt
     }
 
     /**
-     * Returns a formatted string representation of this validation item.
+     * Returns a formatted string representation of this Lint Item.
      * The format is: [SEVERITY] Location: <location> - <message> (File: <filename>)
      *
      * @return A formatted string representation for console output.

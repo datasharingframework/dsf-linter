@@ -7,7 +7,7 @@ import java.io.File;
 
 /**
  * <p>
- * Validation item that represents an issue where the required
+ * Lint Item that represents an issue where the required
  * {@code requester} element is missing from a FHIR Task resource.
  * </p>
  *
@@ -67,7 +67,7 @@ public class FhirTaskMissingRequesterLintItem extends FhirElementLintItem {
      *
      * @param resourceFile  the FHIR resource file where the issue was detected (may be {@code null})
      * @param fhirReference a canonical or local reference to the FHIR resource (e.g. {@code Task/example})
-     * @param description   a custom human-readable explanation of the validation issue
+     * @param description   a custom human-readable explanation of the Lint issue
      */
     public FhirTaskMissingRequesterLintItem(File resourceFile, String fhirReference, String description) {
         super(

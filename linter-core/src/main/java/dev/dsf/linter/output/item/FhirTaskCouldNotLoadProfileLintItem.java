@@ -6,10 +6,10 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the {@code StructureDefinition} profile referenced in a {@code Task}
+ * Lint Item indicating that the {@code StructureDefinition} profile referenced in a {@code Task}
  * could not be located, which prevents cardinality validation.
  *
- * <p>This validation issue corresponds to {@link LintingType#Fhir_TASK_PROFILE_NOT_FOUND}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#Fhir_TASK_PROFILE_NOT_FOUND}.</p>
  */
 public class FhirTaskCouldNotLoadProfileLintItem extends FhirElementLintItem {
     public FhirTaskCouldNotLoadProfileLintItem(File resourceFile, String fhirReference, String description) {

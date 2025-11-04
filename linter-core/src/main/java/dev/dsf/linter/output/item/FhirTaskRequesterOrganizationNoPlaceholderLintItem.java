@@ -7,7 +7,7 @@ import java.io.File;
 
 /**
  * <p>
- * Validation item that represents an issue where a required placeholder
+ * Lint Item that represents an issue where a required placeholder
  * (such as {@code #{organization}}) is missing in a critical FHIR resource field.
  * </p>
  *
@@ -66,7 +66,7 @@ public class FhirTaskRequesterOrganizationNoPlaceholderLintItem extends FhirElem
      *
      * @param resourceFile  the FHIR resource file in which the issue was found (can be {@code null})
      * @param fhirReference the FHIR reference (e.g., {@code Task/example})
-     * @param description   a custom description to provide additional context for the validation issue
+     * @param description   a custom description to provide additional context for the Lint issue
      */
     public FhirTaskRequesterOrganizationNoPlaceholderLintItem(File resourceFile, String fhirReference, String description) {
         super(

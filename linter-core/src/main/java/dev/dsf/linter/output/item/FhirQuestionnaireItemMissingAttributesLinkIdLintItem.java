@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a Questionnaire {@code <item>} element
+ * Lint Item indicating that a Questionnaire {@code <item>} element
  * is missing one required attribute: {@code linkId}.
  *
  * <p>Each item in a DSF Questionnaire must define these attributes to ensure proper
@@ -18,7 +18,7 @@ import java.io.File;
  */
 public class FhirQuestionnaireItemMissingAttributesLinkIdLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item with the default message indicating attribute incompleteness.
+     * Constructs a Lint Item with the default message indicating attribute incompleteness.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire
@@ -29,7 +29,7 @@ public class FhirQuestionnaireItemMissingAttributesLinkIdLintItem extends FhirEl
     }
 
     /**
-     * Constructs a validation item with a custom message.
+     * Constructs a Lint Item with a custom message.
      *
      * @param resourceFile  the file containing the Questionnaire
      * @param fhirReference the canonical URL or local reference of the Questionnaire

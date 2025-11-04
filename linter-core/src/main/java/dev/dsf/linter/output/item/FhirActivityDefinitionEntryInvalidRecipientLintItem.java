@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the recipient entry in an ActivityDefinition is invalid.
+ * Lint Item indicating that the recipient entry in an ActivityDefinition is invalid.
  * Corresponds to {@link LintingType#ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT}.
  */
 public class FhirActivityDefinitionEntryInvalidRecipientLintItem extends FhirElementLintItem {

@@ -6,22 +6,22 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a {@code Task.input} element with {@code type.coding.code = "business-key"}
+ * Lint Item indicating that a {@code Task.input} element with {@code type.coding.code = "business-key"}
  * is missing, even though the {@code Task.status} value requires it.
  *
  * <p>According to the DSF {@code task-base} profile, if {@code Task.status} is set to one of
  * {@code in-progress}, {@code completed}, or {@code failed}, then the {@code business-key}
  * input slice must be present.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#TASK_BUSINESS_KEY_REQUIRED_FOR_STATUS}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#TASK_BUSINESS_KEY_REQUIRED_FOR_STATUS}.</p>
  */
 public class FhirTaskStatusRequiredInputBusinessKeyLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using a custom message for a missing 'business-key' when required by {@code status}.
+     * Constructs a Lint Item using a custom message for a missing 'business-key' when required by {@code status}.
      *
      * @param resourceFile  the file where the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
-     * @param description   a custom message describing the validation issue
+     * @param description   a custom message describing the Lint issue
      */
     public FhirTaskStatusRequiredInputBusinessKeyLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,
@@ -32,7 +32,7 @@ public class FhirTaskStatusRequiredInputBusinessKeyLintItem extends FhirElementL
     }
 
     /**
-     * Constructs a validation item using the default message for missing 'business-key' required by {@code status}.
+     * Constructs a Lint Item using the default message for missing 'business-key' required by {@code status}.
      *
      * @param resourceFile  the file where the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource

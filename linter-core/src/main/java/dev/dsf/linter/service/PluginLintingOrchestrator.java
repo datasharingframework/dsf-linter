@@ -88,7 +88,7 @@ public class PluginLintingOrchestrator {
                 validationContext.totalPlugins()
         );
 
-        // Step 3: Collect BPMN and FHIR validation items (including dependency resources)
+        // Step 3: Collect BPMN and FHIR Lint Items (including dependency resources)
         LintingItemsCollection itemsCollection = collectLintingItems(pluginName, plugin);
 
         // Step 4: Run plugin-level validation
@@ -124,7 +124,7 @@ public class PluginLintingOrchestrator {
 
         // Step 7: Print validation sections (BPMN → FHIR → Plugin)
         String pluginNameShort = plugin.adapter().sourceClass().getSimpleName();
-        reportGenerator.printValidationSections(
+        reportGenerator.printLintSections(
                 groupedItems.bpmnNonSuccess,
                 groupedItems.fhirNonSuccess,
                 groupedItems.pluginNonSuccess,
@@ -133,7 +133,7 @@ public class PluginLintingOrchestrator {
         );
 
         // Step 8: Build final validation result
-        DsfLinter.PluginLinter pluginLinter = buildPluginValidationResult(
+        DsfLinter.PluginLinter pluginLinter = buildPluginLintResult(
                 pluginName,
                 plugin,
                 itemsCollection,
@@ -149,8 +149,8 @@ public class PluginLintingOrchestrator {
     }
 
     /**
-     * Collects validation items from BPMN and FHIR validators.
-     * Includes resource root validation items, dependency items, and individual success items.
+     * Collects Lint Items from BPMN and FHIR validators.
+     * Includes resource root Lint Items, dependency items, and individual success items.
      */
     private LintingItemsCollection collectLintingItems(
             String pluginName,
@@ -191,7 +191,7 @@ public class PluginLintingOrchestrator {
     }
 
     /**
-     * Groups and filters validation items for console display.
+     * Groups and filters Lint Items for console display.
      */
     private GroupedLintingItems groupAndFilterItems(
             LintingItemsCollection itemsCollection,
@@ -213,7 +213,7 @@ public class PluginLintingOrchestrator {
 
         List<AbstractLintItem> allPluginItems = new ArrayList<>(pluginResult.getItems());
 
-        // Add metadata validation items
+        // Add metadata Lint Items
         if (metadataItems != null && !metadataItems.isEmpty()) {
             allPluginItems.addAll(metadataItems);
         }
@@ -234,7 +234,7 @@ public class PluginLintingOrchestrator {
     /**
      * Builds the final PluginLinter result for a single plugin.
      */
-    private DsfLinter.PluginLinter buildPluginValidationResult(
+    private DsfLinter.PluginLinter buildPluginLintResult(
             String pluginName,
             ResourceDiscoveryService.PluginDiscovery plugin,
             LintingItemsCollection itemsCollection,
@@ -246,7 +246,7 @@ public class PluginLintingOrchestrator {
         finalLintingItems.addAll(itemsCollection.nonPluginItems);
         finalLintingItems.addAll(pluginResult.getItems());
 
-        // Add metadata validation items to final result
+        // Add metadata Lint Items to final result
         if (metadataItems != null && !metadataItems.isEmpty()) {
             finalLintingItems.addAll(metadataItems);
         }
@@ -270,7 +270,7 @@ public class PluginLintingOrchestrator {
     }
 
     /**
-     * Internal record to hold separated validation items.
+     * Internal record to hold separated Lint Items.
      */
     private record LintingItemsCollection(
             List<AbstractLintItem> nonPluginItems,
@@ -278,7 +278,7 @@ public class PluginLintingOrchestrator {
     ) {}
 
     /**
-     * Internal record to hold grouped non-SUCCESS validation items for display.
+     * Internal record to hold grouped non-SUCCESS Lint Items for display.
      */
     private record GroupedLintingItems(
             List<AbstractLintItem> bpmnNonSuccess,

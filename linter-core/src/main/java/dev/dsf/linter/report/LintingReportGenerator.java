@@ -169,7 +169,7 @@ public class LintingReportGenerator {
      * @param pluginResult     Plugin validation result for ServiceLoader check
      * @param pluginNameShort  Short name of the plugin
      */
-    public void printValidationSections(
+    public void printLintSections(
             List<AbstractLintItem> bpmnNonSuccess,
             List<AbstractLintItem> fhirNonSuccess,
             List<AbstractLintItem> pluginNonSuccess,

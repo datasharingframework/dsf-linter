@@ -6,14 +6,14 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a BPMN send task does not have a proper interface class implementation.
+ * Lint Item indicating that a BPMN send task does not have a proper interface class implementation.
  * Corresponds to {@link LintingType#BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING}.
  */
 public class BpmnSendTaskNoInterfaceClassImplementingLintItem extends BpmnElementLintItem {
     private final String className;
 
     /**
-     * Constructs a new validation item for a send task with no proper interface class implementation.
+     * Constructs a new Lint Item for a send task with no proper interface class implementation.
      *
      * @param elementId the BPMN element ID
      * @param bpmnFile  the BPMN file being validated
@@ -26,13 +26,13 @@ public class BpmnSendTaskNoInterfaceClassImplementingLintItem extends BpmnElemen
     }
 
     /**
-     * Constructs a new validation item with a custom description.
+     * Constructs a new Lint Item with a custom description.
      *
      * @param elementId   the BPMN element ID
      * @param bpmnFile    the BPMN file being validated
      * @param processId   the process definition ID or key
      * @param className   the class name that does not implement the required interface
-     * @param description the custom validation description
+     * @param description the custom lint description
      */
     public BpmnSendTaskNoInterfaceClassImplementingLintItem(String elementId, File bpmnFile, String processId, String className, String description) {
         super(LinterSeverity.ERROR, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, description);

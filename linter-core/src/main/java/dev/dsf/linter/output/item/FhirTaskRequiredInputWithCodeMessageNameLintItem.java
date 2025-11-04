@@ -6,21 +6,21 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that a FHIR {@code Task} resource is missing the required
+ * Lint Item indicating that a FHIR {@code Task} resource is missing the required
  * {@code Task.input} slice with {@code type.coding.code = "message-name"}.
  *
  * <p>According to the DSF {@code task-base} profile, every Task must include exactly one input slice
  * of type {@code message-name} to identify the type of BPMN message the Task represents.</p>
  *
- * <p>This validation issue corresponds to {@link LintingType#TASK_INPUT_MISSING_MESSAGE_NAME}.</p>
+ * <p>This Lint issue corresponds to {@link LintingType#TASK_INPUT_MISSING_MESSAGE_NAME}.</p>
  */
 public class FhirTaskRequiredInputWithCodeMessageNameLintItem extends FhirElementLintItem {
     /**
-     * Constructs a validation item using a custom message for a missing 'message-name' input slice.
+     * Constructs a Lint Item using a custom message for a missing 'message-name' input slice.
      *
      * @param resourceFile  the file where the FHIR Task resource was loaded from
      * @param fhirReference the canonical URL or local identifier of the resource
-     * @param description   a custom message describing the validation issue
+     * @param description   a custom message describing the Lint issue
      */
     public FhirTaskRequiredInputWithCodeMessageNameLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,
@@ -31,7 +31,7 @@ public class FhirTaskRequiredInputWithCodeMessageNameLintItem extends FhirElemen
     }
 
     /**
-     * Constructs a validation item using the default error message for a missing 'message-name' input.
+     * Constructs a Lint Item using the default error message for a missing 'message-name' input.
      *
      * @param resourceFile  the file where the FHIR Task resource was loaded from
      * @param fhirReference the canonical URL or local identifier of the resource

@@ -6,13 +6,13 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the ActivityDefinition is missing the expected profile
+ * Lint Item indicating that the ActivityDefinition is missing the expected profile
  * in the meta section.
  * Corresponds to {@link LintingType#ACTIVITY_DEFINITION_MISSING_PROFILE}.
  */
 public class FhirActivityDefinitionMissingProfileLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation item for a missing profile using a default description.
+     * Constructs a new Lint Item for a missing profile using a default description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
@@ -26,11 +26,11 @@ public class FhirActivityDefinitionMissingProfileLintItem extends FhirElementLin
     }
 
     /**
-     * Constructs a new validation item for a missing profile using a custom description.
+     * Constructs a new Lint Item for a missing profile using a custom description.
      *
      * @param resourceFile  the file where the FHIR resource was loaded from
      * @param fhirReference a canonical URL or local reference that identifies the resource
-     * @param description   a custom validation message describing the issue
+     * @param description   a custom lint description describing the issue
      */
     public FhirActivityDefinitionMissingProfileLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.WARN,

@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item indicating that a plugin resource located in the repository
+ * Lint Item indicating that a plugin resource located in the repository
  * is NOT referenced by the ProcessPluginDefinition and therefore was not loaded/validated.
  * <p>
  * Severity: {@link LinterSeverity#WARN}. This item is intended for reporting only

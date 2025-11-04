@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import java.io.File;
 
 /**
- * Validation item for missing ProcessPluginDefinition service registration.
+ * Lint Item for missing ProcessPluginDefinition service registration.
  * This occurs when no ProcessPluginDefinition service file is found in META-INF/services.
  */
 public class PluginDefinitionMissingServiceLoaderRegistrationLintItem extends PluginLintItem {

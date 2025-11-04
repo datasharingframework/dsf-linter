@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation item indicating that the requester entry in an ActivityDefinition is invalid.
+ * Lint Item indicating that the requester entry in an ActivityDefinition is invalid.
  * Corresponds to {@link LintingType#ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER}.
  */
 public class FhirActivityDefinitionEntryInvalidRequesterLintItem extends FhirElementLintItem {
