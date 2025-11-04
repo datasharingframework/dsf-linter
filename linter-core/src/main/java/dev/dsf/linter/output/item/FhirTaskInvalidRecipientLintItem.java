@@ -20,7 +20,7 @@ public class FhirTaskInvalidRecipientLintItem extends FhirElementLintItem {
      *
      * @param resourceFile  the file where the FHIR Task resource was found
      * @param fhirReference the canonical URL or local identifier of the resource
-     * @param description   a human-readable validation message
+     * @param description   a human-readable linting message
      */
     public FhirTaskInvalidRecipientLintItem(File resourceFile, String fhirReference, String description) {
         super(LinterSeverity.ERROR,

@@ -49,7 +49,7 @@ public class PluginDefinitionBpmnFileReferencedFoundOutsideExpectedRootLintItem 
     }
 
     /**
-     * Formats the validation message.
+     * Formats the linting message.
      */
     private static String formatMessage(String reference, String expectedRoot, String actualLocation) {
         return String.format(

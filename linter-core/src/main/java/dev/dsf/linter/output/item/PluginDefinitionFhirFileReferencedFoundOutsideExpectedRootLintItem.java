@@ -50,7 +50,7 @@ public class PluginDefinitionFhirFileReferencedFoundOutsideExpectedRootLintItem 
     }
 
     /**
-     * Formats the validation message.
+     * Formats the linting message.
      */
     private static String formatMessage(String reference, String expectedRoot, String actualLocation) {
         return String.format(
