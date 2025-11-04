@@ -24,10 +24,16 @@ import java.util.Objects;
  *             <li>{@code <kind>} must be present and set to {@code "Task"}.</li>
  *         </ul>
  *     </li>
- *     <li><strong>Read‑AccessTag</strong><br/>
+ *     <li><strong>Profile Declaration</strong><br/>
+ *         <ul>
+ *             <li>{@code <meta><profile>} should contain {@value #EXPECTED_PROFILE}.</li>
+ *             <li>If present, the profile URL must not contain a version suffix (e.g., {@code |1.0.0}).</li>
+ *         </ul>
+ *     </li>
+ *     <li><strong>Read-Access Tag</strong><br/>
  *         The first {@code <meta><tag>} must use the CodeSystem
  *         {@value #READ_ACCESS_TAG_SYSTEM} and the code {@value #READ_ACCESS_TAG_CODE_ALL} (allowing global read access).</li>
- *     <li><strong>Process‑AuthorizationExtension</strong><br/>
+ *     <li><strong>Process-Authorization Extension</strong><br/>
  *         <ul>
  *             <li>{@code extension-process-authorization} must exist.</li>
  *             <li>Each {@code requester} and {@code recipient} sub-extension must contain a {@code valueCoding}
@@ -49,7 +55,7 @@ import java.util.Objects;
  * <p>
  * References:
  * <ul>
- *   <li><a href="http://hl7.org/fhir/R4/activitydefinition.html">HL7 FHIR R4 – ActivityDefinition</a></li>
+ *   <li><a href="http://hl7.org/fhir/R4/activitydefinition.html">HL7 FHIR R4 – ActivityDefinition</a></li>
  *   <li><a href="https://dsf.dev/">DSF Developer Documentation</a></li>
  * </ul>
  * </p>
@@ -64,6 +70,9 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
     private static final String STATUS_XP  = ACTIVITY_DEFINITION_XP + "/*[local-name()='status']/@value";
     private static final String KIND_XP    = ACTIVITY_DEFINITION_XP + "/*[local-name()='kind']/@value";
 
+    private static final String PROFILE_XP = ACTIVITY_DEFINITION_XP +
+            "/*[local-name()='meta']/*[local-name()='profile']/@value";
+
     private static final String TAG_SYS_XP  = ACTIVITY_DEFINITION_XP +
             "/*[local-name()='meta']/*[local-name()='tag'][1]/*[local-name()='system'][1]/@value";
     private static final String TAG_CODE_XP = ACTIVITY_DEFINITION_XP +
@@ -77,12 +86,14 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
     private static final String AUTH_CODING_CODE_XP    = "./*[local-name()='valueCoding'][1]/*[local-name()='code'][1]/@value";
 
     /*
-      DSF‑specific CodeSystems / codes
+      DSF-specific CodeSystems / codes
       */
     private static final String READ_ACCESS_TAG_SYSTEM = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
     private static final String READ_ACCESS_TAG_CODE_ALL = "ALL";
 
     private static final String PROCESS_AUTHORIZATION_SYSTEM = "http://dsf.dev/fhir/CodeSystem/process-authorization";
+
+    private static final String EXPECTED_PROFILE = "http://dsf.dev/fhir/StructureDefinition/activity-definition";
 
 
     @Override
@@ -125,23 +136,48 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
         else
             issues.add(ok(resourceFile, resourceUrl, "<kind> is 'Task'."));
 
-        /* (4) Read‑Access‑Tag  */
+        /* (4) <meta><profile> check  */
+        final String profileVal = val(doc, PROFILE_XP);
+        if (blank(profileVal))
+        {
+            issues.add(new FhirActivityDefinitionMissingProfileLintItem(resourceFile, resourceUrl,
+                    "ActivityDefinition is missing <meta><profile> with value '" + EXPECTED_PROFILE + "'."));
+        }
+        else if (!profileVal.startsWith(EXPECTED_PROFILE))
+        {
+            issues.add(new FhirActivityDefinitionMissingProfileLintItem(resourceFile, resourceUrl,
+                    "ActivityDefinition <meta><profile> should be '" + EXPECTED_PROFILE +
+                            "' (found '" + profileVal + "')."));
+        }
+        else if (profileVal.contains("|"))
+        {
+            issues.add(new FhirActivityDefinitionProfileHasVersionNumberLintItem(resourceFile, resourceUrl,
+                    "ActivityDefinition profile must not contain a version number (found '" + profileVal +
+                            "'). Use '" + EXPECTED_PROFILE + "' without version suffix."));
+        }
+        else
+        {
+            issues.add(ok(resourceFile, resourceUrl,
+                    "Profile '" + EXPECTED_PROFILE + "' is correctly specified without version."));
+        }
+
+        /* (5) Read-Access Tag  */
         final String tagSystem = val(doc, TAG_SYS_XP);
         final String tagCode   = val(doc, TAG_CODE_XP);
 
         if (blank(tagSystem) || blank(tagCode))
             issues.add(new FhirMissingFhirAccessTagLintItem(resourceFile, resourceUrl,
-                    "Missing read‑access tag (system + code)."));
+                    "Missing read-access tag (system + code)."));
         else if (!Objects.equals(READ_ACCESS_TAG_SYSTEM, tagSystem) ||
                 !Objects.equals(READ_ACCESS_TAG_CODE_ALL, tagCode))
             issues.add(new FhirInvalidFhirAccessTagLintItem(resourceFile, resourceUrl,
-                    "Read‑access tag must be system='" + READ_ACCESS_TAG_SYSTEM + "', code='" + READ_ACCESS_TAG_CODE_ALL +
+                    "Read-access tag must be system='" + READ_ACCESS_TAG_SYSTEM + "', code='" + READ_ACCESS_TAG_CODE_ALL +
                             "' (found system='" + tagSystem + "', code='" + tagCode + "')."));
         else
             issues.add(ok(resourceFile, resourceUrl,
-                    "Read‑access tag ok (system '" + tagSystem + "', code '" + tagCode + "')."));
+                    "Read-access tag ok (system '" + tagSystem + "', code '" + tagCode + "')."));
 
-        /* (5) Process‑Authorization‑Extension  */
+        /* (6) Process-Authorization Extension  */
         NodeList authExts = xp(doc, AUTH_EXT_BASE_XP);
         if (authExts == null || authExts.getLength() == 0)
         {
@@ -189,7 +225,7 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
       Helper: authorization coding linting
        */
     /**
-     * lints {@code requester} or {@code recipient} sub‑extensions.
+     * lints {@code requester} or {@code recipient} sub-extensions.
      * <ul>
      *     <li>{@code system} must equal {@value #PROCESS_AUTHORIZATION_SYSTEM}</li>
      *     <li>{@code code} must be known to {@link FhirAuthorizationCache}</li>
@@ -218,7 +254,7 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
                 continue;
             }
 
-            // (b) system must match DSF process‑authorization system
+            // (b) system must match DSF process-authorization system
             if (!PROCESS_AUTHORIZATION_SYSTEM.equals(systemVal))
             {
                 issues.add(createAuthLintError(requester, resourceFile, resourceUrl,
