@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Unified input resolver that handles all supported input types for DSF Linter.
@@ -31,6 +33,7 @@ import java.util.Optional;
  * <ul>
  *   <li><b>Local Directory:</b> /path/to/project</li>
  *   <li><b>Git Repository:</b> https://github.com/user/repo</li>
+ *   <li><b>Git Repository with Branch:</b> https://github.com/user/repo/tree/branch-name</li>
  *   <li><b>Local JAR:</b> /path/to/plugin.jar</li>
  *   <li><b>Remote JAR:</b> https://example.com/plugin.jar</li>
  * </ul>
@@ -43,6 +46,11 @@ public class InputResolver {
     private final Logger logger;
     private final RepositoryManager repositoryManager;
     private final JarHandler jarHandler;
+
+    private static final Pattern GITHUB_BRANCH_PATTERN =
+            Pattern.compile("^(https?://github\\.com/[^/]+/[^/]+)/tree/([^/]+).*$");
+    private static final Pattern GITLAB_BRANCH_PATTERN =
+            Pattern.compile("^(https?://gitlab\\.com/[^/]+/[^/]+)/-/tree/([^/]+).*$");
 
     /**
      * Result of input resolution containing the resolved directory and metadata.
@@ -58,6 +66,14 @@ public class InputResolver {
             boolean requiresCleanup,
             String originalInput
     ) {}
+
+    /**
+     * Internal record to hold Git repository information including branch.
+     *
+     * @param cloneUrl the base Git clone URL
+     * @param branchName the branch name (null for default branch)
+     */
+    private record GitRepositoryInfo(String cloneUrl, String branchName) {}
 
     /**
      * Constructs a new InputResolver with the specified logger.
@@ -167,6 +183,43 @@ public class InputResolver {
     }
 
     /**
+     * Parses a Git repository URL and extracts the clone URL and branch name.
+     * <p>
+     * Supports GitHub and GitLab web URLs with branch information:
+     * <ul>
+     *   <li>GitHub: https://github.com/user/repo/tree/branch-name</li>
+     *   <li>GitLab: https://gitlab.com/user/repo/-/tree/branch-name</li>
+     * </ul>
+     * </p>
+     *
+     * @param input the Git repository URL (may contain branch information)
+     * @return GitRepositoryInfo containing the clone URL and optional branch name
+     */
+    private GitRepositoryInfo parseGitRepositoryUrl(String input) {
+        // Check for GitHub branch pattern
+        Matcher githubMatcher = GITHUB_BRANCH_PATTERN.matcher(input);
+        if (githubMatcher.matches()) {
+            String cloneUrl = githubMatcher.group(1) + ".git";
+            String branchName = githubMatcher.group(2);
+            logger.info("Detected GitHub repository with branch: " + branchName);
+            return new GitRepositoryInfo(cloneUrl, branchName);
+        }
+
+        // Check for GitLab branch pattern
+        Matcher gitlabMatcher = GITLAB_BRANCH_PATTERN.matcher(input);
+        if (gitlabMatcher.matches()) {
+            String cloneUrl = gitlabMatcher.group(1) + ".git";
+            String branchName = gitlabMatcher.group(2);
+            logger.info("Detected GitLab repository with branch: " + branchName);
+            return new GitRepositoryInfo(cloneUrl, branchName);
+        }
+
+        // Standard Git URL without branch
+        String cloneUrl = input.endsWith(".git") ? input : input + ".git";
+        return new GitRepositoryInfo(cloneUrl, null);
+    }
+
+    /**
      * Resolves a local directory input.
      *
      * @param input the directory path
@@ -197,17 +250,30 @@ public class InputResolver {
 
     /**
      * Resolves a Git repository by cloning it to a temporary directory.
+     * <p>
+     * Supports cloning specific branches when the input URL contains branch information
+     * (e.g., https://github.com/user/repo/tree/branch-name).
+     * </p>
      *
-     * @param input the Git repository URL
+     * @param input the Git repository URL (with optional branch information)
      * @return ResolutionResult with cloned repository path
      */
     private Optional<ResolutionResult> resolveGitRepository(String input) {
-        String repositoryName = input.substring(input.lastIndexOf('/') + 1)
+        GitRepositoryInfo repoInfo = parseGitRepositoryUrl(input);
+
+        String cloneUrl = repoInfo.cloneUrl();
+        String branchName = repoInfo.branchName();
+
+        String repositoryName = cloneUrl.substring(cloneUrl.lastIndexOf('/') + 1)
                 .replace(".git", "");
+
+        String cloneDirName = branchName != null && !branchName.isBlank()
+                ? "dsf-linter-git-" + repositoryName + "-" + branchName
+                : "dsf-linter-git-" + repositoryName;
 
         Path clonePath = Path.of(
                 System.getProperty("java.io.tmpdir"),
-                "dsf-linter-git-" + repositoryName
+                cloneDirName
         );
 
         // Delete existing clone if present
@@ -217,8 +283,12 @@ public class InputResolver {
         }
 
         try {
-            logger.info("Cloning Git repository: " + input);
-            File result = repositoryManager.getRepository(input, clonePath.toFile());
+            logger.info("Cloning Git repository: " + cloneUrl);
+            if (branchName != null && !branchName.isBlank()) {
+                logger.info("Branch: " + branchName);
+            }
+
+            File result = repositoryManager.getRepository(cloneUrl, clonePath.toFile(), branchName);
 
             return Optional.of(new ResolutionResult(
                     result.toPath(),
