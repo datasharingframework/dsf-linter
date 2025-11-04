@@ -5,7 +5,7 @@ import java.io.File;
 
 /**
  * <p>
- * Represents a Lint Item for a successful or "no-issue" BPMN validation result.
+ * Represents a Lint Item for a successful or "no-issue" BPMN linting result.
  * This class extends {@link BpmnElementLintItem} and uses a fixed
  * {@link LinterSeverity#SUCCESS}.
  * </p>

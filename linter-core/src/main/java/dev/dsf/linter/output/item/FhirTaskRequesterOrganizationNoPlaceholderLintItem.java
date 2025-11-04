@@ -12,7 +12,7 @@ import java.io.File;
  * </p>
  *
  * <p>
- * In particular, this validation applies to fields like
+ * In particular, This lint applies to fields like
  * {@code requester.identifier.value} in Task resources, but it can also be
  * used for any field where dynamic placeholder enforcement is expected.
  * </p>

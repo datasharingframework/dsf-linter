@@ -6,7 +6,7 @@ import java.io.File;
 
 /**
  * A Lint Item that indicates a BPMN file referenced in the plugin definition
- * could not be parsed. This is a critical error that prevents further validation of the file.
+ * could not be parsed. This is a critical error that prevents further linting of the file.
  * <p>
  * This class inherits from {@link PluginLintItem} to provide context about the
  * plugin where the error occurred.

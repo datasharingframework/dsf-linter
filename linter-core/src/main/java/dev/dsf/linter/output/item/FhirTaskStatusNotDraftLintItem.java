@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation error indicating that the <code>status</code> element in a FHIR Task
+ * Lint error indicating that the <code>status</code> element in a FHIR Task
  * resource does not have the required value <code>draft</code>.
  * <p>
  * In DSF Task resources under development, the <code>status</code> must always be set to <code>draft</code>

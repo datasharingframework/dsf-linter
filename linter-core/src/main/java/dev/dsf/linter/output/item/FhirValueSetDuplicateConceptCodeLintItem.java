@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetDuplicateConceptCodeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation warning for a duplicate <code>code</code> element in a ValueSet include block.
+     * Constructs a new lint warning for a duplicate <code>code</code> element in a ValueSet include block.
      *
      * @param resourceFile  the FHIR ValueSet file where the duplication was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -35,7 +35,7 @@ public class FhirValueSetDuplicateConceptCodeLintItem extends FhirElementLintIte
     }
 
     /**
-     * Constructs a new validation warning for a duplicate <code>code</code> element in a ValueSet include block,
+     * Constructs a new lint warning for a duplicate <code>code</code> element in a ValueSet include block,
      * including the resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the duplication was detected

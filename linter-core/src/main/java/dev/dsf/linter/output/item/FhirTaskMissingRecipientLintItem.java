@@ -13,7 +13,7 @@ import java.io.File;
  *
  * <p>
  * In DSF processes, the {@code recipient} field identifies the organization
- * authorized to receive and process the Task. This validation ensures that
+ * authorized to receive and process the Task. This lint ensures that
  * recipient-related information is present and correctly structured.
  * </p>
  *

@@ -10,7 +10,7 @@ import java.io.File;
  * specified on a {@code UserTask} could not be found on the classpath.
  *
  * <p>
- * The validator attempted to resolve the listener class name using the provided project
+ * The linter attempted to resolve the listener class name using the provided project
  * root and a custom class loader. If the class is not available (e.g., missing dependency,
  * build error, or typo), this issue is recorded.
  * </p>

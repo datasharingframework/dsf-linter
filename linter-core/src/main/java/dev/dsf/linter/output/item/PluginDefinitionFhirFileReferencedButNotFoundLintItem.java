@@ -13,7 +13,7 @@ public class PluginDefinitionFhirFileReferencedButNotFoundLintItem extends Plugi
      * Constructs a new Lint Item for a referenced but missing FHIR file.
      *
      * @param pluginName   The name of the plugin referencing the file.
-     * @param severity     The validation severity (usually ERROR).
+     * @param severity     The lint severity (usually ERROR).
      * @param resourceFile The path or name of the FHIR file that was not found.
      * @param message      A custom message describing the issue.
      */

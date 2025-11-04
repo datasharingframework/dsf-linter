@@ -11,7 +11,7 @@ import java.io.File;
  *
  * <p>This Lint Item is used to indicate that an unknown field injection has been encountered.
  * Only the fields "profile", "messageName", and "instantiatesCanonical" are allowed.
- * Any field with a different name results in this validation error.</p>
+ * Any field with a different name results in This lint error.</p>
  * Corresponds to {@link LintingType#BPMN_UNKNOWN_FIELD_INJECTION}.
  */
 public class BpmnUnknownFieldInjectionLintItem extends BpmnElementLintItem {

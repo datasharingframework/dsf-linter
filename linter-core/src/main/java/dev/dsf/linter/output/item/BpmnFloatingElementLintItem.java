@@ -18,7 +18,7 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
      * @param bpmnFile               the BPMN file being validated
      * @param processId              the ID or key of the process definition where the issue occurred
      * @param description            a human-readable message describing the Lint issue
-     * @param lintingTypeOverride the validation type to associate with this issue
+     * @param lintingTypeOverride the lint type to associate with this issue
      * @param severityOverride       the severity to assign to this Lint issue
      * @param floatingElementType    the specific floating element type that categorizes this issue
      */
@@ -36,7 +36,7 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * @return the human-readable description or reason for this floating-element validation
+     * @return the human-readable description or reason for this floating-element lint
      */
     @Override
     public String getDescription() {
@@ -54,7 +54,7 @@ public class BpmnFloatingElementLintItem extends BpmnElementLintItem {
 
     /**
      * Returns a string representation of this Lint Item including element ID, process ID, BPMN file,
-     * description, validation type override, floating element type (if any), and severity.
+     * description, lint type override, floating element type (if any), and severity.
      *
      * @return a string with detailed information about this Lint Item
      */

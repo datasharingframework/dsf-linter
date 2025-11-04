@@ -7,7 +7,7 @@ import java.io.File;
 
 /**
  * Abstract base class for plugin-related Lint Items.
- * Contains common fields and functionality for all plugin validation scenarios.
+ * Contains common fields and functionality for all plugin lint scenarios.
  */
 public abstract class PluginLintItem extends AbstractLintItem {
     private final File file;
@@ -33,8 +33,8 @@ public abstract class PluginLintItem extends AbstractLintItem {
 
         String absolutePath = file.getAbsolutePath();
 
-        // Remove dsf-validator prefix from temp directories
-        absolutePath = absolutePath.replace("dsf-validator-", "");
+        // Remove dsf-linter prefix from temp directories
+        absolutePath = absolutePath.replace("dsf-linter-", "");
 
         // Look for common project root indicators and extract from there
         String[] rootIndicators = {

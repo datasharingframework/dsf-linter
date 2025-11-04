@@ -12,7 +12,7 @@ import java.io.File;
  */
 public class FhirValueSetMissingReadAccessTagAllOrLocalLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item indicating a missing read-access-tag
+     * Constructs a new lint error item indicating a missing read-access-tag
      * with LOCAL or ALL code in the meta.tag of a ValueSet.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
@@ -33,7 +33,7 @@ public class FhirValueSetMissingReadAccessTagAllOrLocalLintItem extends FhirElem
     }
 
     /**
-     * Constructs a new validation error item indicating a missing read-access-tag
+     * Constructs a new lint error item indicating a missing read-access-tag
      * with LOCAL or ALL code with an explicit FHIR resource ID.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

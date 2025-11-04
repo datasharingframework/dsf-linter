@@ -12,7 +12,7 @@ import java.io.File;
  * </p>
  *
  * <p>
- * Specifically, this validation checks whether
+ * Specifically, this linting checks whether
  * {@code requester.identifier.system} exists and is correctly specified.
  * In DSF Task resources, the requester is expected to identify the initiating
  * organization using the DSF organization identifier system.

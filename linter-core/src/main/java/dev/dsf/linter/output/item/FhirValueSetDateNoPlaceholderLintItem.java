@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetDateNoPlaceholderLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation warning for missing <code>#{date}</code> in the date field.
+     * Constructs a new lint warning for missing <code>#{date}</code> in the date field.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -35,7 +35,7 @@ public class FhirValueSetDateNoPlaceholderLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation warning for missing <code>#{date}</code> in the date field,
+     * Constructs a new lint warning for missing <code>#{date}</code> in the date field,
      * including the resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

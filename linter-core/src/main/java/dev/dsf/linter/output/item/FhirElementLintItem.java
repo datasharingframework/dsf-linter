@@ -60,10 +60,10 @@ public class FhirElementLintItem extends FhirLintItem {
      * Constructs a {@code FhirElementLintItem} with the {@code resourceId} automatically
      * derived from the {@code fhirReference}.
      *
-     * @param severity      the validation severity
+     * @param severity      the lint severity
      * @param resourceFile  the name of the file from which the resource was loaded
      * @param fhirReference the canonical or local reference to the FHIR resource
-     * @param issueType     the validation category or type
+     * @param issueType     the lint category or type
      * @param description   a human-readable explanation of the issue
      */
     public FhirElementLintItem(
@@ -83,10 +83,10 @@ public class FhirElementLintItem extends FhirLintItem {
      * Constructs a {@code FhirElementLintItem} using all fields. If {@code resourceId} is null or blank,
      * it will be derived from the {@code fhirReference}.
      *
-     * @param severity      the validation severity (e.g. ERROR, WARN, INFO)
+     * @param severity      the lint severity (e.g. ERROR, WARN, INFO)
      * @param resourceFile  the name of the file from which the resource was loaded
      * @param fhirReference the canonical or local reference to the FHIR resource
-     * @param issueType     the validation category or type
+     * @param issueType     the lint category or type
      * @param description   a human-readable explanation of the issue
      * @param resourceId    the resource ID, or null to derive it from the reference
      */
@@ -113,7 +113,7 @@ public class FhirElementLintItem extends FhirLintItem {
      * with only a description and severity. All other fields are set to default values.
      *
      * @param description  a message describing the Lint issue
-     * @param severity     the validation severity
+     * @param severity     the lint severity
      * @param resourceFile the name of the file containing the FHIR resource
      */
     public FhirElementLintItem(String description, LinterSeverity severity, String resourceFile) {

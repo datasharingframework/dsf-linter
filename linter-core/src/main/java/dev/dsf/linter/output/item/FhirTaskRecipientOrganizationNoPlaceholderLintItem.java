@@ -12,7 +12,7 @@ import java.io.File;
  * </p>
  *
  * <p>
- * Specifically, this validation checks whether
+ * Specifically, this lint checks whether
  * {@code restriction.recipient.identifier.value} contains a dynamic
  * organization placeholder required in draft-stage Task resources.
  * </p>
@@ -23,7 +23,7 @@ import java.io.File;
  * </p>
  *
  * <p>
- * Placeholder validation ensures resource templates remain flexible and
+ * Placeholder linting ensures resource templates remain flexible and
  * environment-independent during development and deployment.
  * </p>
  *

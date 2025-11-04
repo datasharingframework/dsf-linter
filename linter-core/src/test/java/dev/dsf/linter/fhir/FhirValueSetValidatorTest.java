@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * of the read-access-tag in the meta.tag section, specifically for the codes "ALL" or "LOCAL".
  * Various scenarios are covered, including valid and invalid tags, missing meta sections, and multiple tags.
  */
-class FhirValueSetValidatorTest {
+class FhirValueSetLinterTest {
 
     private FhirValueSetLinter linter;
     private File testFile;
@@ -43,10 +43,10 @@ class FhirValueSetValidatorTest {
      * lints several example ValueSet resource files to ensure they contain a valid read-access-tag
      * with code "ALL" or "LOCAL" in the meta.tag section.
      *
-     * @throws Exception if file parsing or validation fails
+     * @throws Exception if file parsing or linting fails
      */
     @Test
-    public void testValidateResourceFilesWithALLTag() throws Exception {
+    public void testLintResourceFilesWithALLTag() throws Exception {
         // Use relative paths from test resources
         String[] resourcePaths = {
             "src/test/resources/fhir/examples/dashBoardReport/ValueSet/approve-parameters.json",
@@ -65,7 +65,7 @@ class FhirValueSetValidatorTest {
      * Helper method to test a single resource file for correct linting results.
      *
      * @param filePath the path to the ValueSet resource file
-     * @throws Exception if file parsing or validation fails
+     * @throws Exception if file parsing or linting fails
      */
     private void testResourceFile(Path filePath) throws Exception {
         if (!filePath.toFile().exists()) {
@@ -94,7 +94,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with a valid "ALL" read-access-tag in the meta.tag section is linted successfully.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithValidALLTag() throws Exception {
@@ -134,7 +134,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with a valid "LOCAL" read-access-tag in the meta.tag section is validated successfully.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithValidLOCALTag() throws Exception {
@@ -174,7 +174,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet missing a valid read-access-tag in the meta.tag section is reported as an error.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithMissingReadAccessTag() throws Exception {
@@ -215,7 +215,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with an incorrect code in the read-access-tag is reported as an error.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithWrongCode() throws Exception {
@@ -256,7 +256,7 @@ class FhirValueSetValidatorTest {
      * Tests that a ValueSet with multiple tags, including at least one valid read-access-tag,
      * is linted successfully.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithMultipleTags() throws Exception {
@@ -304,7 +304,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with no meta section is reported as an error.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithNoMetaSection() throws Exception {
@@ -338,7 +338,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with an empty meta section is reported as an error.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithEmptyMetaSection() throws Exception {
@@ -375,7 +375,7 @@ class FhirValueSetValidatorTest {
      * Tests that a ValueSet with valid organization role codes in parent-organization-role extensions
      * is linted successfully.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithValidOrganizationRoleCode() throws Exception {
@@ -424,7 +424,7 @@ class FhirValueSetValidatorTest {
      * Tests that a ValueSet with invalid organization role codes in parent-organization-role extensions
      * is reported as an error.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithInvalidOrganizationRoleCode() throws Exception {
@@ -473,7 +473,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet with multiple organization role codes lints each code correctly.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithMultipleOrganizationRoleCodes() throws Exception {
@@ -534,7 +534,7 @@ class FhirValueSetValidatorTest {
     /**
      * Tests that a ValueSet without organization role extensions doesn't produce organization role lint errors.
      *
-     * @throws Exception if XML parsing or validation fails
+     * @throws Exception if XML parsing or linting fails
      */
     @Test
     public void testValueSetWithoutOrganizationRoleExtensions() throws Exception {

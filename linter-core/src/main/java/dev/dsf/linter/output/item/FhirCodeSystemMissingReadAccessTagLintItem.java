@@ -9,7 +9,7 @@ import java.io.File;
  * Lint Item indicating that a CodeSystem resource is missing the required
  * read access tag (system = http://dsf.dev/fhir/CodeSystem/read-access-tag, code = ALL).
  *
- * <p>This validation rule is part of the DSF CodeSystem profile and ensures that
+ * <p>This lint rule is part of the DSF CodeSystem profile and ensures that
  * all CodeSystems specify the expected read-access policy.</p>
  *
  * <p>This issue corresponds to {@link LintingType#MISSING_READ_ACCESS_TAG}.</p>

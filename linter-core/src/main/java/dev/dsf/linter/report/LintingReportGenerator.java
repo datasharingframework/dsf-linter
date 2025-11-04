@@ -69,12 +69,12 @@ public class LintingReportGenerator {
      * Generates individual reports (HTML and/or JSON) for each plugin.
      */
     private void generateIndividualPluginReports(
-            Map<String, DsfLinter.PluginLinter> validations,
+            Map<String, DsfLinter.PluginLinter> lints,
             DsfLinter.Config config) throws IOException {
 
-        for (Map.Entry<String, DsfLinter.PluginLinter> entry : validations.entrySet()) {
+        for (Map.Entry<String, DsfLinter.PluginLinter> entry : lints.entrySet()) {
             String pluginName = entry.getKey();
-            DsfLinter.PluginLinter validation = entry.getValue();
+            DsfLinter.PluginLinter lint = entry.getValue();
 
             Path pluginReportDir = config.reportPath().resolve(pluginName);
             Files.createDirectories(pluginReportDir);
@@ -82,13 +82,13 @@ public class LintingReportGenerator {
             // Generate HTML report if enabled
             if (config.generateHtmlReport()) {
                 Path htmlReportPath = pluginReportDir.resolve("lints.html");
-                htmlGenerator.generatePluginReport(pluginName, validation, htmlReportPath);
+                htmlGenerator.generatePluginReport(pluginName, lint, htmlReportPath);
             }
 
             // Generate JSON report if enabled
             if (config.generateJsonReport()) {
                 Path jsonReportPath = pluginReportDir.resolve("lints.json");
-                jsonGenerator.generatePluginReport(pluginName, validation, jsonReportPath);
+                jsonGenerator.generatePluginReport(pluginName, lint, jsonReportPath);
             }
 
             logger.debug("Plugin reports saved to: " + pluginReportDir);
@@ -99,7 +99,7 @@ public class LintingReportGenerator {
      * Generates the master reports (HTML and/or JSON) that aggregate all plugins.
      */
     private void generateMasterReports(
-            Map<String, DsfLinter.PluginLinter> validations,
+            Map<String, DsfLinter.PluginLinter> lints,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             DsfLinter.Config config) throws IOException {
@@ -108,7 +108,7 @@ public class LintingReportGenerator {
         if (config.generateHtmlReport()) {
             Path masterHtmlPath = config.reportPath().resolve("report.html");
             htmlGenerator.generateMasterReport(
-                    validations,
+                    lints,
                     discovery,
                     leftoverResults,
                     masterHtmlPath,
@@ -120,7 +120,7 @@ public class LintingReportGenerator {
         if (config.generateJsonReport()) {
             Path masterJsonPath = config.reportPath().resolve("report.json");
             jsonGenerator.generateMasterReport(
-                    validations,
+                    lints,
                     discovery,
                     leftoverResults,
                     masterJsonPath,
@@ -132,16 +132,16 @@ public class LintingReportGenerator {
     }
 
     /**
-     * Prints the validation header with project information.
+     * Prints the lint header with project information.
      *
-     * @param config The validator configuration
+     * @param config The linter configuration
      */
     public void printHeader(DsfLinter.Config config) {
         consolePrinter.printHeader(config);
     }
 
     /**
-     * Prints a phase header for major validation steps.
+     * Prints a phase header for major linting steps.
      *
      * @param phaseName The name of the phase
      */
@@ -150,7 +150,7 @@ public class LintingReportGenerator {
     }
 
     /**
-     * Prints a header for individual plugin validation.
+     * Prints a header for individual plugin linting.
      *
      * @param pluginName The name of the plugin
      * @param current    Current plugin number
@@ -161,7 +161,7 @@ public class LintingReportGenerator {
     }
 
     /**
-     * Prints validation sections in fixed order: BPMN → FHIR → Plugin.
+     * Prints linting sections in fixed order: BPMN → FHIR → Plugin.
      *
      * @param bpmnNonSuccess   Non-SUCCESS BPMN items
      * @param fhirNonSuccess   Non-SUCCESS FHIR items
@@ -186,30 +186,30 @@ public class LintingReportGenerator {
     }
 
     /**
-     * Prints a summary of the validation results for a single plugin.
+     * Prints a summary of the linting results for a single plugin.
      *
-     * @param output The validation output to summarize
+     * @param output The linting output to summarize
      */
     public void printPluginSummary(LintingOutput output) {
         consolePrinter.printPluginSummary(output);
     }
 
     /**
-     * Prints the final validation summary with statistics and results.
+     * Prints the final linting summary with statistics and results.
      *
-     * @param validations     All plugin validations
+     * @param lints     All plugin lints
      * @param discovery       Resource discovery results
      * @param leftoverResults Leftover analysis results
      * @param executionTime   Total execution time in milliseconds
-     * @param config          Validator configuration
+     * @param config          linter configuration
      */
     public void printSummary(
-            Map<String, DsfLinter.PluginLinter> validations,
+            Map<String, DsfLinter.PluginLinter> lints,
             ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             long executionTime,
             DsfLinter.Config config) {
 
-        consolePrinter.printSummary(validations, discovery, leftoverResults, executionTime, config);
+        consolePrinter.printSummary(lints, discovery, leftoverResults, executionTime, config);
     }
 }

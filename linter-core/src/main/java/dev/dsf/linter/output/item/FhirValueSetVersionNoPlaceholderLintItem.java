@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetVersionNoPlaceholderLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation warning for missing <code>#{version}</code> in the version field.
+     * Constructs a new lint warning for missing <code>#{version}</code> in the version field.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -35,7 +35,7 @@ public class FhirValueSetVersionNoPlaceholderLintItem extends FhirElementLintIte
     }
 
     /**
-     * Constructs a new validation warning for missing <code>#{version}</code> with an explicit resource ID.
+     * Constructs a new lint warning for missing <code>#{version}</code> with an explicit resource ID.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet

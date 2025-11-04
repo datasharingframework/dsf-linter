@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetIncludeMissingSystemLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for a missing <code>system</code> in a ValueSet include section.
+     * Constructs a new lint error item for a missing <code>system</code> in a ValueSet include section.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -35,7 +35,7 @@ public class FhirValueSetIncludeMissingSystemLintItem extends FhirElementLintIte
     }
 
     /**
-     * Constructs a new validation error item for a missing <code>system</code> in a ValueSet include section,
+     * Constructs a new lint error item for a missing <code>system</code> in a ValueSet include section,
      * including the resource ID if known.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

@@ -56,7 +56,7 @@ class FhirResourceLinterJsonToXmlTest {
     private XPath xpath;
 
     /**
-     * Initializes the validator before each test case.
+     * Initializes the linter before each test case.
      */
     @BeforeEach
     void setUp() {

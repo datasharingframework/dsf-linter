@@ -11,7 +11,7 @@ import java.io.File;
  */
 public class FhirValueSetOrganizationRoleMissingValidCodeValueLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item indicating an invalid organization-role code.
+     * Constructs a new lint error item indicating an invalid organization-role code.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the FHIR ValueSet
@@ -31,7 +31,7 @@ public class FhirValueSetOrganizationRoleMissingValidCodeValueLintItem extends F
     }
 
     /**
-     * Constructs a new validation error item indicating an invalid organization-role code
+     * Constructs a new lint error item indicating an invalid organization-role code
      * with an explicit FHIR resource ID.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

@@ -9,7 +9,7 @@ import java.io.File;
  * is NOT referenced by the ProcessPluginDefinition and therefore was not loaded/validated.
  * <p>
  * Severity: {@link LinterSeverity#WARN}. This item is intended for reporting only
- * and must not abort the validation run.
+ * and must not abort the linting run.
  * <p>
  * Notes:
  * <ul>

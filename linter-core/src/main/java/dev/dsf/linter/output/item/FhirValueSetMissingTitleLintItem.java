@@ -14,7 +14,7 @@ import java.io.File;
  */
 public class FhirValueSetMissingTitleLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for a ValueSet missing its <code>title</code> element.
+     * Constructs a new lint error item for a ValueSet missing its <code>title</code> element.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the FHIR ValueSet
@@ -32,7 +32,7 @@ public class FhirValueSetMissingTitleLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation error item for a ValueSet missing its <code>title</code> element,
+     * Constructs a new lint error item for a ValueSet missing its <code>title</code> element,
      * explicitly referencing the resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

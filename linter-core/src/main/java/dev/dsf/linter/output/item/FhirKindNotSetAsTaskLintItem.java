@@ -14,7 +14,7 @@ import java.io.File;
  */
 public class FhirKindNotSetAsTaskLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for FHIR resources that are not defined as a Task.
+     * Constructs a new lint error item for FHIR resources that are not defined as a Task.
      *
      * @param resourceFile  the FHIR resource file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the FHIR resource
@@ -28,7 +28,7 @@ public class FhirKindNotSetAsTaskLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation error item for FHIR resources that are not defined as a Task,
+     * Constructs a new lint error item for FHIR resources that are not defined as a Task,
      * including a known resource ID.
      *
      * @param resourceFile  the FHIR resource file where the issue was detected

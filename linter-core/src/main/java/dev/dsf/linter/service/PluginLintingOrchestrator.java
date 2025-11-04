@@ -21,14 +21,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Orchestrates the complete validation process for a single plugin.
- * Enhanced with resource root validation and dependency JAR support.
+ * Orchestrates the complete linting process for a single plugin.
+ * Enhanced with resource root linting and dependency JAR support.
  */
 public class PluginLintingOrchestrator {
 
-    private final BpmnLintingService bpmnValidator;
-    private final FhirLintingService fhirValidator;
-    private final PluginLintingService pluginValidator;
+    private final BpmnLintingService bpmnLinter;
+    private final FhirLintingService fhirLinter;
+    private final PluginLintingService pluginLinter;
     private final LeftoverResourceDetector leftoverDetector;
     private final LintingReportGenerator reportGenerator;
     private final Path reportBasePath;
@@ -44,30 +44,30 @@ public class PluginLintingOrchestrator {
     ) {}
 
     public PluginLintingOrchestrator(
-            BpmnLintingService bpmnValidator,
-            FhirLintingService fhirValidator,
-            PluginLintingService pluginValidator,
+            BpmnLintingService bpmnLinter,
+            FhirLintingService fhirLinter,
+            PluginLintingService pluginLinter,
             LeftoverResourceDetector leftoverDetector,
             LintingReportGenerator reportGenerator,
             Path reportBasePath,
             Logger logger) {
-        this.bpmnValidator = bpmnValidator;
-        this.fhirValidator = fhirValidator;
-        this.pluginValidator = pluginValidator;
+        this.bpmnLinter = bpmnLinter;
+        this.fhirLinter = fhirLinter;
+        this.pluginLinter = pluginLinter;
         this.leftoverDetector = leftoverDetector;
         this.reportGenerator = reportGenerator;
         this.reportBasePath = reportBasePath;
     }
 
     /**
-     * lints a single plugin completely with enhanced resource root validation
+     * lints a single plugin completely with enhanced resource root linting
      * and dependency JAR support.
      *
      * @param pluginName The unique name of the plugin
      * @param plugin The plugin discovery information
      * @param context The project context
      * @param leftoverAnalysis The project-wide leftover analysis result
-     * @param validationContext Context about the plugin's position in the validation sequence
+     * @param lintContext Context about the plugin's position in the lint sequence
      * @return Complete linting result for this plugin
      */
     public DsfLinter.PluginLinter lintSinglePlugin(
@@ -75,31 +75,31 @@ public class PluginLintingOrchestrator {
             ResourceDiscoveryService.PluginDiscovery plugin,
             ProjectSetupHandler.ProjectContext context,
             LeftoverResourceDetector.AnalysisResult leftoverAnalysis,
-            PluginLintContext validationContext)
+            PluginLintContext lintContext)
             throws ResourceLinterException, IOException, MissingServiceRegistrationException {
 
-        // Step 1: Set API version for downstream validators
+        // Step 1: Set API version for downstream linters
         ApiVersionHolder.setVersion(plugin.apiVersion());
 
         // Step 2: Print plugin header
         reportGenerator.printPluginHeader(
                 pluginName,
-                validationContext.pluginIndex(),
-                validationContext.totalPlugins()
+                lintContext.pluginIndex(),
+                lintContext.totalPlugins()
         );
 
         // Step 3: Collect BPMN and FHIR Lint Items (including dependency resources)
         LintingItemsCollection itemsCollection = collectLintingItems(pluginName, plugin);
 
-        // Step 4: Run plugin-level validation
-        LintingResult pluginResult = pluginValidator.lintPlugin(
+        // Step 4: Run plugin-level linter
+        LintingResult pluginResult = pluginLinter.lintPlugin(
                 context.projectPath(),
                 plugin.adapter(),
                 plugin.apiVersion(),
                 itemsCollection.pluginLevelItems
         );
 
-        // Step 4.5: Run plugin metadata validation
+        // Step 4.5: Run plugin metadata linting
         List<AbstractLintItem> metadataItems = PluginMetadataLinter.lintPluginMetadata(
                 plugin.adapter(),
                 context.projectPath()
@@ -110,8 +110,8 @@ public class PluginLintingOrchestrator {
                 leftoverAnalysis,
                 pluginName,
                 plugin,
-                validationContext.isLastPlugin(),
-                validationContext.isSinglePluginProject()
+                lintContext.isLastPlugin(),
+                lintContext.isSinglePluginProject()
         );
 
         // Step 6: Group and filter items for console display
@@ -122,7 +122,7 @@ public class PluginLintingOrchestrator {
                 leftoverItems
         );
 
-        // Step 7: Print validation sections (BPMN → FHIR → Plugin)
+        // Step 7: Print lint sections (BPMN → FHIR → Plugin)
         String pluginNameShort = plugin.adapter().sourceClass().getSimpleName();
         reportGenerator.printLintSections(
                 groupedItems.bpmnNonSuccess,
@@ -132,7 +132,7 @@ public class PluginLintingOrchestrator {
                 pluginNameShort
         );
 
-        // Step 8: Build final validation result
+        // Step 8: Build final linting result
         DsfLinter.PluginLinter pluginLinter = buildPluginLintResult(
                 pluginName,
                 plugin,
@@ -149,7 +149,7 @@ public class PluginLintingOrchestrator {
     }
 
     /**
-     * Collects Lint Items from BPMN and FHIR validators.
+     * Collects Lint Items from BPMN and FHIR linters.
      * Includes resource root Lint Items, dependency items, and individual success items.
      */
     private LintingItemsCollection collectLintingItems(
@@ -158,7 +158,7 @@ public class PluginLintingOrchestrator {
             throws ResourceLinterException {
 
         // Call ENHANCED validate methods with outsideRoot maps, dependency maps, and resource root
-        LintingResult bpmnResult = bpmnValidator.lint(
+        LintingResult bpmnResult = bpmnLinter.lint(
                 pluginName,
                 plugin.bpmnFiles(),
                 plugin.missingBpmnRefs(),
@@ -167,7 +167,7 @@ public class PluginLintingOrchestrator {
                 plugin.pluginSpecificResourceRoot()
         );
 
-        LintingResult fhirResult = fhirValidator.lint(
+        LintingResult fhirResult = fhirLinter.lint(
                 pluginName,
                 plugin.fhirFiles(),
                 plugin.missingFhirRefs(),

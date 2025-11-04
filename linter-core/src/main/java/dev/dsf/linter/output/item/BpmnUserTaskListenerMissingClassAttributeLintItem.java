@@ -13,13 +13,13 @@ import java.io.File;
  * In Camunda BPMN extensions, each {@code camunda:taskListener} may define either a
  * {@code class}, {@code expression}, or {@code delegateExpression} to indicate how the listener
  * should be invoked at runtime. This Lint Item applies when the {@code class} attribute
- * is completely absent, which prevents further static validation of listener logic.
+ * is completely absent, which prevents further static linting of listener logic.
  * </p>
  *
  * <p>
  * Since use of expressions may be intentional, this issue is marked as a {@link LinterSeverity#WARN}
- * rather than an error. However, if class-based validation is expected, this serves as a notice
- * that such validation is being skipped.
+ * rather than an error. However, if class-based lint is expected, this serves as a notice
+ * that such lint is being skipped.
  * </p>
  * <p>
  * Corresponds to {@link LintingType#BPMN_USER_TASK_LISTENER_MISSING_CLASS_ATTRIBUTE}.,
@@ -38,7 +38,7 @@ public class BpmnUserTaskListenerMissingClassAttributeLintItem extends BpmnEleme
                 elementId,
                 bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn",
                 processId,
-                "TaskListener is missing the 'class' attribute – class-based validation skipped");
+                "TaskListener is missing the 'class' attribute – class-based linting skipped");
     }
 
     @Override

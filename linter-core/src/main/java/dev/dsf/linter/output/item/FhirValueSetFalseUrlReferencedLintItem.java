@@ -11,7 +11,7 @@ import java.io.File;
  *
  * <p>Typical trigger:
  * If a ValueSet includes a {@code system} that is not found, or is found but does not contain the
- * requested code, the validator searches all known CodeSystems for that code. When the code exists
+ * requested code, the linter searches all known CodeSystems for that code. When the code exists
  * elsewhere, this item is raised to point out the incorrect {@code system} reference.</p>
  *
  * <p>Example description:
@@ -24,7 +24,7 @@ import java.io.File;
  */
 public class FhirValueSetFalseUrlReferencedLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error for a ValueSet that references a {@code system} URL
+     * Constructs a new lint error for a ValueSet that references a {@code system} URL
      * which does not correspond to the CodeSystem actually containing the code.
      *
      * @param resourceFile  the FHIR resource file where the issue was detected
@@ -45,7 +45,7 @@ public class FhirValueSetFalseUrlReferencedLintItem extends FhirElementLintItem 
     }
 
     /**
-     * Constructs a new validation error for a ValueSet that references a {@code system} URL
+     * Constructs a new lint error for a ValueSet that references a {@code system} URL
      * which does not correspond to the CodeSystem actually containing the code, explicitly
      * passing the resolved resourceId (if available).
      *

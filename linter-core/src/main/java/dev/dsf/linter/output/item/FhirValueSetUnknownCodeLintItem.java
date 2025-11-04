@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetUnknownCodeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for an unknown DSF code.
+     * Constructs a new lint error item for an unknown DSF code.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -35,7 +35,7 @@ public class FhirValueSetUnknownCodeLintItem extends FhirElementLintItem {
     }
 
     /**
-     * Constructs a new validation error item for an unknown DSF code,
+     * Constructs a new lint error item for an unknown DSF code,
      * including a resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

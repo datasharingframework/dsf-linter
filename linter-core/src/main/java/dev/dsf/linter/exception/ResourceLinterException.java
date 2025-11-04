@@ -6,7 +6,7 @@ import java.nio.file.Path;
  * Custom exception thrown when a resource file (BPMN or FHIR) cannot be parsed,
  * typically indicating a syntax error.
  * <p>
- * This exception is designed to be fatal, causing the validation process to abort.
+ * This exception is designed to be fatal, causing the linting process to abort.
  * </p>
  */
 public class ResourceLinterException extends Exception

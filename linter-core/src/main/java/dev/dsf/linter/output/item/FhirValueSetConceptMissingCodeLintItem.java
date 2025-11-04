@@ -14,7 +14,7 @@ import java.io.File;
  */
 public class FhirValueSetConceptMissingCodeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for a concept without a code.
+     * Constructs a new lint error item for a concept without a code.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -34,7 +34,7 @@ public class FhirValueSetConceptMissingCodeLintItem extends FhirElementLintItem 
     }
 
     /**
-     * Constructs a new validation error item for a concept without a code,
+     * Constructs a new lint error item for a concept without a code,
      * including the resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected

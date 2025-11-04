@@ -13,7 +13,7 @@ public class PluginDefinitionBpmnFileReferencedButNotFoundLintItem extends Plugi
      * Constructs a new Lint Item for a referenced but missing BPMN file.
      *
      * @param pluginName  The name of the plugin referencing the file.
-     * @param severity    The severity of the validation error (usually ERROR).
+     * @param severity    The severity of the lint error (usually ERROR).
      * @param bpmnFile    The BPMN file that was not found.
      * @param description A custom message describing the issue.
      */

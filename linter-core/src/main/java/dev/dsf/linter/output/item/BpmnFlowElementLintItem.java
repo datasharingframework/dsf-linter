@@ -20,13 +20,13 @@ public class BpmnFlowElementLintItem extends BpmnElementLintItem {
      * @param elementId              the BPMN element ID
      * @param bpmnFile               the BPMN file being validated
      * @param processId              the process definition ID or key
-     * @param lintingTypeOverride the validation type to associate with this issue
+     * @param lintingTypeOverride the lint type to associate with this issue
      * @param flowElementType        the specific flow element type that categorizes this issue
      */
     public BpmnFlowElementLintItem(String elementId, File bpmnFile, String processId,
                                    LintingType lintingTypeOverride,
                                    FlowElementType flowElementType) {
-        super(LinterSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Flow element validation WARN");
+        super(LinterSeverity.WARN, elementId, bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn", processId, "Flow element lint WARN");
         this.lintingTypeOverride = lintingTypeOverride;
         this.flowElementType = flowElementType;
     }
@@ -38,7 +38,7 @@ public class BpmnFlowElementLintItem extends BpmnElementLintItem {
      * @param bpmnFile               the BPMN file being validated
      * @param processId              the process definition ID or key
      * @param description            the custom lint description
-     * @param lintingTypeOverride the validation type to associate with this issue
+     * @param lintingTypeOverride    the lint type to associate with this issue
      * @param severityOverride       the severity to assign to this Lint issue
      * @param flowElementType        the specific flow element type that categorizes this issue
      */
@@ -57,7 +57,7 @@ public class BpmnFlowElementLintItem extends BpmnElementLintItem {
     }
 
     /**
-     * Returns the validation type override for this flow element Lint Item.
+     * Returns the lint type override for this flow element Lint Item.
      *
      * @return the {@link LintingType} associated with this Lint issue.
      */

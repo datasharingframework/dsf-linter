@@ -44,7 +44,7 @@ public class FhirNoExtensionProcessAuthorizationFoundLintItem extends FhirElemen
     /**
      * Returns a formatted string representation of this Lint Item.
      *
-     * @return a string containing the severity, validation type, FHIR reference, file name, and description
+     * @return a string containing the severity, lint type, FHIR reference, file name, and description
      */
     @Override
     public String toString() {

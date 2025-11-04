@@ -7,7 +7,7 @@ import java.io.File;
 
 /**
  * Lint Item indicating that the {@code StructureDefinition} profile referenced in a {@code Task}
- * could not be located, which prevents cardinality validation.
+ * could not be located, which prevents cardinality lint.
  *
  * <p>This Lint issue corresponds to {@link LintingType#Fhir_TASK_PROFILE_NOT_FOUND}.</p>
  */

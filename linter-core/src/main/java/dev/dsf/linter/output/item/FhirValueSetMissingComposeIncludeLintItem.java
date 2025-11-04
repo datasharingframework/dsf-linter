@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class FhirValueSetMissingComposeIncludeLintItem extends FhirElementLintItem {
     /**
-     * Constructs a new validation error item for a ValueSet missing <code>&lt;compose&gt;&lt;include&gt;</code> elements.
+     * Constructs a new lint error item for a ValueSet missing <code>&lt;compose&gt;&lt;include&gt;</code> elements.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
      * @param fhirReference a canonical URL or local reference identifying the ValueSet
@@ -33,7 +33,7 @@ public class FhirValueSetMissingComposeIncludeLintItem extends FhirElementLintIt
     }
 
     /**
-     * Constructs a new validation error item for a ValueSet missing <code>&lt;compose&gt;&lt;include&gt;</code> elements,
+     * Constructs a new lint error item for a ValueSet missing <code>&lt;compose&gt;&lt;include&gt;</code> elements,
      * explicitly referencing the resource ID if available.
      *
      * @param resourceFile  the FHIR ValueSet file where the issue was detected
