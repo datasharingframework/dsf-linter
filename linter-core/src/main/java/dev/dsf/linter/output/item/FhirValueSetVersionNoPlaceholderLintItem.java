@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation warning indicating that the <code>version</code> field of a ValueSet
+ * Represents a FHIR Lint warning indicating that the <code>version</code> field of a ValueSet
  * does not contain the required placeholder <code>#{version}</code>.
  * <p>
  * In DSF processes, the version is automatically managed by the BPE server and must contain

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation warning indicating that a <code>&lt;compose&gt;&lt;include&gt;</code>
+ * Represents a FHIR Lint warning indicating that a <code>&lt;compose&gt;&lt;include&gt;</code>
  * element is missing the required <code>#{version}</code> placeholder in its <code>version</code> field.
  * <p>
  * In DSF, include version entries must contain the placeholder <code>#{version}</code>

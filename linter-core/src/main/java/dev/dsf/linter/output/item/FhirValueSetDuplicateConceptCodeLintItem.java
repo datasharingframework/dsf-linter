@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation warning indicating that a <code>code</code>
+ * Represents a FHIR Lint warning indicating that a <code>code</code>
  * is duplicated within a single <code>compose.include</code> block.
  * <p>
  * While technically allowed in FHIR, duplicate codes in the same include block

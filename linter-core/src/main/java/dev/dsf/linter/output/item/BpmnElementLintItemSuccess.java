@@ -30,7 +30,7 @@ public class BpmnElementLintItemSuccess extends BpmnElementLintItem
      * @param elementId   the BPMN element ID (e.g., "StartEvent_1")
      * @param bpmnFile    the BPMN file being validated (full path or short name)
      * @param processId   the BPMN process definition ID or key
-     * @param description a short message describing the successful validation result
+     * @param description a short message describing the successful linting result
      */
     public BpmnElementLintItemSuccess(String elementId,
                                       File bpmnFile,

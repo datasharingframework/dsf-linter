@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation warning indicating that the <code>authoredOn</code> field in a FHIR Task
+ * Lint warning indicating that the <code>authoredOn</code> field in a FHIR Task
  * does not contain the required placeholder <code>#{date}</code>.
  * <p>
  * In DSF processes, the <code>authoredOn</code> field must include the placeholder

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation warning indicating that the {@code instantiatesCanonical} element in a FHIR Task
+ * Lint warning indicating that the {@code instantiatesCanonical} element in a FHIR Task
  * resource is missing expected placeholder values (e.g., {@code #{version}}).
  * <p>
  * During development, Task resources should contain placeholder values that will be replaced

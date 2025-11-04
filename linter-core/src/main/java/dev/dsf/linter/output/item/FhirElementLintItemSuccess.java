@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a successful FHIR validation result.
+ * Represents a successful FHIR linting result.
  * <p>
  * This class extends {@link FhirElementLintItem} and fixes its
  * {@link LinterSeverity} to {@code SUCCESS} as well as the {@link LintingType} to {@code SUCCESS}.
@@ -28,7 +28,7 @@ public class FhirElementLintItemSuccess extends FhirElementLintItem
      *
      * @param resourceFile   the FHIR resource file being validated
      * @param fhirReference  a canonical URL or reference identifying the FHIR resource
-     * @param description    a short message describing the successful validation result
+     * @param description    a short message describing the successful linting result
      */
     public FhirElementLintItemSuccess(
             File resourceFile,
@@ -43,7 +43,7 @@ public class FhirElementLintItemSuccess extends FhirElementLintItem
      *
      * @param resourceFile   the FHIR resource file being validated
      * @param fhirReference  a canonical URL or reference identifying the FHIR resource
-     * @param description    a short message describing the successful validation result
+     * @param description    a short message describing the successful linting result
      * @param resourceId     the FHIR resource ID, if known
      */
     public FhirElementLintItemSuccess(

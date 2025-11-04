@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation warning indicating that the <code>version</code> field of a FHIR CodeSystem
+ * Lint warning indicating that the <code>version</code> field of a FHIR CodeSystem
  * does not contain the required placeholder <code>#{version}</code>.
  * <p>
  * In DSF CodeSystems, the version must be left as a placeholder during development

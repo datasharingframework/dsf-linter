@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Validation warning indicating that the <code>date</code> field of a FHIR CodeSystem
+ * Lint warning indicating that the <code>date</code> field of a FHIR CodeSystem
  * does not contain the required placeholder <code>#{date}</code>.
  * <p>
  * In DSF CodeSystems, the <code>date</code> field must include this placeholder during
