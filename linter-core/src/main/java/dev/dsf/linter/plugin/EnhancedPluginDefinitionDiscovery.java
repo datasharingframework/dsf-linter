@@ -111,8 +111,7 @@ public final class EnhancedPluginDefinitionDiscovery {
         }
 
         List<PluginDefinitionDiscovery.PluginAdapter> finalPlugins = new ArrayList<>(uniquePlugins.values());
-        System.out.println("[DEBUG] Total unique plugins discovered: " + finalPlugins.size());
-
+        logger.debug("Total unique plugins discovered: " + finalPlugins.size());
         return new DiscoveryResult(finalPlugins);
     }
 }

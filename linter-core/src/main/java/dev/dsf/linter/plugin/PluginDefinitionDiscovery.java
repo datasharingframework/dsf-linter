@@ -115,7 +115,7 @@ public final class PluginDefinitionDiscovery
         // Fallback: If the recursive scan found nothing, scan the project root directly.
         // This handles non-standard or "exploded" layouts where classes might be at the root.
         if (found.isEmpty()) {
-            System.out.println("[DEBUG] Recursive scan found nothing, scanning project root directly...");
+            logger.debug("[DEBUG] Recursive scan found nothing, scanning project root directly...");
             found.addAll(scanDirWithClassLoader(rootPath, projectCl));
         }
 

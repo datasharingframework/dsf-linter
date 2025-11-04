@@ -6,6 +6,9 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import java.io.File;
 import java.util.Objects;
 
+
+import static dev.dsf.linter.classloading.ClassInspector.logger;
+
 /**
  * <h2>Repository Manager</h2>
  *
@@ -53,27 +56,27 @@ public class RepositoryManager {
      */
     public File getRepository(String remoteRepoUrl, File cloneDir, String branchName) throws GitAPIException {
         if (!cloneDir.exists() || Objects.requireNonNull(cloneDir.list()).length == 0) {
-            System.out.println("Cloning repository from: " + remoteRepoUrl);
+            logger.info("Cloning repository from: " + remoteRepoUrl);
 
             if (branchName != null && !branchName.isBlank()) {
-                System.out.println("Checking out branch: " + branchName);
+                logger.info("Checking out branch: " + branchName);
                 try (Git ignored = Git.cloneRepository()
                         .setURI(remoteRepoUrl)
                         .setDirectory(cloneDir)
                         .setBranch(branchName)
                         .call()) {
-                    System.out.println("Repository cloned to: " + cloneDir.getAbsolutePath());
+                    logger.debug("Repository cloned to: " + cloneDir.getAbsolutePath());
                 }
             } else {
                 try (Git ignored = Git.cloneRepository()
                         .setURI(remoteRepoUrl)
                         .setDirectory(cloneDir)
                         .call()) {
-                    System.out.println("Repository cloned to: " + cloneDir.getAbsolutePath());
+                    logger.debug("Repository cloned to: " + cloneDir.getAbsolutePath());
                 }
             }
         } else {
-            System.out.println("Repository already cloned at: " + cloneDir.getAbsolutePath());
+            logger.info("Repository already cloned at: " + cloneDir.getAbsolutePath());
         }
         return cloneDir;
     }

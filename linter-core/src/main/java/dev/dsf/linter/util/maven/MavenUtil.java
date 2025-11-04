@@ -5,6 +5,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
 
+import static dev.dsf.linter.classloading.ClassInspector.logger;
+
 /**
  * <h2>Maven Utility</h2>
  *
@@ -82,7 +84,7 @@ public class MavenUtil {
                 String foundPath = whereReader.readLine();
                 if (pWhere.exitValue() == 0 && foundPath != null && !foundPath.isEmpty()) {
                     mavenCmd = foundPath;
-                    System.out.println("Found Maven executable at: " + mavenCmd);
+                    logger.debug("Found Maven executable at: " + mavenCmd);
                 } else {
                     System.err.println("ERROR: MAVEN_HOME is not set and Maven was not found using 'where'.");
                     System.err.println("Please set MAVEN_HOME or ensure Maven is in the system PATH.");

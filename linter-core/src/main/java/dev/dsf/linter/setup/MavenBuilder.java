@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
 
+import static dev.dsf.linter.classloading.ClassInspector.logger;
+
+
 /**
  * Responsible for building a project using Maven.
  * <p>
@@ -28,7 +31,7 @@ public class MavenBuilder
     public boolean buildProject(File projectDir, String mavenCmd, String... goals)
             throws IOException, InterruptedException
     {
-        System.out.println("Building project with Maven goals: " + String.join(" ", goals));
+        logger.info("Building project with Maven goals: " + String.join(" ", goals));
 
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command(buildCommand(mavenCmd, goals));
@@ -42,7 +45,7 @@ public class MavenBuilder
             String line;
             while ((line = reader.readLine()) != null)
             {
-                System.out.println(line);
+                logger.info(line);
             }
         }
 
@@ -60,7 +63,7 @@ public class MavenBuilder
             return false;
         }
 
-        System.out.println("Maven build succeeded");
+        logger.info("Maven build succeeded");
         return true;
     }
 
