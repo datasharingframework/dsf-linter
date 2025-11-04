@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that the resource kind is not set as Task.
+ * Represents a FHIR lint error indicating that the resource kind is not set as Task.
  * <p>
  * This item is used to flag FHIR resources that do not meet the requirement
  * to have their kind defined as Task.

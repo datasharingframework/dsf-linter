@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that an organization-role extension
+ * Represents a FHIR lint error indicating that an organization-role extension
  * contains an invalid code value that is not recognized in the DSF organization-role CodeSystem.
  */
 public class FhirValueSetOrganizationRoleMissingValidCodeValueLintItem extends FhirElementLintItem {

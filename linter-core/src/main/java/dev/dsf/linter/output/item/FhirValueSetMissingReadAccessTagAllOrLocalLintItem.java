@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that the required
+ * Represents a FHIR lint error indicating that the required
  * <code>meta.tag</code> with system {@code http://dsf.dev/fhir/CodeSystem/read-access-tag}
  * and code {@code LOCAL} or {@code ALL} is missing in a ValueSet resource.
  */

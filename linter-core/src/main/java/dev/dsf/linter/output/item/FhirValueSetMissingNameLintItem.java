@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a ValueSet is missing the required <code>name</code> element.
+ * Represents a FHIR lint error indicating that a ValueSet is missing the required <code>name</code> element.
  * <p>
  * The <code>name</code> element is important for identifying and referencing the ValueSet by a human-readable identifier.
  * This Lint Item is used when the element is missing or not set.

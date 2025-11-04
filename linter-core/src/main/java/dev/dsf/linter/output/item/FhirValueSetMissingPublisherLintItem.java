@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a ValueSet is missing the required <code>publisher</code> element.
+ * Represents a FHIR lint error indicating that a ValueSet is missing the required <code>publisher</code> element.
  * <p>
  * The <code>publisher</code> identifies the organization or individual responsible for the ValueSet.
  * This field is mandatory in DSF ValueSets.

@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a <code>&lt;concept&gt;</code> element
+ * Represents a FHIR lint error indicating that a <code>&lt;concept&gt;</code> element
  * in a <code>&lt;compose&gt;&lt;include&gt;</code> block is missing the required <code>code</code> element.
  * <p>
  * In DSF ValueSets, every concept inside an include must specify a valid code to be meaningful.

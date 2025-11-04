@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a ValueSet is missing one or more
+ * Represents a FHIR lint error indicating that a ValueSet is missing one or more
  * <code>&lt;compose&gt;&lt;include&gt;</code> elements.
  * <p>
  * In DSF, each ValueSet must specify at least one include section within the compose block

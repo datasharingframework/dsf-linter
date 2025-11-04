@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a <code>&lt;compose&gt;&lt;include&gt;</code> element
+ * Represents a FHIR lint error indicating that a <code>&lt;compose&gt;&lt;include&gt;</code> element
  * is missing the required <code>system</code> attribute or element.
  * <p>
  * In DSF ValueSets, every <code>include</code> must specify a <code>system</code> URI to indicate

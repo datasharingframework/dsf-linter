@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR validation error indicating that a <code>code</code> inside a
+ * Represents a FHIR lint error indicating that a <code>code</code> inside a
  * <code>compose.include.concept</code> is not recognized as valid by DSF.
  * <p>
  * This check uses {@code FhirAuthorizationCache.isKnownDsfCode(system, code)} to determine
