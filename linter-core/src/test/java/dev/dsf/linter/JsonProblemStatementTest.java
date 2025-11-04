@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,7 +106,6 @@ public class JsonProblemStatementTest
      */
     @Test
     void testOriginalProblemScenarioFixed() throws IOException, ResourceLinterException {
-        // ... (file writing code remains the same)
         String jsonPingActivityDefinition = "{\n" +
                 "              \"resourceType\": \"ActivityDefinition\",\n" +
                 "              \"meta\": {\n" +
@@ -210,30 +210,31 @@ public class JsonProblemStatementTest
                 "              ]\n" +
                 "            }";
         Files.writeString(new File(fhirDir, "dsf-task-start-ping.json").toPath(), jsonStartPingTask);
-        // Perform linting using the refactored service
-        final List<File> fhirFiles = collectFhirFiles();
-        // FIX: Use LintingResult directly, not as a nested class
-        LintingResult lintingResult =
-                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
 
-        // FIX: getItems() is now called on the top-level LintingResult object
+        final List<File> fhirFiles = collectFhirFiles();
+
+        LintingResult lintingResult = fhirLintingService.lint(
+                "test-plugin",
+                fhirFiles,
+                new ArrayList<>(),
+                new HashMap<>(),
+                new HashMap<>(),
+                fhirDir
+        );
+
         List<AbstractLintItem> items = lintingResult.getItems();
         LintingOutput result = new LintingOutput(items);
 
         System.out.println("Total lint items: " + result.LintItems().size());
         result.LintItems().forEach(item -> System.out.println("* " + item));
 
-        // ... (assertions remain the same)
         boolean hasUnknownCanonicalError = result.LintItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,
                 "Should not have TASK_UNKNOWN_INSTANTIATES_CANONICAL error for JSON->JSON lookup");
 
-        // The main goal is to ensure the lint completes without the specific error
-        // Check that lint ran and processed the files
         assertFalse(result.LintItems().isEmpty(), "Should have lint items");
 
-        // Verify both files were processed by checking for file-related lint items
         boolean hasTaskFileItems = result.LintItems().stream()
                 .anyMatch(item -> item.toString().contains("dsf-task-start-ping") ||
                         item.toString().contains("start-ping-task"));
@@ -258,7 +259,6 @@ public class JsonProblemStatementTest
      */
     @Test
     void testMixedXmlJsonLookupWorks() throws IOException, ResourceLinterException {
-        // ... (file writing code remains the same)
         String xmlActivityDefinition = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "            <ActivityDefinition xmlns=\"http://hl7.org/fhir\">\n" +
                 "              <meta>\n" +
@@ -293,7 +293,6 @@ public class JsonProblemStatementTest
                 "            </ActivityDefinition>";
         Files.writeString(new File(activityDefinitionDir, "dsf-pong.xml").toPath(), xmlActivityDefinition);
 
-        // Write referencing JSON Task
         String jsonTask = """
             {
               "resourceType": "Task",
@@ -337,16 +336,20 @@ public class JsonProblemStatementTest
             }""";
         Files.writeString(new File(fhirDir, "pong-task.json").toPath(), jsonTask);
 
-        // Perform linting using the refactored service
         final List<File> fhirFiles = collectFhirFiles();
-        LintingResult lintingResult =
-                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
 
-        // FIX: getItems() is now called on the top-level LintingResult object
+        LintingResult lintingResult = fhirLintingService.lint(
+                "test-plugin",
+                fhirFiles,
+                new ArrayList<>(),
+                new HashMap<>(),
+                new HashMap<>(),
+                fhirDir
+        );
+
         List<AbstractLintItem> items = lintingResult.getItems();
         LintingOutput result = new LintingOutput(items);
 
-        // Ensure successful lookup between formats
         boolean hasUnknownCanonicalError = result.LintItems().stream()
                 .anyMatch(item -> item.toString().contains("TASK_UNKNOWN_INSTANTIATES_CANONICAL"));
         assertFalse(hasUnknownCanonicalError,

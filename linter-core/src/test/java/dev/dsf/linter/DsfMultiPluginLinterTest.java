@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class DsfMultiPluginLinterTest {
 
     @TempDir
-    private Path tempReportDir; // JUnit 5 provides a temporary directory for test outputs
+    private Path tempReportDir;
 
     private DsfLinter linter;
 
@@ -66,10 +66,11 @@ public class DsfMultiPluginLinterTest {
         DsfLinter.Config config = new DsfLinter.Config(
                 projectPath,
                 tempReportDir,
-                true,  // generateHtmlReport
-                false, // failOnErrors (we want the test to complete and check the results).
-                new String[0],  // mavenGoals (execute Maven with default goals)
-                null,  // skipGoals (not applicable)
+                true,
+                true,
+                false,
+                new String[0],
+                null,
                 new ConsoleTestLogger()
         );
 
@@ -97,7 +98,7 @@ public class DsfMultiPluginLinterTest {
             // Check that both API versions were detected
             long v1Plugins = pluginLints.values().stream()
                     .filter(p -> p.apiVersion() == ApiVersion.V1).count();
-            assertEquals(2, v1Plugins, "Exactly one v1 plugin should be detected.");
+            assertEquals(2, v1Plugins, "Exactly two v1 plugins should be detected.");
 
 
             // 3. Leftover Resources Assertions
@@ -116,7 +117,8 @@ public class DsfMultiPluginLinterTest {
             // 4. Report Generation Assertions
             assertNotNull(result.masterReportPath(), "Should have a master report path.");
             assertEquals(tempReportDir, result.masterReportPath());
-            assertTrue(Files.exists(result.masterReportPath().resolve("report.html")), "Master HTML report should be generated.");
+            assertTrue(Files.exists(result.masterReportPath().resolve("report.html")),
+                    "Master HTML report should be generated.");
 
             // Check that each plugin has its own report directory
             for (DsfLinter.PluginLinter lint : pluginLints.values()) {

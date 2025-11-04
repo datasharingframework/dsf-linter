@@ -89,8 +89,9 @@ public class JsonSupportAdditionalTest {
                 tempDir.resolve("report"),
                 false,
                 true,
-                null,  // mavenGoals
-                null,  // skipGoals
+                false,
+                null,
+                null,
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
@@ -132,8 +133,9 @@ public class JsonSupportAdditionalTest {
                 tempDir.resolve("report"),
                 false,
                 true,
-                null,  // mavenGoals
-                null,  // skipGoals
+                false,
+                null,
+                null,
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
@@ -171,8 +173,9 @@ public class JsonSupportAdditionalTest {
                 tempDir.resolve("report"),
                 false,
                 true,
-                null,  // mavenGoals
-                null,  // skipGoals
+                false,
+                null,
+                null,
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
