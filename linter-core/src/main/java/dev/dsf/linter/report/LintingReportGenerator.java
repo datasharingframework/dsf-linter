@@ -166,7 +166,7 @@ public class LintingReportGenerator {
      * @param bpmnNonSuccess   Non-SUCCESS BPMN items
      * @param fhirNonSuccess   Non-SUCCESS FHIR items
      * @param pluginNonSuccess Non-SUCCESS Plugin items
-     * @param pluginResult     Plugin validation result for ServiceLoader check
+     * @param pluginResult     Plugin linting result for ServiceLoader check
      * @param pluginNameShort  Short name of the plugin
      */
     public void printLintSections(

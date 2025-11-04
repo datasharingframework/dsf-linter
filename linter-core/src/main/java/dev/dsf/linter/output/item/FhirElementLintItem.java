@@ -5,7 +5,7 @@ import dev.dsf.linter.output.LintingType;
 
 
 /**
- * Represents a single validation result for a FHIR resource, such as a {@code Task}, {@code ActivityDefinition},
+ * Represents a single linting result for a FHIR resource, such as a {@code Task}, {@code ActivityDefinition},
  * {@code StructureDefinition}, {@code ValueSet}, or {@code CodeSystem}.
  * <p>
  * This class extends {@link FhirLintItem} and encapsulates the following:

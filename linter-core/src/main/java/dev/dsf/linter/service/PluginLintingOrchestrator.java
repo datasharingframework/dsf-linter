@@ -68,7 +68,7 @@ public class PluginLintingOrchestrator {
      * @param context The project context
      * @param leftoverAnalysis The project-wide leftover analysis result
      * @param validationContext Context about the plugin's position in the validation sequence
-     * @return Complete validation result for this plugin
+     * @return Complete linting result for this plugin
      */
     public DsfLinter.PluginLinter lintSinglePlugin(
             String pluginName,
