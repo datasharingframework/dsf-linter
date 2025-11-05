@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dev.dsf.linter.logger.Logger;
+
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
 
 
@@ -48,12 +50,13 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
  *
  * <h3>Debugging</h3>
  * <p>
- * If the system property {@code -Ddsf.debug.codesystem=true} is set, the class prints detailed
- * output to {@code System.out} during loading and summarization.
+ * Debug output is controlled via the {@code --verbose} option passed to the linter.
+ * When verbose mode is enabled, the class prints detailed output during loading and summarization.
  * </p>
  *
  * <h3>Usage</h3>
  * <pre>{@code
+ * FhirAuthorizationCache.setLogger(logger);
  * FhirAuthorizationCache.seedFromProjectFolder(projectDir);
  * if (FhirAuthorizationCache.isUnknown("http://dsf.dev/fhir/CodeSystem/practitioner-role", "HRP_USER")) {
  *     // handle missing code
@@ -89,7 +92,7 @@ public final class FhirAuthorizationCache
      */
     public static final String CS_TASK_STATUS = "http://hl7.org/fhir/task-status";
 
-    private static final boolean DEBUG = Boolean.getBoolean("dsf.debug.codesystem");
+    private static Logger logger;
 
     private static final Map<String, Set<String>> CODES_BY_SYSTEM = new ConcurrentHashMap<>();
 
@@ -121,6 +124,16 @@ public final class FhirAuthorizationCache
     }
 
     private FhirAuthorizationCache() { /* Utility class – no instantiation */ }
+
+    /**
+     * Sets the logger instance used for debug output.
+     * This method must be called before {@link #seedFromProjectAndClasspath(File)}.
+     *
+     * @param logger the logger instance to use
+     */
+    public static void setLogger(Logger logger) {
+        FhirAuthorizationCache.logger = logger;
+    }
 
     /**
      * Registers or merges a given set of codes under the specified CodeSystem URI.
@@ -186,9 +199,9 @@ public final class FhirAuthorizationCache
 
             register(system, codes);
 
-            if (DEBUG)
-                System.out.printf("[Cache‑DEBUG] %s → %s (%,d codes)%n",
-                        xml.getFileName(), system, codes.size());
+            if (logger != null && logger.isVerbose())
+                logger.debug(String.format("[Cache-DEBUG] %s → %s (%,d codes)",
+                        xml.getFileName(), system, codes.size()));
         }
         catch (Exception ignore) { /* invalid or non-parsable XML */ }
     }
@@ -217,15 +230,15 @@ public final class FhirAuthorizationCache
             if (!codes.isEmpty()) {
                 register(systemUrl, codes);
 
-                if (DEBUG) {
-                    System.out.printf("[Cache‑DEBUG] JSON loaded %s → %s (%,d codes)%n",
-                            json.getFileName(), systemUrl, codes.size());
+                if (logger != null && logger.isVerbose()) {
+                    logger.debug(String.format("[Cache-DEBUG] JSON loaded %s → %s (%,d codes)",
+                            json.getFileName(), systemUrl, codes.size()));
                 }
             }
         }
         catch (Exception e) {
-            if (DEBUG) {
-                System.err.println("[CodeSystem-Cache] Failed to parse JSON " + json + ": " + e.getMessage());
+            if (logger != null && logger.isVerbose()) {
+                logger.debug("[CodeSystem-Cache] Failed to parse JSON " + json + ": " + e.getMessage());
             }
         }
     }
@@ -253,15 +266,20 @@ public final class FhirAuthorizationCache
     }
 
     /**
-     * Outputs the current CodeSystem cache statistics to the console.
-     * Only visible if debug logging is enabled via system property.
+     * Outputs the current CodeSystem cache statistics to the logger.
+     * Only visible if verbose logging is enabled.
+     * Shows both code count and individual code values for each system.
      */
     private static void dumpStatistics()
     {
-        System.out.println("=== CodeSystem cache (summary) ===");
-        CODES_BY_SYSTEM.forEach((sys, set) ->
-                System.out.printf(" • %s → %,d code(s)%n", sys, set.size()));
-        System.out.println("==================================");
+        if (logger != null && logger.isVerbose()) {
+            logger.info("=== CodeSystem cache (summary) ===");
+            CODES_BY_SYSTEM.forEach((sys, set) -> {
+                logger.info(String.format(" • %s → %,d code(s)", sys, set.size()));
+                set.forEach(code -> logger.info("   - " + code));
+            });
+            logger.info("==================================");
+        }
     }
 
     /**
@@ -281,8 +299,8 @@ public final class FhirAuthorizationCache
             ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             allCodeSystemFiles.addAll(findCodeSystemsOnClasspath(cl));
         } catch (Exception e) {
-            if (DEBUG) {
-                System.err.println("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
+            if (logger != null && logger.isVerbose()) {
+                logger.debug("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
             }
             // keep going; disk results might still be sufficient
         }
@@ -292,7 +310,7 @@ public final class FhirAuthorizationCache
             loadCodeSystemFile(cs);
         }
 
-        if (DEBUG)
+        if (logger != null && logger.isVerbose())
             dumpStatistics();
     }
 
@@ -358,13 +376,12 @@ public final class FhirAuthorizationCache
                         }
                     }
                 } catch (IOException ioe) {
-                    if (DEBUG) {
-                        System.err.println("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
+                    if (logger != null && logger.isVerbose()) {
+                        logger.debug("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
                     }
                     // ignore this JAR and keep going
                 }
             }
-            // Note: removed problematic fallback logic that was always false
         }
 
         // B) defensive de-dup

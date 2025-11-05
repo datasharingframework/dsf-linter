@@ -125,7 +125,7 @@ public class ResourceDiscoveryService {
                       - You try to lint multi-module project, but currently, the linter does not fully support that
                       - Try running the linter again with the --mvn option (for more information, see the README.md file)
                       - Build a JAR for the project you want to lint and pass that JAR to the linter
-                      If it still doesn’t work, please report the issue in a pull request on GitHub.""");
+                      If it still doesn't work, please report the issue in a pull request on GitHub.""");
         }
 
         logger.info("Found " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");
@@ -141,6 +141,7 @@ public class ResourceDiscoveryService {
         logger.info("Resolved shared resources directory: " + resourceRootResult);
 
         // Initialize shared components
+        FhirAuthorizationCache.setLogger(logger);
         FhirAuthorizationCache.seedFromProjectAndClasspath(context.projectDir());
         logger.debug("FHIR authorization cache initialized.");
 
