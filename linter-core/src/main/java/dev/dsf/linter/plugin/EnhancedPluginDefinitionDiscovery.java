@@ -1,5 +1,8 @@
 package dev.dsf.linter.plugin;
 
+import dev.dsf.linter.plugin.PluginDefinitionDiscovery.V1Adapter;
+import dev.dsf.linter.plugin.PluginDefinitionDiscovery.V2Adapter;
+import dev.dsf.linter.util.api.PluginVersionUtils;
 import dev.dsf.linter.util.loader.ServiceLoaderUtils;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
 
@@ -17,7 +20,7 @@ import static dev.dsf.linter.classloading.ClassInspector.logger;
 public final class EnhancedPluginDefinitionDiscovery {
 
     /**
-     * Result container for plugin discovery
+     * Result container for plugin discovery.
      */
     public static class DiscoveryResult {
         private final List<PluginDefinitionDiscovery.PluginAdapter> v1Plugins;
@@ -25,17 +28,12 @@ public final class EnhancedPluginDefinitionDiscovery {
         private final Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> pluginsByName;
 
         public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins) {
-            // Filter v1 and v2 plugins based on GenericPluginAdapter version
             this.v1Plugins = plugins.stream()
-                    .filter(p -> p instanceof GenericPluginAdapter)
-                    .map(p -> (GenericPluginAdapter) p)
-                    .filter(p -> p.getApiVersion() == GenericPluginAdapter.ApiVersion.V1)
+                    .filter(p -> p instanceof V1Adapter)
                     .collect(Collectors.toList());
 
             this.v2Plugins = plugins.stream()
-                    .filter(p -> p instanceof GenericPluginAdapter)
-                    .map(p -> (GenericPluginAdapter) p)
-                    .filter(p -> p.getApiVersion() == GenericPluginAdapter.ApiVersion.V2)
+                    .filter(p -> p instanceof V2Adapter)
                     .collect(Collectors.toList());
 
             // Group by plugin name for report structure
@@ -47,6 +45,9 @@ public final class EnhancedPluginDefinitionDiscovery {
                     ));
         }
 
+        /**
+         * Returns all discovered plugins with V2 first, then V1.
+         */
         public List<PluginDefinitionDiscovery.PluginAdapter> getAllPlugins() {
             List<PluginDefinitionDiscovery.PluginAdapter> all = new ArrayList<>();
             all.addAll(v2Plugins);
@@ -54,7 +55,13 @@ public final class EnhancedPluginDefinitionDiscovery {
             return all;
         }
 
-        public Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> getPluginsByName() { return pluginsByName; }
+        /**
+         * Returns plugins grouped by sanitized name.
+         */
+        public Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> getPluginsByName() {
+            return pluginsByName;
+        }
+
     }
 
     /**
@@ -67,7 +74,9 @@ public final class EnhancedPluginDefinitionDiscovery {
      */
     public static DiscoveryResult discoverAll(File projectRoot) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        if (cl == null) cl = EnhancedPluginDefinitionDiscovery.class.getClassLoader();
+        if (cl == null) {
+            cl = EnhancedPluginDefinitionDiscovery.class.getClassLoader();
+        }
 
         // Step 1: Try with ServiceLoader (finds all registered plugins)
         List<PluginDefinitionDiscovery.PluginAdapter> allCandidates =
@@ -78,13 +87,7 @@ public final class EnhancedPluginDefinitionDiscovery {
             logger.debug("[DEBUG] Found " + allCandidates.size() + " plugin(s) via ServiceLoader");
             allCandidates.forEach(p -> {
                 logger.debug("  -> Plugin: " + p.getName() + " (" + p.sourceClass().getName() + ")");
-
-                // Determine version from GenericPluginAdapter
-                String version = "unknown";
-                if (p instanceof GenericPluginAdapter generic) {
-                    version = generic.getApiVersion() == GenericPluginAdapter.ApiVersion.V2 ? "v2" : "v1";
-                }
-                logger.debug("     Version: " + version);
+                logger.debug("     Version: " + PluginVersionUtils.getVersionSuffix(p));
             });
         }
 
@@ -105,13 +108,14 @@ public final class EnhancedPluginDefinitionDiscovery {
         Map<String, PluginDefinitionDiscovery.PluginAdapter> uniquePlugins = new LinkedHashMap<>();
         for (PluginDefinitionDiscovery.PluginAdapter adapter : allCandidates) {
             String className = adapter.sourceClass().getName();
-            if (!uniquePlugins.containsKey(className)) {
-                uniquePlugins.put(className, adapter);
-            }
+            uniquePlugins.putIfAbsent(className, adapter);
         }
 
-        List<PluginDefinitionDiscovery.PluginAdapter> finalPlugins = new ArrayList<>(uniquePlugins.values());
+        List<PluginDefinitionDiscovery.PluginAdapter> finalPlugins =
+                new ArrayList<>(uniquePlugins.values());
+
         logger.debug("Total unique plugins discovered: " + finalPlugins.size());
+
         return new DiscoveryResult(finalPlugins);
     }
 }

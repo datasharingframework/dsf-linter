@@ -3,11 +3,11 @@ package dev.dsf.linter.service;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.EnhancedPluginDefinitionDiscovery;
-import dev.dsf.linter.plugin.GenericPluginAdapter;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionDetector;
 import dev.dsf.linter.util.api.DetectedVersion;
+import dev.dsf.linter.util.api.PluginVersionUtils;
 import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
@@ -249,20 +249,19 @@ public class ResourceDiscoveryService {
 
     /**
      * Detects API version for a specific plugin.
+     * First tries adapter-based detection, then falls back to project-level detection.
      */
     private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter, Path projectPath)
             throws MissingServiceRegistrationException {
 
-        if (adapter instanceof GenericPluginAdapter generic) {
-            GenericPluginAdapter.ApiVersion version = generic.getApiVersion();
-            ApiVersion mappedVersion = version == GenericPluginAdapter.ApiVersion.V2
-                    ? ApiVersion.V2
-                    : ApiVersion.V1;
-            logger.debug("Plugin uses API " + mappedVersion + " (determined by adapter)");
-            return mappedVersion;
+        ApiVersion adapterVersion = PluginVersionUtils.detectApiVersion(adapter);
+
+        if (adapterVersion != ApiVersion.UNKNOWN) {
+            logger.debug("Plugin uses API " + adapterVersion + " (determined by adapter type)");
+            return adapterVersion;
         }
 
-        logger.debug("Adapter is not GenericPluginAdapter, falling back to detector");
+        logger.debug("Adapter type unknown, falling back to project-level detector");
         return apiVersionDetector.detect(projectPath)
                 .map(DetectedVersion::version)
                 .orElseGet(() -> {
