@@ -199,8 +199,7 @@ public final class FhirAuthorizationCache
 
             register(system, codes);
 
-            if (logger != null && logger.isVerbose())
-                logger.debug(String.format("[Cache-DEBUG] %s → %s (%,d codes)",
+            logger.debug(String.format("[Cache-DEBUG] %s → %s (%,d codes)",
                         xml.getFileName(), system, codes.size()));
         }
         catch (Exception ignore) { /* invalid or non-parsable XML */ }
@@ -230,16 +229,12 @@ public final class FhirAuthorizationCache
             if (!codes.isEmpty()) {
                 register(systemUrl, codes);
 
-                if (logger != null && logger.isVerbose()) {
-                    logger.debug(String.format("[Cache-DEBUG] JSON loaded %s → %s (%,d codes)",
-                            json.getFileName(), systemUrl, codes.size()));
-                }
+                logger.debug(String.format("[Cache-DEBUG] JSON loaded %s → %s (%,d codes)",
+                        json.getFileName(), systemUrl, codes.size()));
             }
         }
         catch (Exception e) {
-            if (logger != null && logger.isVerbose()) {
                 logger.debug("[CodeSystem-Cache] Failed to parse JSON " + json + ": " + e.getMessage());
-            }
         }
     }
 
@@ -272,14 +267,12 @@ public final class FhirAuthorizationCache
      */
     private static void dumpStatistics()
     {
-        if (logger != null && logger.isVerbose()) {
-            logger.info("=== CodeSystem cache (summary) ===");
-            CODES_BY_SYSTEM.forEach((sys, set) -> {
-                logger.info(String.format(" • %s → %,d code(s)", sys, set.size()));
-                set.forEach(code -> logger.info("   - " + code));
-            });
-            logger.info("==================================");
-        }
+        logger.debug("=== CodeSystem cache (summary) ===");
+        CODES_BY_SYSTEM.forEach((sys, set) -> {
+            logger.debug(String.format(" • %s → %,d code(s)", sys, set.size()));
+            set.forEach(code -> logger.debug("   - " + code));
+        });
+        logger.debug("==================================");
     }
 
     /**
@@ -299,9 +292,7 @@ public final class FhirAuthorizationCache
             ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
             allCodeSystemFiles.addAll(findCodeSystemsOnClasspath(cl));
         } catch (Exception e) {
-            if (logger != null && logger.isVerbose()) {
-                logger.debug("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
-            }
+            logger.debug("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
             // keep going; disk results might still be sufficient
         }
 
@@ -310,8 +301,7 @@ public final class FhirAuthorizationCache
             loadCodeSystemFile(cs);
         }
 
-        if (logger != null && logger.isVerbose())
-            dumpStatistics();
+        dumpStatistics();
     }
 
     // ---- Helper methods ----
@@ -376,9 +366,7 @@ public final class FhirAuthorizationCache
                         }
                     }
                 } catch (IOException ioe) {
-                    if (logger != null && logger.isVerbose()) {
-                        logger.debug("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
-                    }
+                    logger.debug("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
                     // ignore this JAR and keep going
                 }
             }
