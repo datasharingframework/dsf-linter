@@ -3,7 +3,7 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceExtractor;
-import dev.dsf.linter.util.resource.FhirResourceLocator;
+import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
 import dev.dsf.linter.util.resource.FhirResourceParser;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
@@ -179,6 +179,7 @@ public class BpmnFieldInjectionLinter {
                                           File bpmnFile,
                                           String processId,
                                           File projectRoot) {
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
         Collection<CamundaField> fields = extensionElements.getElementsQuery().filterByType(CamundaField.class).list();
 
         // remember values for cross‑checks
@@ -215,7 +216,7 @@ public class BpmnFieldInjectionLinter {
                 case "profile" -> {
                     checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
                     profileVal = literal;
-                    if (!isEmpty(literal) && FhirResourceLocator.structureDefinitionExists(literal, projectRoot)) {
+                    if (!isEmpty(literal) && locator.structureDefinitionExists(literal, projectRoot)) {
                         structureFoundForProfile = true;
                         issues.add(new BpmnElementLintItemSuccess(
                                 elementId,
@@ -270,7 +271,8 @@ public class BpmnFieldInjectionLinter {
                                            String profileVal,
                                            String instantiatesVal,
                                            String messageNameVal) {
-        File structureFile = FhirResourceLocator.findStructureDefinitionFile(profileVal, projectRoot);
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        File structureFile = locator.findStructureDefinitionFile(profileVal, projectRoot);
         if (structureFile == null) return; // Warn already added earlier.
 
         try {
@@ -305,7 +307,7 @@ public class BpmnFieldInjectionLinter {
 
         // ActivityDefinition checks
         if (!isEmpty(instantiatesVal)) {
-            boolean actDefFound = FhirResourceLocator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
+            boolean actDefFound = locator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
             if (!actDefFound) {
                 issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(LinterSeverity.WARN,
                         elementId, bpmnFile, processId, instantiatesVal,
@@ -315,7 +317,7 @@ public class BpmnFieldInjectionLinter {
                         "ActivityDefinition exists for instantiatesCanonical: '" + instantiatesVal + "'."));
 
                 if (!isEmpty(messageNameVal) &&
-                        !FhirResourceLocator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
+                        !locator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
                     issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(LinterSeverity.ERROR,
                             elementId, bpmnFile, processId, instantiatesVal,
                             "ActivityDefinition does not contain message name '" + messageNameVal + "'."));
@@ -323,4 +325,5 @@ public class BpmnFieldInjectionLinter {
             }
         }
     }
+
 }

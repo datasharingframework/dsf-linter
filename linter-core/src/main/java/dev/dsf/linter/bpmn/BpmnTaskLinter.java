@@ -4,9 +4,9 @@ import dev.dsf.linter.output.FloatingElementType;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
-import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
@@ -193,6 +193,7 @@ public class BpmnTaskLinter
             String processId)
     {
         String elementId = userTask.getId();
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
 
         // lint that the User Task name is not empty.
         if (isEmpty(userTask.getName())) {
@@ -244,7 +245,7 @@ public class BpmnTaskLinter
             }
             // If formKey is valid, check if the corresponding questionnaire exists.
             if (found) {
-                if (!FhirResourceLocator.questionnaireExists(formKey, projectRoot)) {
+                if (!locator.questionnaireExists(formKey, projectRoot)) {
                     issues.add(new FhirQuestionnaireDefinitionLintItem(
                             LinterSeverity.ERROR, elementId, bpmnFile, processId,
                             formKey,
@@ -354,7 +355,6 @@ public class BpmnTaskLinter
             }
         }
 
-        //todo lint field injections (no success item is added for field injections)
         BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
                 sendTask, issues, bpmnFile, processId, projectRoot);
     }

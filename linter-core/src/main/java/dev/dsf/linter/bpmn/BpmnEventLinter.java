@@ -5,6 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
+import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
 import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
@@ -110,6 +111,7 @@ public class BpmnEventLinter {
             File bpmnFile,
             String processId) {
         String elementId = startEvent.getId();
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
 
         // 1) Check that the start event has a non-empty name
         if (isEmpty(startEvent.getName())) {
@@ -153,7 +155,7 @@ public class BpmnEventLinter {
             // 3) Check references in FHIR resources
             //    (ActivityDefinition and StructureDefinition existence)
 
-            boolean activityDefFound = FhirResourceLocator.activityDefinitionExists(msgName, projectRoot);
+            boolean activityDefFound = locator.activityDefinitionExists(msgName, projectRoot);
             if (!activityDefFound) {
                 // negative scenario
                 issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(
@@ -177,7 +179,7 @@ public class BpmnEventLinter {
             if (activityDefFound) {
                 // only check StructureDefinition if we already found an ActivityDefinition
                 // (adjust logic as needed)
-                boolean structureDefFound = FhirResourceLocator.structureDefinitionExists(msgName, projectRoot);
+                boolean structureDefFound = locator.structureDefinitionExists(msgName, projectRoot);
                 if (!structureDefFound) {
                     // negative scenario
                     issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
@@ -820,6 +822,7 @@ public class BpmnEventLinter {
             File bpmnFile,
             String processId) {
         String elementId = boundaryEvent.getId();
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
 
         // 1) lint the boundary event name.
         if (isEmpty(boundaryEvent.getName())) {
@@ -852,7 +855,7 @@ public class BpmnEventLinter {
 
             // 3) lint the FHIR ActivityDefinition.
             boolean activityFound = false;
-            if (!FhirResourceLocator.activityDefinitionExists(msgName, projectRoot)) {
+            if (!locator.activityDefinitionExists(msgName, projectRoot)) {
                 issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(
                         LinterSeverity.ERROR,
                         elementId,
@@ -873,7 +876,7 @@ public class BpmnEventLinter {
 
             // 4) lint the FHIR StructureDefinition (only if ActivityDefinition was found).
             if (activityFound) {
-                if (!FhirResourceLocator.structureDefinitionExists(msgName, projectRoot)) {
+                if (!locator.structureDefinitionExists(msgName, projectRoot)) {
                     issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
                             LinterSeverity.ERROR,
                             elementId,

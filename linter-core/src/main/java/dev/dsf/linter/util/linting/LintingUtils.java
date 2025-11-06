@@ -6,10 +6,12 @@ import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.util.resource.ResourceResolver;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class LintingUtils {
@@ -103,16 +105,69 @@ public class LintingUtils {
         return rawValue.matches(".*(?:\\$|#)\\{[^\\}]+\\}.*");
     }
 
-    public static File getFile(Path filePath) {
+    /**
+     * Attempts to find the project's root directory by traversing up from the given path.
+     * <p>
+     * Uses multiple detection strategies to support different project layouts:
+     * </p>
+     * <ol>
+     *   <li><strong>Explicit configuration:</strong> Checks for system property {@code dsf.projectRoot}
+     *       or environment variable {@code DSF_PROJECT_ROOT}. If either is set and points to a valid
+     *       directory, that path is returned.</li>
+     *   <li><strong>Maven project:</strong> Looks for {@code pom.xml} file</li>
+     *   <li><strong>Maven/Gradle workspace:</strong> Looks for {@code src/} directory</li>
+     *   <li><strong>Exploded JAR / CI layout:</strong> Looks for {@code fhir/} directory</li>
+     * </ol>
+     *
+     * <p>
+     * This method is used by both BPMN and FHIR linters to locate project resources.
+     * The order of strategies ensures compatibility with local development, CI/CD pipelines,
+     * and exploded JAR scenarios.
+     * </p>
+     *
+     * @param filePath the path to start searching from (typically a resource file path)
+     * @return the project root directory, or the parent of the file as a fallback
+     */
+    public static File getProjectRoot(Path filePath) {
+        if (filePath == null) {
+            return new File(".");
+        }
+
+        // Strategy 1: Explicit configuration (system property or environment variable)
+        String cfg = Optional.ofNullable(System.getProperty("dsf.projectRoot"))
+                .orElse(System.getenv("DSF_PROJECT_ROOT"));
+        if (cfg != null && !cfg.isBlank()) {
+            File dir = new File(cfg);
+            if (dir.isDirectory()) {
+                return dir;
+            }
+        }
+
+        // Strategy 2-4: Implicit discovery by traversing up the directory tree
         Path current = filePath.getParent();
         while (current != null) {
-            if (new File(current.toFile(), "pom.xml").exists()) {
+            // Strategy 2: Maven project (pom.xml)
+            if (Files.exists(current.resolve("pom.xml"))) {
                 return current.toFile();
             }
+
+            // Strategy 3: Maven/Gradle workspace (src/ directory)
+            if (Files.isDirectory(current.resolve("src"))) {
+                return current.toFile();
+            }
+
+            // Strategy 4: Exploded JAR / CI layout (fhir/ directory)
+            if (Files.isDirectory(current.resolve("fhir"))) {
+                return current.toFile();
+            }
+
             current = current.getParent();
         }
+
+        // Fallback: return parent of file
         return filePath.getParent() != null ? filePath.getParent().toFile() : new File(".");
     }
+
 
     /**
      * Filters lint items by the specified severity.

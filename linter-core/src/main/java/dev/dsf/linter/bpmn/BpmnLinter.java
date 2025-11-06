@@ -3,6 +3,7 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
 import dev.dsf.linter.output.item.PluginDefinitionUnparsableBpmnResourceLintItem;
 import dev.dsf.linter.util.linting.LintingOutput;
+import dev.dsf.linter.util.linting.LintingUtils;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 
@@ -11,8 +12,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import static dev.dsf.linter.util.linting.LintingUtils.getFile;
 
 /**
  * BpmnLinter is the primary entry point for linting a single BPMN file.
@@ -67,13 +66,29 @@ public class BpmnLinter {
     }
 
     /**
-     * Attempts to find the project's root directory by traversing up from the given path
-     * and looking for a "pom.xml" file.
+     * Attempts to find the project's root directory by traversing up from the given path.
+     * <p>
+     * Uses multiple detection strategies to support different project layouts:
+     * </p>
+     * <ol>
+     *   <li><strong>Explicit configuration:</strong> Checks for system property {@code dsf.projectRoot}
+     *       or environment variable {@code DSF_PROJECT_ROOT}. If either is set and points to a valid
+     *       directory, that path is returned.</li>
+     *   <li><strong>Maven project:</strong> Looks for {@code pom.xml} file</li>
+     *   <li><strong>Maven/Gradle workspace:</strong> Looks for {@code src/} directory</li>
+     *   <li><strong>Exploded JAR / CI layout:</strong> Looks for {@code fhir/} directory</li>
+     * </ol>
      *
-     * @param filePath The path to start searching from.
-     * @return The project root directory, or the parent of the file as a fallback.
+     * <p>
+     * This method is used by both BPMN and FHIR linters to locate project resources.
+     * The order of strategies ensures compatibility with local development, CI/CD pipelines,
+     * and exploded JAR scenarios.
+     * </p>
+     *
+     * @param filePath the path to start searching from (typically a resource file path)
+     * @return the project root directory, or the parent of the file as a fallback
      */
     private File getProjectRoot(Path filePath) {
-        return getFile(filePath);
+        return LintingUtils.getProjectRoot(filePath);
     }
 }

@@ -2,6 +2,7 @@ package dev.dsf.linter.fhir;
 
 import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.util.linting.LintingUtils;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.resource.FhirResourceParser;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
@@ -13,10 +14,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
-
 /**
  * <h2>FHIR Task linter for DSF – Profile: <code>dsf-task-base</code></h2>
  *
@@ -173,17 +171,15 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
 
             // Existence-Check
             File root = determineProjectRoot(f);
-            if (root != null)
-            {
-                boolean exists = FhirResourceLocator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
-                if (!exists)
-                    out.add(new FhirTaskUnknownInstantiatesCanonicalLintItem(
-                            f, ref,
-                            "No ActivityDefinition '" + instCanon + "' under '" +
-                                    f.getName() + "'."));
-                else
-                    out.add(ok(f, ref, "ActivityDefinition exists."));
-            }
+            FhirResourceLocator locator = FhirResourceLocator.create(root);
+            boolean exists = locator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
+            if (!exists)
+                out.add(new FhirTaskUnknownInstantiatesCanonicalLintItem(
+                        f, ref,
+                        "No ActivityDefinition '" + instCanon + "' under '" +
+                                f.getName() + "'."));
+            else
+                out.add(ok(f, ref, "ActivityDefinition exists."));
         }
 
         //  status
@@ -596,29 +592,8 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
      * @return the project root directory, or {@code null} if no suitable folder is found
      */
     private File determineProjectRoot(File res)
-
     {
-        // ① explicit configuration
-        String cfg = Optional.ofNullable(System.getProperty("dsf.projectRoot"))
-                .orElse(System.getenv("DSF_PROJECT_ROOT"));
-        if (cfg != null && !cfg.isBlank())
-        {
-            File dir = new File(cfg);
-            if (dir.isDirectory())
-                return dir;
-        }
-
-        // ② / ③ implicit discovery
-        for (Path p = res.toPath().getParent(); p != null; p = p.getParent())
-        {
-            if (Files.isDirectory(p.resolve("src")))   // classic workspace
-                return p.toFile();
-
-            if (Files.isDirectory(p.resolve("fhir")))  // exploded JAR / CI layout
-                return p.toFile();
-        }
-
-        return null;                                   // couldn’t determine
+        return LintingUtils.getProjectRoot(res.toPath());
     }
 
     /*
@@ -657,20 +632,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
                                             String ref,
                                             List<FhirElementLintItem> out)
     {
-        String instCanon = val(taskDoc,
-                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
-        if (blank(instCanon))
-            return; // already handled elsewhere
-
-        File projectRoot = determineProjectRoot(taskFile);
-        File actFile = FhirResourceLocator.findActivityDefinitionForInstantiatesCanonical(
-                instCanon, projectRoot);
-
-        if (actFile == null)
-        {
-            // The missing ActivityDefinition error is already reported, no need to double-report
-            return;
-        }
+        if (instCanonDetermine(taskDoc, taskFile)) return;
 
         String requesterId = val(taskDoc,
                 TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']"
@@ -727,20 +689,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
                                             String ref,
                                             List<FhirElementLintItem> out)
     {
-        String instCanon = val(taskDoc,
-                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
-        if (blank(instCanon))
-            return; // already handled elsewhere
-
-        File projectRoot = determineProjectRoot(taskFile);
-        File actFile = FhirResourceLocator.findActivityDefinitionForInstantiatesCanonical(
-                instCanon, projectRoot);
-
-        if (actFile == null)
-        {
-            // The missing ActivityDefinition error is already reported, no need to double-report
-            return;
-        }
+        if (instCanonDetermine(taskDoc, taskFile)) return;
 
         String recipientId = val(taskDoc,
                 TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']"
@@ -765,10 +714,24 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
         }
     }
 
+    private boolean instCanonDetermine(Document taskDoc, File taskFile) {
+        String instCanon = val(taskDoc,
+                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (blank(instCanon))
+            return true;
+
+        File projectRoot = determineProjectRoot(taskFile);
+        FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
+        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(
+                instCanon, projectRoot);
+
+        // The missing ActivityDefinition error is already reported, no need to double-report
+        return actFile == null;
+    }
 
 
     /* utils inside FhirTaskLinter ----------------------------------------- */
-    private static record SliceCard(int min, int max) {}
+    private record SliceCard(int min, int max) {}
 
     /**
      * Loads the cardinality settings from the StructureDefinition for a given Task profile.
@@ -779,7 +742,8 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
      * @return a map of slice names to their cardinality, or null if no SD file is found or an error occurs
      */
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
-        File sdFile = FhirResourceLocator.findStructureDefinitionFile(profileUrl, projectRoot);
+        FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
+        File sdFile = locator.findStructureDefinitionFile(profileUrl, projectRoot);
         if (sdFile == null) {
             return null;
         }

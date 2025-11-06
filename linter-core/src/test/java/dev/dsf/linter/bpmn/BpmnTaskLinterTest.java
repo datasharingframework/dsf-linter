@@ -6,10 +6,14 @@ import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.camunda.bpm.model.bpmn.instance.UserTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,11 +30,54 @@ public class BpmnTaskLinterTest {
 
     private BpmnTaskLinter linter;
     private File mockBpmnFile;
+    private static Path tempProjectRoot;
 
     @BeforeEach
-    public void setUp() {
-        linter = new BpmnTaskLinter(new File("mockProjectRoot"));
+    public void setUp() throws IOException {
+        // Create a real temporary directory that will exist during tests
+        tempProjectRoot = Files.createTempDirectory("test-project-root-");
+
+        linter = new BpmnTaskLinter(tempProjectRoot.toFile());
         mockBpmnFile = new File("testProcess.bpmn");
+
+
+        // Optionally create FHIR subdirectories to make it look more realistic
+        Files.createDirectories(tempProjectRoot.resolve("fhir/ActivityDefinition"));
+        Files.createDirectories(tempProjectRoot.resolve("fhir/StructureDefinition"));
+        Files.createDirectories(tempProjectRoot.resolve("fhir/Questionnaire"));
+
+
+    }
+
+
+    /**
+     * Cleanup method to delete the temporary directory after all tests.
+     */
+    @AfterAll
+    public static void cleanup() throws IOException {
+        if (tempProjectRoot != null && Files.exists(tempProjectRoot)) {
+            // Recursively delete temporary directory
+            deleteDirectory(tempProjectRoot.toFile());
+        }
+    }
+
+    /**
+     * Recursively deletes a directory and all its contents.
+     */
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void deleteDirectory(File directory) {
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteDirectory(file);
+                } else {
+                    file.delete();
+                }
+            }
+        }
+        directory.delete();
     }
 
     /**

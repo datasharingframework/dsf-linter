@@ -12,11 +12,12 @@ import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaString;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,24 +25,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * <p>
- * This test class exercises the {@link BpmnFieldInjectionLinter} utility methods to lint
- * {@code <camunda:field>} elements in BPMN elements. It tests both scenarios where the fields
- * are provided as valid string literals and scenarios where lint errors should be reported.
- * </p>
- *
- * <p>
- * References:
- * <ul>
- *   <li><a href="https://junit.org/junit5/docs/current/user-guide/">JUnit 5 Documentation</a></li>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/model-api/bpmn-model-api/">
- *       Camunda BPMN Model API</a></li>
- *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- * </ul>
- * </p>
+ * Test class for BpmnFieldInjectionLinter utility methods.
+ * Uses JUnit 5's temporary directory support for realistic testing.
  */
-public class BpmnFieldInjectionLinterTest
-{
+public class BpmnFieldInjectionLinterTest {
 
     private static List<BpmnElementLintItem> nonSuccess(List<BpmnElementLintItem> items) {
         List<BpmnElementLintItem> out = new ArrayList<>();
@@ -62,32 +49,59 @@ public class BpmnFieldInjectionLinterTest
      * In a real scenario, this might point to a file containing the BPMN.
      */
     private static File bpmnFile;
-
-    /**
-     * A sample project root reference (used in linting to locate FHIR resources).
-     * In a real scenario, this could point to your project directory.
-     */
+    private static Path tempProjectRoot;
     private static File projectRoot;
 
     /**
-     * Setup method to initialize {@code bpmnFile} and {@code projectRoot}
-     * before any tests are run.
+     * Setup method to create a temporary project root directory before tests.
+     * This ensures FileSystemResourceProvider validation passes.
      */
     @BeforeAll
-    public static void init()
-    {
+    public static void init() throws IOException {
         bpmnFile = Paths.get("dummy-process.bpmn").toFile();
-        projectRoot = Paths.get("dummy-project-root").toFile();
+
+        // Create a real temporary directory that will exist during tests
+        tempProjectRoot = Files.createTempDirectory("test-project-root-");
+        projectRoot = tempProjectRoot.toFile();
+
+        // Optionally create FHIR subdirectories to make it look more realistic
+        Files.createDirectories(tempProjectRoot.resolve("fhir/ActivityDefinition"));
+        Files.createDirectories(tempProjectRoot.resolve("fhir/StructureDefinition"));
+        Files.createDirectories(tempProjectRoot.resolve("fhir/Questionnaire"));
     }
 
     /**
-     * Tests that when no {@code <camunda:field>} elements exist, there are no lint issues.
+     * Cleanup method to delete the temporary directory after all tests.
      */
+    @AfterAll
+    public static void cleanup() throws IOException {
+        if (tempProjectRoot != null && Files.exists(tempProjectRoot)) {
+            // Recursively delete temporary directory
+            deleteDirectory(tempProjectRoot.toFile());
+        }
+    }
+
+    /**
+     * Recursively deletes a directory and all its contents.
+     */
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void deleteDirectory(File directory) {
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteDirectory(file);
+                } else {
+                    file.delete();// Ignore deletion failures in test cleanup
+                }
+            }
+        }
+        directory.delete();
+    }
+
     @Test
     @DisplayName("Test no camunda:field elements => no issues")
-    public void testNoFieldsNoIssues()
-    {
-        // Build a minimal BPMN model
+    public void testNoFieldsNoIssues() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcess")
                 .startEvent()
@@ -106,14 +120,9 @@ public class BpmnFieldInjectionLinterTest
         assertTrue(issues.isEmpty(), "Expected no lint issues when no fields are present");
     }
 
-    /**
-     * Tests that providing a non-string-literal (e.g., an expression) triggers a lint issue.
-     */
     @Test
     @DisplayName("Test camunda:field with expression => triggers NotStringLiteral issue")
-    public void testFieldWithExpressionTriggersError()
-    {
-        // Build a BPMN model with a ServiceTask that has a <camunda:field name="profile" camunda:expression="..."/>
+    public void testFieldWithExpressionTriggersError() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcessExpressions")
                 .startEvent()
@@ -143,19 +152,13 @@ public class BpmnFieldInjectionLinterTest
 
         // We expect exactly 1 issue => BpmnFieldInjectionNotStringLiteralLintItem
         assertEquals(1, issues.size(), "Expected exactly one lint issue for an expression-based field");
-        assertInstanceOf(BpmnFieldInjectionNotStringLiteralLintItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralLintItem");
+        assertInstanceOf(BpmnFieldInjectionNotStringLiteralLintItem.class, issues.get(0),
+                "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralLintItem");
     }
 
-    /**
-     * Tests that providing a valid string literal (via {@code camunda:string}) does not trigger
-     * the NotStringLiteral lint item, but may trigger other checks if the name is "messageName"
-     * and the value is empty.
-     */
     @Test
     @DisplayName("Test camunda:field with literal => no NotStringLiteral issue, but may trigger others if empty")
-    public void testFieldWithLiteral()
-    {
-        // Build a BPMN model with a ServiceTask that has a <camunda:field name="messageName"><camunda:string></camunda:string></camunda:field>
+    public void testFieldWithLiteral() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcessLiteral")
                 .startEvent()
@@ -197,15 +200,9 @@ public class BpmnFieldInjectionLinterTest
         );
     }
 
-    /**
-     * Tests that an unknown field name (not "profile", "messageName", or "instantiatesCanonical")
-     * triggers an appropriate unknown field injection lint item.
-     */
     @Test
     @DisplayName("Test unknown field name => triggers an unknown field injection issue")
-    public void testUnknownFieldName()
-    {
-        // Build a BPMN model with a ServiceTask that has a <camunda:field name="someUnknownName" camunda:stringValue="test"/>
+    public void testUnknownFieldName() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcessUnknown")
                 .startEvent()
@@ -234,18 +231,11 @@ public class BpmnFieldInjectionLinterTest
         // Filter out SUCCESS items to get only actual lint errors
         List<BpmnElementLintItem> nonSuccess = nonSuccess(issues);
         assertEquals(1, nonSuccess.size(), "Expected exactly one non-success lint issue for unknown field name");
-        // We expect a BpmnUnknownFieldInjectionLintItem, if present in your codebase.
     }
 
-    /**
-     * Tests that an {@code EndEvent} with a nested {@code MessageEventDefinition} containing
-     * {@code <camunda:field>} elements also triggers linting.
-     */
     @Test
     @DisplayName("Test EndEvent with MessageEventDefinition => fields get linted")
-    public void testEndEventMessageFields()
-    {
-        // Build a BPMN model that ends with a MessageEventDefinition
+    public void testEndEventMessageFields() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcessEndEvent")
                 .startEvent()
@@ -277,6 +267,7 @@ public class BpmnFieldInjectionLinterTest
 
         assertEquals(1, issues.size(),
                 "Expected one issue due to empty messageName in nested MessageEventDefinition");
-        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyLintItem.class, issues.get(0), "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyLintItem");
+        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyLintItem.class, issues.get(0),
+                "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyLintItem");
     }
 }

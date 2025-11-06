@@ -8,7 +8,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
-import dev.dsf.linter.util.resource.FhirResourceLocator;
+import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
@@ -115,8 +115,10 @@ public class BpmnElementLinter {
             String processId,
             File projectRoot)
     {
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+
         // Check for a matching ActivityDefinition.
-        if (FhirResourceLocator.activityDefinitionExists(messageName, projectRoot))
+        if (locator.activityDefinitionExists(messageName, projectRoot))
         {
             issues.add(new BpmnElementLintItemSuccess(
                     elementId,
@@ -138,7 +140,7 @@ public class BpmnElementLinter {
         }
 
         // Check for a matching StructureDefinition.
-        if (FhirResourceLocator.structureDefinitionExists(messageName, projectRoot))
+        if (locator.structureDefinitionExists(messageName, projectRoot))
         {
             issues.add(new BpmnElementLintItemSuccess(
                     elementId,
@@ -650,6 +652,7 @@ public class BpmnElementLinter {
             String literalValue,
             File projectRoot)
     {
+        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
         if (isEmpty(literalValue))
         {
             issues.add(new BpmnFieldInjectionProfileEmptyLintItem(elementId, bpmnFile, processId));
@@ -675,7 +678,7 @@ public class BpmnElementLinter {
                         "Profile field contains a version placeholder: '" + literalValue + "'"
                 ));
             }
-            if (!FhirResourceLocator.structureDefinitionExists(literalValue, projectRoot))
+            if (!locator.structureDefinitionExists(literalValue, projectRoot))
             {
                 issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
                         LinterSeverity.WARN,

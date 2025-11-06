@@ -7,6 +7,7 @@ import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
 import dev.dsf.linter.util.linting.LintingOutput;
 import dev.dsf.linter.output.item.FhirElementLintItem;
 import dev.dsf.linter.util.converter.JsonXmlConverter;
+import dev.dsf.linter.util.resource.FhirResourceParser;
 import org.w3c.dom.Document;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,14 +16,13 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.xml.sax.InputSource;
 import java.io.File;
-import java.io.InputStream;
 import java.io.StringReader;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static dev.dsf.linter.util.linting.LintingUtils.getFile;
+import static dev.dsf.linter.util.linting.LintingUtils.getProjectRoot;
+
 
 /**
  * lints FHIR resources by aggregating concrete {@link AbstractFhirInstanceLinter} implementations
@@ -116,7 +116,7 @@ public final class FhirResourceLinter {
         {
             if (file.getName().toLowerCase().endsWith(".xml"))
             {
-                doc = parseXmlSafe(file);
+                doc = FhirResourceParser.parseXml(file.toPath());
             }
             else if (file.getName().toLowerCase().endsWith(".json"))
             {
@@ -127,7 +127,7 @@ public final class FhirResourceLinter {
                 return issues; // Should not happen with proper filtering
             }
         }
-        catch (FhirParsingException e)
+        catch (Exception e)
         {
             // Requirement 7: Abort on syntax error by converting internal to public exception
             throw new ResourceLinterException("FHIR resource parsing failed", file.toPath(), e);
@@ -195,26 +195,5 @@ public final class FhirResourceLinter {
             super(message, cause);
         }
     }
-
-    private Document parseXmlSafe(File file)
-    {
-        try (InputStream in = Files.newInputStream(file.toPath()))
-        {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setNamespaceAware(true);
-            DocumentBuilder db = dbf.newDocumentBuilder();
-            return db.parse(in);
-        }
-        catch (Exception e)
-        {
-            // Throw internal exception instead of returning null
-            throw new FhirParsingException("Failed to parse XML", e);
-        }
-    }
-
-    private File getProjectRoot(Path filePath) {
-        return getFile(filePath);
-    }
-
 
 }

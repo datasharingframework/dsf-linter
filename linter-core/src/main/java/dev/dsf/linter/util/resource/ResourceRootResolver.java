@@ -1,6 +1,7 @@
 package dev.dsf.linter.util.resource;
 
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -25,7 +26,7 @@ public final class ResourceRootResolver {
     public record ResolutionResult(File resourceRoot, ResolutionStrategy strategy, String description) {
 
         @Override
-        public String toString() {
+        public @NotNull String toString() {
             return String.format("ResourceRoot[%s]: %s (%s)",
                     strategy, resourceRoot.getAbsolutePath(), description);
         }
