@@ -3,7 +3,7 @@ package dev.dsf.linter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.exception.ResourceLinterException;
-import dev.dsf.linter.util.Console;
+import dev.dsf.linter.logger.Console;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.LintingReportGenerator;
 import dev.dsf.linter.service.*;

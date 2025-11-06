@@ -1,6 +1,4 @@
-package dev.dsf.linter.util;
-
-import dev.dsf.linter.logger.Logger;
+package dev.dsf.linter.logger;
 
 /** Centralized exception logging helpers. */
 public final class LogUtils {

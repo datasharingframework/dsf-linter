@@ -4,7 +4,7 @@ import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.util.Console;
+import dev.dsf.linter.logger.Console;
 import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;

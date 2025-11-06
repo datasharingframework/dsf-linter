@@ -1,7 +1,4 @@
-package dev.dsf.linter.util;
-
-import dev.dsf.linter.logger.LogDecorators;
-import dev.dsf.linter.logger.Logger;
+package dev.dsf.linter.logger;
 
 /**
  * Utility class for colored console output using ANSI escape codes.

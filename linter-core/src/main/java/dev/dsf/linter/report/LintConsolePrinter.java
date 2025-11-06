@@ -8,7 +8,7 @@ import dev.dsf.linter.logger.LogDecorators;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.service.LintingResult;
 import dev.dsf.linter.service.ResourceDiscoveryService;
-import dev.dsf.linter.util.Console;
+import dev.dsf.linter.logger.Console;
 import dev.dsf.linter.util.linting.LintingOutput;
 import dev.dsf.linter.util.linting.LintingUtils;
 
