@@ -9,10 +9,26 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Centralized utility for determining the resource root directory.
- * Enhanced with plugin-specific resource root resolution.
+ * Utility class for resolving resource root directories in Java projects.
+ * <p>
+ * This resolver supports multiple project structures (Maven and Gradle) and uses various
+ * resolution strategies to locate the appropriate resource directory. It can detect resource
+ * roots from:
+ * <ul>
+ *   <li>CodeSource location of plugin classes</li>
+ *   <li>Maven project structures (target/classes, src/main/resources)</li>
+ *   <li>Gradle project structures (build/resources/main, src/main/resources)</li>
+ *   <li>Package-based module resolution for multi-module projects</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The resolution process follows a priority order, attempting multiple strategies until
+ * a valid resource root is found. If no specific structure is detected, it falls back
+ * to using the project root directory.
+ * </p>
  *
- * @since 1.0.0
+ * @see ResolutionStrategy
+ * @see ResolutionResult
  */
 public final class ResourceRootResolver {
 

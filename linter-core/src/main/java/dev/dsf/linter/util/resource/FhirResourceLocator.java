@@ -13,8 +13,27 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
- * Refactored FhirResourceLocator using generic providers.
- * Eliminates duplication and improves consistency.
+ * Locates and queries FHIR resources within a project structure.
+ * <p>
+ * This class provides methods to search for specific FHIR resources such as:
+ * <ul>
+ *   <li>ActivityDefinitions by message name or canonical URL</li>
+ *   <li>StructureDefinitions by profile value</li>
+ *   <li>Questionnaires by form key/URL</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The locator supports both file system and JAR-based resources through a
+ * {@link ResourceProvider} abstraction. It automatically detects the appropriate
+ * provider based on the project structure.
+ * </p>
+ * <p>
+ * Resources are searched in standard FHIR directory structures, supporting both
+ * Maven and Gradle project layouts with flat and nested directory hierarchies.
+ * </p>
+ *
+ * @see ResourceProvider
+ * @see FhirResourceEntry
  */
 public final class FhirResourceLocator {
 
@@ -35,6 +54,14 @@ public final class FhirResourceLocator {
 
     /**
      * Creates a FhirResourceLocator with automatic provider detection.
+     * <p>
+     * Automatically determines whether to use a composite provider (file system + JAR)
+     * or just file system provider based on the project structure and presence of
+     * dependency JARs.
+     * </p>
+     *
+     * @param projectRoot the root directory of the project
+     * @return a new FhirResourceLocator instance configured for the project structure
      */
     public static FhirResourceLocator create(File projectRoot) {
         ResourceProvider<FhirResourceEntry> provider;
@@ -53,12 +80,26 @@ public final class FhirResourceLocator {
     }
 
     /**
-     * Factory for custom provider.
+     * Factory method for creating a locator with a custom provider.
+     * <p>
+     * This allows using a custom resource provider implementation instead of
+     * the automatic detection mechanism.
+     * </p>
+     *
+     * @param provider the custom resource provider to use
+     * @return a new FhirResourceLocator instance using the specified provider
      */
     public static FhirResourceLocator from(ResourceProvider<FhirResourceEntry> provider) {
         return new FhirResourceLocator(provider);
     }
 
+    /**
+     * Checks if an ActivityDefinition exists for the given message name.
+     *
+     * @param messageName the message name to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if an ActivityDefinition with the specified message name exists
+     */
     public boolean activityDefinitionExists(String messageName, File projectRoot) {
         return searchInDirectories(
                 entry -> checkActivityDefinitionForMessage(entry, messageName),
@@ -67,6 +108,16 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Checks if a StructureDefinition exists for the given profile value.
+     * <p>
+     * Automatically removes version suffixes from the profile value before searching.
+     * </p>
+     *
+     * @param profileValue the profile value/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if a StructureDefinition with the specified profile value exists
+     */
     public boolean structureDefinitionExists(String profileValue, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return searchInDirectories(
@@ -76,11 +127,32 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Checks if an ActivityDefinition exists for the given instantiates canonical URL.
+     * <p>
+     * Automatically removes version suffixes from the canonical URL before searching.
+     * </p>
+     *
+     * @param canonical the canonical URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if an ActivityDefinition with the specified canonical URL exists
+     */
     public boolean activityDefinitionExistsForInstantiatesCanonical(String canonical, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findActivityDefinitionFile(base, projectRoot) != null;
     }
 
+    /**
+     * Finds the file containing the StructureDefinition for the given profile value.
+     * <p>
+     * Automatically removes version suffixes from the profile value before searching.
+     * Resources from JAR files are materialized to temporary files.
+     * </p>
+     *
+     * @param profileValue the profile value/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return the File containing the StructureDefinition, or null if not found
+     */
     public File findStructureDefinitionFile(String profileValue, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return findFileInDirectories(
@@ -90,6 +162,17 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Finds the file containing the ActivityDefinition for the given instantiates canonical URL.
+     * <p>
+     * Automatically removes version suffixes from the canonical URL before searching.
+     * Resources from JAR files are materialized to temporary files.
+     * </p>
+     *
+     * @param canonical the canonical URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return the File containing the ActivityDefinition, or null if not found
+     */
     public File findActivityDefinitionForInstantiatesCanonical(String canonical, File projectRoot) {
         String baseCanon = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
@@ -99,6 +182,17 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Checks if a Questionnaire exists for the given form key.
+     * <p>
+     * Automatically extracts the base URL from the form key by removing version suffixes
+     * (text after pipe character).
+     * </p>
+     *
+     * @param formKey the form key/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if a Questionnaire with the specified form key exists, false if formKey is null or blank
+     */
     public boolean questionnaireExists(String formKey, File projectRoot) {
         if (formKey == null || formKey.isBlank()) {
             return false;
@@ -112,6 +206,13 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Checks if any ActivityDefinition has the specified message name.
+     *
+     * @param message the message name to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if an ActivityDefinition with the specified message name exists
+     */
     public boolean activityDefinitionHasMessageName(String message, File projectRoot) {
         return searchInDirectories(
                 entry -> checkActivityDefinitionForMessage(entry, message),
@@ -120,6 +221,13 @@ public final class FhirResourceLocator {
         );
     }
 
+    /**
+     * Searches for a resource matching the predicate in the specified directories.
+     *
+     * @param predicate the predicate to match resources
+     * @param directories the directories to search in
+     * @return true if a matching resource is found
+     */
     private boolean searchInDirectories(Predicate<FhirResourceEntry> predicate, String... directories) {
         for (String directory : directories) {
             boolean found = provider.listResources(directory)
@@ -131,6 +239,13 @@ public final class FhirResourceLocator {
         return false;
     }
 
+    /**
+     * Finds and returns a file matching the predicate in the specified directories.
+     *
+     * @param predicate the predicate to match resources
+     * @param directories the directories to search in
+     * @return the File containing the matching resource, or null if not found
+     */
     private File findFileInDirectories(Predicate<FhirResourceEntry> predicate, String... directories) {
         for (String directory : directories) {
             Optional<File> file = provider.listResources(directory)
@@ -145,6 +260,16 @@ public final class FhirResourceLocator {
         return null;
     }
 
+    /**
+     * Materializes a resource entry to a temporary file.
+     * <p>
+     * If the resource exists in a JAR, it is extracted to a temporary file.
+     * The temporary file is marked for deletion on JVM exit.
+     * </p>
+     *
+     * @param entry the resource entry to materialize
+     * @return an Optional containing the File, or empty if materialization fails
+     */
     private Optional<File> materializeToFile(FhirResourceEntry entry) {
         try {
             if (!provider.resourceExists(entry.path())) {

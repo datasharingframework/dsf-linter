@@ -5,14 +5,22 @@ import java.io.InputStream;
 import java.util.stream.Stream;
 
 /**
- * Unified abstraction for accessing resources from various sources.
+ * Generic interface for accessing resources from various sources.
  * <p>
- * This interface enables transparent access to resources regardless of whether
- * they are stored on the filesystem, inside JAR files, or in dependency JARs.
+ * This interface provides a unified API for discovering and reading resources
+ * from different sources such as file systems, JAR files, or composite sources.
+ * Implementations can abstract the underlying storage mechanism while providing
+ * consistent resource access.
+ * </p>
+ * <p>
+ * The type parameter {@code T} represents the type of resource entries returned
+ * when listing resources, allowing implementations to provide metadata-rich
+ * resource representations.
  * </p>
  *
- * @param <T> the type of resource entry (e.g., FhirResourceEntry)
- * @since 1.1.0
+ * @param <T> the type of resource entries produced by this provider
+ * @see FileSystemResourceProvider
+ * @see CompositeResourceProvider
  */
 public interface ResourceProvider<T> {
 

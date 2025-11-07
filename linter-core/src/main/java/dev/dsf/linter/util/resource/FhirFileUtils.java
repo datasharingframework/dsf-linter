@@ -4,8 +4,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Utility class for FHIR file detection and operations.
- * Provides centralized logic for identifying FHIR files by extension.
+ * Utility class for FHIR file operations.
+ * <p>
+ * This class provides helper methods for identifying and working with FHIR resource
+ * files. FHIR resources can be stored in either XML or JSON format, and this utility
+ * helps determine if a given file represents a FHIR resource based on its extension.
+ * </p>
  */
 public final class FhirFileUtils {
 

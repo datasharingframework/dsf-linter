@@ -19,13 +19,46 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * Unified linter that handles any number of plugins (one or more).
- * A single plugin is simply a special case of the general multi-plugin approach.
+ * Core linter for DSF (Data Sharing Framework) process plugins.
+ * <p>
+ * This class orchestrates the complete linting process for DSF plugins, including:
+ * <ul>
+ *   <li><b>Phase 1:</b> Project setup and Maven build execution</li>
+ *   <li><b>Phase 2:</b> Resource discovery (plugins, BPMN processes, FHIR resources)</li>
+ *   <li><b>Phase 3:</b> Linting of BPMN, FHIR, and plugin configurations</li>
+ *   <li><b>Phase 4:</b> Report generation (HTML and/or JSON)</li>
+ *   <li><b>Phase 5:</b> Summary and results</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The linter supports both single-plugin and multi-plugin projects, automatically
+ * detecting and validating all process plugins in the project. It validates:
+ * <ul>
+ *   <li>BPMN process definitions and references</li>
+ *   <li>FHIR resource definitions and references</li>
+ *   <li>Plugin service registrations</li>
+ *   <li>Resource consistency and completeness</li>
+ *   <li>Unreferenced (leftover) resources</li>
+ * </ul>
+ * </p>
+ *
+ * @see Config
+ * @see PluginLinter
+ * @see OverallLinterResult
  */
 public class DsfLinter {
 
     /**
-     * Configuration for linting
+     * Configuration for the DSF Linter.
+     *
+     * @param projectPath the path to the project root directory
+     * @param reportPath the path where linting reports should be generated
+     * @param generateHtmlReport whether to generate an HTML report
+     * @param generateJsonReport whether to generate a JSON report
+     * @param failOnErrors whether the linter should fail (exit code 1) when errors are found
+     * @param mavenGoals custom Maven goals to execute during project setup
+     * @param skipGoals Maven goals to skip during project setup
+     * @param logger the logger instance for output
      */
     public record Config(
             Path projectPath,
@@ -40,7 +73,13 @@ public class DsfLinter {
     }
 
     /**
-     * linter result for a single plugin
+     * Linting result for a single plugin.
+     *
+     * @param pluginName the name of the plugin
+     * @param pluginClass the fully qualified class name of the plugin
+     * @param apiVersion the DSF API version used by the plugin
+     * @param output the detailed linting output (errors, warnings, etc.)
+     * @param reportPath the path to the generated report for this plugin
      */
     public record PluginLinter(
             String pluginName,
@@ -52,7 +91,13 @@ public class DsfLinter {
     }
 
     /**
-     * Overall linting result containing all plugin lints
+     * Overall linting result containing results for all plugins.
+     *
+     * @param pluginLinter map of plugin names to their individual linting results
+     * @param leftoverAnalysis analysis of unreferenced resources at project level
+     * @param masterReportPath path to the master report directory
+     * @param executionTimeMs total execution time in milliseconds
+     * @param success whether the linting passed (no errors if failOnErrors is true)
      */
     public record OverallLinterResult(
             Map<String, PluginLinter> pluginLinter,
@@ -103,6 +148,23 @@ public class DsfLinter {
     private final LintingReportGenerator reportGenerator;
     private final PluginLintingOrchestrator pluginOrchestrator;
 
+    /**
+     * Creates a new DSF Linter instance with the specified configuration.
+     * <p>
+     * Initializes all required services for linting, including:
+     * <ul>
+     *   <li>Project setup handler</li>
+     *   <li>Resource discovery service</li>
+     *   <li>BPMN linting service</li>
+     *   <li>FHIR linting service</li>
+     *   <li>Plugin linting service</li>
+     *   <li>Leftover resource detector</li>
+     *   <li>Report generator</li>
+     * </ul>
+     * </p>
+     *
+     * @param config the linter configuration
+     */
     public DsfLinter(Config config) {
         this.config = config;
         this.logger = config.logger();
@@ -126,8 +188,24 @@ public class DsfLinter {
     }
 
     /**
-     * Main linter entry point.
-     * Handles any number of plugins uniformly (one or more).
+     * Main linting entry point.
+     * <p>
+     * Executes the complete linting process through five phases:
+     * <ol>
+     *   <li>Project Setup - builds the project and prepares the environment</li>
+     *   <li>Resource Discovery - discovers plugins and their resources</li>
+     *   <li>Linting - validates BPMN, FHIR, and plugin configurations</li>
+     *   <li>Report Generation - creates HTML and/or JSON reports</li>
+     *   <li>Summary - displays results and execution time</li>
+     * </ol>
+     * </p>
+     * <p>
+     * Handles any number of plugins uniformly (single or multiple plugins).
+     * Uses a temporary context classloader to ensure proper resource isolation.
+     * </p>
+     *
+     * @return the overall linting result containing all plugin results and statistics
+     * @throws IOException if project setup, resource access, or report generation fails
      */
     public OverallLinterResult lint() throws IOException {
         long startTime = System.currentTimeMillis();
@@ -250,11 +328,23 @@ public class DsfLinter {
     }
 
     /**
-     * lints all discovered plugins uniformly (works for one or many).
-     * Delegates the complex per-plugin orchestration to PluginLintingOrchestrator.
-     * This method now has only two responsibilities:
-     * 1. Loop coordination (iteration, context calculation)
-     * 2. Result aggregation
+     * Lints all discovered plugins uniformly (works for one or many).
+     * <p>
+     * Delegates the complex per-plugin orchestration to {@link PluginLintingOrchestrator}.
+     * This method has two main responsibilities:
+     * <ol>
+     *   <li>Loop coordination - iterates over plugins and calculates context</li>
+     *   <li>Result aggregation - collects linting results from all plugins</li>
+     * </ol>
+     * </p>
+     *
+     * @param context the project context containing classloader and directories
+     * @param discovery the resource discovery result containing all plugins
+     * @param leftoverAnalysis the project-level leftover resource analysis
+     * @return map of plugin names to their linting results
+     * @throws ResourceLinterException if a linting error occurs
+     * @throws IOException if resource access fails
+     * @throws MissingServiceRegistrationException if required service registrations are missing
      */
     private Map<String, PluginLinter> lintAllPlugins(
             ProjectSetupHandler.ProjectContext context,

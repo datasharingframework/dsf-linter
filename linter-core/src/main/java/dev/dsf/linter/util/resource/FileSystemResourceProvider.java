@@ -10,10 +10,21 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * Generic filesystem provider for resources (FHIR or others in future).
- * Eliminates duplication between BPMN and FHIR filesystem providers.
+ * A file system-based implementation of {@link ResourceProvider}.
+ * <p>
+ * This provider reads resources directly from a specified root directory on the
+ * local file system. It walks the directory tree to discover resources and uses
+ * a factory pattern to create typed resource entries.
+ * </p>
+ * <p>
+ * The provider validates that the root directory exists and is accessible during
+ * construction. All resource paths are relative to this root directory.
+ * </p>
  *
- * @param <T> the type of resource entry (BpmnResourceEntry or FhirResourceEntry)
+ * @param <T> the type of resource entries created by the entry factory
+ * @param root the root directory containing the resources
+ * @param entryFactory factory for creating resource entries from paths
+ * @param resourceTypeName human-readable name describing the resource type
  */
 public record FileSystemResourceProvider<T>(File root, ResourceEntryFactory<T> entryFactory,
                                             String resourceTypeName) implements ResourceProvider<T> {

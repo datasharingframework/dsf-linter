@@ -21,10 +21,45 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
+/**
+ * Command-line interface entry point for the DSF Linter application.
+ * <p>
+ * This class provides a command-line interface for linting DSF (Data Sharing Framework)
+ * process plugins from various input sources:
+ * <ul>
+ *   <li>Local project directories</li>
+ *   <li>Git repositories (via URL)</li>
+ *   <li>JAR files (local or remote)</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The linter validates BPMN processes, FHIR resources, and plugin configurations,
+ * generating detailed reports in HTML and/or JSON formats.
+ * </p>
+ * <p>
+ * <b>Usage Examples:</b>
+ * <pre>
+ * # Lint a local JAR file
+ * dsf-linter --path /path/to/plugin.jar --html
+ *
+ * # Lint a local project with Maven build
+ * dsf-linter --path /path/to/project --mvn clean package --html
+ *
+ * # Lint from Git repository
+ * dsf-linter --path https://github.com/user/repo.git --mvn clean package
+ *
+ * # Lint with custom report location
+ * dsf-linter --path plugin.jar --report-path ./reports --html --json
+ * </pre>
+ * </p>
+ *
+ * @see DsfLinter
+ * @see InputResolver
+ */
 @Command(
         name = "dsf-linter",
         mixinStandardHelpOptions = true,
-        version = "3.0.0",
+        version = "1.2.0",
         description = "Lints DSF process plugins from local projects, Git repositories, or JAR files."
 )
 public class Main implements Callable<Integer> {
@@ -91,6 +126,16 @@ public class Main implements Callable<Integer> {
     private String[] skipGoals;
 
 
+    /**
+     * Main entry point for the DSF Linter CLI application.
+     * <p>
+     * Configures logging based on verbosity settings and executes the command-line
+     * interface using PicoCLI. The application exits with an appropriate status code
+     * (0 for success, 1 for failure).
+     * </p>
+     *
+     * @param args command-line arguments
+     */
     public static void main(String[] args) {
         boolean verbose = Arrays.stream(args).anyMatch(a -> a.equals("-v") || a.equals("--verbose"));
         configureLogging(verbose);
@@ -98,6 +143,21 @@ public class Main implements Callable<Integer> {
         System.exit(exitCode);
     }
 
+    /**
+     * Executes the linting process based on the provided command-line options.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Validates input parameters</li>
+     *   <li>Detects and resolves the input type (directory, Git repo, JAR)</li>
+     *   <li>Prepares the report directory</li>
+     *   <li>Executes the linting process</li>
+     *   <li>Cleans up temporary resources</li>
+     * </ol>
+     * </p>
+     *
+     * @return exit code (0 for success, 1 for failure)
+     */
     @Override
     public Integer call() {
         Logger logger = new ConsoleLogger(verbose);
@@ -241,6 +301,17 @@ public class Main implements Callable<Integer> {
         });
     }
 
+    /**
+     * Runs the DSF Linter on the specified project path.
+     * <p>
+     * Creates the linter configuration, executes the linting process,
+     * and returns the appropriate exit code based on the results.
+     * </p>
+     *
+     * @param projectPath the path to the project to lint
+     * @param logger the logger for output
+     * @return exit code (0 for success, 1 for failure)
+     */
     private Integer runLinter(Path projectPath, Logger logger) {
         try {
             // Create configuration
@@ -272,8 +343,14 @@ public class Main implements Callable<Integer> {
     }
 
     /**
-     * Print result summary.
-     * Works uniformly for any number of plugins.
+     * Prints a summary of the linting results.
+     * <p>
+     * Works uniformly for any number of plugins, displaying total errors,
+     * warnings, and leftover resources found.
+     * </p>
+     *
+     * @param result the overall linting result
+     * @param logger the logger for output
      */
     private void printResult(DsfLinter.OverallLinterResult result, Logger logger) {
         // Unified summary for any number of plugins
@@ -294,6 +371,15 @@ public class Main implements Callable<Integer> {
         logger.info("Reports written to: " + result.masterReportPath().toUri());
     }
 
+    /**
+     * Configures the logging system based on verbosity level.
+     * <p>
+     * Selects the appropriate logback configuration file based on whether
+     * verbose logging is enabled.
+     * </p>
+     *
+     * @param verbose whether verbose logging should be enabled
+     */
     private static void configureLogging(boolean verbose)
     {
         String logbackConfigurationFile = verbose ? "logback-verbose.xml" : "logback.xml";

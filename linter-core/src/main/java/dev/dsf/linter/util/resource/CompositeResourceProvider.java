@@ -6,24 +6,36 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * Composite implementation of {@link ResourceProvider} that combines multiple providers
- * into a single unified provider.
+ * A composite implementation of {@link ResourceProvider} that delegates to multiple providers.
  * <p>
- * This class implements the Composite Pattern, allowing transparent access to resources
- * from multiple sources (e.g., filesystem and JAR files) as if they were a single provider.
- * Resources are searched across all providers in the order they were specified.
+ * This provider allows combining multiple resource sources (e.g., file system and JAR files)
+ * into a single unified interface. When listing resources, it merges results from all
+ * providers. When opening or checking resources, it searches providers in order until
+ * a match is found.
  * </p>
  * <p>
- * When listing resources, results from all providers are combined and duplicates are removed.
- * When opening a resource, the first provider that contains the resource is used.
+ * Resource entries are deduplicated when listing to avoid duplicate entries from
+ * multiple providers. The first provider that contains a resource is used when
+ * opening resources.
  * </p>
  *
- * @param <T> the type of resource entry (e.g., FhirResourceEntry)
- * @since 1.1.0
+ * @param <T> the type of resource entries produced by this provider
+ * @param providers list of underlying resource providers (immutable)
+ * @param resourceTypeName human-readable name describing the resource type
+ * @see ResourceProvider
+ * @see FileSystemResourceProvider
  */
 public record CompositeResourceProvider<T>(List<ResourceProvider<T>> providers,
                                            String resourceTypeName) implements ResourceProvider<T> {
 
+    /**
+     * Creates a composite resource provider from a list of providers.
+     *
+     * @param providers the list of resource providers to combine
+     * @param resourceTypeName human-readable name for the resource type
+     * @throws NullPointerException if providers or resourceTypeName is null
+     * @throws IllegalArgumentException if the providers list is empty
+     */
     public CompositeResourceProvider(List<ResourceProvider<T>> providers, String resourceTypeName) {
         Objects.requireNonNull(providers, "providers cannot be null");
         Objects.requireNonNull(resourceTypeName, "resourceTypeName cannot be null");
@@ -36,6 +48,12 @@ public record CompositeResourceProvider<T>(List<ResourceProvider<T>> providers,
         this.resourceTypeName = resourceTypeName;
     }
 
+    /**
+     * Creates a composite resource provider from varargs providers.
+     *
+     * @param resourceTypeName human-readable name for the resource type
+     * @param providers variable number of resource providers to combine
+     */
     @SafeVarargs
     public CompositeResourceProvider(String resourceTypeName, ResourceProvider<T>... providers) {
         this(Arrays.asList(providers), resourceTypeName);
@@ -50,20 +68,13 @@ public record CompositeResourceProvider<T>(List<ResourceProvider<T>> providers,
 
     @Override
     public InputStream openResource(String path) throws IOException {
-        IOException lastException = null;
-
         for (ResourceProvider<T> provider : providers) {
-            try {
+            if (provider.resourceExists(path)) {
                 return provider.openResource(path);
-            } catch (IOException e) {
-                // Store exception but continue to next provider
-                // Only throw if this is the last provider
-                lastException = e;
             }
         }
 
-        // If we get here, no provider had the resource
-        throw new IOException("Resource not found in any provider: " + path, lastException);
+        throw new IOException("Resource not found in any provider: " + path);
     }
 
     @Override
