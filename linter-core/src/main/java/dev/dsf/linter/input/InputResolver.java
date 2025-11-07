@@ -368,4 +368,61 @@ public class InputResolver {
             jarHandler.deleteDirectoryRecursively(result.resolvedPath());
         }
     }
+
+    /**
+     * Deletes a directory and all its contents recursively.
+     * <p>
+     * This method delegates to the JarHandler for consistent cleanup behavior.
+     * </p>
+     *
+     * @param directory the directory to delete
+     */
+    public void deleteDirectoryRecursively(Path directory) {
+        jarHandler.deleteDirectoryRecursively(directory);
+    }
+
+    /**
+     * Extracts a safe name from the input path for use in temporary directory names.
+     * <p>
+     * This method creates sanitized names suitable for file system use by:
+     * <ul>
+     *   <li>Extracting relevant parts based on input type</li>
+     *   <li>Removing file extensions (.jar, .git)</li>
+     *   <li>Sanitizing special characters</li>
+     * </ul>
+     * </p>
+     *
+     * @param inputPath the original input path
+     * @param inputType the detected input type
+     * @return a sanitized name suitable for directory names
+     */
+    public String extractInputName(String inputPath, InputType inputType) {
+        String name;
+
+        switch (inputType) {
+            case LOCAL_DIRECTORY, LOCAL_JAR_FILE -> {
+                Path path = Path.of(inputPath);
+                name = path.getFileName().toString();
+                if (inputType == InputType.LOCAL_JAR_FILE) {
+                    name = name.replace(".jar", "");
+                }
+            }
+            case GIT_REPOSITORY ->
+                    name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
+                            .replace(".git", "");
+
+            case REMOTE_JAR_URL -> {
+                String path = inputPath.substring(inputPath.lastIndexOf('/') + 1);
+                int queryIndex = path.indexOf('?');
+                if (queryIndex > 0) {
+                    path = path.substring(0, queryIndex);
+                }
+                name = path.replace(".jar", "");
+            }
+            default -> name = "unknown";
+        }
+
+        // Sanitize name for use in file system
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
 }
