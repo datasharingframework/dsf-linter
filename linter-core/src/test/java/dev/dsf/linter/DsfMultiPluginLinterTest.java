@@ -93,7 +93,7 @@ public class DsfMultiPluginLinterTest {
             // 2. Plugin Discovery Assertions
             Map<String, DsfLinter.PluginLinter> pluginLints = result.pluginLinter();
             assertEquals(2, pluginLints.size(),
-                    "Exactly two plugins (v1 and v2) should have been discovered and linted.");
+                    "Exactly two plugins should have been discovered and linted.");
 
             // Check that both API versions were detected
             long v1Plugins = pluginLints.values().stream()

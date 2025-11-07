@@ -176,7 +176,6 @@ public class Main implements Callable<Integer> {
 
         try {
             inputType = resolver.detectInputType(inputPath);
-            logger.info("Detected input type: " + inputType);
         } catch (IllegalArgumentException e) {
             logger.error("ERROR: Invalid input: " + e.getMessage());
             return 1;
