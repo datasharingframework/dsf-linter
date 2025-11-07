@@ -8,7 +8,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
-import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
+import dev.dsf.linter.util.resource.FhirResourceLocator;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
@@ -115,7 +115,7 @@ public class BpmnElementLinter {
             String processId,
             File projectRoot)
     {
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
 
         // Check for a matching ActivityDefinition.
         if (locator.activityDefinitionExists(messageName, projectRoot))
@@ -652,7 +652,7 @@ public class BpmnElementLinter {
             String literalValue,
             File projectRoot)
     {
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
         if (isEmpty(literalValue))
         {
             issues.add(new BpmnFieldInjectionProfileEmptyLintItem(elementId, bpmnFile, processId));

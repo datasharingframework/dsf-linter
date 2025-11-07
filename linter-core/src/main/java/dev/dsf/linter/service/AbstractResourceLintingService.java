@@ -6,7 +6,7 @@ import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.output.item.PluginDefinitionLintItemSuccess;
 import dev.dsf.linter.util.linting.LintingOutput;
 import dev.dsf.linter.util.linting.LintingUtils;
-import dev.dsf.linter.util.resource.ResourceResolver;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -24,10 +24,9 @@ import java.util.Map;
  * <p>Template Method Pattern - defines the skeleton of linting algorithms,
  * allowing subclasses to override specific steps without changing the algorithm structure.</p>
  *
- * @param <T> the type of lint item produced by this service
  * @since 1.1.0
  */
-public abstract class AbstractResourceLintingService<T extends AbstractLintItem> {
+public abstract class AbstractResourceLintingService {
 
     protected final Logger logger;
 
@@ -56,8 +55,8 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
             String pluginName,
             List<File> resourceFiles,
             List<String> missingRefs,
-            Map<String, ResourceResolver.ResolutionResult> outsideRoot,
-            Map<String, ResourceResolver.ResolutionResult> fromDependencies,
+            Map<String, ResourceResolutionResult> outsideRoot,
+            Map<String, ResourceResolutionResult> fromDependencies,
             File pluginResourceRoot)
             throws ResourceLinterException {
 
@@ -77,27 +76,6 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
 
         // Step 5: Create success items for valid resources
         allItems.addAll(createSuccessItemsForValidResources(pluginName, resourceFiles, pluginResourceRoot));
-
-        return new LintingResult(allItems);
-    }
-
-    /**
-     * Legacy lint method without resource root validation.
-     *
-     * @deprecated Use {@link #lint(String, List, List, Map, Map, File)} for enhanced validation
-     */
-    @Deprecated
-    public LintingResult lint(String pluginName, List<File> resourceFiles, List<String> missingRefs)
-            throws ResourceLinterException {
-
-        List<AbstractLintItem> allItems = new ArrayList<>(createMissingReferenceItems(pluginName, missingRefs));
-
-        if (resourceFiles.isEmpty() && missingRefs.isEmpty()) {
-            logger.info("No referenced " + getResourceTypeName() + " files to lint.");
-            return new LintingResult(allItems);
-        }
-
-        allItems.addAll(lintExistingFiles(pluginName, resourceFiles));
 
         return new LintingResult(allItems);
     }
@@ -140,7 +118,7 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
     protected abstract AbstractLintItem createOutsideRootLintItem(
             String pluginName,
             String reference,
-            ResourceResolver.ResolutionResult result);
+            ResourceResolutionResult result);
 
     /**
      * Creates a success lint item for a resource file.
@@ -192,7 +170,7 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
      */
     private List<AbstractLintItem> createOutsideRootItems(
             String pluginName,
-            Map<String, ResourceResolver.ResolutionResult> outsideRoot) {
+            Map<String, ResourceResolutionResult> outsideRoot) {
 
         List<AbstractLintItem> items = new ArrayList<>();
 
@@ -200,9 +178,9 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
             return items;
         }
 
-        for (Map.Entry<String, ResourceResolver.ResolutionResult> entry : outsideRoot.entrySet()) {
+        for (Map.Entry<String, ResourceResolutionResult> entry : outsideRoot.entrySet()) {
             String reference = entry.getKey();
-            ResourceResolver.ResolutionResult result = entry.getValue();
+            ResourceResolutionResult result = entry.getValue();
 
             if (result.file().isPresent()) {
                 items.add(createOutsideRootLintItem(pluginName, reference, result));
@@ -217,7 +195,7 @@ public abstract class AbstractResourceLintingService<T extends AbstractLintItem>
      */
     private List<AbstractLintItem> createDependencyItems(
             String pluginName,
-            Map<String, ResourceResolver.ResolutionResult> fromDependencies) {
+            Map<String, ResourceResolutionResult> fromDependencies) {
 
         return LintingUtils.createDependencySuccessItems(
                 pluginName,

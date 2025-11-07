@@ -8,23 +8,12 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Utility class for extracting values and checking content within FHIR resource documents.
  * Provides XPath-based extraction and linter methods.
  */
 public class FhirResourceExtractor {
-
-    private static final String STRUCTURE_DEFINITION_DIR = "src/main/resources/fhir/StructureDefinition";
-    private static final String STRUCTURE_DEFINITION_DIR_FLAT = "fhir/StructureDefinition";
-
 
     /**
      * Retrieves the canonical value for the "Task.instantiatesCanonical" element from the given XML Document.
@@ -91,43 +80,6 @@ public class FhirResourceExtractor {
     }
 
     /**
-     * Extracts all distinct message name values defined within {@code StructureDefinition} XML resources
-     * found in the given project directory.
-     * <p>
-     * Specifically, this method looks for FHIR structure elements that represent Task input elements
-     * with the ID {@code Task.input:message-name.value[x]} and a nested {@code fixedString} or {@code valueString}
-     * element containing a {@code value} attribute.
-     * </p>
-     *
-     * <p>
-     * The method supports both Maven-style folder layout (e.g., {@code src/main/resources/fhir/StructureDefinition})
-     * and flat layout (e.g., {@code fhir/StructureDefinition}) as found in CI/CD builds or exploded JARs.
-     * </p>
-     *
-     * <p>
-     * Example matched fragment:
-     * <pre>{@code
-     * <element id="Task.input:message-name.value[x]">
-     *   <fixedString value="dashboardReportSend"/>
-     * </element>
-     * }</pre>
-     * </p>
-     *
-     * @param projectRoot The root directory of the project, which contains the {@code StructureDefinition} XML files.
-     * @return A {@link Set} of all distinct message-name values (e.g., {@code {"ping", "pong", "dashboardReportSend"}}).
-     */
-    public Set<String> getAllMessageValuesFromStructureDefinitions(File projectRoot) {
-        Set<String> messageValues = new HashSet<>();
-
-        // Classic Maven/Gradle layout
-        collectMessageNames(projectRoot, STRUCTURE_DEFINITION_DIR, messageValues);
-        // Flat CI / exploded-JAR layout
-        collectMessageNames(projectRoot, STRUCTURE_DEFINITION_DIR_FLAT, messageValues);
-
-        return messageValues;
-    }
-
-    /**
      * Checks if the given {@link Document}, presumed to be an ActivityDefinition,
      * contains the specified message name in an "extension" element with
      * {@code url="message-name"}.
@@ -173,7 +125,7 @@ public class FhirResourceExtractor {
      */
     public boolean activityDefinitionContainsInstantiatesCanonical(Document doc,
                                                                    String canonicalValue) throws XPathExpressionException {
-        String searchValue = removeVersionSuffix(canonicalValue);
+        String searchValue = ResourcePathNormalizer.removeVersionSuffix(canonicalValue);
 
         String xpathExpr = "/*[local-name()='ActivityDefinition']/*[local-name()='url' " +
                 "and @value='" + searchValue + "']";
@@ -200,63 +152,6 @@ public class FhirResourceExtractor {
     }
 
     // Private helper methods
-
-    /**
-     * Helper method that scans a specific subdirectory under the project root for {@code StructureDefinition}
-     * XML files and extracts any message name values defined using {@code fixedString} or {@code valueString}
-     * elements inside {@code Task.input:message-name.value[x]} elements.
-     * <p>
-     * This method is layout-agnostic and does not perform fallback; it assumes the provided path exists
-     * and is valid for the given structure layout (Maven-style or flat).
-     * </p>
-     *
-     * <p>
-     * Any extracted values are added to the supplied {@code messageValues} set, which is mutated in-place.
-     * Invalid or non-parsable XML files are skipped silently.
-     * </p>
-     *
-     * @param projectRoot   The root folder of the project that contains FHIR resource subdirectories.
-     * @param relDir        The relative subdirectory (e.g., {@code src/main/resources/fhir/StructureDefinition}).
-     * @param messageValues A mutable {@link Set} where extracted message-name values are accumulated.
-     */
-    private void collectMessageNames(File projectRoot, String relDir,
-                                     Set<String> messageValues) {
-        File dir = new File(projectRoot, relDir);
-        if (!dir.isDirectory()) {
-            return;
-        }
-
-        try (Stream<Path> paths = Files.walk(dir.toPath())) {
-            List<Path> fhirFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(FhirFileUtils::isFhirFile)
-                    .toList();
-
-            for (Path fhirFile : fhirFiles) {
-                Document doc = FhirResourceParser.parseFhirFile(fhirFile);
-                if (doc == null) {
-                    continue;
-                }
-
-                String xpathExpr =
-                        "//*[local-name()='element' and @id='Task.input:message-name.value[x]']" +
-                                "/*[(local-name()='fixedString' or local-name()='valueString')]/@value";
-
-                NodeList nodes = (NodeList) XPathFactory.newInstance().newXPath()
-                        .compile(xpathExpr)
-                        .evaluate(doc, XPathConstants.NODESET);
-
-                for (int i = 0; i < nodes.getLength(); i++) {
-                    String value = nodes.item(i).getTextContent();
-                    if (value != null && !value.isBlank()) {
-                        messageValues.add(value.trim());
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-            // Parsing failures are non-fatal - just skip the offending file
-        }
-    }
 
     /**
      * Extracts the value of the "value" attribute from the first node in the provided NodeList.
@@ -302,19 +197,4 @@ public class FhirResourceExtractor {
         return (nodes != null && nodes.getLength() > 0);
     }
 
-    /**
-     * Removes the version suffix (e.g., "|1.0") from a given string if present.
-     * <p>
-     * This is commonly used to normalize canonical references that might include
-     * a version specifier. For example, "http://example.org|1.0" becomes "http://example.org".
-     * </p>
-     *
-     * @param value the string from which to remove the suffix
-     * @return the string without the "|..." part, or the original string if no pipe was found
-     */
-    private String removeVersionSuffix(String value) {
-        if (value == null) return null;
-        int pipeIndex = value.indexOf("|");
-        return (pipeIndex != -1) ? value.substring(0, pipeIndex) : value;
-    }
 }

@@ -22,25 +22,5 @@ public final class FhirFileUtils {
         return Files.isRegularFile(p) &&
                 (fileName.endsWith(".xml") || fileName.endsWith(".json"));
     }
-
-    /**
-     * Checks if the given path represents a valid XML file.
-     *
-     * @param p the path to check
-     * @return true if the path is a regular file with .xml extension, false otherwise
-     */
-    public static boolean isXmlFile(Path p) {
-        return Files.isRegularFile(p) && p.getFileName().toString().toLowerCase().endsWith(".xml");
-    }
-
-    /**
-     * Checks if the given path represents a valid JSON file.
-     *
-     * @param p the path to check
-     * @return true if the path is a regular file with .json extension, false otherwise
-     */
-    public static boolean isJsonFile(Path p) {
-        return Files.isRegularFile(p) && p.getFileName().toString().toLowerCase().endsWith(".json");
-    }
 }
 

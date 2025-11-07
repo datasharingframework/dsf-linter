@@ -6,7 +6,7 @@ import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.api.ApiVersion;
-import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
+import dev.dsf.linter.util.resource.FhirResourceLocator;
 import org.camunda.bpm.model.bpmn.instance.ReceiveTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
@@ -193,7 +193,7 @@ public class BpmnTaskLinter
             String processId)
     {
         String elementId = userTask.getId();
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
 
         // lint that the User Task name is not empty.
         if (isEmpty(userTask.getName())) {

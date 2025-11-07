@@ -68,7 +68,7 @@ public final class FhirResourceLocator {
     }
 
     public boolean structureDefinitionExists(String profileValue, File projectRoot) {
-        String base = removeVersionSuffix(profileValue);
+        String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return searchInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
                 STRUCTURE_DEFINITION_DIR,
@@ -77,12 +77,12 @@ public final class FhirResourceLocator {
     }
 
     public boolean activityDefinitionExistsForInstantiatesCanonical(String canonical, File projectRoot) {
-        String base = removeVersionSuffix(canonical);
+        String base = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findActivityDefinitionFile(base, projectRoot) != null;
     }
 
     public File findStructureDefinitionFile(String profileValue, File projectRoot) {
-        String base = removeVersionSuffix(profileValue);
+        String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return findFileInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
                 STRUCTURE_DEFINITION_DIR,
@@ -91,7 +91,7 @@ public final class FhirResourceLocator {
     }
 
     public File findActivityDefinitionForInstantiatesCanonical(String canonical, File projectRoot) {
-        String baseCanon = removeVersionSuffix(canonical);
+        String baseCanon = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
                 entry -> checkActivityDefinitionForInstantiatesCanonical(entry, baseCanon),
                 ACTIVITY_DEFINITION_DIR,
@@ -263,16 +263,8 @@ public final class FhirResourceLocator {
                 || (targetDependencies.exists() && targetDependencies.isDirectory());
     }
 
-    private static String removeVersionSuffix(String value) {
-        if (value == null) {
-            return null;
-        }
-        int pipeIndex = value.indexOf("|");
-        return (pipeIndex != -1) ? value.substring(0, pipeIndex) : value;
-    }
-
     private File findActivityDefinitionFile(String canonical, File projectRoot) {
-        String base = removeVersionSuffix(canonical);
+        String base = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
                 entry -> checkActivityDefinitionForInstantiatesCanonical(entry, base),
                 ACTIVITY_DEFINITION_DIR,

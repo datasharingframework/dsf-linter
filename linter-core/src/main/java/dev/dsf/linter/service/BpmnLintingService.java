@@ -5,7 +5,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.linting.LintingOutput;
-import dev.dsf.linter.util.resource.ResourceResolver;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
 import java.io.File;
 
@@ -64,8 +64,8 @@ import java.io.File;
  *     new File("bpe/download-allow-list.bpmn")
  * );
  * List<String> missingRefs = Collections.emptyList();
- * Map<String, ResourceResolver.ResolutionResult> outsideRoot = new HashMap<>();
- * Map<String, ResourceResolver.ResolutionResult> fromDependencies = new HashMap<>();
+ * Map<String, ResourceResolutionResult> outsideRoot = new HashMap<>();
+ * Map<String, ResourceResolutionResult> fromDependencies = new HashMap<>();
  * File pluginResourceRoot = new File("bpe");
  *
  * LintingResult result = service.lint(
@@ -91,7 +91,7 @@ import java.io.File;
  * @see dev.dsf.linter.service.PluginLintingOrchestrator
  * @since 1.1.0
  */
-public class BpmnLintingService extends AbstractResourceLintingService<BpmnLintItem> {
+public class BpmnLintingService extends AbstractResourceLintingService {
 
     private final BpmnLinter bpmnLinter;
 
@@ -174,7 +174,7 @@ public class BpmnLintingService extends AbstractResourceLintingService<BpmnLintI
     protected AbstractLintItem createOutsideRootLintItem(
             String pluginName,
             String reference,
-            ResourceResolver.ResolutionResult result) {
+            ResourceResolutionResult result) {
 
         return new PluginDefinitionBpmnFileReferencedFoundOutsideExpectedRootLintItem(
                 pluginName,

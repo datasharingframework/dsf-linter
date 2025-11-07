@@ -41,18 +41,4 @@ public final class ApiVersionHolder {
         version.remove();
     }
 
-    /**
-     * Legacy string-based accessor kept for backwards compatibility.
-     *
-     * @return "v1", "v2" or "unknown" based on the current thread's API version.
-     * @deprecated Use {@link #getVersion()} instead and handle the enum directly.
-     */
-    @Deprecated
-    public static String getVersionString() {
-        return switch (version.get()) {
-            case V1 -> "v1";
-            case V2 -> "v2";
-            case UNKNOWN -> "unknown";
-        };
-    }
 }

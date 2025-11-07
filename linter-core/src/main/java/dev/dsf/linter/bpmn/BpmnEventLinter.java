@@ -5,7 +5,6 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
-import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
 import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
@@ -111,7 +110,7 @@ public class BpmnEventLinter {
             File bpmnFile,
             String processId) {
         String elementId = startEvent.getId();
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
 
         // 1) Check that the start event has a non-empty name
         if (isEmpty(startEvent.getName())) {
@@ -822,7 +821,7 @@ public class BpmnEventLinter {
             File bpmnFile,
             String processId) {
         String elementId = boundaryEvent.getId();
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
 
         // 1) lint the boundary event name.
         if (isEmpty(boundaryEvent.getName())) {

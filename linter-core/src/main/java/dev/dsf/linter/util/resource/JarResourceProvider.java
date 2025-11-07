@@ -1,5 +1,7 @@
 package dev.dsf.linter.util.resource;
 
+import dev.dsf.linter.util.cache.ConcurrentCache;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,9 +14,10 @@ import java.util.stream.Stream;
 
 /**
  * Generic JAR-backed provider for resources (BPMN or FHIR).
- * Supports caching and indexing for efficient resource lookup.
+ * Uses ConcurrentCache for thread-safe caching with cleanup callbacks.
  *
  * @param <T> the type of resource entry (BpmnResourceEntry or FhirResourceEntry)
+ * @since 1.2.0
  */
 public final class JarResourceProvider<T> implements ResourceProvider<T>, Closeable {
 
@@ -22,8 +25,9 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     private final ResourceEntryFactory<T> entryFactory;
     private final Predicate<String> resourceFilter;
     private final String resourceTypeName;
-    private final Map<String, JarFile> jarCache;
-    private final Map<String, List<T>> indexCache;
+    private final ConcurrentCache<String, JarFile> jarCache;
+    private final ConcurrentCache<String, List<T>> indexCache;
+    private final Set<String> jarKeys; // Track JAR keys separately since ConcurrentCache doesn't expose them
     private boolean indexed;
 
     private JarResourceProvider(File projectRoot,
@@ -38,8 +42,18 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
         this.entryFactory = entryFactory;
         this.resourceFilter = resourceFilter;
         this.resourceTypeName = resourceTypeName;
-        this.jarCache = new ConcurrentHashMap<>();
-        this.indexCache = new ConcurrentHashMap<>();
+
+        // Use ConcurrentCache with cleanup callback
+        this.jarCache = new ConcurrentCache<>(jarFile -> {
+            try {
+                jarFile.close();
+            } catch (IOException e) {
+                // Best effort cleanup
+            }
+        });
+
+        this.indexCache = new ConcurrentCache<>();
+        this.jarKeys = ConcurrentHashMap.newKeySet(); // Thread-safe set for JAR keys
         this.indexed = false;
     }
 
@@ -63,10 +77,9 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     public Stream<T> listResources(String directory) {
         ensureIndexed();
 
-        String normalizedDir = normalizeDirectory(directory);
+        String normalizedDir = ResourcePathNormalizer.normalizeDirectory(directory);
 
-        return indexCache.values().stream()
-                .flatMap(List::stream)
+        return indexCache.get(getCacheKey()).stream().flatMap(Collection::stream)
                 .filter(entry -> getPath(entry).startsWith(normalizedDir));
     }
 
@@ -76,10 +89,14 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
 
         String normalizedPath = path.replace('\\', '/');
 
-        for (JarFile jarFile : jarCache.values()) {
-            JarEntry entry = jarFile.getJarEntry(normalizedPath);
-            if (entry != null) {
-                return jarFile.getInputStream(entry);
+        for (String jarKey : getJarKeys()) {
+            Optional<JarFile> jarFileOpt = jarCache.get(jarKey);
+            if (jarFileOpt.isPresent()) {
+                JarFile jarFile = jarFileOpt.get();
+                JarEntry entry = jarFile.getJarEntry(normalizedPath);
+                if (entry != null) {
+                    return jarFile.getInputStream(entry);
+                }
             }
         }
 
@@ -92,8 +109,17 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
 
         String normalizedPath = path.replace('\\', '/');
 
-        return jarCache.values().stream()
-                .anyMatch(jarFile -> jarFile.getJarEntry(normalizedPath) != null);
+        for (String jarKey : getJarKeys()) {
+            Optional<JarFile> jarFileOpt = jarCache.get(jarKey);
+            if (jarFileOpt.isPresent()) {
+                JarFile jarFile = jarFileOpt.get();
+                if (jarFile.getJarEntry(normalizedPath) != null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -106,15 +132,9 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
 
     @Override
     public void close() throws IOException {
-        for (JarFile jarFile : jarCache.values()) {
-            try {
-                jarFile.close();
-            } catch (IOException e) {
-                // Best effort
-            }
-        }
-        jarCache.clear();
+        jarCache.clear(); // Cleanup callback closes JARs
         indexCache.clear();
+        jarKeys.clear();
         indexed = false;
     }
 
@@ -160,11 +180,12 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     }
 
     private void indexJarFile(Path jarPath) {
+        String jarKey = jarPath.toString();
+
         try {
             JarFile jarFile = new JarFile(jarPath.toFile());
-            String jarKey = jarPath.toString();
-
             jarCache.put(jarKey, jarFile);
+            jarKeys.add(jarKey); // Track the JAR key
 
             List<T> entries = jarFile.stream()
                     .filter(entry -> !entry.isDirectory())
@@ -172,25 +193,26 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
                     .map(entry -> entryFactory.create(entry.getName()))
                     .toList();
 
-            indexCache.put(jarKey, entries);
+            // Store all entries under a single cache key
+            String cacheKey = getCacheKey();
+            Optional<List<T>> existingEntriesOpt = indexCache.get(cacheKey);
+            if (existingEntriesOpt.isEmpty()) {
+                indexCache.put(cacheKey, new ArrayList<>(entries));
+            } else {
+                existingEntriesOpt.get().addAll(entries);
+            }
 
         } catch (IOException e) {
             // Silently skip
         }
     }
 
-    private String normalizeDirectory(String directory) {
-        if (directory == null) {
-            return "";
-        }
+    private String getCacheKey() {
+        return projectRoot.getAbsolutePath() + "::all";
+    }
 
-        String normalized = directory.replace('\\', '/');
-
-        if (!normalized.endsWith("/")) {
-            normalized += "/";
-        }
-
-        return normalized;
+    private Set<String> getJarKeys() {
+        return jarKeys; // Return tracked JAR keys
     }
 
     private String getPath(T entry) {

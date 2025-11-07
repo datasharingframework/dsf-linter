@@ -16,9 +16,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -74,7 +77,7 @@ public class JsonActivityDefinitionLookupTest
         File srcMain = new File(projectRoot, "src/main/resources");
         fhirDir = new File(srcMain, "fhir");
         activityDefinitionDir = new File(fhirDir, "ActivityDefinition");
-        activityDefinitionDir.mkdirs();
+        assertTrue(activityDefinitionDir.mkdirs(), "Failed to create directory: " + activityDefinitionDir.getAbsolutePath());
     }
 
     private List<File> collectFhirFiles() throws IOException {
@@ -193,8 +196,11 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
         List<File> fhirFiles = collectFhirFiles();
+        List<String> missingRefs = new ArrayList<>();
+        Map<String, ResourceResolutionResult> outsideRoot = new HashMap<>();
+        Map<String, ResourceResolutionResult> fromDependencies = new HashMap<>();
         LintingResult lintingResult =
-                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
+                fhirLintingService.lint("test-plugin", fhirFiles, missingRefs, outsideRoot, fromDependencies, fhirDir);
 
         // FIX: getItems() is now called on the top-level LintingResult object
         List<AbstractLintItem> items = lintingResult.getItems();
@@ -303,8 +309,11 @@ public class JsonActivityDefinitionLookupTest
             }""";
         Files.writeString(new File(fhirDir, "test-task.json").toPath(), jsonTask);
         List<File> fhirFiles = collectFhirFiles();
+        List<String> missingRefs = new ArrayList<>();
+        Map<String, ResourceResolutionResult> outsideRoot = new HashMap<>();
+        Map<String, ResourceResolutionResult> fromDependencies = new HashMap<>();
         LintingResult lintingResult =
-                fhirLintingService.lint("test-plugin", fhirFiles, new ArrayList<>());
+                fhirLintingService.lint("test-plugin", fhirFiles, missingRefs, outsideRoot, fromDependencies, fhirDir);
 
         List<AbstractLintItem> items = lintingResult.getItems();
         LintingOutput result = new LintingOutput(items);

@@ -3,7 +3,7 @@ package dev.dsf.linter.util.linting;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.output.item.AbstractLintItem;
-import dev.dsf.linter.util.resource.ResourceResolver;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -239,7 +239,7 @@ public class LintingUtils {
      */
     public static List<AbstractLintItem> createDependencySuccessItems(
             String pluginName,
-            Map<String, ResourceResolver.ResolutionResult> dependencyResources,
+            Map<String, ResourceResolutionResult> dependencyResources,
             String resourceType) {
 
         List<AbstractLintItem> items = new ArrayList<>();
@@ -248,9 +248,9 @@ public class LintingUtils {
             return items;
         }
 
-        for (Map.Entry<String, ResourceResolver.ResolutionResult> entry : dependencyResources.entrySet()) {
+        for (Map.Entry<String, ResourceResolutionResult> entry : dependencyResources.entrySet()) {
             String reference = entry.getKey();
-            ResourceResolver.ResolutionResult result = entry.getValue();
+            ResourceResolutionResult result = entry.getValue();
 
             if (result.file().isPresent()) {
                 items.add(new PluginDefinitionLintItemSuccess(

@@ -5,7 +5,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.linting.LintingOutput;
-import dev.dsf.linter.util.resource.ResourceResolver;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
 import java.io.File;
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.List;
  *
  * @since 1.1.0
  */
-public class FhirLintingService extends AbstractResourceLintingService<FhirLintItem> {
+public class FhirLintingService extends AbstractResourceLintingService {
 
     private final FhirResourceLinter fhirResourceLinter;
 
@@ -54,7 +54,7 @@ public class FhirLintingService extends AbstractResourceLintingService<FhirLintI
     protected AbstractLintItem createOutsideRootLintItem(
             String pluginName,
             String reference,
-            ResourceResolver.ResolutionResult result) {
+            ResourceResolutionResult result) {
 
         return new PluginDefinitionFhirFileReferencedFoundOutsideExpectedRootLintItem(
                 pluginName,

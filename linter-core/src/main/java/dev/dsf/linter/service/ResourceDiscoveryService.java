@@ -11,7 +11,8 @@ import dev.dsf.linter.util.api.PluginVersionUtils;
 import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
-import dev.dsf.linter.util.resource.ResourceResolver;
+import dev.dsf.linter.util.resource.ResourceResolutionResult;
+import dev.dsf.linter.util.resource.ResourceResolutionService;
 import dev.dsf.linter.util.resource.ResourceRootResolver;
 import dev.dsf.linter.setup.ProjectSetupHandler.ProjectContext;
 
@@ -28,6 +29,7 @@ public class ResourceDiscoveryService {
 
     private final Logger logger;
     private final ApiVersionDetector apiVersionDetector;
+    private final ResourceResolutionService resolutionService;
 
     /**
      * Enhanced plugin discovery result with resource root linter and dependency tracking.
@@ -41,10 +43,10 @@ public class ResourceDiscoveryService {
             List<File> fhirFiles,
             List<String> missingBpmnRefs,
             List<String> missingFhirRefs,
-            Map<String, ResourceResolver.ResolutionResult> bpmnOutsideRoot,
-            Map<String, ResourceResolver.ResolutionResult> fhirOutsideRoot,
-            Map<String, ResourceResolver.ResolutionResult> bpmnFromDependencies,
-            Map<String, ResourceResolver.ResolutionResult> fhirFromDependencies,
+            Map<String, ResourceResolutionResult> bpmnOutsideRoot,
+            Map<String, ResourceResolutionResult> fhirOutsideRoot,
+            Map<String, ResourceResolutionResult> bpmnFromDependencies,
+            Map<String, ResourceResolutionResult> fhirFromDependencies,
             Set<String> referencedPaths
     ) {}
 
@@ -96,6 +98,7 @@ public class ResourceDiscoveryService {
     public ResourceDiscoveryService(Logger logger) {
         this.logger = logger;
         this.apiVersionDetector = new ApiVersionDetector();
+        this.resolutionService = new ResourceResolutionService();
     }
 
     /**
@@ -194,8 +197,8 @@ public class ResourceDiscoveryService {
 
         logger.debug("Plugin-specific resource root: " + pluginSpecificRoot.getAbsolutePath());
 
-        Set<String> referencedBpmnPaths = ResourceDiscoveryUtils.collectBpmnPaths(adapter);
-        Set<String> referencedFhirPaths = ResourceDiscoveryUtils.collectFhirPaths(adapter);
+        Set<String> referencedBpmnPaths = resolutionService.collectBpmnPaths(adapter);
+        Set<String> referencedFhirPaths = resolutionService.collectFhirPaths(adapter);
 
         logger.debug("Referenced BPMN: " + referencedBpmnPaths.size() +
                 ", Referenced FHIR: " + referencedFhirPaths.size());

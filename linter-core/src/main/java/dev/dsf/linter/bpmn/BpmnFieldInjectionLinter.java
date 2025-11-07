@@ -3,7 +3,7 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceExtractor;
-import dev.dsf.linter.util.resource.FhirResourceLocatorFactory;
+import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.resource.FhirResourceParser;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
@@ -179,7 +179,7 @@ public class BpmnFieldInjectionLinter {
                                           File bpmnFile,
                                           String processId,
                                           File projectRoot) {
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
         Collection<CamundaField> fields = extensionElements.getElementsQuery().filterByType(CamundaField.class).list();
 
         // remember values for cross‑checks
@@ -271,7 +271,7 @@ public class BpmnFieldInjectionLinter {
                                            String profileVal,
                                            String instantiatesVal,
                                            String messageNameVal) {
-        var locator = FhirResourceLocatorFactory.getResourceLocator(projectRoot);
+        var locator = FhirResourceLocator.create(projectRoot);
         File structureFile = locator.findStructureDefinitionFile(profileVal, projectRoot);
         if (structureFile == null) return; // Warn already added earlier.
 
