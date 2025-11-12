@@ -366,9 +366,35 @@ public final class PluginDefinitionDiscovery {
 
                             // Determine version and create appropriate adapter
                             boolean isV2 = PluginLintingUtils.isV2Plugin(c, cl);
-                            PluginAdapter adapter = isV2 ? new V2Adapter(inst) : new V1Adapter(inst);
-
-                            out.add(adapter);
+                            if (isV2) {
+                                logger.debug("  - Version: V2 (creating V2Adapter)");
+                                out.add(new V2Adapter(inst));
+                            } else {
+                                boolean isV1 = PluginLintingUtils.isV1Plugin(c, cl);
+                                if (isV1) {
+                                    logger.debug("  - Version: V1 (creating V1Adapter)");
+                                    out.add(new V1Adapter(inst));
+                                } else {
+                                    // FATAL: Plugin implements neither V1 nor V2!
+                                    logger.error("═══════════════════════════════════════════════════════════════");
+                                    logger.error("FATAL ERROR: Invalid Plugin - No valid DSF API version detected");
+                                    logger.error("  Plugin class: " + c.getName());
+                                    logger.error("  Location: " + root.toAbsolutePath());
+                                    logger.error("");
+                                    logger.error("The plugin must implement one of the following interfaces:");
+                                    logger.error("  - dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)");
+                                    logger.error("  - dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)");
+                                    logger.error("");
+                                    logger.error("Possible causes:");
+                                    logger.error("  - Missing DSF BPE dependency in pom.xml");
+                                    logger.error("  - Wrong interface implementation");
+                                    logger.error("  - Classpath issues");
+                                    logger.error("═══════════════════════════════════════════════════════════════");
+                                    throw new IllegalStateException(
+                                            "Plugin " + c.getName() + " does not implement a valid DSF API interface (neither v1 nor v2)"
+                                    );
+                                }
+                            }
                         } else {
                             // FAILURE case 2: Implements interface, but is missing methods.
                             logger.debug("DEBUG: FAILED - Class implements ProcessPluginDefinition but is missing required methods.");
@@ -435,9 +461,35 @@ public final class PluginDefinitionDiscovery {
 
                             // Determine version and create appropriate adapter
                             boolean isV2 = PluginLintingUtils.isV2Plugin(c, jarCl);
-                            PluginAdapter adapter = isV2 ? new V2Adapter(inst) : new V1Adapter(inst);
-
-                            found.add(adapter);
+                            if (isV2) {
+                                logger.debug("  - Version: V2 (creating V2Adapter)");
+                                found.add(new V2Adapter(inst));
+                            } else {
+                                boolean isV1 = PluginLintingUtils.isV1Plugin(c, jarCl);
+                                if (isV1) {
+                                    logger.debug("  - Version: V1 (creating V1Adapter)");
+                                    found.add(new V1Adapter(inst));
+                                } else {
+                                    // FATAL: Plugin implements neither V1 nor V2!
+                                    logger.error("═══════════════════════════════════════════════════════════════");
+                                    logger.error("FATAL ERROR: Invalid Plugin - No valid DSF API version detected");
+                                    logger.error("  Plugin class: " + c.getName());
+                                    logger.error("  Location (JAR): " + e);
+                                    logger.error("");
+                                    logger.error("The plugin must implement one of the following interfaces:");
+                                    logger.error("  - dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)");
+                                    logger.error("  - dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)");
+                                    logger.error("");
+                                    logger.error("Possible causes:");
+                                    logger.error("  - Missing DSF BPE dependency in pom.xml");
+                                    logger.error("  - Wrong interface implementation");
+                                    logger.error("  - Classpath issues");
+                                    logger.error("═══════════════════════════════════════════════════════════════");
+                                    throw new IllegalStateException(
+                                            "Plugin " + c.getName() + " does not implement a valid DSF API interface (neither v1 nor v2)"
+                                    );
+                                }
+                            }
                         } else {
                             // FAILURE case 2
                             logger.debug("DEBUG: FAILED - Class in JAR implements interface but is missing required methods.");

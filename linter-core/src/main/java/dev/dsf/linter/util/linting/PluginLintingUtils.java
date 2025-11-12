@@ -67,4 +67,19 @@ public final class PluginLintingUtils {
             return false;
         }
     }
+
+    /**
+     * Determines if the given class is assignable to the V1 ProcessPluginDefinition interface.
+     *
+     * @param candidateClass the class to check
+     * @param classLoader the classloader to resolve the DSF API interface
+     * @return true if the class implements the V1 interface
+     */
+    public static boolean isV1Plugin(Class<?> candidateClass, ClassLoader classLoader) {
+        try {
+            return Class.forName(V1_PLUGIN_INTERFACE, false, classLoader).isAssignableFrom(candidateClass);
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
 }
