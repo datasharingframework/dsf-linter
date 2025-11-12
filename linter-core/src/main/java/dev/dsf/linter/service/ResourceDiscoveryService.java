@@ -5,8 +5,6 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.EnhancedPluginDefinitionDiscovery;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
 import dev.dsf.linter.util.api.ApiVersion;
-import dev.dsf.linter.util.api.ApiVersionDetector;
-import dev.dsf.linter.util.api.DetectedVersion;
 import dev.dsf.linter.util.api.PluginVersionUtils;
 import dev.dsf.linter.util.loader.ClassLoaderUtils;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
@@ -28,7 +26,6 @@ import java.util.*;
 public class ResourceDiscoveryService {
 
     private final Logger logger;
-    private final ApiVersionDetector apiVersionDetector;
     private final ResourceResolutionService resolutionService;
 
     /**
@@ -97,7 +94,6 @@ public class ResourceDiscoveryService {
 
     public ResourceDiscoveryService(Logger logger) {
         this.logger = logger;
-        this.apiVersionDetector = new ApiVersionDetector();
         this.resolutionService = new ResourceResolutionService();
     }
 
@@ -191,7 +187,7 @@ public class ResourceDiscoveryService {
             File projectDir)
             throws MissingServiceRegistrationException {
 
-        ApiVersion apiVersion = detectPluginApiVersion(adapter, projectPath);
+        ApiVersion apiVersion = detectPluginApiVersion(adapter);
 
         File pluginSpecificRoot = resolvePluginSpecificResourceRoot(adapter, sharedResourcesDir);
 
@@ -251,26 +247,25 @@ public class ResourceDiscoveryService {
     }
 
     /**
-     * Detects API version for a specific plugin.
-     * First tries adapter-based detection, then falls back to project-level detection.
+     * Detects API version for a specific plugin based on adapter type.
+     * After the validation improvements in plugin discovery, the adapter is guaranteed 
+     * to be either V1Adapter or V2Adapter, so this method always returns a valid version.
      */
-    private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter, Path projectPath)
-            throws MissingServiceRegistrationException {
+    private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter) {
 
-        ApiVersion adapterVersion = PluginVersionUtils.detectApiVersion(adapter);
+        ApiVersion version = PluginVersionUtils.detectApiVersion(adapter);
 
-        if (adapterVersion != ApiVersion.UNKNOWN) {
-            logger.debug("Plugin uses API " + adapterVersion + " (determined by adapter type)");
-            return adapterVersion;
+        // Sanity check: This should never be UNKNOWN after plugin discovery validation
+        if (version == ApiVersion.UNKNOWN) {
+            throw new IllegalStateException(
+                "Internal error: Valid adapter exists but version is UNKNOWN. " +
+                "This indicates a bug in plugin discovery. " +
+                "Adapter type: " + adapter.getClass().getName()
+            );
         }
 
-        logger.debug("Adapter type unknown, falling back to project-level detector");
-        return apiVersionDetector.detect(projectPath)
-                .map(DetectedVersion::version)
-                .orElseGet(() -> {
-                    logger.warn("Could not detect API version. Using UNKNOWN.");
-                    return ApiVersion.UNKNOWN;
-                });
+        logger.debug("Plugin uses API " + version + " (determined by adapter type)");
+        return version;
     }
 
     /**
