@@ -3,7 +3,6 @@ package dev.dsf.linter.setup;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.util.maven.MavenUtil;
 import dev.dsf.linter.classloading.ProjectClassLoaderFactory;
-import dev.dsf.linter.util.resource.ResourceRootResolver;
 
 import java.io.File;
 import java.io.IOException;
@@ -87,16 +86,9 @@ public class ProjectSetupHandler {
 
         ClassLoader projectClassLoader = createProjectClassLoader(projectDir);
 
-        // Initial resource root resolution based on standard conventions
-        ResourceRootResolver.ResolutionResult initialResourceRoot =
-                ResourceRootResolver.resolveResourceRoot(projectDir);
-
-        logger.info("Initial resource root resolution: " + initialResourceRoot);
-
         return new ProjectContext(
                 projectPath,
                 projectDir,
-                initialResourceRoot.resourceRoot(),
                 isMavenProject,
                 projectClassLoader
         );
@@ -251,7 +243,7 @@ public class ProjectSetupHandler {
     /**
      * Data class representing the project context after setup.
      */
-    public record ProjectContext(Path projectPath, File projectDir, File resourcesDir, boolean isMavenProject,
+    public record ProjectContext(Path projectPath, File projectDir, boolean isMavenProject,
                                  ClassLoader projectClassLoader) {
     }
 }
