@@ -260,7 +260,10 @@ public class DsfLinter {
                     int totalPluginErrors = pluginLinting.values().stream()
                             .mapToInt(v -> v.output().getErrorCount())
                             .sum();
-                    boolean success = !config.failOnErrors() || (totalPluginErrors == 0);
+                    
+                    // Consider failed plugins as errors (partial success means non-zero exit code)
+                    boolean hasFailedPlugins = discovery.hasFailedPlugins();
+                    boolean success = !config.failOnErrors() || (totalPluginErrors == 0 && !hasFailedPlugins);
 
                     return new OverallLinterResult(
                             pluginLinting,

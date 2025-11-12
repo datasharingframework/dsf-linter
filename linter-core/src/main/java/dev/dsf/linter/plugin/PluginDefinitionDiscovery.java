@@ -241,15 +241,15 @@ public final class PluginDefinitionDiscovery {
      * falls back to a direct class scan with the same loader.
      *
      * @param projectRoot the project root directory
-     * @return list of discovered PluginAdapter instances
+     * @param context discovery context to collect results and errors
      */
-    static List<PluginAdapter> scanProjectRoot(File projectRoot) {
+    static void scanProjectRoot(File projectRoot, DiscoveryContext context) {
         try {
             // Get cached recursive project class loader
             ClassLoader projectCl = getOrCreateRecursiveProjectClassLoader(projectRoot);
 
             // Execute discovery with temporary TCCL (automatically restored)
-            return ClassLoaderUtils.withTemporaryContextClassLoader(projectCl, () -> {
+            ClassLoaderUtils.withTemporaryContextClassLoader(projectCl, () -> {
                 logger.debug("DEBUG: Classpath (recursive) prepared via ProjectClassLoaderFactory. Trying ServiceLoader discovery...");
 
                 // Try ServiceLoader discovery using utility method
@@ -257,17 +257,15 @@ public final class PluginDefinitionDiscovery {
 
                 if (!found.isEmpty()) {
                     logger.debug("DEBUG: SUCCESS - Plugins found via ServiceLoader with recursive classpath.");
+                    found.forEach(context::addSuccess);
                 } else {
                     // Fallback: direct class scan using the same loader
                     logger.debug("DEBUG: ServiceLoader found nothing. Starting direct scan with recursive classpath...");
-                    found.addAll(scanProjectClassesDirectly(projectRoot, projectCl));
+                    scanProjectClassesDirectly(projectRoot, projectCl, context);
                 }
-
-                return found;
             });
         } catch (Exception e) {
             LogUtils.logAndRethrow(logger, "Plugin discovery failed", e);
-            return new ArrayList<>(); // Never reached, but needed for compilation
         }
     }
 
@@ -276,10 +274,9 @@ public final class PluginDefinitionDiscovery {
      *
      * @param projectRoot the project root
      * @param projectCl   the project class loader
-     * @return list of found plugins
+     * @param context discovery context to collect results and errors
      */
-    private static List<PluginAdapter> scanProjectClassesDirectly(File projectRoot, ClassLoader projectCl) {
-        final List<PluginAdapter> found = new ArrayList<>();
+    private static void scanProjectClassesDirectly(File projectRoot, ClassLoader projectCl, DiscoveryContext context) {
         final Path rootPath = projectRoot.toPath();
 
         logger.debug("DEBUG: Starting recursive scan for build directories in " + rootPath);
@@ -291,7 +288,7 @@ public final class PluginDefinitionDiscovery {
                             p.endsWith(Paths.get("build", "classes", "java", "main")))
                     .forEach(buildDir -> {
                         logger.debug("DEBUG: Found potential build directory, scanning: " + buildDir);
-                        found.addAll(scanDirWithClassLoader(buildDir, projectCl));
+                        scanDirWithClassLoader(buildDir, projectCl, context);
                     });
         } catch (IOException e) {
             System.err.println("WARNING: Failed to scan project subdirectories: " + e.getMessage());
@@ -299,12 +296,10 @@ public final class PluginDefinitionDiscovery {
 
         // Fallback: If the recursive scan found nothing, scan the project root directly.
         // This handles non-standard or exploded layouts where classes might be at the root.
-        if (found.isEmpty()) {
+        if (context.getSuccessfulPlugins().isEmpty()) {
             logger.debug("DEBUG: Recursive scan found nothing, scanning project root directly...");
-            found.addAll(scanDirWithClassLoader(rootPath, projectCl));
+            scanDirWithClassLoader(rootPath, projectCl, context);
         }
-
-        return found;
     }
 
     /**
@@ -312,27 +307,49 @@ public final class PluginDefinitionDiscovery {
      *
      * @param root the root directory
      * @param cl   the class loader to use
-     * @return list of discovered plugins
+     * @param context discovery context to collect results and errors
      */
-    private static List<PluginAdapter> scanDirWithClassLoader(Path root, ClassLoader cl) {
-        List<PluginAdapter> out = new ArrayList<>();
+    private static void scanDirWithClassLoader(Path root, ClassLoader cl, DiscoveryContext context) {
         try (Stream<Path> s = Files.walk(root)) {
-            isProcessPluginDefinitionClassFile(root, cl, out, s);
+            isProcessPluginDefinitionClassFile(root, cl, context, s);
         } catch (Exception ignored) {
         }
-        return out;
     }
 
+    /**
+     * Result container for plugin discovery operations.
+     */
+    public static class DiscoveryContext {
+        private final List<PluginAdapter> successfulPlugins = new ArrayList<>();
+        private final List<PluginDiscoveryError> failedPlugins = new ArrayList<>();
+        
+        public void addSuccess(PluginAdapter adapter) {
+            successfulPlugins.add(adapter);
+        }
+        
+        public void addFailure(PluginDiscoveryError error) {
+            failedPlugins.add(error);
+        }
+        
+        public List<PluginAdapter> getSuccessfulPlugins() {
+            return successfulPlugins;
+        }
+        
+        public List<PluginDiscoveryError> getFailedPlugins() {
+            return failedPlugins;
+        }
+    }
+    
     /**
      * Filters and lints ProcessPluginDefinition class files from stream.
      * Performs interface implementation and method signature linting.
      *
      * @param root the root path for class loading
      * @param cl   class loader for linting
-     * @param out  output list to add valid plugins
+     * @param context  discovery context to collect results and errors
      * @param s    stream of file paths to process
      */
-    private static void isProcessPluginDefinitionClassFile(Path root, ClassLoader cl, List<PluginAdapter> out, Stream<Path> s) {
+    private static void isProcessPluginDefinitionClassFile(Path root, ClassLoader cl, DiscoveryContext context, Stream<Path> s) {
         s.filter(Files::isRegularFile)
                 .filter(p -> p.getFileName().toString().endsWith("ProcessPluginDefinition.class"))
                 .filter(p -> !p.getFileName().toString().contains("$"))
@@ -368,31 +385,25 @@ public final class PluginDefinitionDiscovery {
                             boolean isV2 = PluginLintingUtils.isV2Plugin(c, cl);
                             if (isV2) {
                                 logger.debug("  - Version: V2 (creating V2Adapter)");
-                                out.add(new V2Adapter(inst));
+                                context.addSuccess(new V2Adapter(inst));
                             } else {
                                 boolean isV1 = PluginLintingUtils.isV1Plugin(c, cl);
                                 if (isV1) {
                                     logger.debug("  - Version: V1 (creating V1Adapter)");
-                                    out.add(new V1Adapter(inst));
+                                    context.addSuccess(new V1Adapter(inst));
                                 } else {
-                                    // FATAL: Plugin implements neither V1 nor V2!
-                                    logger.error("═══════════════════════════════════════════════════════════════");
-                                    logger.error("FATAL ERROR: Invalid Plugin - No valid DSF API version detected");
-                                    logger.error("  Plugin class: " + c.getName());
+                                    // ERROR: Plugin implements neither V1 nor V2!
+                                    // Collect error instead of throwing exception (partial success)
+                                    logger.error("✗ Plugin discovery failed: " + c.getName());
+                                    logger.error("  Reason: Does not implement valid DSF API interface (neither v1 nor v2)");
                                     logger.error("  Location: " + root.toAbsolutePath());
-                                    logger.error("");
-                                    logger.error("The plugin must implement one of the following interfaces:");
-                                    logger.error("  - dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)");
-                                    logger.error("  - dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)");
-                                    logger.error("");
-                                    logger.error("Possible causes:");
-                                    logger.error("  - Missing DSF BPE dependency in pom.xml");
-                                    logger.error("  - Wrong interface implementation");
-                                    logger.error("  - Classpath issues");
-                                    logger.error("═══════════════════════════════════════════════════════════════");
-                                    throw new IllegalStateException(
-                                            "Plugin " + c.getName() + " does not implement a valid DSF API interface (neither v1 nor v2)"
+                                    
+                                    PluginDiscoveryError error = PluginDiscoveryError.invalidApiVersion(
+                                            c.getName(),
+                                            root.toAbsolutePath().toString()
                                     );
+                                    context.addFailure(error);
+                                    // Continue with next plugin instead of throwing exception
                                 }
                             }
                         } else {
@@ -470,24 +481,13 @@ public final class PluginDefinitionDiscovery {
                                     logger.debug("  - Version: V1 (creating V1Adapter)");
                                     found.add(new V1Adapter(inst));
                                 } else {
-                                    // FATAL: Plugin implements neither V1 nor V2!
-                                    logger.error("═══════════════════════════════════════════════════════════════");
-                                    logger.error("FATAL ERROR: Invalid Plugin - No valid DSF API version detected");
-                                    logger.error("  Plugin class: " + c.getName());
+                                    // ERROR: Plugin implements neither V1 nor V2!
+                                    // Log error but continue with next plugin (partial success)
+                                    logger.error("✗ Plugin discovery failed: " + c.getName());
+                                    logger.error("  Reason: Does not implement valid DSF API interface (neither v1 nor v2)");
                                     logger.error("  Location (JAR): " + e);
-                                    logger.error("");
-                                    logger.error("The plugin must implement one of the following interfaces:");
-                                    logger.error("  - dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)");
-                                    logger.error("  - dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)");
-                                    logger.error("");
-                                    logger.error("Possible causes:");
-                                    logger.error("  - Missing DSF BPE dependency in pom.xml");
-                                    logger.error("  - Wrong interface implementation");
-                                    logger.error("  - Classpath issues");
-                                    logger.error("═══════════════════════════════════════════════════════════════");
-                                    throw new IllegalStateException(
-                                            "Plugin " + c.getName() + " does not implement a valid DSF API interface (neither v1 nor v2)"
-                                    );
+                                    // Note: In JAR scan, we don't have a DiscoveryContext, so we just skip
+                                    // This is acceptable since scanJars is a fallback method
                                 }
                             }
                         } else {
@@ -535,13 +535,15 @@ public final class PluginDefinitionDiscovery {
      * @return list of discovered plugins
      */
     private static List<PluginAdapter> scanDir(Path root, ClassLoader parentCl) {
-        List<PluginAdapter> out = new ArrayList<>();
+        DiscoveryContext context = new DiscoveryContext();
         try (Stream<Path> s = Files.walk(root)) {
             URLClassLoader dirCl = new URLClassLoader(new URL[]{root.toUri().toURL()}, parentCl);
-            isProcessPluginDefinitionClassFile(root, dirCl, out, s);
+            isProcessPluginDefinitionClassFile(root, dirCl, context, s);
         } catch (Exception ignored) {
         }
-        return out;
+        // For backward compatibility, only return successful plugins
+        // (scanDir is a fallback method and doesn't currently propagate errors)
+        return context.getSuccessfulPlugins();
     }
 
     /**

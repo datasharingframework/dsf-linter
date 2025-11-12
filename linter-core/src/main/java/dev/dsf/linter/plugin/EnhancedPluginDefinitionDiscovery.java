@@ -20,14 +20,16 @@ import static dev.dsf.linter.classloading.ClassInspector.logger;
 public final class EnhancedPluginDefinitionDiscovery {
 
     /**
-     * Result container for plugin discovery.
+     * Result container for plugin discovery with support for partial success.
      */
     public static class DiscoveryResult {
         private final List<PluginDefinitionDiscovery.PluginAdapter> v1Plugins;
         private final List<PluginDefinitionDiscovery.PluginAdapter> v2Plugins;
         private final Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> pluginsByName;
+        private final List<PluginDiscoveryError> failedPlugins;
 
-        public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins) {
+        public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins, 
+                               List<PluginDiscoveryError> failedPlugins) {
             this.v1Plugins = plugins.stream()
                     .filter(p -> p instanceof V1Adapter)
                     .collect(Collectors.toList());
@@ -43,6 +45,8 @@ public final class EnhancedPluginDefinitionDiscovery {
                             LinkedHashMap::new,
                             Collectors.toList()
                     ));
+            
+            this.failedPlugins = new ArrayList<>(failedPlugins);
         }
 
         /**
@@ -61,6 +65,20 @@ public final class EnhancedPluginDefinitionDiscovery {
         public Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> getPluginsByName() {
             return pluginsByName;
         }
+        
+        /**
+         * Returns failed plugin discoveries.
+         */
+        public List<PluginDiscoveryError> getFailedPlugins() {
+            return failedPlugins;
+        }
+        
+        /**
+         * Returns true if any plugins failed discovery.
+         */
+        public boolean hasFailedPlugins() {
+            return !failedPlugins.isEmpty();
+        }
 
     }
 
@@ -68,15 +86,19 @@ public final class EnhancedPluginDefinitionDiscovery {
      * Discovers ALL plugin definitions from classpath or project root.
      * Works uniformly for any number of plugins (one or more).
      * Uses the public methods from PluginDefinitionDiscovery to collect all plugins.
+     * Supports partial success: Valid plugins are processed even if some fail.
      *
      * @param projectRoot optional project root directory for scanning
-     * @return discovery result containing all found plugins
+     * @return discovery result containing all found plugins and any errors
      */
     public static DiscoveryResult discoverAll(File projectRoot) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         if (cl == null) {
             cl = EnhancedPluginDefinitionDiscovery.class.getClassLoader();
         }
+
+        // Create discovery context to collect successful and failed plugins
+        PluginDefinitionDiscovery.DiscoveryContext context = new PluginDefinitionDiscovery.DiscoveryContext();
 
         // Step 1: Try with ServiceLoader (finds all registered plugins)
         List<PluginDefinitionDiscovery.PluginAdapter> allCandidates =
@@ -89,24 +111,28 @@ public final class EnhancedPluginDefinitionDiscovery {
                 logger.debug("  -> Plugin: " + p.getName() + " (" + p.sourceClass().getName() + ")");
                 logger.debug("     Version: " + PluginVersionUtils.getVersionSuffix(p));
             });
+            // Add ServiceLoader findings to context
+            allCandidates.forEach(context::addSuccess);
         }
 
         // Step 2: If ServiceLoader found nothing, use the public scan methods from PluginDefinitionDiscovery
         if (allCandidates.isEmpty()) {
             logger.debug("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
 
-            // Use the now-public methods from PluginDefinitionDiscovery
+            // JAR and Directory scans (these still return Lists for now - they don't use DiscoveryContext yet)
             allCandidates.addAll(PluginDefinitionDiscovery.scanJars(cl));
             allCandidates.addAll(PluginDefinitionDiscovery.scanDirectories(cl));
+            allCandidates.forEach(context::addSuccess);
 
             if (projectRoot != null) {
-                allCandidates.addAll(PluginDefinitionDiscovery.scanProjectRoot(projectRoot));
+                // Project root scan now uses DiscoveryContext
+                PluginDefinitionDiscovery.scanProjectRoot(projectRoot, context);
             }
         }
 
         // Step 3: Deduplicate by class name
         Map<String, PluginDefinitionDiscovery.PluginAdapter> uniquePlugins = new LinkedHashMap<>();
-        for (PluginDefinitionDiscovery.PluginAdapter adapter : allCandidates) {
+        for (PluginDefinitionDiscovery.PluginAdapter adapter : context.getSuccessfulPlugins()) {
             String className = adapter.sourceClass().getName();
             uniquePlugins.putIfAbsent(className, adapter);
         }
@@ -115,7 +141,13 @@ public final class EnhancedPluginDefinitionDiscovery {
                 new ArrayList<>(uniquePlugins.values());
 
         logger.debug("Total unique plugins discovered: " + finalPlugins.size());
+        
+        if (context.getFailedPlugins().isEmpty()) {
+            logger.debug("No plugin discovery failures");
+        } else {
+            logger.warn("Failed to discover " + context.getFailedPlugins().size() + " plugin(s)");
+        }
 
-        return new DiscoveryResult(finalPlugins);
+        return new DiscoveryResult(finalPlugins, context.getFailedPlugins());
     }
 }

@@ -53,7 +53,8 @@ public class ResourceDiscoveryService {
     public record DiscoveryResult(
             Map<String, PluginDiscovery> plugins,
             File sharedResourcesDir,
-            Set<ApiVersion> detectedVersions
+            Set<ApiVersion> detectedVersions,
+            boolean hasFailedPlugins
     ) {
         public DiscoveryStatistics getStatistics() {
             int totalBpmnFiles = 0;
@@ -116,6 +117,31 @@ public class ResourceDiscoveryService {
             throw new IllegalStateException("Plugin discovery failed: " + e.getMessage(), e);
         }
 
+        // Report plugin discovery results (including failures)
+        if (!pluginDiscovery.getFailedPlugins().isEmpty()) {
+            logger.error("");
+            logger.error("═══════════════════════════════════════════════════════════════");
+            logger.error("PLUGIN DISCOVERY ERRORS - Some plugins failed to load");
+            logger.error("═══════════════════════════════════════════════════════════════");
+            
+            for (dev.dsf.linter.plugin.PluginDiscoveryError error : pluginDiscovery.getFailedPlugins()) {
+                logger.error("");
+                logger.error("✗ Plugin: " + error.pluginClassName());
+                logger.error("  Error Type: " + error.errorType());
+                logger.error("  Message: " + error.errorMessage());
+                logger.error("  Location: " + error.location());
+            }
+            
+            logger.error("");
+            logger.error("Summary:");
+            logger.error("  ✓ Successfully discovered: " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");
+            logger.error("  ✗ Failed to discover: " + pluginDiscovery.getFailedPlugins().size() + " plugin(s)");
+            logger.error("═══════════════════════════════════════════════════════════════");
+            logger.error("");
+            logger.warn("Continuing with " + pluginDiscovery.getAllPlugins().size() + " valid plugin(s)...");
+            logger.warn("Note: Failed plugins will not be linted. Exit code will be non-zero.");
+        }
+        
         if (pluginDiscovery.getAllPlugins().isEmpty()) {
             throw new IllegalStateException("""
                     No ProcessPluginDefinition implementations found
@@ -174,7 +200,7 @@ public class ResourceDiscoveryService {
             }
         }
 
-        return new DiscoveryResult(plugins, sharedResourcesDir, detectedVersions);
+        return new DiscoveryResult(plugins, sharedResourcesDir, detectedVersions, pluginDiscovery.hasFailedPlugins());
     }
 
     /**
