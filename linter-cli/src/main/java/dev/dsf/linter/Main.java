@@ -210,7 +210,7 @@ public class Main implements Callable<Integer> {
             logger.warn("");
             logger.warn("╔══════════════════════════════════════════════════════════════");
             logger.warn("  NOTE: --mvn option has no effect on JAR files.");
-            logger.warn("  JAR files always use stub dependencies only.");
+            logger.warn("  JAR files always use built-in dependencies.");
             logger.warn("  The --mvn option will be ignored.");
             logger.warn("╚══════════════════════════════════════════════════════════════");
             logger.warn("");
