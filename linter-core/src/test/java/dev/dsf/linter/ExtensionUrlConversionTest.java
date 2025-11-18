@@ -168,7 +168,8 @@ public class ExtensionUrlConversionTest
               ]
             }""";
 
-        String generatedXml = lint.convertJsonToXmlForTesting(jsonExtension);
+        com.fasterxml.jackson.databind.JsonNode jsonNode = new com.fasterxml.jackson.databind.ObjectMapper().readTree(jsonExtension);
+        String generatedXml = dev.dsf.linter.util.converter.JsonXmlConverter.convertJsonToXml(jsonNode);
 
         System.out.println("Generated XML:");
         System.out.println(generatedXml);

@@ -2,9 +2,7 @@ package dev.dsf.linter.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.dsf.linter.fhir.FhirResourceLinter;
-import dev.dsf.linter.logger.ConsoleLogger;
-import dev.dsf.linter.logger.Logger;
+import dev.dsf.linter.util.converter.JsonXmlConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -27,7 +25,7 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for {@link FhirResourceLinter} that verify correct conversion of FHIR JSON resources to XML.
+ * Unit tests for {@link JsonXmlConverter} that verify correct conversion of FHIR JSON resources to XML.
  * <p>
  * These tests cover various FHIR resource structures including basic types, extensions, nested objects,
  * arrays, and edge cases like nulls, empty structures, and large input. Both valid and invalid inputs
@@ -36,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>Tested methods include:</p>
  * <ul>
- *   <li>{@code convertJsonToXmlForTesting(String json)} — converts a raw JSON string into FHIR XML.</li>
- *   <li>{@code convertJsonNodeToXml(JsonNode node)} — handles JSON nodes directly and constructs corresponding XML.</li>
+ *   <li>{@code convertJsonToXml(JsonNode node)} — converts a JSON node into FHIR XML.</li>
  * </ul>
  *
  * <p>
@@ -51,17 +48,14 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class FhirResourceLinterJsonToXmlTest {
 
-    private FhirResourceLinter linter;
     private ObjectMapper objectMapper;
     private XPath xpath;
 
     /**
-     * Initializes the linter before each test case.
+     * Initializes the object mapper before each test case.
      */
     @BeforeEach
     void setUp() {
-        Logger logger = new ConsoleLogger(false);
-        linter = new FhirResourceLinter(logger);
         objectMapper = new ObjectMapper();
         xpath = XPathFactory.newInstance().newXPath();
     }
@@ -73,7 +67,8 @@ class FhirResourceLinterJsonToXmlTest {
      * Reduces repetition across multiple test methods.
      */
     private Document parseJsonToXmlDocument(String json) throws Exception {
-        String xml = linter.convertJsonToXmlForTesting(json);
+        JsonNode jsonNode = objectMapper.readTree(json);
+        String xml = JsonXmlConverter.convertJsonToXml(jsonNode);
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         DocumentBuilder db = dbf.newDocumentBuilder();
@@ -408,7 +403,8 @@ class FhirResourceLinterJsonToXmlTest {
                 }
                 """;
 
-            String xmlResult = linter.convertJsonToXmlForTesting(jsonWithSpecialChars);
+            JsonNode jsonNode = objectMapper.readTree(jsonWithSpecialChars);
+            String xmlResult = JsonXmlConverter.convertJsonToXml(jsonNode);
 
             // Verify XML escaping in the raw XML string
             assertTrue(xmlResult.contains("&amp;"), "& should be escaped as &amp;");
@@ -439,7 +435,8 @@ class FhirResourceLinterJsonToXmlTest {
         @DisplayName("should throw exception for invalid JSON inputs")
         void testInvalidJsonInputs(String invalidJson) {
             Exception exception = assertThrows(Exception.class, () -> {
-                linter.convertJsonToXmlForTesting(invalidJson);
+                JsonNode jsonNode = objectMapper.readTree(invalidJson);
+                JsonXmlConverter.convertJsonToXml(jsonNode);
             });
 
             String message = exception.getMessage();
@@ -460,7 +457,8 @@ class FhirResourceLinterJsonToXmlTest {
         @DisplayName("should throw exception for null JSON string")
         void testConvertNullJsonString() {
             Exception exception = assertThrows(Exception.class, () -> {
-                linter.convertJsonToXmlForTesting(null);
+                JsonNode jsonNode = objectMapper.readTree((String) null);
+                JsonXmlConverter.convertJsonToXml(jsonNode);
             });
 
             assertNotNull(exception.getMessage(), "Exception should have a meaningful message");
@@ -475,7 +473,8 @@ class FhirResourceLinterJsonToXmlTest {
             String malformedJson = "{\"resourceType\": \"Patient\" \"id\": \"example\"}"; // Missing comma
 
             Exception exception = assertThrows(Exception.class, () -> {
-                linter.convertJsonToXmlForTesting(malformedJson);
+                JsonNode jsonNode = objectMapper.readTree(malformedJson);
+                JsonXmlConverter.convertJsonToXml(jsonNode);
             });
 
             String message = exception.getMessage();
