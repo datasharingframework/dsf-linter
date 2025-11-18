@@ -10,40 +10,90 @@ import java.io.File;
 import java.util.*;
 
 /**
- * lints FHIR {@code StructureDefinition} resources for DSF-specific constraints and authoring rules.
+ * Validates FHIR {@code StructureDefinition} resources against DSF-specific constraints and authoring conventions.
  * <p>
- * This linter is part of the DSF linter toolchain and ensures that {@code StructureDefinition} resources
- * comply with structural, semantic, and naming conventions required by the DSF platform.
- * The class extends {@link AbstractFhirInstanceLinter} and provides detailed feedback
- * through instances of {@link FhirElementLintItem}.
+ * This linter is a core component of the DSF linter toolchain that enforces structural, semantic,
+ * and metadata requirements for {@code StructureDefinition} resources used in the Data Sharing Framework (DSF).
+ * It extends {@link AbstractFhirInstanceLinter} and reports all findings as {@link FhirElementLintItem} instances.
  * </p>
  *
- * <h2>Supported linting</h2>
- * The linter performs the following checks:
+ * <h2>Validation Rules</h2>
+ * The linter performs the following categories of checks:
+ *
+ * <h3>1. Metadata and Basic Elements</h3>
  * <ul>
- *   <li><b>Meta Information:</b> Ensures that <code>meta.tag</code> are correctly set.</li>
- *   <li><b>Placeholders:</b> lints that <code>version</code> and <code>date</code> fields include the required placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
- *   <li><b>Differential Integrity:</b> Ensures the presence of a <code>differential</code> section and the absence of a <code>snapshot</code>, and that all element <code>@id</code> values are unique.</li>
- *   <li><b>Slice Cardinality:</b> lints slice min/max constraints as defined in <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR §5.1.0.14</a>.</li>
+ *   <li><b>Read Access Tag:</b> Validates that {@code meta.tag} contains a valid read-access tag with
+ *       {@code system="http://dsf.dev/fhir/CodeSystem/read-access-tag"} and a recognized {@code code} value
+ *       from the {@code CS_READ_ACCESS} code system.</li>
+ *   <li><b>URL:</b> Ensures that the {@code url} element is present and non-empty.</li>
+ *   <li><b>Status:</b> Verifies that the {@code status} element has the value {@code "unknown"} as required
+ *       by DSF conventions.</li>
+ * </ul>
+ *
+ * <h3>2. Placeholder Validation</h3>
+ * <ul>
+ *   <li><b>Version Placeholder:</b> Checks that the {@code version} element contains exactly the
+ *       placeholder string {@code "#{version}"}, which is substituted during the DSF build process.</li>
+ *   <li><b>Date Placeholder:</b> Checks that the {@code date} element contains exactly the
+ *       placeholder string {@code "#{date}"}, which is substituted during the DSF build process.</li>
+ * </ul>
+ *
+ * <h3>3. Differential and Snapshot Structure</h3>
+ * <ul>
+ *   <li><b>Differential Presence:</b> Verifies that a {@code differential} element exists.</li>
+ *   <li><b>Snapshot Absence:</b> Warns if a {@code snapshot} element is present, as DSF profiles
+ *       should only contain differentials.</li>
+ *   <li><b>Element ID Presence:</b> Ensures that every {@code element} within the {@code differential}
+ *       has an {@code @id} attribute.</li>
+ *   <li><b>Element ID Uniqueness:</b> Verifies that all {@code element/@id} attributes are unique
+ *       within the differential.</li>
+ * </ul>
+ *
+ * <h3>4. Slice Cardinality Constraints</h3>
+ * Validates slice cardinality rules according to FHIR profiling specification §5.1.0.14:
+ * <ul>
+ *   <li><b>SHOULD Rule:</b> The sum of all slice minimum cardinalities should be less than or equal
+ *       to the base element's minimum cardinality.</li>
+ *   <li><b>MUST Rule (Min Sum):</b> The sum of all slice minimum cardinalities must not exceed
+ *       the base element's maximum cardinality.</li>
+ *   <li><b>MUST Rule (Slice Max):</b> No individual slice's maximum cardinality may exceed
+ *       the base element's maximum cardinality.</li>
+ * </ul>
+ *
+ * <h2>Supported Resource Type</h2>
+ * This linter only processes FHIR resources with root element {@code StructureDefinition}.
+ * The {@link #canLint(Document)} method determines compatibility.
+ *
+ * <h2>Output</h2>
+ * All validation results are returned as a list of {@link FhirElementLintItem} instances, including:
+ * <ul>
+ *   <li>Error items for constraint violations</li>
+ *   <li>Warning items for deviations from recommendations</li>
+ *   <li>Informational "OK" items for passed checks</li>
  * </ul>
  *
  * <h2>Example Usage</h2>
- * <pre>
- * {@code
- * Document xml = parseStructureDefinitionXml(...);
- * List<FhirElementLintItem> results = new FhirStructureDefinitionLinter().lint(xml, new File("task-structure.xml"));
- * results.forEach(System.out::println);
- * }
- * </pre>
+ * <pre>{@code
+ * FhirStructureDefinitionLinter linter = new FhirStructureDefinitionLinter();
+ * Document xmlDoc = parseXml(new File("Task.xml"));
+ * List<FhirElementLintItem> results = linter.lint(xmlDoc, new File("Task.xml"));
+ * 
+ * results.forEach(item -> {
+ *     if (item.getSeverity() == Severity.ERROR) {
+ *         System.err.println(item);
+ *     }
+ * });
+ * }</pre>
  *
  * <h2>Thread Safety</h2>
- * This class is stateless and thread-safe.
+ * This class is stateless and thread-safe. Multiple threads may safely share a single instance.
  *
  * @author DSF Team
- * @see <a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a>
- * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Profiling §5.1.0.14</a>
  * @see AbstractFhirInstanceLinter
  * @see FhirElementLintItem
+ * @see <a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition Specification</a>
+ * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Profiling §5.1.0.14 – Slice Cardinality</a>
+ * @since 1.0
  */
 public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLinter
 {

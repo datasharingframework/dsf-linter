@@ -13,71 +13,131 @@ import java.io.File;
 import java.util.*;
 
 /**
- * <h2>DSF ValueSet linter (Profile: dsf-valueset-base 1.0.0)</h2>
+ * FHIR ValueSet linter for Data Sharing Framework (DSF) resources conforming to the
+ * {@code dsf-valueset-base 1.0.0} profile.
  *
- * <p>lints FHIR {@code ValueSet} resources that are part of the Data Sharing Framework (DSF)
- * processes. The linter checks implemented here ensure conformance with DSF-specific requirements
- * and the DSF ValueSet template structure that is processed by the BPE (Business Process Engine) server.</p>
+ * <p>This linter validates FHIR {@code ValueSet} resources used in DSF processes to ensure
+ * conformance with DSF-specific requirements and the ValueSet template structure expected
+ * by the Business Process Engine (BPE) server. It performs structural, semantic, and
+ * terminology validation using XPath-based XML traversal and the DSF authorization cache.</p>
  *
- * <h3>Supported linting Aspects</h3>
+ * <h3>Validation Scope</h3>
+ *
+ * <h4>1. Meta Tag Validation</h4>
  * <ul>
- *   <li><strong>Meta tag linting</strong> – ensures presence of required {@code meta.tag} elements
- *       with system {@code http://dsf.dev/fhir/CodeSystem/read-access-tag} and code {@code ALL} or {@code LOCAL}</li>
- *   <li><strong>Organization role code linting</strong> – lints that parent-organization-role extension
- *       codes conform to the DSF organization role CodeSystem</li>
- *   <li><strong>Core element presence checks</strong> – verifies mandatory elements: {@code url}, {@code name},
- *       {@code title}, {@code publisher}, and {@code description}</li>
- *   <li><strong>Template placeholder enforcement</strong> – ensures proper use of required placeholders:
- *       <ul>
- *         <li>{@code #{version}} in {@code version} and {@code compose.include.version} elements</li>
- *         <li>{@code #{date}} in {@code date} element</li>
- *       </ul>
- *   </li>
- *   <li><strong>Compose/include structure linting</strong> – lints that:
- * <ul>
- *         <li>Each {@code compose/include} element has a {@code system} attribute</li>
- *         <li>Version placeholders are correctly formatted</li>
- *         <li>All {@code concept} elements have non-blank {@code code} values</li>
- *         <li>Referenced codes exist in DSF terminology cache (via {@link FhirAuthorizationCache})</li>
- *       </ul>
- *   </li>
- *   <li><strong>Duplicate concept detection</strong> – identifies and reports duplicate code values
- *       within the same include element</li>
- *   <li><strong>Terminology compliance</strong> – lints code/system combinations against the
- *       DSF authorization cache and provides suggestions for alternative systems when applicable</li>
+ *   <li><strong>Read Access Tags:</strong> Verifies presence of at least one {@code meta.tag}
+ *       element with system {@code http://dsf.dev/fhir/CodeSystem/read-access-tag} and
+ *       code {@code ALL} or {@code LOCAL}. This ensures proper access control configuration
+ *       within the DSF network.</li>
+ *   <li><strong>Organization Role Codes:</strong> Validates that all parent-organization-role
+ *       extension codes (found in {@code meta.tag/extension[@url='http://dsf.dev/fhir/StructureDefinition/extension-read-access-parent-organization-role']})
+ *       reference valid codes from the DSF organization role CodeSystem (CS_ORG_ROLE).</li>
  * </ul>
+ *
+ * <h4>2. Mandatory Core Elements</h4>
+ * <p>Ensures presence of all required FHIR ValueSet elements:</p>
+ * <ul>
+ *   <li>{@code url} – Canonical URL identifying the ValueSet</li>
+ *   <li>{@code name} – Computer-friendly name</li>
+ *   <li>{@code title} – Human-friendly title</li>
+ *   <li>{@code publisher} – Organization responsible for the ValueSet</li>
+ *   <li>{@code description} – Natural language description of the ValueSet's purpose</li>
+ * </ul>
+ *
+ * <h4>3. Template Placeholder Enforcement</h4>
+ * <p>Validates correct use of DSF template placeholders that are replaced during deployment:</p>
+ * <ul>
+ *   <li>{@code version} element must contain exactly {@code #{version}}</li>
+ *   <li>{@code date} element must contain exactly {@code #{date}}</li>
+ *   <li>{@code compose.include.version} element must contain exactly {@code #{version}}</li>
+ * </ul>
+ * <p>These placeholders are required for the BPE server's template processing mechanism.</p>
+ *
+ * <h4>4. Compose/Include Structure Validation</h4>
+ * <p>Validates the ValueSet's terminology composition:</p>
+ * <ul>
+ *   <li><strong>Structure:</strong> Ensures at least one {@code compose.include} element exists</li>
+ *   <li><strong>System Reference:</strong> Verifies each include has a required {@code system} attribute</li>
+ *   <li><strong>Version Placeholder:</strong> Checks include version contains {@code #{version}}</li>
+ *   <li><strong>Concept Codes:</strong> Validates all {@code concept} elements have non-blank {@code code} values</li>
+ *   <li><strong>Duplicate Detection:</strong> Identifies duplicate codes within the same include element</li>
+ * </ul>
+ *
+ * <h4>5. Terminology Compliance Validation</h4>
+ * <p>Validates code/system combinations against the DSF authorization cache ({@link FhirAuthorizationCache}):</p>
+ * <ul>
+ *   <li>Checks whether referenced CodeSystem URLs are known to DSF</li>
+ *   <li>Verifies codes exist in their declared systems</li>
+ *   <li>Suggests alternative systems when codes are found in different CodeSystems</li>
+ *   <li>Reports unknown codes with diagnostic information</li>
+ * </ul>
+ * <p><strong>Note:</strong> Include elements without concept children are valid and indicate
+ * inclusion of all codes from the referenced CodeSystem.</p>
  *
  * <h3>Intentional Exclusions</h3>
- * <p>The linter intentionally ignores runtime-managed elements {@code status}, {@code immutable},
- * and {@code experimental} since these are automatically overwritten by the BPE server during
- * ValueSet deployment and activation.</p>
- *
- * <h3>linting Results</h3>
- * <p>Each linter check produces one of the following linting items:</p>
+ * <p>The following elements are <strong>not</strong> validated because they are runtime-managed
+ * and automatically overwritten by the BPE server during ValueSet deployment:</p>
  * <ul>
- *   <li>{@link FhirElementLintItemSuccess} for successful lints</li>
- *   <li>Specific {@link FhirElementLintItem} subclasses for different types of lint errors:
- *       <ul>
- *         <li>{@link FhirValueSetMissingReadAccessTagAllOrLocalLintItem}</li>
- *         <li>{@link FhirValueSetOrganizationRoleMissingValidCodeValueLintItem}</li>
- *         <li>{@link FhirValueSetMissingUrlLintItem}, {@link FhirValueSetMissingNameLintItem}, etc.</li>
- *         <li>{@link FhirValueSetVersionNoPlaceholderLintItem}, {@link FhirValueSetDateNoPlaceholderLintItem}</li>
- *         <li>{@link FhirValueSetMissingComposeIncludeLintItem}</li>
- *         <li>{@link FhirValueSetUnknownCodeLintItem}, {@link FhirValueSetFalseUrlReferencedLintItem}</li>
- *         <li>{@link FhirValueSetDuplicateConceptCodeLintItem}</li>
+ *   <li>{@code status} – Publication status (e.g., draft, active, retired)</li>
+ *   <li>{@code immutable} – Whether the ValueSet is immutable</li>
+ *   <li>{@code experimental} – Whether the ValueSet is for testing purposes</li>
  * </ul>
+ *
+ * <h3>Validation Results</h3>
+ * <p>Each validation check produces one of the following result types:</p>
+ * <ul>
+ *   <li>{@link FhirElementLintItemSuccess} – Validation passed successfully</li>
+ *   <li>Error-specific {@link FhirElementLintItem} subclasses:
+ *       <ul>
+ *         <li>{@link FhirValueSetMissingReadAccessTagAllOrLocalLintItem} – Missing required read access tag</li>
+ *         <li>{@link FhirValueSetOrganizationRoleMissingValidCodeValueLintItem} – Invalid organization role code</li>
+ *         <li>{@link FhirValueSetMissingUrlLintItem} – Missing canonical URL</li>
+ *         <li>{@link FhirValueSetMissingNameLintItem} – Missing name element</li>
+ *         <li>{@link FhirValueSetMissingTitleLintItem} – Missing title element</li>
+ *         <li>{@link FhirValueSetMissingPublisherLintItem} – Missing publisher element</li>
+ *         <li>{@link FhirValueSetMissingDescriptionLintItem} – Missing description element</li>
+ *         <li>{@link FhirValueSetVersionNoPlaceholderLintItem} – Incorrect or missing version placeholder</li>
+ *         <li>{@link FhirValueSetDateNoPlaceholderLintItem} – Incorrect or missing date placeholder</li>
+ *         <li>{@link FhirValueSetMissingComposeIncludeLintItem} – No compose.include elements found</li>
+ *         <li>{@link FhirValueSetIncludeMissingSystemLintItem} – Include element missing system attribute</li>
+ *         <li>{@link FhirValueSetIncludeVersionPlaceholderLintItem} – Incorrect include version placeholder</li>
+ *         <li>{@link FhirValueSetConceptMissingCodeLintItem} – Concept element without code</li>
+ *         <li>{@link FhirValueSetDuplicateConceptCodeLintItem} – Duplicate code in same include</li>
+ *         <li>{@link FhirValueSetUnknownCodeLintItem} – Code not found in DSF terminology cache</li>
+ *         <li>{@link FhirValueSetFalseUrlReferencedLintItem} – Code exists but in different CodeSystem</li>
+ *       </ul>
  *   </li>
  * </ul>
  *
- * <h3>Dependencies</h3>
- * <p>This linter depends on {@link FhirAuthorizationCache} for terminology linting
- * and code system lookups within the DSF environment.</p>
+ * <h3>Implementation Details</h3>
+ * <ul>
+ *   <li><strong>XML Processing:</strong> Uses XPath expressions via {@link XPathFactory} for efficient
+ *       XML document traversal and element extraction</li>
+ *   <li><strong>Terminology Lookup:</strong> Leverages {@link FhirAuthorizationCache} for CodeSystem
+ *       validation and code existence checks</li>
+ *   <li><strong>Inheritance:</strong> Extends {@link AbstractFhirInstanceLinter} to inherit common
+ *       FHIR validation utilities and helper methods</li>
+ * </ul>
+ *
+ * <h3>Usage Example</h3>
+ * <pre>
+ * FhirValueSetLinter linter = new FhirValueSetLinter();
+ * Document valueSetDoc = ...; // Load ValueSet XML
+ * File valueSetFile = new File("path/to/ValueSet.xml");
+ *
+ * if (linter.canLint(valueSetDoc)) {
+ *     List&lt;FhirElementLintItem&gt; results = linter.lint(valueSetDoc, valueSetFile);
+ *     // Process validation results
+ * }
+ * </pre>
  *
  * @author Data Sharing Framework Team
  * @version 1.0.0
  * @since 1.0.0
  * @see AbstractFhirInstanceLinter
  * @see FhirAuthorizationCache
+ * @see FhirElementLintItem
+ * @see FhirElementLintItemSuccess
  */
 public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
 {

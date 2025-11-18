@@ -13,52 +13,94 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * linter for FHIR {@code ActivityDefinition} resources.
+ * Linter for FHIR {@code ActivityDefinition} resources.
  *
- * <p>The linter performs the following checks:</p>
- * <ul>
- *     <li><strong>Mandatory elements</strong><br/>
- *         <ul>
- *             <li>{@code <url>} must be present and non-blank.</li>
- *             <li>{@code <status>} must be present and set to {@code "unknown"} (required by DSF).</li>
- *             <li>{@code <kind>} must be present and set to {@code "Task"}.</li>
- *         </ul>
+ * <p>This linter validates DSF-specific ActivityDefinition resources to ensure they conform to
+ * the required structure and authorization patterns used in the Data Sharing Framework.</p>
+ *
+ * <p><strong>Validation Checks Performed:</strong></p>
+ * <ol>
+ *     <li><strong>Resource URL</strong><br/>
+ *         The {@code <url>} element must be present and non-blank.
+ *         Reports {@link FhirActivityDefinitionInvalidFhirUrlLintItem} if missing or empty.
+ *     </li>
+ *     <li><strong>Status Element</strong><br/>
+ *         The {@code <status>} element must be present and set to {@code "unknown"} (required by DSF).
+ *         Reports {@link FhirActivityDefinitionInvalidFhirStatusLintItem} if missing or empty,
+ *         or {@link FhirStatusIsNotSetAsUnknownLintItem} if set to a different value.
+ *     </li>
+ *     <li><strong>Kind Element</strong><br/>
+ *         The {@code <kind>} element must be present and set to {@code "Task"}.
+ *         Reports {@link FhirKindIsMissingOrEmptyLintItem} if missing or empty,
+ *         or {@link FhirKindNotSetAsTaskLintItem} if set to a different value.
  *     </li>
  *     <li><strong>Profile Declaration</strong><br/>
- *         <ul>
- *             <li>{@code <meta><profile>} should contain {@value #EXPECTED_PROFILE}.</li>
- *             <li>If present, the profile URL must not contain a version suffix (e.g., {@code |1.0.0}).</li>
- *         </ul>
+ *         The {@code <meta><profile>} element should contain {@value #EXPECTED_PROFILE}.
+ *         Reports {@link FhirActivityDefinitionMissingProfileLintItem} if missing or incorrect,
+ *         or {@link FhirActivityDefinitionProfileHasVersionNumberLintItem} if a version suffix
+ *         (e.g., {@code |1.0.0}) is present.
  *     </li>
  *     <li><strong>Read-Access Tag</strong><br/>
- *         The first {@code <meta><tag>} must use the CodeSystem
- *         {@value #READ_ACCESS_TAG_SYSTEM} and the code {@value #READ_ACCESS_TAG_CODE_ALL} (allowing global read access).</li>
- *     <li><strong>Process-Authorization Extension</strong><br/>
+ *         The first {@code <meta><tag>} must specify:
  *         <ul>
- *             <li>{@code extension-process-authorization} must exist.</li>
- *             <li>Each {@code requester} and {@code recipient} sub-extension must contain a {@code valueCoding}
- *                 with {@code system} equal to {@value #PROCESS_AUTHORIZATION_SYSTEM} and a {@code code} that is
- *                 known to {@link FhirAuthorizationCache#isKnownAuthorizationCode(String)}.</li>
+ *             <li>{@code <system>} = {@value #READ_ACCESS_TAG_SYSTEM}</li>
+ *             <li>{@code <code>} = {@value #READ_ACCESS_TAG_CODE_ALL}</li>
+ *         </ul>
+ *         This tag allows global read access to the ActivityDefinition.
+ *         Reports {@link FhirMissingFhirAccessTagLintItem} if missing,
+ *         or {@link FhirInvalidFhirAccessTagLintItem} if the values are incorrect.
+ *     </li>
+ *     <li><strong>Process-Authorization Extension</strong><br/>
+ *         At least one {@code <extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">}
+ *         must be present. Reports {@link FhirNoExtensionProcessAuthorizationFoundLintItem} if missing.
+ *         <br/>
+ *         For each process-authorization extension:
+ *         <ul>
+ *             <li><strong>Requester sub-extension:</strong> Must contain at least one
+ *                 {@code <extension url="requester">} with a valid {@code valueCoding}.
+ *                 Reports {@link FhirActivityDefinitionEntryMissingRequesterLintItem} if missing,
+ *                 or {@link FhirActivityDefinitionEntryInvalidRequesterLintItem} if the coding is invalid.
+ *             </li>
+ *             <li><strong>Recipient sub-extension:</strong> Must contain at least one
+ *                 {@code <extension url="recipient">} with a valid {@code valueCoding}.
+ *                 Reports {@link FhirActivityDefinitionEntryMissingRecipientLintItem} if missing,
+ *                 or {@link FhirActivityDefinitionEntryInvalidRecipientLintItem} if the coding is invalid.
+ *             </li>
+ *             <li>Each {@code valueCoding} must have:
+ *                 <ul>
+ *                     <li>{@code <system>} = {@value #PROCESS_AUTHORIZATION_SYSTEM}</li>
+ *                     <li>{@code <code>} = a code recognized by {@link FhirAuthorizationCache#isUnknown(String, String)}
+ *                         (i.e., the code must NOT be unknown)</li>
+ *                 </ul>
+ *             </li>
  *         </ul>
  *     </li>
- *     <li>For every step the linter records <em>success</em>, <em>warning</em> or <em>error</em> items.</li>
- * </ul>
+ * </ol>
  *
- * <p><strong>Checks intentionally delegated to other linters:</strong></p>
+ * <p><strong>Checks Intentionally Delegated to Other Linters:</strong></p>
  * <ul>
- *     <li>{@code <version>} placeholder (value {@code "#{version}"}).</li>
- *     <li>{@code <date>} placeholder (value {@code "#{date}"}).</li>
- *     <li>{@code extension url="task-profile"}.</li>
- *     <li>{@code extension url="message-name"}.</li>
+ *     <li>{@code <version>} element placeholder validation (expected value: {@code "#{version}"})</li>
+ *     <li>{@code <date>} element placeholder validation (expected value: {@code "#{date}"})</li>
+ *     <li>{@code <extension url="http://dsf.dev/fhir/StructureDefinition/task-profile">}</li>
+ *     <li>{@code <extension url="http://dsf.dev/fhir/StructureDefinition/message-name">}</li>
  * </ul>
  *
- * <p>
- * References:
+ * <p><strong>Lint Item Types:</strong></p>
+ * <p>For each validation step, the linter produces one of the following item types:</p>
+ * <ul>
+ *     <li><strong>Success items</strong> (neutral/info) when validation passes</li>
+ *     <li><strong>Warning items</strong> for non-critical issues</li>
+ *     <li><strong>Error items</strong> for validation failures that must be corrected</li>
+ * </ul>
+ *
+ * <p><strong>References:</strong></p>
  * <ul>
  *   <li><a href="http://hl7.org/fhir/R4/activitydefinition.html">HL7 FHIR R4 – ActivityDefinition</a></li>
  *   <li><a href="https://dsf.dev/">DSF Developer Documentation</a></li>
  * </ul>
- * </p>
+ *
+ * @see AbstractFhirInstanceLinter
+ * @see FhirAuthorizationCache
  */
 public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLinter
 {
@@ -264,7 +306,7 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
             }
 
             // (c) code must be recognised
-            if (!FhirAuthorizationCache.isKnown(PROCESS_AUTHORIZATION_SYSTEM, codeVal))
+            if (FhirAuthorizationCache.isUnknown(PROCESS_AUTHORIZATION_SYSTEM, codeVal))
             {
                 issues.add(createAuthLintError(
                         requester,

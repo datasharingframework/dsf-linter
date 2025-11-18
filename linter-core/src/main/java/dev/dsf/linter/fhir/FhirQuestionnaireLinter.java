@@ -11,37 +11,60 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /**
- * <h2>DSF Questionnaire linter (Profile: dsf-questionnaire 1.5.0)</h2>
+ * Linter for FHIR Questionnaire resources that conform to the DSF questionnaire profile.
  *
- * <p>lints FHIR {@code Questionnaire} resources that implement the
- * DSF profile <code>http://dsf.dev/fhir/StructureDefinition/questionnaire|1.5.0</code>.
- * The linter checks structural integrity, DSF‑specific conventions and
- * placeholder usage that is later resolved by the BPE.</p>
+ * <p>This linter validates FHIR {@code Questionnaire} resources against the DSF profile
+ * {@code http://dsf.dev/fhir/StructureDefinition/questionnaire|X.Y.Z}. It performs comprehensive
+ * structural, semantic, and DSF-specific validation to ensure questionnaires are correctly
+ * configured for use within the Data Sharing Framework (DSF) and its Business Process Engine (BPE).</p>
  *
- * <h3>Linter features</h3>
+ * <h2>Validation Scope</h2>
+ *
+ * <h3>1. Metadata and Profile Compliance</h3>
  * <ul>
- * <li><strong>Meta &amp; basic checks</strong> – presence/accuracy of <code>meta.profile</code>,
- *     <code>meta.tag[read-access-tag]</code>, <code>url</code>, <code>version</code>,
- *     <code>date</code> and <code>status</code>.</li>
- * <li><strong>Placeholder enforcement</strong> – verifies that
- *     <code>version</code> and <code>date</code> still contain the development
- *     placeholders <code>#{version}</code> and <code>#{date}</code>.</li>
- * <li><strong>Item lint</strong> – ensures the mandatory item
- *     <code>user-task-id</code> exists, has
- *     type <em>string</em> and is flagged <em>required=true</em>.
- *     Checks that every other item contains the mandatory attributes
- *     <code>linkId</code>, <code>type</code> and <code>text</code>, that
- *     linkIds are unique, and warns on non‑conformant linkId patterns.</li>
- * <li><strong>Duplicate linkId detection</strong>.</li>
- * <li><strong>Success reporting</strong> – mirrors the “success item”
- *      approach of {@link FhirTaskLinter} for a consistent report layout.</li>
+ *   <li>Validates presence and format of {@code meta.profile} element with versioned URI pattern
+ *       {@code http://dsf.dev/fhir/StructureDefinition/questionnaire|X.Y.Z}</li>
+ *   <li>Verifies {@code meta.tag} contains a valid read-access-tag with system
+ *       {@code http://dsf.dev/fhir/CodeSystem/read-access-tag} and one of the permitted codes:
+ *       {@code ALL}, {@code LOCAL}, {@code ORGANIZATION}, or {@code ROLE}</li>
+ *   <li>Enforces {@code status} element value to be {@code unknown} (DSF convention for development)</li>
  * </ul>
  *
- * <p><strong>Important:</strong>  The BPMN linter already makes sure that
- * for every <em>camunda:formKey</em> used in a User Task a matching
- * Questionnaire file exists. Therefore, this class does <em>not</em> repeat
- * that existence check.</p>
+ * <h3>2. Development Placeholder Enforcement</h3>
+ * <ul>
+ *   <li>Ensures {@code version} element contains the Maven placeholder {@code #{version}}</li>
+ *   <li>Ensures {@code date} element contains the Maven placeholder {@code #{date}}</li>
+ * </ul>
+ * <p>These placeholders are resolved during the build/packaging phase by the BPE.</p>
  *
+ * <h3>3. Item Structure Validation</h3>
+ * <ul>
+ *   <li><strong>Mandatory attributes:</strong> Each {@code item} must declare {@code linkId} and
+ *       {@code type}. Missing {@code text} triggers a warning as it's strongly recommended.</li>
+ *   <li><strong>Unique linkIds:</strong> All {@code linkId} values must be unique across the
+ *       questionnaire. Duplicates are reported as errors.</li>
+ *   <li><strong>linkId pattern compliance:</strong> Recommends the pattern {@code [a-z0-9]+(-[a-z0-9]+)*}
+ *       for linkIds and issues warnings for non-conformant patterns.</li>
+ *   <li><strong>Mandatory item {@code user-task-id}:</strong> Must exist, be of type {@code string},
+ *       and have {@code required="true"}. This item is essential for DSF workflow integration.</li>
+ * </ul>
+ *
+ * <h2>Error Reporting</h2>
+ * <p>The linter produces detailed {@link FhirElementLintItem} instances for each validation issue,
+ * including success items for valid elements. This approach provides comprehensive feedback and
+ * maintains consistency with other DSF linters such as {@link FhirTaskLinter}.</p>
+ *
+ * <h2>Integration Notes</h2>
+ * <ul>
+ *   <li>This linter operates on XML DOM representations of FHIR Questionnaire resources.</li>
+ *   <li>It extends {@link AbstractFhirInstanceLinter} and uses XPath expressions for element extraction.</li>
+ *   <li>File existence validation for questionnaires referenced in BPMN processes is handled by the
+ *       BPMN linter, not by this class.</li>
+ * </ul>
+ *
+ * @see AbstractFhirInstanceLinter
+ * @see FhirTaskLinter
+ * @see FhirElementLintItem
  */
 public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
 {
@@ -55,7 +78,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
 
     private static final String READ_TAG_SYS  = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
     private static final String PROFILE_URI   = "http://dsf.dev/fhir/StructureDefinition/questionnaire";
-    private static final String URL_PREFIX    = "http://dsf.dev/fhir/Questionnaire/";
 
     // Regex for the profile URI to ensure it strictly matches "http://dsf.dev/fhir/StructureDefinition/questionnaire|X.Y.Z"
     // where X.Y.Z is a version number.

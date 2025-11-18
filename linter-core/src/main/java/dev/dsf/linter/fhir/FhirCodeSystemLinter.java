@@ -11,34 +11,85 @@ import java.io.File;
 import java.util.*;
 
 /**
- * <h2>DSFCodeSystem linter(Profile dsf‑codesystem‑base 1.0.0)</h2>
+ * Linter implementation for FHIR CodeSystem resources conforming to the DSF codesystem-base profile (version 1.0.0).
  *
- * <p>lints <strong>CodeSystem</strong> resources that live under
- * {@code src/main/resources/fhir/CodeSystem}. The class performs purely
- * syntactic/semantic checks that can be done without a terminology server.</p>
+ * <p>This linter validates FHIR {@code CodeSystem} resources against DSF-specific requirements.
+ * Validation is performed locally using XPath-based structural checks without requiring external
+ * services such as a FHIR terminology server. The linter ensures that CodeSystem resources
+ * are properly structured and contain all required metadata before deployment to the
+ * DSF Business Process Engine (BPE).</p>
  *
- * <h3>Linter features</h3>
+ * <h3>Validation Rules</h3>
+ *
+ * <h4>1. Meta Tag Validation</h4>
+ * <p>Ensures that {@code meta.tag} contains the required DSF read-access tag:</p>
  * <ul>
- *   <li><strong>Meta tag:</strong> Ensures <code>meta.tag</code> contains system
- *       {@code http://dsf.dev/fhir/CodeSystem/read-access-tag} and code {@code ALL}.</li>
- *   <li><strong>Mandatory elements:</strong> Checks presence of
- *       <code>url</code>, <code>name</code>, <code>title</code>,
- *       <code>publisher</code>, <code>content</code>, <code>caseSensitive</code>.</li>
- *   <li><strong>Placeholder enforcement:</strong> Verifies that <code>version</code>
- *       and <code>date</code> still contain the template placeholders
- *       <code>#{version}</code> and <code>#{date}</code> (values are filled in later by BPE).</li>
- *   <li><strong>Status check:</strong> Confirms <code>status</code> is <em>unknown</em>
- *       as required by the DSF template.</li>
- *   <li><strong>URL rule:</strong> URL must start with
- *       {@code http://dsf.dev/fhir/CodeSystem/}.</li>
- *   <li><strong>Concept linter:</strong>
- *       <ul>
- *         <li>Every <code>concept</code> may has  <code>code</code> and <code>display</code>.</li>
- *         <li>All codes should be unique inside the resource.</li>
- *       </ul></li>
+ *   <li>System: {@code http://dsf.dev/fhir/CodeSystem/read-access-tag}</li>
+ *   <li>Code: {@code ALL}</li>
  * </ul>
+ * <p>This tag controls the visibility and accessibility of the CodeSystem resource within the DSF infrastructure.</p>
+ *
+ * <h4>2. Mandatory Element Validation</h4>
+ * <p>Verifies the presence of the following required elements:</p>
+ * <ul>
+ *   <li>{@code url} - Canonical URL of the CodeSystem</li>
+ *   <li>{@code name} - Computer-friendly name</li>
+ *   <li>{@code title} - Human-friendly title</li>
+ *   <li>{@code publisher} - Name of the publishing organization</li>
+ *   <li>{@code content} - Content mode</li>
+ *   <li>{@code caseSensitive} - Case sensitivity indicator</li>
+ * </ul>
+ * <p>Note: Only the presence of these elements is validated, not their specific values or formats.</p>
+ *
+ * <h4>3. Status Validation</h4>
+ * <p>Confirms that {@code status} is set to {@code unknown}. The DSF Business Process Engine (BPE)
+ * will replace this placeholder value with the appropriate publication status during deployment.
+ * Using {@code unknown} as a placeholder ensures that the actual status is set by the deployment
+ * process rather than being hardcoded in the resource definition.</p>
+ *
+ * <h4>4. Placeholder Validation</h4>
+ * <p>Ensures that version and date fields are set to their respective DSF template placeholders:</p>
+ * <ul>
+ *   <li>{@code version} must be exactly {@code #{version}}</li>
+ *   <li>{@code date} must be exactly {@code #{date}}</li>
+ * </ul>
+ * <p>These placeholders are dynamically replaced by the BPE at deployment time with actual
+ * versioning information and timestamps, enabling consistent version management across
+ * the DSF infrastructure.</p>
+ *
+ * <h4>5. Concept Validation</h4>
+ * <p>Validates the concept entries within the CodeSystem:</p>
+ * <ul>
+ *   <li>At least one {@code concept} element must be present</li>
+ *   <li>Each concept must have a {@code code} element (the actual code value)</li>
+ *   <li>Each concept must have a {@code display} element (human-readable representation)</li>
+ *   <li>All concept codes must be unique within the CodeSystem</li>
+ * </ul>
+ * <p>Duplicate codes are detected and reported as errors since they would create ambiguity
+ * in code lookups and validation.</p>
+ *
+ * <h3>Implementation Details</h3>
+ * <p>This linter extends {@link AbstractFhirInstanceLinter} and uses XPath expressions to navigate
+ * and validate the XML structure of CodeSystem resources. It produces {@link FhirElementLintItem}
+ * instances for each validation check, reporting both issues and successful validations. The linter
+ * is designed to run as part of a pre-deployment validation pipeline, catching structural and
+ * content issues before resources are deployed to production environments.</p>
+ *
+ * <h3>Usage Example</h3>
+ * <p>This linter is typically invoked through the {@link DsfLinter} framework, which automatically
+ * detects CodeSystem resources and applies the appropriate validation rules. The linter can also
+ * be used standalone for targeted validation of individual CodeSystem files.</p>
+ *
+ * <h3>Thread Safety</h3>
+ * <p>This class is stateless and thread-safe. Multiple threads can safely use the same instance
+ * to lint different documents concurrently.</p>
  *
  * @see DsfLinter
+ * @see AbstractFhirInstanceLinter
+ * @see FhirElementLintItem
+ * @see <a href="https://www.hl7.org/fhir/codesystem.html">FHIR CodeSystem Resource</a>
+ *
+ * @since 1.0.0
  */
 public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
 {

@@ -16,72 +16,128 @@ import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.util.*;
 /**
- * <h2>FHIR Task linter for DSF – Profile: <code>dsf-task-base</code></h2>
+ * Specialized linter for FHIR {@code Task} resources conforming to the Data Sharing Framework (DSF)
+ * base profile {@code http://dsf.dev/fhir/StructureDefinition/dsf-task-base}.
  *
- * <p>This class implements a linter for FHIR {@code Task} resources as used in the
- * Data Sharing Framework (DSF). It is responsible for ensuring structural correctness,
- * semantic consistency, and conformance to cardinality rules defined in the DSF base profile
- * <code>http://dsf.dev/fhir/StructureDefinition/dsf-task-base</code>.</p>
+ * <p>This linter ensures structural correctness, semantic consistency, profile conformance, and
+ * cardinality compliance for DSF Task instances used in clinical data sharing workflows. It performs
+ * comprehensive validation of Task metadata, input parameters, status transitions, authorization
+ * references, and terminology bindings.</p>
  *
- * <p>The linter extends {@link AbstractFhirInstanceLinter} and is automatically invoked
- * during DSF plugin linting, typically from {@link DsfLinter}.</p>
+ * <h2>Linting Scope and Responsibilities</h2>
  *
- * <h3>Supported linting Features</h3>
+ * <h3>1. Metadata and Profile Validation</h3>
  * <ul>
- *   <li><strong>Meta linting:</strong>
- *     Verifies presence of required meta.profile and instantiatesCanonical elements.</li>
- *   <li><strong>Status and intent checks:</strong>
- *     lints the {@code status} must be {@code draft}, and {@code intent} must be {@code order}.</li>
- *   <li><strong>Input slice linting:</strong>
- *     Enforces presence and multiplicity rules for {@code Task.input} slices such as:
- *     {@code message-name}, {@code business-key}, and {@code correlation-key}.</li>
- *   <li><strong>Cardinality enforcement:</strong>
- *     Loads {@code min} and {@code max} cardinalities from {@code StructureDefinition} and
- *     lints both the base and sliced input elements. See
- *     <a href="https://hl7.org/fhir/profiling.html#slice-cardinality" target="_blank">
- *     FHIR Profiling Rules §5.1.0.14</a> for background.</li>
- *   <li><strong>Placeholder checks:</strong>
- *     Ensures that elements such as {@code authoredOn} and
- *     {@code requester/recipient.identifier.value} contain expected template variables
- *     (e.g., {@code #{organization}}, {@code #{date}}).</li>
- *   <li><strong>Terminology linting:</strong>
- *     Cross-checks all {@code coding} elements against known value sets and
- *     {@link FhirAuthorizationCache}.</li>
- *   <li><strong>Authorization logic:</strong>
- *     Verifies requester and recipient organizations contain the required {@code #{organization}}
- *     placeholder for development contexts.</li>
+ *   <li>Verifies presence and correctness of {@code meta.profile} pointing to a DSF Task profile</li>
+ *   <li>Validates {@code instantiatesCanonical} reference to a FHIR ActivityDefinition resource
+ *       and ensures it ends with the required {@code |#{version}} placeholder</li>
+ *   <li>Cross-checks that the referenced {@code ActivityDefinition} exists in the project structure</li>
  * </ul>
  *
- * <h3>StructureDefinition Integration</h3>
- * <p>The linter dynamically loads the corresponding {@code StructureDefinition} to evaluate
- * slice cardinalities. This is used to verify that each required {@code input} slice is present
- * the correct number of times and that overall input count falls within the base cardinality
- * limits.</p>
- *
- * <h3>Development & CI Support</h3>
- * <p>Project root discovery is supported using either:</p>
+ * <h3>2. Fixed Element Validation</h3>
  * <ul>
- *   <li>System property: {@code dsf.projectRoot}</li>
- *   <li>Environment variable: {@code DSF_PROJECT_ROOT}</li>
+ *   <li>{@code Task.status} must be {@code "draft"} for template Task instances</li>
+ *   <li>{@code Task.intent} must be {@code "order"}</li>
+ *   <li>{@code Task.requester.identifier.system} must be {@code http://dsf.dev/sid/organization-identifier}</li>
+ *   <li>{@code Task.restriction.recipient.identifier.system} must be {@code http://dsf.dev/sid/organization-identifier}</li>
  * </ul>
- * <p>Or by implicit detection of standard folder structures (e.g., {@code src/}, {@code fhir/}).</p>
  *
- * <h3>Input linter Behavior</h3>
- * <p>The {@link #lintInputs(Document, File, String, List)} method performs comprehensive
- * linting of {@code Task.input} elements including:</p>
+ * <h3>3. Development Placeholder Validation</h3>
+ * <p>Ensures that template variables are present in development-stage Task instances:</p>
  * <ul>
- *   <li>Structural linting (presence of coding.system, coding.code, and value[x])</li>
- *   <li>Duplicate detection using {@code system#code} combinations</li>
- *   <li>Status-based business rules for {@code business-key} presence</li>
- *   <li>BPMN slice linting for message-name, business-key, and correlation-key</li>
- *   <li>Cardinality checks against StructureDefinition min/max constraints</li>
+ *   <li>{@code authoredOn} must contain {@code #{date}}</li>
+ *   <li>{@code requester.identifier.value} must be {@code #{organization}}</li>
+ *   <li>{@code restriction.recipient.identifier.value} must be {@code #{organization}}</li>
+ *   <li>{@code instantiatesCanonical} must end with {@code |#{version}}</li>
  * </ul>
+ *
+ * <h3>4. Task.input Slice Validation</h3>
+ * <p>Performs comprehensive validation of {@code Task.input} elements based on the BPMN message
+ * system ({@code http://dsf.dev/fhir/CodeSystem/bpmn-message}):</p>
+ * <ul>
+ *   <li><strong>message-name:</strong> Required in all cases (min=1, max=1)</li>
+ *   <li><strong>business-key:</strong> Required when {@code status} is {@code "in-progress"},
+ *       {@code "completed"}, or {@code "failed"}; must be absent when {@code status = "draft"}</li>
+ *   <li><strong>correlation-key:</strong> Optional, validated against StructureDefinition cardinality</li>
+ *   <li>Each {@code input} must contain {@code type.coding.system}, {@code type.coding.code}, and a {@code value[x]} element</li>
+ *   <li>Duplicate detection: no two {@code input} elements may share the same {@code system#code} combination</li>
+ * </ul>
+ *
+ * <h3>5. Cardinality Enforcement</h3>
+ * <p>Dynamically loads the {@code StructureDefinition} corresponding to {@code meta.profile} and validates:</p>
+ * <ul>
+ *   <li>Total {@code Task.input} count against base element cardinality ({@code Task.input.min}..{@code Task.input.max})</li>
+ *   <li>Per-slice occurrence counts against slice-specific cardinality (e.g., {@code Task.input:message-name.min}..{@code Task.input:message-name.max})</li>
+ *   <li>Slice cardinality rules are loaded from {@code element[@id='Task.input:sliceName']} in the StructureDefinition XML/JSON</li>
+ * </ul>
+ * <p>See <a href="https://hl7.org/fhir/profiling.html#slice-cardinality" target="_blank">FHIR Profiling Rules §5.1.0.14</a>
+ * for details on slice cardinality semantics.</p>
+ *
+ * <h3>6. Terminology Validation</h3>
+ * <ul>
+ *   <li>Cross-checks all {@code coding.system} and {@code coding.code} pairs against known DSF CodeSystems
+ *       via {@link FhirAuthorizationCache}</li>
+ *   <li>Reports unknown codes or systems as linting errors</li>
+ *   <li>Validates {@code Task.status} against the HL7 FHIR {@code TaskStatus} ValueSet</li>
+ * </ul>
+ *
+ * <h3>7. Authorization Reference Validation</h3>
+ * <p>Validates that requester and recipient organization identifiers use the correct placeholder format
+ * during development. In production environments, these placeholders are replaced with actual organization
+ * identifiers defined in the corresponding {@code ActivityDefinition}'s authorization extension.</p>
+ *
+ * <h2>Integration and Usage</h2>
+ * <p>This linter extends {@link AbstractFhirInstanceLinter} and is automatically registered with the
+ * DSF linting framework. It is invoked by {@link DsfLinter} when processing FHIR resource directories.</p>
+ *
+ * <p><strong>Thread Safety:</strong> This class is stateless and thread-safe. Multiple threads may
+ * safely invoke {@link #lint(Document, File)} concurrently on the same instance.</p>
+ *
+ * <h2>Project Root Discovery</h2>
+ * <p>The linter requires access to the project root directory to resolve cross-references to
+ * {@code ActivityDefinition} and {@code StructureDefinition} files. Discovery is performed in the following order:</p>
+ * <ol>
+ *   <li><strong>Explicit configuration:</strong> System property {@code dsf.projectRoot} or environment
+ *       variable {@code DSF_PROJECT_ROOT}</li>
+ *   <li><strong>Maven/Gradle layout:</strong> Walks up the directory tree until a folder containing
+ *       {@code src/} is found (typical for IDE and local builds)</li>
+ *   <li><strong>CI/exploded JAR layout:</strong> Walks up until a folder containing {@code fhir/} is found
+ *       (used in CI pipelines where the plugin JAR is exploded)</li>
+ * </ol>
+ *
+ * <h2>Lint Result Reporting</h2>
+ * <p>All validation outcomes are reported as instances of {@link FhirElementLintItem}. Specific error types include:</p>
+ * <ul>
+ *   <li>{@link FhirTaskMissingProfileLintItem} – missing {@code meta.profile}</li>
+ *   <li>{@link FhirTaskMissingInstantiatesCanonicalLintItem} – missing {@code instantiatesCanonical}</li>
+ *   <li>{@link FhirTaskStatusNotDraftLintItem} – {@code status} is not {@code "draft"}</li>
+ *   <li>{@link FhirTaskRequiredInputWithCodeMessageNameLintItem} – missing {@code message-name} input</li>
+ *   <li>{@link FhirTaskInputDuplicateSliceLintItem} – duplicate {@code system#code} in {@code Task.input}</li>
+ *   <li>{@link FhirTaskInputInstanceCountBelowMinLintItem} / {@link FhirTaskInputInstanceCountExceedsMaxLintItem} – cardinality violations</li>
+ *   <li>{@link FhirTaskUnknownCodeLintItem} – unknown terminology code</li>
+ *   <li>...and many others (see package {@code dev.dsf.linter.output.item})</li>
+ * </ul>
+ * <p>Success outcomes are reported via {@link FhirElementLintItemSuccess} for completeness and traceability.</p>
+ *
+ * <h2>Example Output</h2>
+ * <pre>
+ * ✓ Task[example-start-process]: meta.profile present.
+ * ✓ Task[example-start-process]: instantiatesCanonical ends with '|#{version}' as expected.
+ * ✓ Task[example-start-process]: status = 'draft'
+ * ✓ Task[example-start-process]: mandatory slice 'message-name' present
+ * ✗ Task[example-start-process]: business-key must not be present when status is 'draft'
+ * </pre>
  *
  * @see DsfLinter
  * @see AbstractFhirInstanceLinter
  * @see FhirResourceLocator
+ * @see FhirResourceParser
  * @see FhirAuthorizationCache
- * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Slicing and Cardinality Rules §5.1.0.14</a>
+ * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Slicing and Cardinality Rules</a>
+ * @see <a href="https://dsf.dev/intro/info/process-plugin/starting-and-naming-processes/">DSF Process Plugin Documentation</a>
+ *
+ * @author DSF Development Team
+ * @since 1.0
  */
 public final class FhirTaskLinter extends AbstractFhirInstanceLinter
 {
