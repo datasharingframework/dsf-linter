@@ -1,7 +1,9 @@
 package dev.dsf.linter;
 
+import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.logger.Logger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,16 +14,18 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration test for DsfLinter using a local multi-plugin test project.
+ * Integration test for DsfLinter using a pre-built multi-plugin test JAR.
  *
- * <p><b>Assumption:</b> This test suite assumes that the test project located at
- * {@code src/test/resources/dsf-multi-plugin-test} is compiled before these tests
- * are executed. This is typically handled by the {@code maven-invoker-plugin}
- * in the {@code linter-core/pom.xml}.</p>
+ * <p><b>Assumption:</b> This test suite assumes that the JAR file located at
+ * {@code src/test/resources/dsf-multi-plugin-test/dsf-multi-plugin-test-1.0-SNAPSHOT.jar}
+ * exists and contains the compiled multi-plugin test project.</p>
+ *
+ * <p>The linter now only accepts JAR files as input, not Maven project directories.</p>
  */
 public class DsfMultiPluginLinterTest {
 
@@ -29,6 +33,7 @@ public class DsfMultiPluginLinterTest {
     private Path tempReportDir;
 
     private DsfLinter linter;
+    private InputResolver.ResolutionResult resolutionResult;
 
     /**
      * A simple logger implementation for tests that prints to the console.
@@ -56,25 +61,45 @@ public class DsfMultiPluginLinterTest {
     }
 
     @BeforeEach
-    void setUp() {
-        // Locate the test project reliably from test resources.
-        URL projectUrl = getClass().getClassLoader().getResource("dsf-multi-plugin-test");
-        assertNotNull(projectUrl, "Test project 'dsf-multi-plugin-test' not found in test resources.");
-        Path projectPath = new File(projectUrl.getPath()).toPath();
+    void setUp() throws Exception {
+        ConsoleTestLogger logger = new ConsoleTestLogger();
+        
+        // Locate the pre-built JAR file from test resources
+        URL jarUrl = getClass().getClassLoader().getResource("dsf-multi-plugin-test/dsf-multi-plugin-test-1.0-SNAPSHOT.jar");
+        assertNotNull(jarUrl, "Test JAR 'dsf-multi-plugin-test-1.0-SNAPSHOT.jar' not found in test resources.");
+        
+        Path jarPath = new File(jarUrl.toURI()).toPath();
+        assertTrue(Files.exists(jarPath), "JAR file should exist at: " + jarPath);
 
-        // Configure the linter.
+        // Use InputResolver to extract the JAR file
+        InputResolver inputResolver = new InputResolver(logger);
+        Optional<InputResolver.ResolutionResult> resolutionOpt = inputResolver.resolve(jarPath.toString());
+        assertTrue(resolutionOpt.isPresent(), "JAR file should be resolved successfully");
+        
+        resolutionResult = resolutionOpt.get();
+        Path extractedPath = resolutionResult.resolvedPath();
+        assertTrue(Files.exists(extractedPath), "Extracted directory should exist");
+
+        // Configure the linter with the extracted JAR directory
         DsfLinter.Config config = new DsfLinter.Config(
-                projectPath,
+                extractedPath,
                 tempReportDir,
                 true,
                 true,
                 false,
-                new String[0],
-                null,
-                new ConsoleTestLogger()
+                logger
         );
 
         linter = new DsfLinter(config);
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Clean up temporary extraction directory if needed
+        if (resolutionResult != null && resolutionResult.requiresCleanup()) {
+            InputResolver resolver = new InputResolver(new ConsoleTestLogger());
+            resolver.cleanup(resolutionResult);
+        }
     }
 
     @Test
@@ -104,15 +129,24 @@ public class DsfMultiPluginLinterTest {
             // 3. Leftover Resources Assertions
             assertNotNull(result.leftoverAnalysis(), "Leftover analysis result should not be null.");
             assertEquals(2, result.getLeftoverCount(),
-                    "Exactly two leftover resources (one BPMN, one FHIR) should be detected.");
+                    "Exactly two leftover BPMN resources should be detected.");
 
+            // Verify we have leftover BPMN files
+            assertEquals(2, result.leftoverAnalysis().leftoverBpmnPaths().size(),
+                    "Should have exactly 2 leftover BPMN files.");
+            
+            // Verify specific leftover BPMN files
             assertTrue(result.leftoverAnalysis().leftoverBpmnPaths().stream()
-                            .anyMatch(path -> path.endsWith("bpe/v2/send.bpmn")),
+                            .anyMatch(path -> path.endsWith("send.bpmn")),
                     "send.bpmn should be listed as a leftover BPMN file.");
+            
+            assertTrue(result.leftoverAnalysis().leftoverBpmnPaths().stream()
+                            .anyMatch(path -> path.endsWith("download-allow-list.bpmn")),
+                    "download-allow-list.bpmn should be listed as a leftover BPMN file.");
 
-            assertTrue(result.leftoverAnalysis().leftoverFhirPaths().stream()
-                            .anyMatch(path -> path.endsWith("fhir/ActivityDefinition/feasibilityExecute.xml")),
-                    "feasibilityExecute.xml should be listed as a leftover FHIR file.");
+            // Verify no leftover FHIR files (all FHIR files are referenced)
+            assertEquals(0, result.leftoverAnalysis().leftoverFhirPaths().size(),
+                    "Should have no leftover FHIR files (all FHIR files are referenced).");
 
             // 4. Report Generation Assertions
             assertNotNull(result.masterReportPath(), "Should have a master report path.");

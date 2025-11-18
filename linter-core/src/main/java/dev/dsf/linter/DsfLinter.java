@@ -56,8 +56,6 @@ public class DsfLinter {
      * @param generateHtmlReport whether to generate an HTML report
      * @param generateJsonReport whether to generate a JSON report
      * @param failOnErrors whether the linter should fail (exit code 1) when errors are found
-     * @param mavenGoals custom Maven goals to execute during project setup
-     * @param skipGoals Maven goals to skip during project setup
      * @param logger the logger instance for output
      */
     public record Config(
@@ -66,8 +64,6 @@ public class DsfLinter {
             boolean generateHtmlReport,
             boolean generateJsonReport,
             boolean failOnErrors,
-            String[] mavenGoals,
-            String[] skipGoals,
             Logger logger
     ) {
     }
@@ -214,11 +210,12 @@ public class DsfLinter {
         try {
             // Phase 1: Project Setup
             reportGenerator.printPhaseHeader("Phase 1: Project Setup");
-            ProjectSetupHandler.ProjectContext context = setupHandler.setupLintingEnvironment(
-                    config.projectPath(),
-                    config.mavenGoals(),
-                    config.skipGoals()
-            );
+            ProjectSetupHandler.ProjectContext context;
+            try {
+                context = setupHandler.setupLintingEnvironment(config.projectPath());
+            } catch (IOException e) {
+                throw e;
+            }
 
             // Execute all linting phases with temporary context classloader
             return ClassLoaderUtils.withTemporaryContextClassLoader(context.projectClassLoader(), () -> {
@@ -277,15 +274,15 @@ public class DsfLinter {
                     logger.error("FATAL: Linting failed: " + e.getMessage(), e);
                     throw new IOException("Linting failed", e);
                 } finally {
-                    // Cleanup API version holder
                     ApiVersionHolder.clear();
                     logger.debug("ApiVersionHolder cleared.");
                 }
             });
 
-        } catch (IOException e) {
-            throw e; // Re-throw IOException as-is
         } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
             logger.error("FATAL: Linting failed with unexpected error: " + e.getMessage(), e);
             throw new IOException("Linting failed", e);
         }

@@ -22,8 +22,6 @@ public class LinterExecutor {
     private final boolean generateHtmlReport;
     private final boolean generateJsonReport;
     private final boolean failOnErrors;
-    private final String[] mavenGoals;
-    private final String[] skipGoals;
     private final Logger logger;
 
     /**
@@ -34,21 +32,16 @@ public class LinterExecutor {
      * @param generateHtmlReport whether to generate an HTML report
      * @param generateJsonReport whether to generate a JSON report
      * @param failOnErrors whether to fail (exit code 1) if errors are found
-     * @param mavenGoals Maven goals to add to the build
-     * @param skipGoals Maven goals to remove from the default build
      * @param logger the logger for output
      */
     public LinterExecutor(Path projectPath, Path reportPath,
                           boolean generateHtmlReport, boolean generateJsonReport,
-                          boolean failOnErrors, String[] mavenGoals,
-                          String[] skipGoals, Logger logger) {
+                          boolean failOnErrors, Logger logger) {
         this.projectPath = projectPath;
         this.reportPath = reportPath;
         this.generateHtmlReport = generateHtmlReport;
         this.generateJsonReport = generateJsonReport;
         this.failOnErrors = failOnErrors;
-        this.mavenGoals = mavenGoals;
-        this.skipGoals = skipGoals;
         this.logger = logger;
     }
 
@@ -70,8 +63,6 @@ public class LinterExecutor {
                 generateHtmlReport,
                 generateJsonReport,
                 failOnErrors,
-                mavenGoals,
-                skipGoals,
                 logger
         );
 

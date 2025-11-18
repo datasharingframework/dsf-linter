@@ -86,13 +86,11 @@ public class ResourceResolutionService {
             return ResourceResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
         }
 
-        // Step 1: Disk search
         Optional<File> diskResult = searchOnDisk(normalizedPath, expectedResourceRoot);
 
         if (diskResult.isPresent()) {
             File resolved = diskResult.get();
 
-            // Step 2: Validate location
             if (isUnderDirectory(resolved, expectedResourceRoot)) {
                 return ResourceResolutionResult.inRoot(resolved, expectedResourceRoot);
             } else {
@@ -100,7 +98,6 @@ public class ResourceResolutionService {
             }
         }
 
-        // Step 3: Search in dependency JARs
         if (projectRoot != null) {
             Optional<DependencyResolution> dependencyResult = searchInDependencies(normalizedPath, projectRoot);
             if (dependencyResult.isPresent()) {
@@ -112,7 +109,6 @@ public class ResourceResolutionService {
             }
         }
 
-        // Step 4: Not found
         return ResourceResolutionResult.notFound(expectedResourceRoot.getAbsolutePath());
     }
 
@@ -199,8 +195,6 @@ public class ResourceResolutionService {
         }
     }
 
-    // Private helper methods
-
     private Optional<File> searchOnDisk(String normalizedPath, File resourceRoot) {
         File directFile = new File(resourceRoot, normalizedPath);
         if (directFile.isFile()) {
@@ -223,13 +217,6 @@ public class ResourceResolutionService {
 
                     String urlString = url.toString();
                     if (!urlString.startsWith("jar:file:")) {
-                        return null;
-                    }
-
-                    String jarPath = urlString.substring("jar:file:".length(), urlString.indexOf("!"));
-                    File jarFile = new File(jarPath);
-
-                    if (!jarFile.getAbsolutePath().contains("target" + File.separator + "dependency")) {
                         return null;
                     }
 

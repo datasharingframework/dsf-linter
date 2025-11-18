@@ -15,6 +15,10 @@ import java.util.stream.Stream;
 /**
  * Generic JAR-backed provider for resources (BPMN or FHIR).
  * Uses ConcurrentCache for thread-safe caching with cleanup callbacks.
+ * <p>
+ * This provider scans for JAR files in the project root directory and indexes
+ * all matching resources within those JARs.
+ * </p>
  *
  * @param <T> the type of resource entry (BpmnResourceEntry or FhirResourceEntry)
  * @since 1.2.0
@@ -27,7 +31,7 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     private final String resourceTypeName;
     private final ConcurrentCache<String, JarFile> jarCache;
     private final ConcurrentCache<String, List<T>> indexCache;
-    private final Set<String> jarKeys; // Track JAR keys separately since ConcurrentCache doesn't expose them
+    private final Set<String> jarKeys;
     private boolean indexed;
 
     private JarResourceProvider(File projectRoot,
@@ -43,7 +47,6 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
         this.resourceFilter = resourceFilter;
         this.resourceTypeName = resourceTypeName;
 
-        // Use ConcurrentCache with cleanup callback
         this.jarCache = new ConcurrentCache<>(jarFile -> {
             try {
                 jarFile.close();
@@ -53,7 +56,7 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
         });
 
         this.indexCache = new ConcurrentCache<>();
-        this.jarKeys = ConcurrentHashMap.newKeySet(); // Thread-safe set for JAR keys
+        this.jarKeys = ConcurrentHashMap.newKeySet();
         this.indexed = false;
     }
 
@@ -132,7 +135,7 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
 
     @Override
     public void close() throws IOException {
-        jarCache.clear(); // Cleanup callback closes JARs
+        jarCache.clear();
         indexCache.clear();
         jarKeys.clear();
         indexed = false;
@@ -148,28 +151,15 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     }
 
     private void indexJars() {
-        indexJarsInDirectory(projectRoot, false);
-
-        File targetDeps = new File(projectRoot, "target/dependency");
-        if (targetDeps.exists() && targetDeps.isDirectory()) {
-            indexJarsInDirectory(targetDeps, true);
-        }
-
-        File targetDependencies = new File(projectRoot, "target/dependencies");
-        if (targetDependencies.exists() && targetDependencies.isDirectory()) {
-            indexJarsInDirectory(targetDependencies, true);
-        }
+        indexJarsInDirectory(projectRoot);
     }
 
-    private void indexJarsInDirectory(File directory, boolean recursive) {
+    private void indexJarsInDirectory(File directory) {
         if (!directory.isDirectory()) {
             return;
         }
 
-        try (Stream<Path> paths = recursive
-                ? Files.walk(directory.toPath())
-                : Files.list(directory.toPath())) {
-
+        try (Stream<Path> paths = Files.walk(directory.toPath())) {
             paths.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".jar"))
                     .forEach(this::indexJarFile);
@@ -185,7 +175,7 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
         try {
             JarFile jarFile = new JarFile(jarPath.toFile());
             jarCache.put(jarKey, jarFile);
-            jarKeys.add(jarKey); // Track the JAR key
+            jarKeys.add(jarKey);
 
             List<T> entries = jarFile.stream()
                     .filter(entry -> !entry.isDirectory())
@@ -193,7 +183,6 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
                     .map(entry -> entryFactory.create(entry.getName()))
                     .toList();
 
-            // Store all entries under a single cache key
             String cacheKey = getCacheKey();
             Optional<List<T>> existingEntriesOpt = indexCache.get(cacheKey);
             if (existingEntriesOpt.isEmpty()) {
@@ -212,7 +201,7 @@ public final class JarResourceProvider<T> implements ResourceProvider<T>, Closea
     }
 
     private Set<String> getJarKeys() {
-        return jarKeys; // Return tracked JAR keys
+        return jarKeys;
     }
 
     private String getPath(T entry) {

@@ -28,8 +28,7 @@ import java.util.function.Predicate;
  * provider based on the project structure.
  * </p>
  * <p>
- * Resources are searched in standard FHIR directory structures, supporting both
- * Maven and Gradle project layouts with flat and nested directory hierarchies.
+ * Resources are searched in standard FHIR directory structures for extracted JARs.
  * </p>
  *
  * @see ResourceProvider
@@ -37,12 +36,9 @@ import java.util.function.Predicate;
  */
 public final class FhirResourceLocator {
 
-    private static final String ACTIVITY_DEFINITION_DIR = "src/main/resources/fhir/ActivityDefinition";
-    private static final String STRUCTURE_DEFINITION_DIR = "src/main/resources/fhir/StructureDefinition";
-    private static final String QUESTIONNAIRE_DIR = "src/main/resources/fhir/Questionnaire";
-    private static final String ACTIVITY_DEFINITION_DIR_FLAT = "fhir/ActivityDefinition";
-    private static final String STRUCTURE_DEFINITION_DIR_FLAT = "fhir/StructureDefinition";
-    private static final String QUESTIONNAIRE_DIR_FLAT = "fhir/Questionnaire";
+    private static final String ACTIVITY_DEFINITION_DIR = "fhir/ActivityDefinition";
+    private static final String STRUCTURE_DEFINITION_DIR = "fhir/StructureDefinition";
+    private static final String QUESTIONNAIRE_DIR = "fhir/Questionnaire";
 
     private final ResourceProvider<FhirResourceEntry> provider;
     private final FhirResourceExtractor extractor;
@@ -57,10 +53,10 @@ public final class FhirResourceLocator {
      * <p>
      * Automatically determines whether to use a composite provider (file system + JAR)
      * or just file system provider based on the project structure and presence of
-     * dependency JARs.
+     * JAR files.
      * </p>
      *
-     * @param projectRoot the root directory of the project
+     * @param projectRoot the root directory of the extracted JAR project
      * @return a new FhirResourceLocator instance configured for the project structure
      */
     public static FhirResourceLocator create(File projectRoot) {
@@ -103,8 +99,7 @@ public final class FhirResourceLocator {
     public boolean activityDefinitionExists(String messageName, File projectRoot) {
         return searchInDirectories(
                 entry -> checkActivityDefinitionForMessage(entry, messageName),
-                ACTIVITY_DEFINITION_DIR,
-                ACTIVITY_DEFINITION_DIR_FLAT
+                ACTIVITY_DEFINITION_DIR
         );
     }
 
@@ -122,8 +117,7 @@ public final class FhirResourceLocator {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return searchInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
-                STRUCTURE_DEFINITION_DIR,
-                STRUCTURE_DEFINITION_DIR_FLAT
+                STRUCTURE_DEFINITION_DIR
         );
     }
 
@@ -157,8 +151,7 @@ public final class FhirResourceLocator {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return findFileInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
-                STRUCTURE_DEFINITION_DIR,
-                STRUCTURE_DEFINITION_DIR_FLAT
+                STRUCTURE_DEFINITION_DIR
         );
     }
 
@@ -177,8 +170,7 @@ public final class FhirResourceLocator {
         String baseCanon = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
                 entry -> checkActivityDefinitionForInstantiatesCanonical(entry, baseCanon),
-                ACTIVITY_DEFINITION_DIR,
-                ACTIVITY_DEFINITION_DIR_FLAT
+                ACTIVITY_DEFINITION_DIR
         );
     }
 
@@ -201,8 +193,7 @@ public final class FhirResourceLocator {
         String baseKey = formKey.split("\\|")[0].trim();
         return searchInDirectories(
                 entry -> checkQuestionnaireForUrl(entry, baseKey),
-                QUESTIONNAIRE_DIR,
-                QUESTIONNAIRE_DIR_FLAT
+                QUESTIONNAIRE_DIR
         );
     }
 
@@ -216,8 +207,7 @@ public final class FhirResourceLocator {
     public boolean activityDefinitionHasMessageName(String message, File projectRoot) {
         return searchInDirectories(
                 entry -> checkActivityDefinitionForMessage(entry, message),
-                ACTIVITY_DEFINITION_DIR,
-                ACTIVITY_DEFINITION_DIR_FLAT
+                ACTIVITY_DEFINITION_DIR
         );
     }
 
@@ -359,41 +349,15 @@ public final class FhirResourceLocator {
             return false;
         }
 
-        File fhirDir = new File(projectRoot, "fhir");
-        File srcMainResources = new File(projectRoot, "src/main/resources");
-        boolean hasExtractedResources = (fhirDir.exists() && fhirDir.isDirectory()) ||
-                (srcMainResources.exists() && srcMainResources.isDirectory());
-
-        // If resources are already extracted to filesystem, only use JarResourceProvider
-        // for dependency JARs, not for the extracted main JAR
-        if (hasExtractedResources) {
-            File targetDeps = new File(projectRoot, "target/dependency");
-            File targetDependencies = new File(projectRoot, "target/dependencies");
-
-            // Only use JarResourceProvider for dependency JARs
-            return (targetDeps.exists() && targetDeps.isDirectory())
-                    || (targetDependencies.exists() && targetDependencies.isDirectory());
-        }
-
-        // No extracted resources: check for JAR files in root or dependency directories
         File[] jars = projectRoot.listFiles((dir, name) -> name.endsWith(".jar"));
-        if (jars != null && jars.length > 0) {
-            return true;
-        }
-
-        File targetDeps = new File(projectRoot, "target/dependency");
-        File targetDependencies = new File(projectRoot, "target/dependencies");
-
-        return (targetDeps.exists() && targetDeps.isDirectory())
-                || (targetDependencies.exists() && targetDependencies.isDirectory());
+        return jars != null && jars.length > 0;
     }
 
     private File findActivityDefinitionFile(String canonical, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
                 entry -> checkActivityDefinitionForInstantiatesCanonical(entry, base),
-                ACTIVITY_DEFINITION_DIR,
-                ACTIVITY_DEFINITION_DIR_FLAT
+                ACTIVITY_DEFINITION_DIR
         );
     }
 }

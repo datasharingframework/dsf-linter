@@ -1,25 +1,19 @@
 package dev.dsf.linter.setup;
 
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.util.maven.MavenUtil;
 import dev.dsf.linter.classloading.ProjectClassLoaderFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * Handles project setup, build operations, and classpath configuration
- * for DSF projects.
+ * Handles project setup and classpath configuration for extracted DSF JAR files.
  *
  * <p>This class is responsible for:
  * <ul>
- *   <li>Detecting project layout (Maven vs exploded plugin)</li>
- *   <li>Building Maven projects when necessary</li>
- *   <li>Creating and managing project ClassLoaders</li>
+ *   <li>Creating and managing project ClassLoaders for extracted JARs</li>
  *   <li>Setting up the linting environment</li>
  * </ul>
  *
@@ -29,7 +23,6 @@ import java.util.List;
 public class ProjectSetupHandler {
 
     private final Logger logger;
-    private final MavenBuilder mavenBuilder;
 
     /**
      * Constructs a new ProjectSetupHandler with the specified logger.
@@ -38,188 +31,34 @@ public class ProjectSetupHandler {
      */
     public ProjectSetupHandler(Logger logger) {
         this.logger = logger;
-        this.mavenBuilder = new MavenBuilder();
     }
 
     /**
-     * Sets up the complete linting environment for a project.
+     * Sets up the complete linting environment for an extracted JAR file.
      *
-     * @param projectPath the path to the project directory
-     * @param mavenGoals optional Maven goals to add to the build. If {@code null}, the project
-     *                   is linted without Maven build (suitable for JAR inputs only).
-     * @param skipGoals optional Maven goals to remove from default build. Ignored if {@code mavenGoals} is {@code null}.
+     * @param projectPath the path to the extracted JAR directory
      * @return a ProjectContext containing all necessary setup information
      * @throws IllegalStateException if setup fails
      * @throws IOException if file operations fail
-     * @throws InterruptedException if Maven build is interrupted
      */
-    public ProjectContext setupLintingEnvironment(Path projectPath, String[] mavenGoals, String[] skipGoals)
-            throws IllegalStateException, IOException, InterruptedException {
+    public ProjectContext setupLintingEnvironment(Path projectPath)
+            throws IllegalStateException, IOException {
 
         if (!Files.isDirectory(projectPath)) {
             throw new IllegalStateException("Path is not a directory: " + projectPath);
         }
 
         File projectDir = projectPath.toFile();
-        boolean isMavenProject = detectProjectLayout(projectPath);
-
-        if (mavenGoals != null) {
-            if (!isMavenProject) {
-                // JAR input with --mvn: Show clear warning that --mvn has no effect
-                logger.warn("");
-                logger.warn("═══════════════════════════════════════════════════════════════");
-                logger.warn("  NOTE: --mvn option has no effect on JAR files.");
-                logger.warn("  JAR files always use built-in dependencies.");
-                logger.warn("  The --mvn option will be ignored.");
-                logger.warn("═══════════════════════════════════════════════════════════════");
-                logger.warn("");
-            } else {
-                // Maven project with --mvn: Execute full build
-                logger.info("Maven build enabled via --mvn option. Executing full build...");
-                buildMavenProject(projectDir, mavenGoals, skipGoals);
-            }
-        } else {
-            // No --mvn specified: This path is only reached for JAR inputs
-            // (non-JAR inputs without --mvn are blocked in Main.java)
-            logger.info("No --mvn option specified. Linting with built-in dependencies...");
-        }
+        logger.info("Setting up linting environment for extracted JAR...");
 
         ClassLoader projectClassLoader = createProjectClassLoader(projectDir);
 
         return new ProjectContext(
                 projectPath,
                 projectDir,
-                isMavenProject,
+                false, // Not a Maven project (always extracted JAR)
                 projectClassLoader
         );
-    }
-
-    /**
-     * Detects whether the project is a Maven project by checking for pom.xml.
-     *
-     * @param projectPath the project path to check
-     * @return true if pom.xml exists, false otherwise
-     */
-    private boolean detectProjectLayout(Path projectPath) {
-        return Files.isRegularFile(projectPath.resolve("pom.xml"));
-    }
-
-    /**
-     * Builds a Maven project with default goals, optional user goals, and optional skip goals.
-     *
-     * <p><b>Build process:</b></p>
-     * <ol>
-     *   <li>Start with default goals</li>
-     *   <li>Remove goals specified in {@code skipGoals}</li>
-     *   <li>Add goals from {@code userGoals} (avoiding duplicates, handling property overrides)</li>
-     * </ol>
-     *
-     * <p><b>Default goals:</b></p>
-     * <ul>
-     *   <li>{@code -B} - Non-interactive batch mode</li>
-     *   <li>{@code -q} - Quiet mode, reduces output to only warnings and errors</li>
-     *   <li>{@code -DskipTests} - Skip test execution</li>
-     *   <li>{@code -Dformatter.skip=true} - Skip code formatting</li>
-     *   <li>{@code -Dexec.skip=true} - Skip exec plugin</li>
-     *   <li>{@code clean} - Clean build artifacts</li>
-     *   <li>{@code package} - Package the project</li>
-     *   <li>{@code compile} - Compile sources</li>
-     *   <li>{@code dependency:copy-dependencies} - Copy dependencies</li>
-     * </ul>
-     *
-     * <p><b>Goal handling:</b></p>
-     * <ul>
-     *   <li><b>Goals without "="</b>: Added if not already present (duplicate prevention)</li>
-     *   <li><b>Properties with "="</b>: Override default value if different, prevent duplicates if same</li>
-     * </ul>
-     *
-     * <p><b>Examples:</b></p>
-     * <pre>
-     * userGoals=["validate"], skipGoals=null
-     *   → mvn -B -DskipTests ... clean package compile dependency:copy-dependencies validate
-     *
-     * userGoals=["clean"], skipGoals=null
-     *   → mvn -B -DskipTests ... clean package compile dependency:copy-dependencies
-     *   (clean already in defaults, not duplicated)
-     *
-     * userGoals=null, skipGoals=["clean", "package"]
-     *   → mvn -B -DskipTests ... compile dependency:copy-dependencies
-     *   (clean and package removed)
-     *
-     * userGoals=["-Dformatter.skip=false", "validate"], skipGoals=["clean"]
-     *   → mvn -B -DskipTests -Dformatter.skip=false ... package compile dependency:copy-dependencies validate
-     *   (property overridden, clean removed, validate added)
-     * </pre>
-     *
-     * @param projectDir the project directory
-     * @param userGoals additional Maven goals to add (can be null or empty)
-     * @param skipGoals Maven goals to remove from defaults (can be null or empty)
-     * @throws IllegalStateException if Maven is not found or build fails
-     * @throws InterruptedException if the build process is interrupted
-     * @throws IOException if I/O errors occur during build
-     */
-    private void buildMavenProject(File projectDir, String[] userGoals, String[] skipGoals)
-            throws IllegalStateException, InterruptedException, IOException {
-        String mavenExecutable = MavenUtil.locateMavenExecutable();
-        if (mavenExecutable == null) {
-            throw new IllegalStateException("Maven executable not found in PATH.");
-        }
-
-        // Step 1: Define default goals
-        List<String> allGoals = new ArrayList<>();
-        allGoals.add("-B");
-        allGoals.add("-q");
-        allGoals.add("-DskipTests");
-        allGoals.add("-Dformatter.skip=true");
-        allGoals.add("-Dexec.skip=true");
-        allGoals.add("clean");
-        allGoals.add("package");
-        allGoals.add("compile");
-        allGoals.add("dependency:copy-dependencies");
-
-        // Step 2: Remove skip goals
-        if (skipGoals != null && skipGoals.length > 0) {
-            for (String skipGoal : skipGoals) {
-                allGoals.remove(skipGoal);
-            }
-            logger.debug("Removed goals: " + String.join(", ", skipGoals));
-        }
-
-        // Step 3: Add user goals (with duplicate prevention and property override handling)
-        if (userGoals != null && userGoals.length > 0) {
-            for (String userGoal : userGoals) {
-                if (userGoal.contains("=")) {
-                    // Property with "=" - check for override
-                    String propertyKey = userGoal.substring(0, userGoal.indexOf('='));
-
-                    // Remove any existing property with same key
-                    allGoals.removeIf(goal -> goal.startsWith(propertyKey + "="));
-
-                    // Add user property
-                    allGoals.add(userGoal);
-                } else {
-                    // Regular goal - add only if not present (duplicate prevention)
-                    if (!allGoals.contains(userGoal)) {
-                        allGoals.add(userGoal);
-                    }
-                }
-            }
-            logger.debug("Added user goals: " + String.join(", ", userGoals));
-        }
-
-        logger.info("Executing Maven with goals: " + String.join(" ", allGoals));
-
-        boolean buildOk = mavenBuilder.buildProject(
-                projectDir,
-                mavenExecutable,
-                allGoals.toArray(new String[0])
-        );
-
-        if (!buildOk) {
-            throw new RuntimeException("Maven build failed.");
-        }
-
-        logger.info("Maven build completed successfully.");
     }
 
     /**

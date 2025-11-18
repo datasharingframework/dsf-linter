@@ -1,6 +1,6 @@
 # DSF Linter - Developer Guide
 
-Linter for DSF (Data Sharing Framework) process plugins. Validates BPMN processes, FHIR resources, and plugin configurations.
+Linter for DSF (Data Sharing Framework) process plugins. Validates BPMN processes, FHIR resources, and plugin configurations from JAR files.
 
 ## Quick Start
 
@@ -8,13 +8,13 @@ Linter for DSF (Data Sharing Framework) process plugins. Validates BPMN processe
 # Build
 mvn clean package
 
-# Run on JAR file
+# Run on local JAR file
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path your-plugin.jar --html
 
-# Run on project (requires --mvn)
+# Run on remote JAR file
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path /path/to/project --mvn clean package --html
+  --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 
 # View report at: /tmp/dsf-linter-report-<name>/dsf-linter-report/index.html
 ```
@@ -29,81 +29,56 @@ mvn clean package -X           # Verbose output
 
 ## Core Concepts
 
-### Input Types & Maven Requirement
+### Input Types
 
-| Input Type | Example | Requires --mvn |
-|------------|---------|------------|
-| Local JAR | `--path plugin.jar` |  No |
-| Remote JAR | `--path https://example.com/plugin.jar` |  No |
-| Local Project | `--path /path/to/project` |  **Yes** |
-| Git Repository | `--path https://github.com/user/repo.git` |  **Yes** |
+The linter accepts only **JAR files** as input:
 
-**Rule:** If input is NOT a JAR file, you MUST use `--mvn`.
+| Input Type | Example | Description |
+|------------|---------|-------------|
+| Local JAR | `--path C:\path\to\plugin.jar` | JAR file in local filesystem |
+| Remote JAR | `--path https://example.com/plugin.jar` | JAR file via HTTP/HTTPS URL |
 
-### Maven Build Configuration
+**Note:** Maven projects must first be built with `mvn clean package` before the resulting JAR file can be linted.
 
-When `--mvn` is required, these goals run automatically:
+### JAR Structure
 
-```bash
-mvn -B -q -DskipTests -Dformatter.skip=true -Dexec.skip=true \
-    clean package compile dependency:copy-dependencies
-```
-
-You can customize the build in three ways:
-
-**1. Add goals** (with `--mvn`):
-```bash
---mvn validate test
-# Result: ... clean package compile dependency:copy-dependencies validate test
-```
-
-**2. Override properties** (with `--mvn`):
-```bash
---mvn -Dformatter.skip=false
-# Result: ... -Dformatter.skip=false ... (overrides default)
-```
-
-**3. Remove goals** (with `--skip`):
-```bash
---mvn validate --skip clean package
-# Result: ... compile dependency:copy-dependencies validate
-```
+Expected structure in the JAR file:
+- `META-INF/services/` - Plugin registration
+- `bpe/` - BPMN process definitions
+- `fhir/` - FHIR resources
 
 ## Usage Examples
 
 ### Basic Linting
 
 ```bash
-# JAR file
+# Local JAR file
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path plugin.jar --html
+  --path C:\path\to\plugin.jar --html
 
-# Local project
+# Remote JAR file
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path /path/to/project --mvn clean package --html
-
-# Git repository
-java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path https://github.com/user/repo.git --mvn clean package --html
+  --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 ```
 
 ### Advanced Configuration
 
 ```bash
-# Multiple reports with custom location
+# Multiple reports with custom path
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path plugin.jar --html --json --report-path ./reports
 
-# Verbose colored output
+# Verbose output with colors
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path plugin.jar --html --verbose --color
 
-# Custom Maven build
+# Lint Maven project
+# Step 1: Build project
+cd /path/to/project && mvn clean package
+
+# Step 2: Lint resulting JAR
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path /path/to/project \
-  --mvn validate test -Dformatter.skip=false \
-  --skip clean \
-  --html
+  --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
 ### CI/CD Integration
@@ -127,9 +102,7 @@ java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
 
 | Option | Description |
 |--------|-------------|
-| `--path <input>` | Input: JAR, project dir, or Git URL |
-| `--mvn <goals>` | Add Maven goals/properties (required for non-JAR) |
-| `--skip <goals>` | Remove default Maven goals |
+| `--path <input>` | Path to JAR file (local or URL) |
 | `--html` | Generate HTML report |
 | `--json` | Generate JSON report |
 | `--report-path <dir>` | Custom report directory |
@@ -297,31 +270,32 @@ Summary
 
 ## Troubleshooting
 
-### "No plugins found" Error
+### "Input must be a JAR file" Error
 
-This happens when linting a project directory without `--mvn`:
+The linter accepts only JAR files as input:
 
 ```bash
-# Wrong
+# Wrong - Maven project directly
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path /path/to/project --html
 
-# Correct
+# Correct - Build first, then lint JAR
+cd /path/to/project && mvn clean package
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path /path/to/project --mvn clean package --html
+  --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
-### Build Failures
+### JAR File Not Found
 
+Verify the path:
 ```bash
-# Test Maven build standalone
-cd /path/to/project && mvn clean package
-
-# Skip problematic steps
+# Windows
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path /path/to/project \
-  --mvn -Dformatter.skip=true -DskipTests \
-  --html
+  --path "C:\Users\Username\project\target\plugin.jar" --html
+
+# Linux/Mac
+java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
+  --path /home/username/project/target/plugin.jar --html
 ```
 
 ### Missing Dependencies
@@ -338,11 +312,23 @@ java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
 ### Report Not Generated
 
 ```bash
-# Ensure --html flag is set
+# --html flag must be set
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path plugin.jar --html  # ← Required
 
 # Use absolute path
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path plugin.jar --html --report-path $(pwd)/reports
+```
+
+### Remote JAR Download Error
+
+Check the URL and network connection:
+```bash
+# Test download separately
+curl -L -o test.jar https://example.com/plugin.jar
+
+# Then use the local file
+java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
+  --path test.jar --html
 ```

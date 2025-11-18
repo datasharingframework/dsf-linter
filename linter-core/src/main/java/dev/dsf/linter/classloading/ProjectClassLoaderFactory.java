@@ -10,20 +10,21 @@ import java.net.URLClassLoader;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * Factory for creating ClassLoaders for extracted JAR projects.
+ * <p>
+ * This factory creates ClassLoaders that load classes and resources from extracted
+ * JAR directories. Since JARs are extracted as flat directory structures, there's
+ * no need to scan for Maven/Gradle build directories.
+ * </p>
+ */
 public class ProjectClassLoaderFactory {
-
-    private static final Path MAVEN_CLASSES_PATH = Paths.get("target", "classes");
-    private static final Path GRADLE_CLASSES_PATH = Paths.get("build", "classes", "java", "main");
-    private static final Path INTELLIJ_CLASSES_PATH = Paths.get("out", "production", "classes");
-    private static final Path MAVEN_DEPENDENCY_PATH = Paths.get("target", "dependency");
-    private static final Path MAVEN_DEPENDENCIES_PATH = Paths.get("target", "dependencies");
 
     /**
      * Cache for standard project class loaders.
@@ -56,11 +57,11 @@ public class ProjectClassLoaderFactory {
     /**
      * Retrieves or creates a cached standard {@link ClassLoader} for the specified project root.
      *
-     * <p>This method provides thread-safe, cached access to a standard, non-recursive class loader.
+     * <p>This method provides thread-safe, cached access to a standard class loader.
      * The instance is stored in {@link #CL_CACHE} to avoid the cost of recreating it on subsequent calls
      * for the same project. The cache key is the canonical path of the project root.</p>
      *
-     * @param projectRoot the root directory of the project
+     * @param projectRoot the root directory of the extracted JAR project
      * @return a cached or newly created standard {@link ClassLoader}
      * @throws RuntimeException if class loader creation or path resolution fails
      */
@@ -101,23 +102,16 @@ public class ProjectClassLoaderFactory {
     }
 
     /**
-     * Clears both standard and recursive class loader caches.
-     * This closes all cached URLClassLoaders to release resources.
-     */
-    public static void clearCaches() {
-        CL_CACHE.clear();
-        CL_RECURSIVE_CACHE.clear();
-    }
-
-    /**
-     * Creates a {@link URLClassLoader} configured to load classes and resources from the project's
-     * standard build outputs and dependency directories.
+     * Creates a {@link URLClassLoader} configured to load classes and resources from an extracted JAR directory.
      * <p>
-     * This method supports loading dependencies from both the project directory and the
-     * global dependency cache (~/.dsf-linter/dependency-cache).
+     * For extracted JARs, this method:
+     * <ul>
+     *   <li>Adds the project root directory (contains all extracted classes)</li>
+     *   <li>Adds any JAR files in the root directory (for nested dependencies)</li>
+     * </ul>
      * </p>
      *
-     * @param projectRoot the root directory of the project
+     * @param projectRoot the root directory of the extracted JAR project
      * @return a {@link URLClassLoader} that can load project classes and dependencies
      * @throws Exception if URL conversion or class loader initialization fails
      */
@@ -125,50 +119,11 @@ public class ProjectClassLoaderFactory {
         List<URL> urls = new ArrayList<>();
         Path rootPath = projectRoot.toPath();
 
-        // 0) Root (so loose classes like output/com/... are visible)
         urls.add(rootPath.toUri().toURL());
 
-        // 1) Typical build output dirs using constants
-        Path mavenClasses = rootPath.resolve(MAVEN_CLASSES_PATH);
-        if (Files.isDirectory(mavenClasses)) {
-            urls.add(mavenClasses.toUri().toURL());
-        }
-
-        Path gradleClasses = rootPath.resolve(GRADLE_CLASSES_PATH);
-        if (Files.isDirectory(gradleClasses)) {
-            urls.add(gradleClasses.toUri().toURL());
-        }
-
-        // 2) JARs sitting in the project root (e.g., plugin.jar)
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(rootPath, "*.jar")) {
             for (Path jar : ds) {
                 urls.add(jar.toUri().toURL());
-            }
-        }
-
-        // 3) Classic maven-dependency-plugin output using constants
-        Path legacyDeps = rootPath.resolve(MAVEN_DEPENDENCY_PATH);
-        if (Files.isDirectory(legacyDeps)) {
-            try (Stream<Path> s = Files.list(legacyDeps)) {
-                s.filter(p -> p.toString().endsWith(".jar")).forEach(p -> {
-                    try {
-                        urls.add(p.toUri().toURL());
-                    } catch (Exception ignore) {
-                    }
-                });
-            }
-        }
-
-        // 4) CI repository layout using constants
-        Path depsRoot = rootPath.resolve(MAVEN_DEPENDENCIES_PATH);
-        if (Files.isDirectory(depsRoot)) {
-            try (Stream<Path> s = Files.walk(depsRoot)) {
-                s.filter(p -> p.toString().endsWith(".jar")).forEach(p -> {
-                    try {
-                        urls.add(p.toUri().toURL());
-                    } catch (Exception ignore) {
-                    }
-                });
             }
         }
 
@@ -177,6 +132,13 @@ public class ProjectClassLoaderFactory {
 
     /**
      * Creates a recursive {@link URLClassLoader} that scans the entire project hierarchy.
+     * <p>
+     * This scans for:
+     * <ul>
+     *   <li>The project root directory</li>
+     *   <li>All JAR files in the hierarchy</li>
+     * </ul>
+     * </p>
      *
      * @param projectRoot the root directory of the project to traverse
      * @return a {@link URLClassLoader} that can load classes from the entire project hierarchy
@@ -188,27 +150,9 @@ public class ProjectClassLoaderFactory {
 
         uris.add(projectRoot.toURI());
 
-        // Add common build output directories
-        try (Stream<Path> s = Files.walk(root)) {
-            s.filter(Files::isDirectory)
-                    .filter(p -> p.endsWith(MAVEN_CLASSES_PATH)
-                            || p.endsWith(GRADLE_CLASSES_PATH)
-                            || p.endsWith(INTELLIJ_CLASSES_PATH))
-                    .forEach(p -> uris.add(p.toUri()));
-        }
-
-        // Add dependency jars
         try (Stream<Path> s = Files.walk(root)) {
             s.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".jar"))
-                    .filter(p -> isInDependencyFolder(root, p))
-                    .forEach(p -> uris.add(p.toUri()));
-        }
-
-        // Add root-level *.jar files
-        try (Stream<Path> s = Files.walk(root, 1)) {
-            s.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".jar"))
                     .forEach(p -> uris.add(p.toUri()));
         }
 
@@ -221,16 +165,5 @@ public class ProjectClassLoaderFactory {
         }).toArray(URL[]::new);
 
         return new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
-    }
-
-    private static boolean isInDependencyFolder(Path root, Path jarPath) {
-        Path relativePath = root.relativize(jarPath);
-        for (Path part : relativePath) {
-            String partName = part.toString();
-            if (partName.equals("dependency") || partName.equals("dependencies")) {
-                return true;
-            }
-        }
-        return false;
     }
 }

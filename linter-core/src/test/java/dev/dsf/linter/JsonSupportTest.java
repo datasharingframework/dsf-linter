@@ -135,8 +135,6 @@ public class JsonSupportTest {
                 false,
                 true,
                 false,
-                null,
-                null,
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
@@ -153,8 +151,6 @@ public class JsonSupportTest {
                 false,
                 true,
                 false,
-                null,
-                null,
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);

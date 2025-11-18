@@ -6,7 +6,7 @@ package dev.dsf.linter.util.resource;
  * This class provides static methods to normalize resource references by:
  * </p>
  * <ul>
- *   <li>Removing common prefixes (classpath:, src/main/resources/)</li>
+ *   <li>Removing common prefixes (classpath:)</li>
  *   <li>Normalizing path separators (backslashes to forward slashes)</li>
  *   <li>Removing leading slashes</li>
  *   <li>Handling version suffixes in canonical references</li>
@@ -28,7 +28,6 @@ public final class ResourcePathNormalizer {
      * </p>
      * <ul>
      *   <li>Strips "classpath:" prefix</li>
-     *   <li>Strips "src/main/resources/" prefix</li>
      *   <li>Removes leading slashes and backslashes</li>
      *   <li>Converts backslashes to forward slashes</li>
      *   <li>Trims whitespace</li>
@@ -44,22 +43,14 @@ public final class ResourcePathNormalizer {
 
         String normalized = ref.trim();
 
-        // Strip classpath: prefix
         if (normalized.startsWith("classpath:")) {
             normalized = normalized.substring("classpath:".length());
         }
 
-        // Strip src/main/resources/ prefix
-        if (normalized.startsWith("src/main/resources/")) {
-            normalized = normalized.substring("src/main/resources/".length());
-        }
-
-        // Remove leading slashes/backslashes
         while (normalized.startsWith("/") || normalized.startsWith("\\")) {
             normalized = normalized.substring(1);
         }
 
-        // Normalize separators to forward slash
         normalized = normalized.replace('\\', '/');
 
         return normalized;
@@ -87,7 +78,6 @@ public final class ResourcePathNormalizer {
 
         return normalized;
     }
-
 
     /**
      * Removes the version suffix (e.g., "|1.0") from a given string if present.

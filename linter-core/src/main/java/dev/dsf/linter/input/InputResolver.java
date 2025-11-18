@@ -1,40 +1,30 @@
 package dev.dsf.linter.input;
 
 import dev.dsf.linter.logger.Logger;
-import dev.dsf.linter.repo.RepositoryManager;
-import org.eclipse.jgit.api.errors.GitAPIException;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Unified input resolver that handles all supported input types for DSF Linter.
+ * Input resolver that handles JAR file inputs for DSF Linter.
  * <p>
- * This class provides a single entry point for resolving various input sources
- * into a standardized directory structure that can be processed by the linter.
- * It transparently handles local directories, Git repositories, and JAR files
- * (both local and remote).
+ * This class provides a single entry point for resolving JAR file sources
+ * (both local and remote) into a standardized directory structure that can be
+ * processed by the linter.
  * </p>
  *
  * <h3>Resolution Strategy:</h3>
  * <ol>
- *   <li>Detect input type based on path/URL format</li>
- *   <li>Apply appropriate handler for the input type</li>
- *   <li>Return unified ResolutionResult with directory path</li>
+ *   <li>Detect input type (local or remote JAR)</li>
+ *   <li>Process JAR file (download if remote, extract)</li>
+ *   <li>Return ResolutionResult with extracted directory path</li>
  *   <li>Track whether cleanup is needed (for temporary resources)</li>
  * </ol>
  *
  * <h3>Supported Input Formats:</h3>
  * <ul>
- *   <li><b>Local Directory:</b> /path/to/project</li>
- *   <li><b>Git Repository:</b> https://github.com/user/repo</li>
- *   <li><b>Git Repository with Branch:</b> https://github.com/user/repo/tree/branch-name</li>
- *   <li><b>Local JAR:</b> /path/to/plugin.jar</li>
+ *   <li><b>Local JAR:</b> C:\path\to\plugin.jar or /path/to/plugin.jar</li>
  *   <li><b>Remote JAR:</b> https://example.com/plugin.jar</li>
  * </ul>
  *
@@ -44,13 +34,7 @@ import java.util.regex.Pattern;
 public class InputResolver {
 
     private final Logger logger;
-    private final RepositoryManager repositoryManager;
     private final JarHandler jarHandler;
-
-    private static final Pattern GITHUB_BRANCH_PATTERN =
-            Pattern.compile("^(https?://github\\.com/[^/]+/[^/]+)/tree/([^/]+).*$");
-    private static final Pattern GITLAB_BRANCH_PATTERN =
-            Pattern.compile("^(https?://gitlab\\.com/[^/]+/[^/]+)/-/tree/([^/]+).*$");
 
     /**
      * Result of input resolution containing the resolved directory and metadata.
@@ -68,33 +52,23 @@ public class InputResolver {
     ) {}
 
     /**
-     * Internal record to hold Git repository information including branch.
-     *
-     * @param cloneUrl the base Git clone URL
-     * @param branchName the branch name (null for default branch)
-     */
-    private record GitRepositoryInfo(String cloneUrl, String branchName) {}
-
-    /**
      * Constructs a new InputResolver with the specified logger.
      *
      * @param logger the logger for resolution messages
      */
     public InputResolver(Logger logger) {
         this.logger = logger;
-        this.repositoryManager = new RepositoryManager();
         this.jarHandler = new JarHandler(logger);
     }
 
     /**
-     * Resolves an input path/URL to a directory that can be linted.
+     * Resolves a JAR file (local or remote) to a directory that can be linted.
      * <p>
-     * This method automatically detects the input type and applies the
-     * appropriate resolution strategy. The returned directory is guaranteed
-     * to exist and be readable.
+     * This method automatically detects whether the JAR is local or remote,
+     * downloads if necessary, and extracts the JAR contents.
      * </p>
      *
-     * @param input the input path or URL to resolve
+     * @param input the JAR file path or URL to resolve
      * @return Optional containing the resolution result, or empty if resolution fails
      */
     public Optional<ResolutionResult> resolve(String input) {
@@ -108,8 +82,6 @@ public class InputResolver {
 
         try {
             return switch (type) {
-                case LOCAL_DIRECTORY -> resolveLocalDirectory(input);
-                case GIT_REPOSITORY -> resolveGitRepository(input);
                 case LOCAL_JAR_FILE -> resolveLocalJar(input);
                 case REMOTE_JAR_URL -> resolveRemoteJar(input);
             };
@@ -122,16 +94,16 @@ public class InputResolver {
     /**
      * Detects the input type based on path/URL characteristics.
      * <p>
-     * Detection rules (in order of precedence):
+     * Detection rules:
      * <ol>
-     *   <li>Ends with .jar → check if local file or URL</li>
-     *   <li>Starts with http://, https://, git://, ssh://, git@ → Git repository</li>
-     *   <li>Otherwise → Local directory</li>
+     *   <li>Validates that input ends with .jar</li>
+     *   <li>Determines if JAR is local file or remote URL</li>
      * </ol>
      * </p>
      *
      * @param input the input string to analyze
      * @return the detected InputType
+     * @throws IllegalArgumentException if input is not a JAR file
      */
     public InputType detectInputType(String input) {
         if (input == null || input.isBlank()) {
@@ -140,22 +112,19 @@ public class InputResolver {
 
         String normalized = input.trim().toLowerCase();
 
-        // Check for JAR files first
-        if (normalized.endsWith(".jar")) {
-            if (isRemoteUrl(normalized)) {
-                return InputType.REMOTE_JAR_URL;
-            } else {
-                return InputType.LOCAL_JAR_FILE;
-            }
+        // Validate that input is a JAR file
+        if (!normalized.endsWith(".jar")) {
+            throw new IllegalArgumentException(
+                "Input must be a JAR file (ending with .jar). Got: " + input
+            );
         }
 
-        // Check for Git repositories
-        if (isGitRepository(input)) {
-            return InputType.GIT_REPOSITORY;
+        // Determine if remote or local
+        if (isRemoteUrl(normalized)) {
+            return InputType.REMOTE_JAR_URL;
+        } else {
+            return InputType.LOCAL_JAR_FILE;
         }
-
-        // Default to local directory
-        return InputType.LOCAL_DIRECTORY;
     }
 
     /**
@@ -166,141 +135,6 @@ public class InputResolver {
      */
     private boolean isRemoteUrl(String input) {
         return input.startsWith("http://") || input.startsWith("https://");
-    }
-
-    /**
-     * Checks if an input string represents a Git repository.
-     *
-     * @param input the input to check
-     * @return true if input matches Git repository patterns
-     */
-    private boolean isGitRepository(String input) {
-        return input.startsWith("http://") ||
-                input.startsWith("https://") ||
-                input.startsWith("git://") ||
-                input.startsWith("ssh://") ||
-                input.contains("git@");
-    }
-
-    /**
-     * Parses a Git repository URL and extracts the clone URL and branch name.
-     * <p>
-     * Supports GitHub and GitLab web URLs with branch information:
-     * <ul>
-     *   <li>GitHub: https://github.com/user/repo/tree/branch-name</li>
-     *   <li>GitLab: https://gitlab.com/user/repo/-/tree/branch-name</li>
-     * </ul>
-     * </p>
-     *
-     * @param input the Git repository URL (may contain branch information)
-     * @return GitRepositoryInfo containing the clone URL and optional branch name
-     */
-    private GitRepositoryInfo parseGitRepositoryUrl(String input) {
-        // Check for GitHub branch pattern
-        Matcher githubMatcher = GITHUB_BRANCH_PATTERN.matcher(input);
-        if (githubMatcher.matches()) {
-            String cloneUrl = githubMatcher.group(1) + ".git";
-            String branchName = githubMatcher.group(2);
-            logger.info("Detected GitHub repository with branch: " + branchName);
-            return new GitRepositoryInfo(cloneUrl, branchName);
-        }
-
-        // Check for GitLab branch pattern
-        Matcher gitlabMatcher = GITLAB_BRANCH_PATTERN.matcher(input);
-        if (gitlabMatcher.matches()) {
-            String cloneUrl = gitlabMatcher.group(1) + ".git";
-            String branchName = gitlabMatcher.group(2);
-            logger.info("Detected GitLab repository with branch: " + branchName);
-            return new GitRepositoryInfo(cloneUrl, branchName);
-        }
-
-        // Standard Git URL without branch
-        String cloneUrl = input.endsWith(".git") ? input : input + ".git";
-        return new GitRepositoryInfo(cloneUrl, null);
-    }
-
-    /**
-     * Resolves a local directory input.
-     *
-     * @param input the directory path
-     * @return ResolutionResult if directory exists and is valid
-     */
-    private Optional<ResolutionResult> resolveLocalDirectory(String input) {
-        Path path = Path.of(input);
-
-        if (!Files.exists(path)) {
-            logger.error("Directory does not exist: " + input);
-            return Optional.empty();
-        }
-
-        if (!Files.isDirectory(path)) {
-            logger.error("Path is not a directory: " + input);
-            return Optional.empty();
-        }
-
-        logger.info("Using local directory: " + path.toAbsolutePath());
-
-        return Optional.of(new ResolutionResult(
-                path.toAbsolutePath(),
-                InputType.LOCAL_DIRECTORY,
-                false,
-                input
-        ));
-    }
-
-    /**
-     * Resolves a Git repository by cloning it to a temporary directory.
-     * <p>
-     * Supports cloning specific branches when the input URL contains branch information
-     * (e.g., https://github.com/user/repo/tree/branch-name).
-     * </p>
-     *
-     * @param input the Git repository URL (with optional branch information)
-     * @return ResolutionResult with cloned repository path
-     */
-    private Optional<ResolutionResult> resolveGitRepository(String input) {
-        GitRepositoryInfo repoInfo = parseGitRepositoryUrl(input);
-
-        String cloneUrl = repoInfo.cloneUrl();
-        String branchName = repoInfo.branchName();
-
-        String repositoryName = cloneUrl.substring(cloneUrl.lastIndexOf('/') + 1)
-                .replace(".git", "");
-
-        String cloneDirName = branchName != null && !branchName.isBlank()
-                ? "dsf-linter-git-" + repositoryName + "-" + branchName
-                : "dsf-linter-git-" + repositoryName;
-
-        Path clonePath = Path.of(
-                System.getProperty("java.io.tmpdir"),
-                cloneDirName
-        );
-
-        // Delete existing clone if present
-        if (Files.exists(clonePath)) {
-            logger.debug("Removing existing clone at: " + clonePath);
-            jarHandler.deleteDirectoryRecursively(clonePath);
-        }
-
-        try {
-            logger.info("Cloning Git repository: " + cloneUrl);
-            if (branchName != null && !branchName.isBlank()) {
-                logger.info("Branch: " + branchName);
-            }
-
-            File result = repositoryManager.getRepository(cloneUrl, clonePath.toFile(), branchName);
-
-            return Optional.of(new ResolutionResult(
-                    result.toPath(),
-                    InputType.GIT_REPOSITORY,
-                    true,
-                    input
-            ));
-
-        } catch (GitAPIException e) {
-            logger.error("Failed to clone Git repository: " + e.getMessage());
-            return Optional.empty();
-        }
     }
 
     /**
@@ -382,17 +216,17 @@ public class InputResolver {
     }
 
     /**
-     * Extracts a safe name from the input path for use in temporary directory names.
+     * Extracts a safe name from the JAR file path for use in temporary directory names.
      * <p>
      * This method creates sanitized names suitable for file system use by:
      * <ul>
-     *   <li>Extracting relevant parts based on input type</li>
-     *   <li>Removing file extensions (.jar, .git)</li>
+     *   <li>Extracting the filename from the path/URL</li>
+     *   <li>Removing the .jar extension</li>
      *   <li>Sanitizing special characters</li>
      * </ul>
      * </p>
      *
-     * @param inputPath the original input path
+     * @param inputPath the original JAR file path or URL
      * @param inputType the detected input type
      * @return a sanitized name suitable for directory names
      */
@@ -400,17 +234,10 @@ public class InputResolver {
         String name;
 
         switch (inputType) {
-            case LOCAL_DIRECTORY, LOCAL_JAR_FILE -> {
+            case LOCAL_JAR_FILE -> {
                 Path path = Path.of(inputPath);
-                name = path.getFileName().toString();
-                if (inputType == InputType.LOCAL_JAR_FILE) {
-                    name = name.replace(".jar", "");
-                }
+                name = path.getFileName().toString().replace(".jar", "");
             }
-            case GIT_REPOSITORY ->
-                    name = inputPath.substring(inputPath.lastIndexOf('/') + 1)
-                            .replace(".git", "");
-
             case REMOTE_JAR_URL -> {
                 String path = inputPath.substring(inputPath.lastIndexOf('/') + 1);
                 int queryIndex = path.indexOf('?');

@@ -61,8 +61,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -80,8 +78,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -99,8 +95,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -123,8 +117,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -142,8 +134,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -161,8 +151,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
@@ -186,8 +174,6 @@ class TestDsfLinter
                     false,
                     true,
                     false,
-                    null,
-                    null,
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);

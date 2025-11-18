@@ -1,7 +1,6 @@
 package dev.dsf.linter;
 
 import dev.dsf.linter.input.InputResolver;
-import dev.dsf.linter.input.InputType;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.logger.Console;
@@ -36,13 +35,10 @@ import java.util.concurrent.Callable;
  * <b>Usage Examples:</b>
  * <pre>
  * # Lint a local JAR file
- * dsf-linter --path /path/to/plugin.jar --html
+ * dsf-linter --path C:\path\to\plugin.jar --html
  *
- * # Lint a local project with Maven build
- * dsf-linter --path /path/to/project --mvn clean package --html
- *
- * # Lint from Git repository
- * dsf-linter --path https://github.com/user/repo.git --mvn clean package
+ * # Lint a remote JAR file
+ * dsf-linter --path https://example.com/plugin.jar --html
  *
  * # Lint with custom report location
  * dsf-linter --path plugin.jar --report-path ./reports --html --json
@@ -56,12 +52,12 @@ import java.util.concurrent.Callable;
         name = "dsf-linter",
         mixinStandardHelpOptions = true,
         version = "1.2.0",
-        description = "Lints DSF process plugins from local projects, Git repositories, or JAR files."
+        description = "Lints DSF process plugins from JAR files (local or remote)."
 )
 public class Main implements Callable<Integer> {
 
     @Option(names = {"-p", "--path"},
-            description = "Path to local project directory, Git repository URL, or JAR file (local or remote).")
+            description = "Path to JAR file (local or remote URL).")
     private String inputPath;
 
     @Option(names = {"-r", "--report-path"},
@@ -87,39 +83,6 @@ public class Main implements Callable<Integer> {
     @Option(names = "--color",
             description = "Enable colored console output. (Default: disabled)")
     private boolean enableColor = false;
-
-    /**
-     * Maven goals to add to the build.
-     * These goals are added to the default goals (avoiding duplicates).
-     * Properties with "=" will override defaults if the value differs.
-     *
-     * <p><b>Examples:</b></p>
-     * <pre>
-     * --mvn validate test                        // Adds validate and test goals
-     * --mvn -Dformatter.skip=false              // Overrides default property value
-     * --mvn clean validate                       // clean already in defaults (1x), validate added
-     * </pre>
-     */
-    @Option(names = "--mvn",
-            arity = "0..*",
-            description = "Add Maven goals to the build. " +
-                    "Example: --mvn validate test")
-    private String[] mavenGoals;
-
-    /**
-     * Maven goals to remove from the default build.
-     *
-     * <p><b>Examples:</b></p>
-     * <pre>
-     * --skip clean package                       // Removes clean and package from defaults
-     * --skip compile                             // Removes compile from defaults
-     * </pre>
-     */
-    @Option(names = "--skip",
-            arity = "1..*",
-            description = "Remove Maven goals from the default build. " +
-                    "Example: --skip clean package")
-    private String[] skipGoals;
 
 
     /**
@@ -166,57 +129,21 @@ public class Main implements Callable<Integer> {
 
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
-            logger.error("ERROR: Specify a path using --path (local directory, Git repository URL, or JAR file).");
+            logger.error("ERROR: Specify a JAR file path using --path (local path or remote URL).");
             return 1;
         }
 
-        // Early detection of input type BEFORE any resolution/cloning/downloading
+        // Validate that input is a JAR file
+        if (!inputPath.trim().toLowerCase().endsWith(".jar")) {
+            logger.error("ERROR: Input must be a JAR file (ending with .jar). Got: " + inputPath);
+            logger.error("Examples:");
+            logger.error("  Local:  C:\\path\\to\\plugin.jar");
+            logger.error("  Remote: https://example.com/plugin.jar");
+            return 1;
+        }
+
+        // Resolve the JAR file (download if remote, extract)
         InputResolver resolver = new InputResolver(logger);
-        InputType inputType;
-
-        try {
-            inputType = resolver.detectInputType(inputPath);
-        } catch (IllegalArgumentException e) {
-            logger.error("ERROR: Invalid input: " + e.getMessage());
-            return 1;
-        }
-
-        // Check if non-JAR input without --mvn option BEFORE resolution
-        if (mavenGoals == null &&
-                inputType != InputType.LOCAL_JAR_FILE &&
-                inputType != InputType.REMOTE_JAR_URL) {
-
-            String errorMessage = String.format("""
-            
-            ╔═══════════════════════════════════════════════════════════════
-              ERROR: The linter is primarily designed for JAR files.
-              For project directories or Git repositories, please use
-              the --mvn option to ensure a proper build.
-            
-              Example: dsf-linter --path %s --mvn clean package
-            
-              See README.md for more details.
-            ╚═══════════════════════════════════════════════════════════════
-            """, inputPath);
-
-            Console.redErr(errorMessage);
-            return 1;
-        }
-
-        // Check if JAR with --mvn option (unnecessary but harmless)
-        if (mavenGoals != null &&
-                (inputType == InputType.LOCAL_JAR_FILE || inputType == InputType.REMOTE_JAR_URL)) {
-
-            logger.warn("");
-            logger.warn("╔══════════════════════════════════════════════════════════════");
-            logger.warn("  NOTE: --mvn option has no effect on JAR files.");
-            logger.warn("  JAR files always use built-in dependencies.");
-            logger.warn("  The --mvn option will be ignored.");
-            logger.warn("╚══════════════════════════════════════════════════════════════");
-            logger.warn("");
-        }
-
-        // NOW we can safely resolve the input (clone, download, etc.)
         Optional<InputResolver.ResolutionResult> resolutionResult = resolver.resolve(inputPath);
 
         if (resolutionResult.isEmpty()) {
@@ -263,8 +190,6 @@ public class Main implements Callable<Integer> {
                     generateHtmlReport,
                     generateJsonReport,
                     !noFailOnErrors,
-                    mavenGoals,
-                    skipGoals,
                     logger
             );
 

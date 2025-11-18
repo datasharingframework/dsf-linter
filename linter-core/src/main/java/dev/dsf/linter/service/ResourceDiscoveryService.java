@@ -147,10 +147,10 @@ public class ResourceDiscoveryService {
                     No ProcessPluginDefinition implementations found
                     Possible causes:
                       - The project is not set up correctly as a DSF Process Plugin project
-                      - You try to lint multi-module project, but currently, the linter does not fully support that
-                      - Try running the linter again with the --mvn option (for more information, see the README.md file)
-                      - Build a JAR for the project you want to lint and pass that JAR to the linter
-                      If it still doesn't work, please report the issue in a pull request on GitHub.""");
+                      - The JAR file does not contain META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition
+                      - Build the Maven project first: mvn clean package
+                      - Then lint the resulting JAR file from target/ directory
+                      If it still doesn't work, please report the issue on GitHub.""");
         }
 
         logger.info("Found " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");

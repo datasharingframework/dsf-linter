@@ -14,8 +14,17 @@ import static dev.dsf.linter.classloading.ClassInspector.logger;
 
 /**
  * Plugin discovery that supports any number of ProcessPluginDefinition implementations.
- * A single plugin is simply a special case with one entry in the result.
- * Leverages the public methods from PluginDefinitionDiscovery to avoid code duplication.
+ * <p>
+ * For extracted JAR structures, this discovery:
+ * <ol>
+ *   <li>First tries ServiceLoader discovery (reads META-INF/services/)</li>
+ *   <li>If nothing found and projectRoot is provided, scans the project root directly</li>
+ *   <li>Deduplicates plugins by class name</li>
+ * </ol>
+ * </p>
+ * <p>
+ * Supports partial success: Valid plugins are processed even if some fail.
+ * </p>
  */
 public final class EnhancedPluginDefinitionDiscovery {
 
@@ -28,7 +37,7 @@ public final class EnhancedPluginDefinitionDiscovery {
         private final Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> pluginsByName;
         private final List<PluginDiscoveryError> failedPlugins;
 
-        public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins, 
+        public DiscoveryResult(List<PluginDefinitionDiscovery.PluginAdapter> plugins,
                                List<PluginDiscoveryError> failedPlugins) {
             this.v1Plugins = plugins.stream()
                     .filter(p -> p instanceof V1Adapter)
@@ -38,14 +47,13 @@ public final class EnhancedPluginDefinitionDiscovery {
                     .filter(p -> p instanceof V2Adapter)
                     .collect(Collectors.toList());
 
-            // Group by plugin name for report structure
             this.pluginsByName = plugins.stream()
                     .collect(Collectors.groupingBy(
                             p -> ResourceDiscoveryUtils.sanitizePluginName(p.getName()),
                             LinkedHashMap::new,
                             Collectors.toList()
                     ));
-            
+
             this.failedPlugins = new ArrayList<>(failedPlugins);
         }
 
@@ -65,14 +73,14 @@ public final class EnhancedPluginDefinitionDiscovery {
         public Map<String, List<PluginDefinitionDiscovery.PluginAdapter>> getPluginsByName() {
             return pluginsByName;
         }
-        
+
         /**
          * Returns failed plugin discoveries.
          */
         public List<PluginDiscoveryError> getFailedPlugins() {
             return failedPlugins;
         }
-        
+
         /**
          * Returns true if any plugins failed discovery.
          */
@@ -83,12 +91,20 @@ public final class EnhancedPluginDefinitionDiscovery {
     }
 
     /**
-     * Discovers ALL plugin definitions from classpath or project root.
-     * Works uniformly for any number of plugins (one or more).
-     * Uses the public methods from PluginDefinitionDiscovery to collect all plugins.
+     * Discovers ALL plugin definitions from extracted JAR structure.
+     * <p>
+     * Discovery strategy:
+     * <ol>
+     *   <li>Try ServiceLoader (META-INF/services/)</li>
+     *   <li>If nothing found and projectRoot provided, scan project root directly</li>
+     *   <li>Deduplicate by class name</li>
+     * </ol>
+     * </p>
+     * <p>
      * Supports partial success: Valid plugins are processed even if some fail.
+     * </p>
      *
-     * @param projectRoot optional project root directory for scanning
+     * @param projectRoot the project root directory (extracted JAR root)
      * @return discovery result containing all found plugins and any errors
      */
     public static DiscoveryResult discoverAll(File projectRoot) {
@@ -97,40 +113,25 @@ public final class EnhancedPluginDefinitionDiscovery {
             cl = EnhancedPluginDefinitionDiscovery.class.getClassLoader();
         }
 
-        // Create discovery context to collect successful and failed plugins
         PluginDefinitionDiscovery.DiscoveryContext context = new PluginDefinitionDiscovery.DiscoveryContext();
 
-        // Step 1: Try with ServiceLoader (finds all registered plugins)
-        List<PluginDefinitionDiscovery.PluginAdapter> allCandidates =
+        List<PluginDefinitionDiscovery.PluginAdapter> serviceLoaderPlugins =
                 new ArrayList<>(ServiceLoaderUtils.discoverPluginsViaServiceLoader(cl));
 
-        // Debug output for ServiceLoader results
-        if (!allCandidates.isEmpty()) {
-            logger.debug("[DEBUG] Found " + allCandidates.size() + " plugin(s) via ServiceLoader");
-            allCandidates.forEach(p -> {
+        if (!serviceLoaderPlugins.isEmpty()) {
+            logger.debug("[DEBUG] Found " + serviceLoaderPlugins.size() + " plugin(s) via ServiceLoader");
+            serviceLoaderPlugins.forEach(p -> {
                 logger.debug("  -> Plugin: " + p.getName() + " (" + p.sourceClass().getName() + ")");
                 logger.debug("     Version: " + PluginVersionUtils.getVersionSuffix(p));
             });
-            // Add ServiceLoader findings to context
-            allCandidates.forEach(context::addSuccess);
+            serviceLoaderPlugins.forEach(context::addSuccess);
         }
 
-        // Step 2: If ServiceLoader found nothing, use the public scan methods from PluginDefinitionDiscovery
-        if (allCandidates.isEmpty()) {
-            logger.debug("[DEBUG] ServiceLoader found nothing. Starting manual scan...");
-
-            // JAR and Directory scans (these still return Lists for now - they don't use DiscoveryContext yet)
-            allCandidates.addAll(PluginDefinitionDiscovery.scanJars(cl));
-            allCandidates.addAll(PluginDefinitionDiscovery.scanDirectories(cl));
-            allCandidates.forEach(context::addSuccess);
-
-            if (projectRoot != null) {
-                // Project root scan now uses DiscoveryContext
-                PluginDefinitionDiscovery.scanProjectRoot(projectRoot, context);
-            }
+        if (serviceLoaderPlugins.isEmpty() && projectRoot != null) {
+            logger.debug("[DEBUG] ServiceLoader found nothing. Scanning project root...");
+            PluginDefinitionDiscovery.scanProjectRoot(projectRoot, context);
         }
 
-        // Step 3: Deduplicate by class name
         Map<String, PluginDefinitionDiscovery.PluginAdapter> uniquePlugins = new LinkedHashMap<>();
         for (PluginDefinitionDiscovery.PluginAdapter adapter : context.getSuccessfulPlugins()) {
             String className = adapter.sourceClass().getName();
@@ -141,7 +142,7 @@ public final class EnhancedPluginDefinitionDiscovery {
                 new ArrayList<>(uniquePlugins.values());
 
         logger.debug("Total unique plugins discovered: " + finalPlugins.size());
-        
+
         if (context.getFailedPlugins().isEmpty()) {
             logger.debug("No plugin discovery failures");
         } else {
