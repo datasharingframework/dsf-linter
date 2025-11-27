@@ -345,6 +345,7 @@ class BpmnElementLinterTaskListenerTest {
             checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
 
             // Then
+            // For UNKNOWN API version, validateTaskListenerInheritance returns early without adding any lint item
             assertEquals(2, issues.size());
             assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
             assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
