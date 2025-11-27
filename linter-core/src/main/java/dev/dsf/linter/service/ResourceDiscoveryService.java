@@ -1,5 +1,6 @@
 package dev.dsf.linter.service;
 
+import dev.dsf.linter.exception.ApiVersionUnknownException;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.EnhancedPluginDefinitionDiscovery;
@@ -189,14 +190,20 @@ public class ResourceDiscoveryService {
                 logger.info("Processing plugin: " + uniqueName +
                         " (" + adapter.sourceClass().getName() + ")");
 
-                PluginDiscovery discovery = discoverSinglePlugin(
-                        adapter, sharedResourcesDir, context.projectPath(), context.projectDir()
-                );
+                try {
+                    PluginDiscovery discovery = discoverSinglePlugin(
+                            adapter, sharedResourcesDir, context.projectPath(), context.projectDir()
+                    );
 
-                plugins.put(uniqueName, discovery);
-                detectedVersions.add(discovery.apiVersion());
+                    plugins.put(uniqueName, discovery);
+                    detectedVersions.add(discovery.apiVersion());
 
-                logPluginStatistics(uniqueName, discovery);
+                    logPluginStatistics(uniqueName, discovery);
+                } catch (ApiVersionUnknownException e) {
+                    logger.error("Failed to process plugin '" + uniqueName + "': " + e.getMessage());
+                    logger.warn("Skipping plugin '" + uniqueName + "' and continuing with other plugins...");
+                    // Continue with next plugin instead of aborting
+                }
             }
         }
 
@@ -274,19 +281,17 @@ public class ResourceDiscoveryService {
 
     /**
      * Detects API version for a specific plugin based on adapter type.
-     * After the validation improvements in plugin discovery, the adapter is guaranteed 
-     * to be either V1Adapter or V2Adapter, so this method always returns a valid version.
+     * Throws ApiVersionUnknownException if the version cannot be determined.
      */
     private ApiVersion detectPluginApiVersion(PluginDefinitionDiscovery.PluginAdapter adapter) {
 
         ApiVersion version = PluginVersionUtils.detectApiVersion(adapter);
 
-        // Sanity check: This should never be UNKNOWN after plugin discovery validation
         if (version == ApiVersion.UNKNOWN) {
-            throw new IllegalStateException(
-                "Internal error: Valid adapter exists but version is UNKNOWN. " +
-                "This indicates a bug in plugin discovery. " +
-                "Adapter type: " + adapter.getClass().getName()
+            throw new ApiVersionUnknownException(
+                "Cannot determine API version for plugin adapter. " +
+                "Adapter type: " + adapter.getClass().getName() + ". " +
+                "Please ensure the plugin implements either ProcessPluginDefinition (v1) or ProcessPluginDefinition (v2)."
             );
         }
 
