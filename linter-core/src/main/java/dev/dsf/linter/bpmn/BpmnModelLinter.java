@@ -13,7 +13,7 @@ import java.util.Objects;
 
 /**
  * Main linter class for validating Camunda BPMN models against business logic and FHIR-related constraints.
- * 
+ *
  * <p>
  * The {@code BpmnModelLinter} serves as the central entry point for performing comprehensive validation
  * of BPMN 2.0 models used in Camunda workflows. It orchestrates multiple specialized sub-linters to ensure
@@ -95,12 +95,12 @@ import java.util.Objects;
  * <pre>{@code
  * File projectRoot = new File("/path/to/project");
  * BpmnModelLinter linter = new BpmnModelLinter(projectRoot);
- * 
+ *
  * BpmnModelInstance model = Bpmn.readModelFromFile(new File("process.bpmn"));
  * File bpmnFile = new File("process.bpmn");
- * 
+ *
  * List<BpmnElementLintItem> issues = linter.lintModel(model, bpmnFile);
- * 
+ *
  * for (BpmnElementLintItem issue : issues) {
  *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
  * }
@@ -128,13 +128,11 @@ import java.util.Objects;
  * @see BpmnElementLintItem
  * @since 1.0
  */
-public class BpmnModelLinter {
-
-    private final File projectRoot;
+public record BpmnModelLinter(File projectRoot) {
 
     /**
      * Constructs a new {@code BpmnModelLinter} instance with the specified project root directory.
-     * 
+     *
      * <p>
      * The project root is used by sub-linters to locate compiled classes, FHIR resources, and other
      * project artifacts required for validation. It typically points to the root directory of a Maven
@@ -145,16 +143,15 @@ public class BpmnModelLinter {
      * @param projectRoot the root directory of the project; must not be {@code null}
      * @throws IllegalArgumentException if {@code projectRoot} is {@code null}
      */
-    public BpmnModelLinter(File projectRoot) {
+    public BpmnModelLinter {
         if (projectRoot == null) {
             throw new IllegalArgumentException("Project root must not be null");
         }
-        this.projectRoot = projectRoot;
     }
 
     /**
      * Performs comprehensive validation of a BPMN model instance against business logic and FHIR-related constraints.
-     * 
+     *
      * <p>
      * This method serves as the main entry point for model validation. It iterates through all flow elements
      * in the provided BPMN model and delegates type-specific validation to specialized sub-linters. The method
@@ -211,11 +208,11 @@ public class BpmnModelLinter {
      *   <li><strong>INFO</strong>: Informational messages about the model structure or recommendations</li>
      * </ul>
      *
-     * @param model the BPMN model instance to validate; must not be {@code null}
+     * @param model    the BPMN model instance to validate; must not be {@code null}
      * @param bpmnFile the source BPMN file being validated; used for issue location reporting in lint items.
      *                 Must not be {@code null}
      * @return an immutable list of {@link BpmnElementLintItem} objects representing all validation issues found.
-     *         Returns an empty list if no issues are detected. Never returns {@code null}
+     * Returns an empty list if no issues are detected. Never returns {@code null}
      * @see BpmnTaskLinter
      * @see BpmnEventLinter
      * @see BpmnGatewayAndFlowLinter
@@ -301,13 +298,13 @@ public class BpmnModelLinter {
 
     /**
      * Extracts the process ID from the first process definition found in the BPMN model.
-     * 
+     *
      * <p>
      * This method searches the BPMN model for {@link Process} elements and returns the ID of the first
      * process found. The process ID is used throughout the linting process for issue identification and
      * reporting. If the model contains multiple process definitions, only the first one is considered.
      * </p>
-     * 
+     *
      * <p>
      * This is a utility method that simplifies process identification and ensures consistent process
      * ID extraction across all validation operations.
@@ -315,7 +312,7 @@ public class BpmnModelLinter {
      *
      * @param model the BPMN model instance to extract the process ID from; must not be {@code null}
      * @return the process ID as a {@link String}, or an empty string if no process is found or if
-     *         the process ID is {@code null}. Never returns {@code null}
+     * the process ID is {@code null}. Never returns {@code null}
      */
     private String extractProcessId(BpmnModelInstance model) {
         return model.getModelElementsByType(Process.class)

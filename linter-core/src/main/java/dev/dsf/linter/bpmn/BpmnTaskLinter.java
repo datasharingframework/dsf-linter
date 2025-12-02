@@ -23,7 +23,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
 /**
  * Specialized linter class for validating BPMN task elements against business logic and FHIR-related constraints.
- * 
+ *
  * <p>
  * The {@code BpmnTaskLinter} serves as a specialized component for performing comprehensive validation
  * of BPMN 2.0 task elements used in Camunda workflows. It validates Service Tasks, User Tasks,
@@ -145,14 +145,14 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * <pre>{@code
  * File projectRoot = new File("/path/to/project");
  * BpmnTaskLinter linter = new BpmnTaskLinter(projectRoot);
- * 
+ *
  * List<BpmnElementLintItem> issues = new ArrayList<>();
  * ServiceTask serviceTask = ...; // obtained from BPMN model
  * File bpmnFile = new File("process.bpmn");
  * String processId = "myProcess";
- * 
+ *
  * linter.lintServiceTask(serviceTask, issues, bpmnFile, processId);
- * 
+ *
  * for (BpmnElementLintItem issue : issues) {
  *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
  * }
@@ -186,13 +186,10 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * @see BpmnExecutionListenerNotImplementingRequiredInterfaceLintItem
  * @since 1.0
  */
-public class BpmnTaskLinter
-{
-    private final File projectRoot;
-
+public record BpmnTaskLinter(File projectRoot) {
     /**
      * Constructs a new {@code BpmnTaskLinter} instance with the specified project root directory.
-     * 
+     *
      * <p>
      * The project root is used by the linter to locate compiled classes, FHIR resources, and other
      * project artifacts required for validation. It typically points to the root directory of a Maven
@@ -203,8 +200,7 @@ public class BpmnTaskLinter
      * @param projectRoot the root directory of the project; must not be {@code null}
      * @throws IllegalArgumentException if {@code projectRoot} is {@code null}
      */
-    public BpmnTaskLinter(File projectRoot) {
-        this.projectRoot = projectRoot;
+    public BpmnTaskLinter {
     }
 
     // ==================== SERVICE TASK ====================
@@ -494,31 +490,24 @@ public class BpmnTaskLinter
             ReceiveTask receiveTask,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = receiveTask.getId();
 
         // Check if the ReceiveTask name is non-empty.
-        if (isEmpty(receiveTask.getName()))
-        {
+        if (isEmpty(receiveTask.getName())) {
             issues.add(new BpmnEventNameEmptyLintItem(
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
-        }
-        else
-        {
+        } else {
             issues.add(new BpmnElementLintItemSuccess(
                     elementId, bpmnFile, processId,
                     "ReceiveTask has a non-empty name: '" + receiveTask.getName() + "'"));
         }
 
         // Check if the message definition exists and its name is non-empty.
-        if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName()))
-        {
+        if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName())) {
             issues.add(new BpmnMessageStartEventMessageNameEmptyLintItem(
                     elementId, bpmnFile, processId));
-        }
-        else
-        {
+        } else {
             String msgName = receiveTask.getMessage().getName();
             issues.add(new BpmnElementLintItemSuccess(
                     elementId, bpmnFile, processId,

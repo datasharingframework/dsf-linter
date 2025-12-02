@@ -13,7 +13,7 @@ import static dev.dsf.linter.bpmn.BpmnElementLinter.checkExecutionListenerClasse
 
 /**
  * Specialized linter class for validating BPMN subprocess elements against business logic and best practices.
- * 
+ *
  * <p>
  * The {@code BpmnSubProcessLinter} provides comprehensive validation for BPMN 2.0 subprocess elements
  * used in Camunda workflows. It ensures that subprocesses, particularly multi-instance subprocesses,
@@ -66,14 +66,14 @@ import static dev.dsf.linter.bpmn.BpmnElementLinter.checkExecutionListenerClasse
  * <pre>{@code
  * File projectRoot = new File("/path/to/project");
  * BpmnSubProcessLinter linter = new BpmnSubProcessLinter(projectRoot);
- * 
+ *
  * List<BpmnElementLintItem> issues = new ArrayList<>();
  * File bpmnFile = new File("process.bpmn");
  * String processId = "myProcess";
- * 
+ *
  * SubProcess subProcess = // ... obtain subprocess from model
  * linter.lintSubProcess(subProcess, issues, bpmnFile, processId);
- * 
+ *
  * for (BpmnElementLintItem issue : issues) {
  *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
  * }
@@ -101,14 +101,7 @@ import static dev.dsf.linter.bpmn.BpmnElementLinter.checkExecutionListenerClasse
  * @see MultiInstanceLoopCharacteristics
  * @since 1.0
  */
-public class BpmnSubProcessLinter
-{
-    private final File projectRoot;
-
-    public BpmnSubProcessLinter(File projectRoot)
-    {
-        this.projectRoot = projectRoot;
-    }
+public record BpmnSubProcessLinter(File projectRoot) {
 
     /**
      * Lints a given {@link SubProcess} element and adds the results to the issues list.
@@ -117,20 +110,15 @@ public class BpmnSubProcessLinter
             SubProcess subProcess,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = subProcess.getId();
 
         // 1. Check multi-instance async before
-        if (subProcess.getLoopCharacteristics() instanceof MultiInstanceLoopCharacteristics multi)
-        {
-            if (!multi.isCamundaAsyncBefore())
-            {
+        if (subProcess.getLoopCharacteristics() instanceof MultiInstanceLoopCharacteristics multi) {
+            if (!multi.isCamundaAsyncBefore()) {
                 issues.add(new BpmnSubProcessHasMultiInstanceButIsNotAsyncBeforeTrueLintItem(
                         elementId, bpmnFile, processId));
-            }
-            else
-            {
+            } else {
                 issues.add(new BpmnElementLintItemSuccess(
                         elementId, bpmnFile, processId,
                         "SubProcess with multi-instance loop characteristics is correctly configured with asyncBefore=true"

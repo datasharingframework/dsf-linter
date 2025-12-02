@@ -20,7 +20,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
 /**
  * Specialized linter class for validating BPMN gateway and flow elements against business logic and best practices.
- * 
+ *
  * <p>
  * The {@code BpmnGatewayAndFlowLinter} provides comprehensive validation for BPMN 2.0 gateway types and sequence flows
  * used in Camunda workflows. It ensures that gateways and flows are properly configured with appropriate names,
@@ -84,17 +84,17 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * <pre>{@code
  * File projectRoot = new File("/path/to/project");
  * BpmnGatewayAndFlowLinter linter = new BpmnGatewayAndFlowLinter(projectRoot);
- * 
+ *
  * List<BpmnElementLintItem> issues = new ArrayList<>();
  * File bpmnFile = new File("process.bpmn");
  * String processId = "myProcess";
- * 
+ *
  * ExclusiveGateway gateway = // ... obtain gateway from model
  * linter.lintExclusiveGateway(gateway, issues, bpmnFile, processId);
- * 
+ *
  * SequenceFlow flow = // ... obtain flow from model
  * linter.lintSequenceFlow(flow, issues, bpmnFile, processId);
- * 
+ *
  * for (BpmnElementLintItem issue : issues) {
  *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
  * }
@@ -119,14 +119,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * @see BpmnElementLintItem
  * @since 1.0
  */
-public class BpmnGatewayAndFlowLinter
-{
-    private final File projectRoot;
-
-    public BpmnGatewayAndFlowLinter(File projectRoot)
-    {
-        this.projectRoot = projectRoot;
-    }
+public record BpmnGatewayAndFlowLinter(File projectRoot) {
 
     /**
      * Lints an {@link ExclusiveGateway}.
@@ -135,8 +128,7 @@ public class BpmnGatewayAndFlowLinter
             ExclusiveGateway gateway,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = gateway.getId();
 
         // Check only if there are multiple outgoing flows.
@@ -176,8 +168,7 @@ public class BpmnGatewayAndFlowLinter
             InclusiveGateway gateway,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = gateway.getId();
 
         // Check only if there are multiple outgoing flows.
@@ -225,8 +216,7 @@ public class BpmnGatewayAndFlowLinter
             SequenceFlow flow,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         String elementId = flow.getId();
         FlowNode sourceNode = flow.getSource();
 
@@ -268,8 +258,7 @@ public class BpmnGatewayAndFlowLinter
             String elementId,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         if (isEmpty(flow.getName())) {
             issues.add(new BpmnFlowElementLintItem(
                     elementId,
@@ -301,8 +290,7 @@ public class BpmnGatewayAndFlowLinter
             List<BpmnElementLintItem> issues,
             File bpmnFile,
             String processId,
-            String gatewayType)
-    {
+            String gatewayType) {
         boolean isDefaultFlow = false;
 
         // Check if this is the default flow
@@ -372,8 +360,7 @@ public class BpmnGatewayAndFlowLinter
             EventBasedGateway gateway,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
-            String processId)
-    {
+            String processId) {
         checkExecutionListenerClasses(gateway, gateway.getId(), issues, bpmnFile, processId, projectRoot);
     }
 }

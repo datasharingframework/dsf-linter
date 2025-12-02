@@ -12,25 +12,142 @@ import org.camunda.bpm.model.xml.instance.DomElement;
 import java.io.File;
 import java.util.*;
 
-import static dev.dsf.linter.bpmn.BpmnElementLinter.checkInstantiatesCanonicalField;
-import static dev.dsf.linter.bpmn.BpmnElementLinter.checkProfileField;
+import static dev.dsf.linter.util.linting.LintingUtils.containsPlaceholder;
 import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
 /**
- * lints {@code <camunda:field>} injections on BPMN elements.
+ * Specialized linter class for validating Camunda field injections on BPMN elements against
+ * business logic and FHIR-related constraints.
+ * 
+ * <p>
+ * The {@code BpmnFieldInjectionLinter} serves as a specialized component for performing comprehensive
+ * validation of Camunda field injections (e.g., {@code <camunda:field>}) used in BPMN 2.0 models
+ * for Camunda workflows. It ensures that field injections are properly configured as string literals,
+ * follow DSF naming conventions, and reference valid FHIR resources. The linter performs both direct
+ * field validation and cross-validation between BPMN configuration and corresponding FHIR artifacts.
+ * </p>
  *
- * <p>Checks that</p>
+ * <h2>Architecture</h2>
+ * <p>
+ * This class is designed as a utility class with static methods that can be called from specialized
+ * linter classes such as {@link BpmnTaskLinter}, {@link BpmnEventLinter}, and {@link BpmnModelLinter}.
+ * The validation process involves two main steps:
+ * </p>
+ * <ol>
+ *   <li><strong>Direct Element Validation</strong>: Checks extension elements on the BPMN element itself</li>
+ *   <li><strong>Nested Event Definition Validation</strong>: For {@link ThrowEvent} and {@link EndEvent}
+ *       elements, inspects attached {@link MessageEventDefinition} elements for field injections</li>
+ * </ol>
+ *
+ * <h2>Validation Categories</h2>
+ * <p>
+ * The linter performs the following categories of checks:
+ * </p>
+ *
+ * <h3>Field Value Type Validation</h3>
  * <ul>
- *   <li>fields are provided as <em>string literals</em> (not expressions),</li>
- *   <li>mandatory field names
- *       {@code profile}, {@code messageName}, {@code instantiatesCanonical}
- *       follow DSF conventions, and</li>
- *   <li>referenced FHIR resources (StructureDefinition / ActivityDefinition)
- *       exist and contain the required fixed values.</li>
+ *   <li><strong>String Literal Requirement</strong>: Validates that field values are provided as
+ *       string literals rather than expressions, ensuring static configuration that can be validated
+ *       at linting time</li>
+ *   <li><strong>Expression Detection</strong>: Issues errors when field values are provided as
+ *       expressions, which cannot be statically validated</li>
  * </ul>
  *
- * <p>The linter also performs cross‑checks between BPMN configuration and
- * the corresponding FHIR artefacts.</p>
+ * <h3>Profile Field Validation</h3>
+ * <ul>
+ *   <li><strong>Non-Empty Validation</strong>: Ensures that profile field values are not empty</li>
+ *   <li><strong>Version Placeholder Validation</strong>: Validates that profile field values contain
+ *       version placeholders (e.g., {@code ${version}} or {@code #{version}}) for dynamic configuration</li>
+ *   <li><strong>FHIR StructureDefinition Validation</strong>: Verifies that profile field values correspond
+ *       to existing FHIR StructureDefinition resources in the project</li>
+ * </ul>
+ *
+ * <h3>Message Name Field Validation</h3>
+ * <ul>
+ *   <li><strong>Non-Empty Validation</strong>: Ensures that messageName field values are not empty</li>
+ *   <li><strong>Cross-Validation</strong>: Performs cross-validation with ActivityDefinition resources
+ *       to ensure message names are properly defined</li>
+ * </ul>
+ *
+ * <h3>InstantiatesCanonical Field Validation</h3>
+ * <ul>
+ *   <li><strong>Non-Empty Validation</strong>: Ensures that instantiatesCanonical field values are not empty</li>
+ *   <li><strong>Version Placeholder Validation</strong>: Validates that instantiatesCanonical field values
+ *       contain version placeholders for dynamic configuration</li>
+ *   <li><strong>FHIR ActivityDefinition Validation</strong>: Verifies that instantiatesCanonical field values
+ *       correspond to existing FHIR ActivityDefinition resources in the project</li>
+ * </ul>
+ *
+ * <h3>FHIR Cross-Validation</h3>
+ * <p>
+ * The linter performs semantic cross-checks between BPMN field values and referenced FHIR resources:
+ * </p>
+ * <ul>
+ *   <li><strong>StructureDefinition Fixed Values</strong>: Validates that StructureDefinition resources
+ *       contain the required fixed values for {@code Task.instantiatesCanonical} and message name</li>
+ *   <li><strong>ActivityDefinition Message Name</strong>: Verifies that ActivityDefinition resources
+ *       contain the message name specified in the BPMN field injection</li>
+ *   <li><strong>Resource Consistency</strong>: Ensures consistency between BPMN configuration and
+ *       FHIR resource definitions</li>
+ * </ul>
+ *
+ * <h2>Supported Field Names</h2>
+ * <p>
+ * The linter validates the following standard DSF field names:
+ * </p>
+ * <ul>
+ *   <li><strong>profile</strong>: Canonical URL of the FHIR StructureDefinition resource</li>
+ *   <li><strong>messageName</strong>: Name of the message used in FHIR ActivityDefinition and StructureDefinition</li>
+ *   <li><strong>instantiatesCanonical</strong>: Canonical URL used in FHIR ActivityDefinition resources</li>
+ * </ul>
+ * <p>
+ * Any other field names are reported as unknown fields, which may indicate configuration errors.
+ * </p>
+ *
+ * <h2>Usage Example</h2>
+ * <pre>{@code
+ * File projectRoot = new File("/path/to/project");
+ * 
+ * List<BpmnElementLintItem> issues = new ArrayList<>();
+ * BaseElement element = ...; // obtained from BPMN model (e.g., SendTask, EndEvent)
+ * File bpmnFile = new File("process.bpmn");
+ * String processId = "myProcess";
+ * 
+ * BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
+ *     element, issues, bpmnFile, processId, projectRoot);
+ * 
+ * for (BpmnElementLintItem issue : issues) {
+ *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
+ * }
+ * }</pre>
+ *
+ * <h2>Thread Safety</h2>
+ * <p>
+ * This class is thread-safe as it only contains static methods with no shared mutable state.
+ * All methods operate on their parameters and do not maintain any internal state.
+ * </p>
+ *
+ * <h2>References</h2>
+ * <ul>
+ *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
+ *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/delegation-code/field-injection/">Camunda Field Injection</a></li>
+ *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
+ *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
+ * </ul>
+ *
+ * @see BpmnModelLinter
+ * @see BpmnTaskLinter
+ * @see BpmnEventLinter
+ * @see BpmnElementLintItem
+ * @see BpmnFieldInjectionProfileEmptyLintItem
+ * @see BpmnFieldInjectionProfileNoVersionPlaceholderLintItem
+ * @see BpmnFieldInjectionInstantiatesCanonicalEmptyLintItem
+ * @see BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderLintItem
+ * @see BpmnFieldInjectionNotStringLiteralLintItem
+ * @see BpmnFieldInjectionMessageValueEmptyLintItem
+ * @see BpmnUnknownFieldInjectionLintItem
+ * @since 1.0
  */
 public class BpmnFieldInjectionLinter {
 
@@ -323,6 +440,92 @@ public class BpmnFieldInjectionLinter {
                             "ActivityDefinition does not contain message name '" + messageNameVal + "'."));
                 }
             }
+        }
+    }
+
+    /**
+     * Checks the "profile" field value for validity.
+     * <p>
+     * This method verifies that the profile field is not empty, contains a version placeholder,
+     * and corresponds to an existing FHIR StructureDefinition. If any check fails, an appropriate
+     * lint issue is added. Additionally, if a check passes, a success item is recorded.
+     * </p>
+     *
+     * @param elementId   the identifier of the BPMN element being lintated
+     * @param bpmnFile    the BPMN file under lint
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param issues      the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param literalValue the literal value of the profile field from the BPMN element
+     * @param projectRoot the project root directory containing FHIR resources
+     */
+    public static void checkProfileField(
+            String elementId,
+            File bpmnFile,
+            String processId,
+            List<BpmnElementLintItem> issues,
+            String literalValue,
+            File projectRoot) {
+        var locator = FhirResourceLocator.create(projectRoot);
+        if (isEmpty(literalValue)) {
+            issues.add(new BpmnFieldInjectionProfileEmptyLintItem(elementId, bpmnFile, processId));
+            return;
+        }
+
+        issues.add(new BpmnElementLintItemSuccess(
+                elementId, bpmnFile, processId,
+                "Profile field is provided with value: '" + literalValue + "'"));
+
+        if (!containsPlaceholder(literalValue)) {
+            issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderLintItem(
+                    elementId, bpmnFile, processId, literalValue));
+        } else {
+            issues.add(new BpmnElementLintItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Profile field contains a version placeholder: '" + literalValue + "'"));
+        }
+
+        if (!locator.structureDefinitionExists(literalValue, projectRoot)) {
+            issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
+                    LinterSeverity.WARN, elementId, bpmnFile, processId, literalValue,
+                    "StructureDefinition for the profile: [" + literalValue + "] not found."));
+        } else {
+            issues.add(new BpmnElementLintItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "StructureDefinition found for profile: '" + literalValue + "'"));
+        }
+    }
+
+    /**
+     * Checks instantiatesCanonical field injection.
+     *
+     * @param elementId   the identifier of the BPMN element being lintated
+     * @param literalValue the literal value of the instantiatesCanonical field from the BPMN element
+     * @param bpmnFile    the BPMN file under lint
+     * @param processId   the identifier of the BPMN process containing the element
+     * @param issues      the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param projectRoot the project root directory containing FHIR resources
+     */
+    public static void checkInstantiatesCanonicalField(
+            String elementId,
+            String literalValue,
+            File bpmnFile,
+            String processId,
+            List<BpmnElementLintItem> issues,
+            File projectRoot) {
+
+        if (isEmpty(literalValue)) {
+            issues.add(new BpmnFieldInjectionInstantiatesCanonicalEmptyLintItem(
+                    elementId, bpmnFile, processId));
+            return;
+        }
+
+        if (!containsPlaceholder(literalValue)) {
+            issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderLintItem(
+                    elementId, bpmnFile, processId));
+        } else {
+            issues.add(new BpmnElementLintItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "instantiatesCanonical field is valid with value: '" + literalValue + "'"));
         }
     }
 

@@ -1,4 +1,4 @@
-package dev.dsf.linter.bpmn;
+package dev.dsf.linter.util.bpmn;
 
 import org.camunda.bpm.model.bpmn.instance.*;
 
@@ -7,7 +7,18 @@ import java.util.Optional;
 
 import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
-public class BpmnModelUtils {
+/**
+ * Utility class for BPMN model operations.
+ * <p>
+ * This class provides utility methods for extracting information from BPMN model elements,
+ * such as implementation classes from various BPMN element types.
+ * </p>
+ */
+public final class BpmnModelUtils {
+
+    private BpmnModelUtils() {
+        // Utility class - no instantiation
+    }
 
     /**
      * Extracts the implementation class specified on a BPMN element.
@@ -59,3 +70,4 @@ public class BpmnModelUtils {
                 .findFirst();
     }
 }
+

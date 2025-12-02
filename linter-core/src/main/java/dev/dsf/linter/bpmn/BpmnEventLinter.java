@@ -1,27 +1,15 @@
 package dev.dsf.linter.bpmn;
 
-import dev.dsf.linter.constants.BpmnElementType;
-import dev.dsf.linter.output.FloatingElementType;
-import dev.dsf.linter.output.LinterSeverity;
-import dev.dsf.linter.output.LintingType;
-import dev.dsf.linter.output.item.*;
-import dev.dsf.linter.util.api.ApiVersion;
-import dev.dsf.linter.util.api.ApiVersionHolder;
-import dev.dsf.linter.util.resource.FhirResourceLocator;
+import dev.dsf.linter.output.item.BpmnElementLintItem;
+import dev.dsf.linter.util.bpmn.linters.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 
 import java.io.File;
 import java.util.List;
-import java.util.Optional;
-
-import static dev.dsf.linter.bpmn.BpmnElementLinter.*;
-import static dev.dsf.linter.bpmn.BpmnModelUtils.extractImplementationClass;
-import static dev.dsf.linter.classloading.ClassInspector.*;
-import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
 /**
  * Specialized linter class for validating BPMN event elements against business logic and FHIR-related constraints.
- * 
+ *
  * <p>
  * The {@code BpmnEventLinter} serves as a specialized component for performing comprehensive validation
  * of BPMN 2.0 event elements used in Camunda workflows. It validates Start Events, End Events,
@@ -138,14 +126,14 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * <pre>{@code
  * File projectRoot = new File("/path/to/project");
  * BpmnEventLinter linter = new BpmnEventLinter(projectRoot);
- * 
+ *
  * List<BpmnElementLintItem> issues = new ArrayList<>();
  * StartEvent startEvent = ...; // obtained from BPMN model
  * File bpmnFile = new File("process.bpmn");
  * String processId = "myProcess";
- * 
+ *
  * linter.lintStartEvent(startEvent, issues, bpmnFile, processId);
- * 
+ *
  * for (BpmnElementLintItem issue : issues) {
  *     System.out.println(issue.getSeverity() + ": " + issue.getMessage());
  * }
@@ -168,21 +156,19 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * @see BpmnModelLinter
  * @see BpmnElementLinter
  * @see BpmnFieldInjectionLinter
- * @see BpmnSignalIntermediateThrowEventNameEmptyLintItem
- * @see BpmnSignalIntermediateThrowEventSignalEmptyLintItem
- * @see BpmnSignalEndEventNameEmptyLintItem
- * @see BpmnSignalEndEventSignalEmptyLintItem
- * @see BpmnEndEventInsideSubProcessShouldHaveAsyncAfterTrueLintItem
- * @see BpmnFloatingElementLintItem
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnStartEventLinter
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnEndEventLinter
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnIntermediateThrowEventLinter
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnIntermediateCatchEventLinter
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnBoundaryEventLinter
+ * @see dev.dsf.linter.util.bpmn.linters.BpmnMessageEventImplementationLinter
  * @since 1.0
  */
-public class BpmnEventLinter {
-
-    private final File projectRoot;
+public record BpmnEventLinter(File projectRoot) {
 
     /**
      * Constructs a new {@code BpmnEventLinter} instance with the specified project root directory.
-     * 
+     *
      * <p>
      * The project root is used by the linter to locate compiled classes, FHIR resources, and other
      * project artifacts required for validation. It typically points to the root directory of a Maven
@@ -193,8 +179,7 @@ public class BpmnEventLinter {
      * @param projectRoot the root directory of the project; must not be {@code null}
      * @throws IllegalArgumentException if {@code projectRoot} is {@code null}
      */
-    public BpmnEventLinter(File projectRoot) {
-        this.projectRoot = projectRoot;
+    public BpmnEventLinter {
     }
 
     // ==================== START EVENT ====================
@@ -210,74 +195,10 @@ public class BpmnEventLinter {
 
         if (!startEvent.getEventDefinitions().isEmpty()
                 && startEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-            lintMessageStartEvent(startEvent, issues, bpmnFile, processId);
+            BpmnStartEventLinter.lintMessageStartEvent(startEvent, issues, bpmnFile, processId, projectRoot);
         } else {
-            lintGenericStartEvent(startEvent, issues, bpmnFile, processId);
+            BpmnStartEventLinter.lintGenericStartEvent(startEvent, issues, bpmnFile, processId, projectRoot);
         }
-    }
-
-    private void lintMessageStartEvent(
-            StartEvent startEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = startEvent.getId();
-        var locator = FhirResourceLocator.create(projectRoot);
-
-        // 1. Check event name
-        if (isEmpty(startEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Start event has a non-empty name: '" + startEvent.getName() + "'"));
-        }
-
-        // 2. Check message definition
-        MessageEventDefinition messageDef =
-                (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
-
-        if (messageDef.getMessage() == null || isEmpty(messageDef.getMessage().getName())) {
-            issues.add(new BpmnMessageStartEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
-        } else {
-            String msgName = messageDef.getMessage().getName();
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message name is not empty: '" + msgName + "'"));
-
-            // 3. Check FHIR references
-            lintFhirReferences(msgName, elementId, issues, bpmnFile, processId, locator);
-        }
-        // 4. Validate field injections
-        BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
-                startEvent, issues, bpmnFile, processId, projectRoot);
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(startEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintGenericStartEvent(
-            StartEvent startEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = startEvent.getId();
-
-        if (!(startEvent.getParentElement() instanceof SubProcess)) {
-            if (isEmpty(startEvent.getName())) {
-                issues.add(new BpmnStartEventNotPartOfSubProcessLintItem(elementId, bpmnFile, processId));
-            } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "Generic start event has a non-empty name: '" + startEvent.getName() + "'"));
-            }
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(startEvent, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== INTERMEDIATE THROW EVENT ====================
@@ -293,99 +214,13 @@ public class BpmnEventLinter {
 
         if (!throwEvent.getEventDefinitions().isEmpty()
                 && throwEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-            lintMessageIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
+            BpmnIntermediateThrowEventLinter.lintMessageIntermediateThrowEvent(
+                    throwEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!throwEvent.getEventDefinitions().isEmpty()
                 && throwEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-            lintSignalIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
+            BpmnIntermediateThrowEventLinter.lintSignalIntermediateThrowEvent(
+                    throwEvent, issues, bpmnFile, processId, projectRoot);
         }
-    }
-
-    private void lintMessageIntermediateThrowEvent(
-            IntermediateThrowEvent throwEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = throwEvent.getId();
-        ApiVersion apiVersion = ApiVersionHolder.getVersion();
-
-        // 1. Check event name
-        if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message Intermediate Throw Event has a non-empty name: '" + throwEvent.getName() + "'"));
-        }
-
-        // 2. Validate implementation class with ELEMENT-SPECIFIC check
-        Optional<String> implClassOpt = extractImplementationClass(throwEvent);
-
-        if (implClassOpt.isEmpty()) {
-            issues.add(new BpmnMessageSendEventImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
-        } else {
-            String implClass = implClassOpt.get();
-            lintMessageEventImplementationClass(
-                    implClass, elementId, BpmnElementType.MESSAGE_INTERMEDIATE_THROW_EVENT,
-                    issues, bpmnFile, processId, apiVersion);
-        }
-
-        // 3. Validate field injections
-        BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
-                throwEvent, issues, bpmnFile, processId, projectRoot);
-
-        // 4. Check message reference
-        MessageEventDefinition msgDef =
-                (MessageEventDefinition) throwEvent.getEventDefinitions().iterator().next();
-
-        if (msgDef.getMessage() != null) {
-            String messageName = msgDef.getMessage().getName();
-            issues.add(new BpmnMessageIntermediateThrowEventHasMessageLintItem(
-                    elementId, bpmnFile, processId,
-                    "Message Intermediate Throw Event has a message with name: " + messageName));
-        } else {
-            issues.add(new BpmnMessageIntermediateThrowEventHasMessageLintItem(
-                    elementId, bpmnFile, processId));
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(throwEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintSignalIntermediateThrowEvent(
-            IntermediateThrowEvent throwEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = throwEvent.getId();
-
-        // 1. Check event name
-        if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnSignalIntermediateThrowEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal Intermediate Throw Event has a non-empty name: '" + throwEvent.getName() + "'"));
-        }
-
-        // 2. Check signal definition
-        SignalEventDefinition def =
-                (SignalEventDefinition) throwEvent.getEventDefinitions().iterator().next();
-
-        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnSignalIntermediateThrowEventSignalEmptyLintItem(
-                    elementId, bpmnFile, processId));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal is present with name: '" + def.getSignal().getName() + "'"));
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(throwEvent, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== END EVENT ====================
@@ -401,122 +236,13 @@ public class BpmnEventLinter {
 
         if (!endEvent.getEventDefinitions().isEmpty()
                 && endEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-            lintMessageEndEvent(endEvent, issues, bpmnFile, processId);
+            BpmnEndEventLinter.lintMessageEndEvent(endEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!endEvent.getEventDefinitions().isEmpty()
                 && endEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-            lintSignalEndEvent(endEvent, issues, bpmnFile, processId);
+            BpmnEndEventLinter.lintSignalEndEvent(endEvent, issues, bpmnFile, processId, projectRoot);
         } else {
-            lintGenericEndEvent(endEvent, issues, bpmnFile, processId);
+            BpmnEndEventLinter.lintGenericEndEvent(endEvent, issues, bpmnFile, processId, projectRoot);
         }
-    }
-
-    private void lintMessageEndEvent(
-            EndEvent endEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = endEvent.getId();
-        ApiVersion apiVersion = ApiVersionHolder.getVersion();
-
-        // 1. Check event name
-        if (isEmpty(endEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message End Event has a non-empty name: '" + endEvent.getName() + "'"));
-        }
-
-        // 2. Validate implementation class with ELEMENT-SPECIFIC check
-        Optional<String> implClassOpt = extractImplementationClass(endEvent);
-
-        if (implClassOpt.isEmpty()) {
-            issues.add(new BpmnMessageSendEventImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
-        } else {
-            String implClass = implClassOpt.get();
-            lintMessageEventImplementationClass(
-                    implClass, elementId, BpmnElementType.MESSAGE_END_EVENT,
-                    issues, bpmnFile, processId, apiVersion);
-        }
-
-        // 3. Validate field injections
-        BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
-                endEvent, issues, bpmnFile, processId, projectRoot);
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(endEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintGenericEndEvent(
-            EndEvent endEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = endEvent.getId();
-
-        // 1. Name check for non-SubProcess end events
-        if (!(endEvent.getParentElement() instanceof SubProcess)) {
-            if (isEmpty(endEvent.getName())) {
-                issues.add(new BpmnEndEventNotPartOfSubProcessLintItem(elementId, bpmnFile, processId));
-            } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "End event has a non-empty name: '" + endEvent.getName() + "'"));
-            }
-        }
-
-        // 2. AsyncAfter check for SubProcess end events
-        if (endEvent.getParentElement() instanceof SubProcess) {
-            if (!endEvent.isCamundaAsyncAfter()) {
-                issues.add(new BpmnEndEventInsideSubProcessShouldHaveAsyncAfterTrueLintItem(
-                        elementId, bpmnFile, processId));
-            } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "End Event inside a SubProcess has asyncAfter=true"));
-            }
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(endEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintSignalEndEvent(
-            EndEvent endEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = endEvent.getId();
-
-        // 1. Check event name
-        if (isEmpty(endEvent.getName())) {
-            issues.add(new BpmnSignalEndEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal End Event has a non-empty name: '" + endEvent.getName() + "'"));
-        }
-
-        // 2. Check signal definition
-        SignalEventDefinition def =
-                (SignalEventDefinition) endEvent.getEventDefinitions().iterator().next();
-
-        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnSignalEndEventSignalEmptyLintItem(
-                    elementId, bpmnFile, processId));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal is present with name: '" + def.getSignal().getName() + "'"));
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(endEvent, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== INTERMEDIATE CATCH EVENT ====================
@@ -532,140 +258,21 @@ public class BpmnEventLinter {
 
         if (!catchEvent.getEventDefinitions().isEmpty()
                 && catchEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-            lintMessageIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+            BpmnIntermediateCatchEventLinter.lintMessageIntermediateCatchEvent(
+                    catchEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!catchEvent.getEventDefinitions().isEmpty()
                 && catchEvent.getEventDefinitions().iterator().next() instanceof TimerEventDefinition) {
-            lintTimerIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+            BpmnIntermediateCatchEventLinter.lintTimerIntermediateCatchEvent(
+                    catchEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!catchEvent.getEventDefinitions().isEmpty()
                 && catchEvent.getEventDefinitions().iterator().next() instanceof SignalEventDefinition) {
-            lintSignalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+            BpmnIntermediateCatchEventLinter.lintSignalIntermediateCatchEvent(
+                    catchEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!catchEvent.getEventDefinitions().isEmpty()
                 && catchEvent.getEventDefinitions().iterator().next() instanceof ConditionalEventDefinition) {
-            lintConditionalIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+            BpmnIntermediateCatchEventLinter.lintConditionalIntermediateCatchEvent(
+                    catchEvent, issues, bpmnFile, processId, projectRoot);
         }
-    }
-
-    private void lintMessageIntermediateCatchEvent(
-            IntermediateCatchEvent catchEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = catchEvent.getId();
-
-        // 1. Check event name
-        if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnMessageIntermediateCatchEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
-        }
-
-        // 2. Check message definition
-        MessageEventDefinition def =
-                (MessageEventDefinition) catchEvent.getEventDefinitions().iterator().next();
-
-        if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
-            issues.add(new BpmnMessageIntermediateCatchEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
-        } else {
-            String msgName = def.getMessage().getName();
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message name is not empty: '" + msgName + "'"));
-
-            checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(catchEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintTimerIntermediateCatchEvent(
-            IntermediateCatchEvent catchEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = catchEvent.getId();
-
-        // 1. Check event name
-        if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
-                    elementId, bpmnFile, processId,
-                    "Timer Intermediate Catch Event name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.WARN,
-                    FloatingElementType.TIMER_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Timer Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
-        }
-
-        // 2. Check timer definition
-        TimerEventDefinition timerDef =
-                (TimerEventDefinition) catchEvent.getEventDefinitions().iterator().next();
-        checkTimerDefinition(elementId, issues, bpmnFile, processId, timerDef);
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(catchEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintSignalIntermediateCatchEvent(
-            IntermediateCatchEvent catchEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = catchEvent.getId();
-
-        // 1. Check event name
-        if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
-                    elementId, bpmnFile, processId,
-                    "Signal Intermediate Catch Event name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.WARN,
-                    FloatingElementType.SIGNAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
-        }
-
-        // 2. Check signal definition
-        SignalEventDefinition def =
-                (SignalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
-
-        if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
-                    elementId, bpmnFile, processId,
-                    "Signal is empty in Signal Intermediate Catch Event",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.ERROR,
-                    FloatingElementType.SIGNAL_IS_EMPTY_IN_SIGNAL_INTERMEDIATE_CATCH_EVENT));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Signal is present with name: '" + def.getSignal().getName() + "'"));
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(catchEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintConditionalIntermediateCatchEvent(
-            IntermediateCatchEvent catchEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        checkConditionalEvent(catchEvent, issues, bpmnFile, processId);
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(catchEvent, catchEvent.getId(), issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== BOUNDARY EVENT ====================
@@ -681,147 +288,12 @@ public class BpmnEventLinter {
 
         if (!boundaryEvent.getEventDefinitions().isEmpty()
                 && boundaryEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
-            lintMessageBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
+            BpmnBoundaryEventLinter.lintMessageBoundaryEvent(
+                    boundaryEvent, issues, bpmnFile, processId, projectRoot);
         } else if (!boundaryEvent.getEventDefinitions().isEmpty()
                 && boundaryEvent.getEventDefinitions().iterator().next() instanceof ErrorEventDefinition) {
-            lintErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
-        }
-    }
-
-    private void lintMessageBoundaryEvent(
-            BoundaryEvent boundaryEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        String elementId = boundaryEvent.getId();
-        var locator = FhirResourceLocator.create(projectRoot);
-
-        // 1. Check event name
-        if (isEmpty(boundaryEvent.getName())) {
-            issues.add(new BpmnMessageBoundaryEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message Boundary Event has a non-empty name: '" + boundaryEvent.getName() + "'"));
-        }
-
-        // 2. Check message definition
-        MessageEventDefinition def =
-                (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
-
-        if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
-            issues.add(new BpmnMessageBoundaryEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
-        } else {
-            String msgName = def.getMessage().getName();
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "Message name is not empty: '" + msgName + "'"));
-
-            lintFhirReferences(msgName, elementId, issues, bpmnFile, processId, locator);
-        }
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(boundaryEvent, elementId, issues, bpmnFile, processId, projectRoot);
-    }
-
-    private void lintErrorBoundaryEvent(
-            BoundaryEvent boundaryEvent,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId) {
-
-        checkErrorBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
-
-        // Check execution listener classes
-        checkExecutionListenerClasses(boundaryEvent, boundaryEvent.getId(), issues, bpmnFile, processId, projectRoot);
-    }
-
-    // ==================== IMPLEMENTATION CLASS VALIDATION ====================
-
-    /**
-     * Validates implementation class for Message Events (IntermediateThrow, End)
-     * with element-specific interface requirements.
-     */
-    private void lintMessageEventImplementationClass(
-            String implClass,
-            String elementId,
-            BpmnElementType elementType,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId,
-            ApiVersion apiVersion) {
-
-        // Step 1: Check class existence
-        if (!classExists(implClass, projectRoot)) {
-            issues.add(new BpmnMessageSendEventImplementationClassNotFoundLintItem(
-                    elementId, bpmnFile, processId, implClass));
-            return;
-        }
-
-        // Step 2: ELEMENT-SPECIFIC interface check
-        if (doesNotImplementCorrectInterface(implClass, projectRoot, apiVersion, elementType)) {
-            String expectedInterface = getExpectedInterfaceDescription(apiVersion, elementType);
-
-            switch (apiVersion) {
-                case V1 -> issues.add(
-                        new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateLintItem(
-                                elementId, bpmnFile, processId, implClass));
-                case V2 -> issues.add(
-                        new BpmnEndOrIntermediateThrowEventMissingInterfaceLintItem(
-                                elementId, bpmnFile, processId, implClass,
-                                "Implementation class '" + implClass
-                                        + "' does not implement " + expectedInterface + "."));
-            }
-            return;
-        }
-
-        // Step 3: Success
-        String implementedInterface = findImplementedInterface(implClass, projectRoot, apiVersion, elementType);
-        String interfaceName = implementedInterface != null
-                ? getSimpleName(implementedInterface)
-                : getExpectedInterfaceDescription(apiVersion, elementType);
-
-        issues.add(new BpmnElementLintItemSuccess(
-                elementId, bpmnFile, processId,
-                "Implementation class '" + implClass + "' implements " + interfaceName + "."));
-    }
-
-    // ==================== HELPER METHODS ====================
-
-    /**
-     * Validates FHIR references (ActivityDefinition and StructureDefinition).
-     */
-    private void lintFhirReferences(
-            String msgName,
-            String elementId,
-            List<BpmnElementLintItem> issues,
-            File bpmnFile,
-            String processId,
-            FhirResourceLocator locator) {
-
-        boolean activityDefFound = locator.activityDefinitionExists(msgName, projectRoot);
-
-        if (!activityDefFound) {
-            issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(
-                    LinterSeverity.ERROR, elementId, bpmnFile, processId, msgName,
-                    "No ActivityDefinition found for messageName: " + msgName));
-        } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
-                    "ActivityDefinition found for messageName: '" + msgName + "'"));
-
-            // Only check StructureDefinition if ActivityDefinition was found
-            if (!locator.structureDefinitionExists(msgName, projectRoot)) {
-                issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
-                        LinterSeverity.ERROR, elementId, bpmnFile, processId, msgName,
-                        "No StructureDefinition found for messageName: " + msgName));
-            } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "StructureDefinition found for messageName: '" + msgName + "'"));
-            }
+            BpmnBoundaryEventLinter.lintErrorBoundaryEvent(
+                    boundaryEvent, issues, bpmnFile, processId, projectRoot);
         }
     }
 }
