@@ -3,7 +3,7 @@ stages:
 
 compile-job:
   stage: build
-  image: maven:3.9.4-eclipse-temurin-21
+  image: maven:3.9-eclipse-temurin-25
   script:
     - mvn clean compile
   only:
