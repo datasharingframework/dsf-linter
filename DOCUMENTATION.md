@@ -296,6 +296,32 @@ The linter performs comprehensive validation on BPMN 2.0 process definitions usi
     - Listener must extend `dev.dsf.bpe.v2.activity.DefaultUserTaskListener` OR implement `dev.dsf.bpe.v2.activity.UserTaskListener`
     - Error: `BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem`
 
+- **Task Listener Input Parameter Validation (V2 API only)**:
+  - Validates input parameters (`camunda:inputParameter`) within task listeners for API v2
+  - Applies to all task listeners in API v2, with severity based on whether the listener extends `DefaultUserTaskListener`
+  
+  - **`practitionerRole` Parameter**:
+    - If a `practitionerRole` input parameter is defined in the task listener's `extensionElements`, its value must not be null or empty
+    - **Severity**:
+      - **ERROR**: When the task listener extends `dev.dsf.bpe.v2.activity.DefaultUserTaskListener`
+      - **WARN**: When the task listener does not extend `DefaultUserTaskListener`
+    - Error/Warning: `BpmnPractitionerRolehasNoValueOrNullLintItem`
+    - Success: `BpmnElementLintItemSuccess` (when value is present and non-empty)
+  
+  - **`practitioners` Parameter**:
+    - If a `practitioners` input parameter is defined in the task listener's `extensionElements`, its value must not be null or empty
+    - **Severity**:
+      - **ERROR**: When the task listener extends `dev.dsf.bpe.v2.activity.DefaultUserTaskListener`
+      - **WARN**: When the task listener does not extend `DefaultUserTaskListener`
+    - Error/Warning: `BpmnPractitionershasNoValueOrNullLintItem`
+    - Success: `BpmnElementLintItemSuccess` (when value is present and non-empty)
+  
+  - **Validation Behavior**:
+    - Only validates input parameters if they are explicitly defined in the BPMN file
+    - Supports various value formats: direct text content, `<camunda:string>`, or `<camunda:list>` with `<camunda:value>` elements
+    - Validation is skipped if the input parameter is not present (no lint items generated)
+    - Validation only applies to API v2 task listeners
+
 ##### Send Tasks
 
 - **Name Validation**:
@@ -1811,6 +1837,20 @@ DiscoveryResult discover(ProjectContext context)
 ```
 
 ## Changelog
+
+### Version 2.1.0 (Latest)
+- **Task Listener Input Parameter Validation (API v2)**:
+  - Added validation for `practitionerRole` and `practitioners` input parameters in task listeners
+  - Validates that input parameters have non-empty values when defined
+  - Severity based on listener inheritance:
+    - **ERROR** for task listeners extending `DefaultUserTaskListener`
+    - **WARN** for task listeners not extending `DefaultUserTaskListener`
+  - Supports multiple value formats (string, list, etc.)
+  - Validation only applies to API v2 task listeners
+  - New lint items:
+    - `BpmnPractitionerRolehasNoValueOrNullLintItem` (ERROR/WARN)
+    - `BpmnPractitionershasNoValueOrNullLintItem` (ERROR/WARN)
+  - Comprehensive test coverage with 11 test cases
 
 ### Version 2.0.0
 - Updated to version 2.0.0
