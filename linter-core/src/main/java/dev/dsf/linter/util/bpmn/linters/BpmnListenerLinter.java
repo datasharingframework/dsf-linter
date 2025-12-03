@@ -1,6 +1,7 @@
 package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.constants.BpmnElementType;
+import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
@@ -8,6 +9,7 @@ import org.camunda.bpm.model.bpmn.instance.BaseElement;
 import org.camunda.bpm.model.bpmn.instance.UserTask;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaTaskListener;
+import org.camunda.bpm.model.xml.instance.DomElement;
 
 import java.io.File;
 import java.util.Collection;
@@ -151,6 +153,13 @@ public final class BpmnListenerLinter {
             // Step 3: VERSION-ISOLATED inheritance/interface check
             validateTaskListenerInheritance(
                     implClass, elementId, issues, bpmnFile, processId, projectRoot, apiVersion);
+
+            // Step 4: For API V2, validate input parameters for all task listeners
+            // Severity: ERROR if extends DefaultUserTaskListener, WARN otherwise
+            if (apiVersion == ApiVersion.V2) {
+                boolean extendsDefaultUserTaskListener = isSubclassOf(implClass, V2_DEFAULT_USER_TASK_LISTENER, projectRoot);
+                validateTaskListenerInputParameters(listener, implClass, elementId, issues, bpmnFile, processId, extendsDefaultUserTaskListener);
+            }
         }
     }
 
@@ -201,6 +210,166 @@ public final class BpmnListenerLinter {
                             + getSimpleName(defaultSuperClass) + "' or implement '"
                             + getSimpleName(requiredInterface) + "'."));
         }
+    }
+
+    /**
+     * Validates input parameters for task listeners (API v2).
+     * Checks that practitionerRole and practitioners input parameters have non-empty values.
+     * Severity: ERROR if extends DefaultUserTaskListener, WARN otherwise.
+     *
+     * @param listener                      the TaskListener to validate
+     * @param implClass                     the implementation class name
+     * @param elementId                     the identifier of the BPMN element
+     * @param issues                        the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param bpmnFile                      the BPMN file under lint
+     * @param processId                     the identifier of the BPMN process containing the element
+     * @param extendsDefaultUserTaskListener true if the listener extends DefaultUserTaskListener, false otherwise
+     */
+    private static void validateTaskListenerInputParameters(
+            CamundaTaskListener listener,
+            String implClass,
+            String elementId,
+            List<BpmnElementLintItem> issues,
+            File bpmnFile,
+            String processId,
+            boolean extendsDefaultUserTaskListener) {
+
+        DomElement domElement = listener.getDomElement();
+        if (domElement == null) return;
+
+        // Check for inputOutput element within the task listener
+        DomElement inputOutput = findInputOutput(domElement);
+        if (inputOutput == null) return;
+
+        // Determine severity: ERROR for DefaultUserTaskListener, WARN for others
+        LinterSeverity severity = extendsDefaultUserTaskListener ? LinterSeverity.ERROR : LinterSeverity.WARN;
+
+        // Check for practitionerRole input parameter
+        validateInputParameter(inputOutput, "practitionerRole", elementId, issues, bpmnFile, processId, severity);
+
+        // Check for practitioners input parameter
+        validateInputParameter(inputOutput, "practitioners", elementId, issues, bpmnFile, processId, severity);
+    }
+
+    /**
+     * Finds the inputOutput element within a task listener DOM element.
+     *
+     * @param taskListenerElement the task listener DOM element
+     * @return the inputOutput element, or null if not found
+     */
+    private static DomElement findInputOutput(DomElement taskListenerElement) {
+        for (DomElement child : taskListenerElement.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn") 
+                    && "inputOutput".equals(localName)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Validates a specific input parameter to ensure it has a non-empty value.
+     *
+     * @param inputOutput the inputOutput DOM element
+     * @param paramName    the name of the input parameter to validate
+     * @param elementId    the identifier of the BPMN element
+     * @param issues       the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param bpmnFile     the BPMN file under lint
+     * @param processId    the identifier of the BPMN process containing the element
+     * @param severity     the severity level (ERROR for DefaultUserTaskListener, WARN for others)
+     */
+    private static void validateInputParameter(
+            DomElement inputOutput,
+            String paramName,
+            String elementId,
+            List<BpmnElementLintItem> issues,
+            File bpmnFile,
+            String processId,
+            LinterSeverity severity) {
+
+        // Find input parameter with the given name
+        DomElement inputParam = null;
+        for (DomElement child : inputOutput.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn")
+                    && "inputParameter".equals(localName)) {
+                String nameAttr = child.getAttribute("name");
+                if (paramName.equals(nameAttr)) {
+                    inputParam = child;
+                    break;
+                }
+            }
+        }
+
+        // If input parameter is not found, skip validation
+        if (inputParam == null) return;
+
+        // Read the value from the input parameter
+        String value = readInputParameterValue(inputParam);
+
+        // Validate that value is not null or empty
+        if (value == null || value.trim().isEmpty()) {
+            if ("practitionerRole".equals(paramName)) {
+                issues.add(new BpmnPractitionerRoleHasNoValueOrNullLintItem(
+                        severity, elementId, bpmnFile, processId));
+            } else if ("practitioners".equals(paramName)) {
+                issues.add(new BpmnPractitionersHasNoValueOrNullLintItem(
+                        severity, elementId, bpmnFile, processId));
+            }
+        } else {
+            // Success: parameter has a non-empty value
+            issues.add(new BpmnElementLintItemSuccess(
+                    elementId, bpmnFile, processId,
+                    "Task listener input parameter '" + paramName + "' has a non-empty value"));
+        }
+    }
+
+    /**
+     * Reads the value from an input parameter DOM element.
+     * Supports various value formats (string, list, etc.).
+     *
+     * @param inputParam the input parameter DOM element
+     * @return the string representation of the value, or null if no value found
+     */
+    private static String readInputParameterValue(DomElement inputParam) {
+        // Check if there's a text content directly
+        String textContent = inputParam.getTextContent();
+        if (textContent != null && !textContent.trim().isEmpty()) {
+            return textContent.trim();
+        }
+
+        // Check for nested elements (string, list, etc.)
+        for (DomElement child : inputParam.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn")) {
+                if ("string".equals(localName)) {
+                    String value = child.getTextContent();
+                    if (value != null && !value.trim().isEmpty()) {
+                        return value.trim();
+                    }
+                } else if ("list".equals(localName)) {
+                    // For list, check if there are any value elements
+                    for (DomElement listChild : child.getChildElements()) {
+                        if (listChild.getNamespaceURI() != null
+                                && listChild.getNamespaceURI().equals("http://camunda.org/schema/1.0/bpmn")
+                                && "value".equals(listChild.getLocalName())) {
+                            String listValue = listChild.getTextContent();
+                            if (listValue != null && !listValue.trim().isEmpty()) {
+                                return listValue.trim(); // Return first non-empty value
+                            }
+                        }
+                    }
+                    // If list exists but has no values, return empty string to trigger validation
+                    return "";
+                }
+            }
+        }
+
+        return null;
     }
 }
 
