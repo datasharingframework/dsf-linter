@@ -80,9 +80,9 @@ public class Main implements Callable<Integer> {
             description = "Enable verbose logging output.")
     private boolean verbose = false;
 
-    @Option(names = "--color",
-            description = "Enable colored console output. (Default: disabled)")
-    private boolean enableColor = false;
+    @Option(names = "--no-color",
+            description = "Disable colored console output. (Default: enabled)")
+    private boolean disableColor = false;
 
 
     /**
@@ -121,8 +121,8 @@ public class Main implements Callable<Integer> {
     public Integer call() {
         Logger logger = new ConsoleLogger(verbose);
 
-        // Enable colors if requested
-        if (enableColor) {
+        // Enable colors by default, unless --no-color is specified
+        if (!disableColor) {
             Console.enableColors();
         }
         logger.info("DSF Linter v1.0.0");

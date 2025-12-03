@@ -168,9 +168,9 @@ java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
   --path plugin.jar --html --json --report-path ./reports
 
-# Verbose output with colored console
+# Verbose output (colors enabled by default, use --no-color to disable)
 java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
-  --path plugin.jar --html --verbose --color
+  --path plugin.jar --html --verbose
 
 # Lint Maven project (two-step process)
 # Step 1: Build the project
@@ -207,7 +207,7 @@ java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
 | `--json` | | Generate JSON report | No |
 | `--report-path <dir>` | `-r` | Custom report directory (default: temp directory) | No |
 | `--verbose` | `-v` | Enable verbose logging output | No |
-| `--color` | | Enable colored console output | No |
+| `--no-color` | | Disable colored console output (default: enabled) | No |
 | `--no-fail` | | Exit with code 0 even if linter errors are found | No |
 | `--help` | `-h` | Display help message | No |
 | `--version` | | Display version information | No |
