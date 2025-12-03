@@ -322,6 +322,39 @@ The linter performs comprehensive validation on BPMN 2.0 process definitions usi
     - Validation is skipped if the input parameter is not present (no lint items generated)
     - Validation only applies to API v2 task listeners
 
+- **Task Listener TaskOutput Field Injections Validation (V2 API only)**:
+  - Validates the taskOutput field injections (`taskOutputSystem`, `taskOutputCode`, `taskOutputVersion`) used to configure output parameters for UserTask listeners
+  - Applies to all task listeners in API v2
+  
+  - **Completeness Check**:
+    - If any of the three fields (`taskOutputSystem`, `taskOutputCode`, `taskOutputVersion`) is set, all three must be set
+    - Error: `BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem`
+    - Message: "If taskOutputSystem, taskOutputCode, or taskOutputVersion is set, all three must be set"
+    - Validation is skipped if none of the fields are set
+  
+  - **FHIR Resource Validation**:
+    - **`taskOutputSystem`**: Should reference a valid CodeSystem URL
+      - Uses `FhirAuthorizationCache.containsSystem()` to check if the CodeSystem exists
+      - Error: `BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem` if CodeSystem is unknown
+      - Success: `BpmnElementLintItemSuccess` when CodeSystem is valid
+    
+    - **`taskOutputCode`**: Should be a valid code in the referenced CodeSystem
+      - Uses `FhirAuthorizationCache.isUnknown()` to check if the code exists in the CodeSystem
+      - Error: `BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem` if code is unknown
+      - Success: `BpmnElementLintItemSuccess` when code is valid
+    
+    - **`taskOutputVersion`**: Must contain a placeholder (e.g., `#{version}`)
+      - Uses `LintingUtils.containsPlaceholder()` to check for placeholders
+      - Warning: `BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem` if no placeholder found
+      - Success: `BpmnElementLintItemSuccess` when placeholder is present
+  
+  - **Validation Behavior**:
+    - Only validates field injections if they are explicitly defined in the task listener's `extensionElements`
+    - Field values are read from `camunda:field` elements with `camunda:stringValue` or nested `<camunda:string>` elements
+    - Validation is skipped if none of the fields are set (no lint items generated)
+    - Validation only applies to API v2 task listeners
+    - FHIR resource validation is only performed if all three fields are set (completeness check passes)
+
 ##### Send Tasks
 
 - **Name Validation**:
@@ -1838,7 +1871,21 @@ DiscoveryResult discover(ProjectContext context)
 
 ## Changelog
 
-### Version 2.1.0 (Latest)
+### Version 2.0.0 (Latest)
+- **Task Listener TaskOutput Field Injections Validation (API v2)**:
+  - Added validation for `taskOutputSystem`, `taskOutputCode`, and `taskOutputVersion` field injections in task listeners
+  - **Completeness Check**: If any of the three fields is set, all three must be set
+    - Error: `BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem`
+  - **FHIR Resource Validation**:
+    - `taskOutputSystem`: Validates that the system references a valid CodeSystem URL
+      - Error: `BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem` if CodeSystem is unknown
+    - `taskOutputCode`: Validates that the code is a valid code in the referenced CodeSystem
+      - Error: `BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem` if code is unknown
+    - `taskOutputVersion`: Validates that the version contains a placeholder (e.g., `#{version}`)
+      - Warning: `BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem` if no placeholder found
+  - Uses `FhirAuthorizationCache` for CodeSystem and code validation
+  - Validation only applies to API v2 task listeners
+  - Success items reported for each successful validation check
 - **Task Listener Input Parameter Validation (API v2)**:
   - Added validation for `practitionerRole` and `practitioners` input parameters in task listeners
   - Validates that input parameters have non-empty values when defined
@@ -1851,9 +1898,6 @@ DiscoveryResult discover(ProjectContext context)
     - `BpmnPractitionerRolehasNoValueOrNullLintItem` (ERROR/WARN)
     - `BpmnPractitionershasNoValueOrNullLintItem` (ERROR/WARN)
   - Comprehensive test coverage with 11 test cases
-
-### Version 2.0.0
-- Updated to version 2.0.0
 - Improved documentation consistency
 - Fixed report path descriptions
 - Updated JavaDoc to reflect JAR-only input support

@@ -5,6 +5,7 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
+import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import org.camunda.bpm.model.bpmn.instance.BaseElement;
 import org.camunda.bpm.model.bpmn.instance.UserTask;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaExecutionListener;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import static dev.dsf.linter.classloading.ClassInspector.*;
 import static dev.dsf.linter.constants.DsfApiConstants.*;
+import static dev.dsf.linter.util.linting.LintingUtils.containsPlaceholder;
 import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
 
 /**
@@ -25,6 +27,76 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * This class provides validation methods to ensure that listener classes exist,
  * implement the correct interfaces, and extend the required base classes based on API version.
  * </p>
+ *
+ * <h2>Validation Categories</h2>
+ *
+ * <h3>Execution Listener Validation</h3>
+ * <ul>
+ *   <li><strong>Class Existence</strong>: Verifies that execution listener classes exist on the project classpath</li>
+ *   <li><strong>Interface Implementation</strong>: Validates that execution listener classes implement
+ *       the correct interface based on the API version (ExecutionListener interface for V2 API,
+ *       ExecutionListener interface for V1 API)</li>
+ * </ul>
+ *
+ * <h3>Task Listener Validation</h3>
+ * <ul>
+ *   <li><strong>Class Attribute Presence</strong>: Validates that task listener classes declare a class attribute</li>
+ *   <li><strong>Class Existence</strong>: Verifies that task listener classes exist on the project classpath</li>
+ *   <li><strong>Inheritance/Interface Check</strong>: Validates that task listener classes extend or implement
+ *       the required classes/interfaces based on API version:
+ *       <ul>
+ *         <li>V1 API: Extend {@code DefaultUserTaskListener} OR implement {@code TaskListener}</li>
+ *         <li>V2 API: Extend {@code DefaultUserTaskListener} OR implement {@code UserTaskListener}</li>
+ *       </ul>
+ *   </li>
+ * </ul>
+ *
+ * <h3>Task Listener Input Parameters Validation (API V2 only)</h3>
+ * <ul>
+ *   <li><strong>practitionerRole</strong>: Validates that the practitionerRole input parameter has a non-empty value.
+ *       Severity: ERROR if extends DefaultUserTaskListener, WARN otherwise</li>
+ *   <li><strong>practitioners</strong>: Validates that the practitioners input parameter has a non-empty value.
+ *       Severity: ERROR if extends DefaultUserTaskListener, WARN otherwise</li>
+ * </ul>
+ *
+ * <h3>Task Listener TaskOutput Field Injections Validation (API V2 only)</h3>
+ * <p>
+ * Validates the taskOutput field injections ({@code taskOutputSystem}, {@code taskOutputCode}, {@code taskOutputVersion})
+ * used to configure output parameters for UserTask listeners.
+ * </p>
+ * <ul>
+ *   <li><strong>Completeness Check</strong>: If any of the three fields is set, all three must be set.
+ *       Reports: {@link BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem} (ERROR)</li>
+ *   <li><strong>FHIR Resource Validation</strong>:
+ *       <ul>
+ *         <li><strong>taskOutputSystem</strong>: Should reference a valid CodeSystem URL.
+ *             Reports: {@link BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem} (ERROR) if CodeSystem is unknown</li>
+ *         <li><strong>taskOutputCode</strong>: Should be a valid code in the referenced CodeSystem.
+ *             Reports: {@link BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem} (ERROR) if code is unknown</li>
+ *         <li><strong>taskOutputVersion</strong>: Must contain a placeholder (e.g., {@code #{version}}).
+ *             Reports: {@link BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem} (WARN) if no placeholder found</li>
+ *       </ul>
+ *   </li>
+ * </ul>
+ *
+ * <h2>Success Reporting</h2>
+ * <p>
+ * For each successful validation check, a {@link BpmnElementLintItemSuccess} is added to the issues list
+ * to provide positive feedback and traceability.
+ * </p>
+ *
+ * @see BpmnUserTaskListenerMissingClassAttributeLintItem
+ * @see BpmnUserTaskListenerJavaClassNotFoundLintItem
+ * @see BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem
+ * @see BpmnPractitionerRoleHasNoValueOrNullLintItem
+ * @see BpmnPractitionersHasNoValueOrNullLintItem
+ * @see BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem
+ * @see BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem
+ * @see BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem
+ * @see BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem
+ * @see BpmnExecutionListenerClassNotFoundLintItem
+ * @see BpmnExecutionListenerNotImplementingRequiredInterfaceLintItem
+ * @see BpmnElementLintItemSuccess
  */
 public final class BpmnListenerLinter {
 
@@ -100,6 +172,19 @@ public final class BpmnListenerLinter {
 
     /**
      * Checks task listener classes with VERSION-ISOLATED interface validation.
+     * <p>
+     * Performs comprehensive validation of task listeners on a UserTask, including:
+     * </p>
+     * <ol>
+     *   <li><strong>Class Attribute Presence</strong>: Verifies that the listener declares a class attribute</li>
+     *   <li><strong>Class Existence</strong>: Verifies that the listener class exists on the project classpath</li>
+     *   <li><strong>Inheritance/Interface Check</strong>: Validates that the listener extends or implements
+     *       the required classes/interfaces based on API version</li>
+     *   <li><strong>Input Parameters Validation (API V2 only)</strong>: Validates practitionerRole and practitioners
+     *       input parameters. Severity: ERROR if extends DefaultUserTaskListener, WARN otherwise</li>
+     *   <li><strong>TaskOutput Field Injections Validation (API V2 only)</strong>: Validates taskOutputSystem,
+     *       taskOutputCode, and taskOutputVersion field injections for completeness and FHIR resource compliance</li>
+     * </ol>
      *
      * @param userTask  the UserTask to check
      * @param elementId the identifier of the BPMN element
@@ -159,6 +244,9 @@ public final class BpmnListenerLinter {
             if (apiVersion == ApiVersion.V2) {
                 boolean extendsDefaultUserTaskListener = isSubclassOf(implClass, V2_DEFAULT_USER_TASK_LISTENER, projectRoot);
                 validateTaskListenerInputParameters(listener, implClass, elementId, issues, bpmnFile, processId, extendsDefaultUserTaskListener);
+                
+                // Step 5: For API V2, validate taskOutput field injections
+                validateTaskListenerTaskOutputFields(listener, elementId, issues, bpmnFile, processId, projectRoot);
             }
         }
     }
@@ -370,6 +458,232 @@ public final class BpmnListenerLinter {
         }
 
         return null;
+    }
+
+    /**
+     * Validates taskOutput field injections for task listeners (API v2).
+     * <p>
+     * Performs validation of the three taskOutput field injections used to configure output parameters
+     * for UserTask listeners. The validation includes:
+     * </p>
+     * <ol>
+     *   <li><strong>Completeness Check</strong>: If any of the three fields (taskOutputSystem, taskOutputCode,
+     *       taskOutputVersion) is set, all three must be set. Reports:
+     *       {@link BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem} (ERROR) if incomplete</li>
+     *   <li><strong>FHIR Resource Validation</strong>:
+     *       <ul>
+ *         <li><strong>taskOutputSystem</strong>: Should reference a valid CodeSystem URL.
+ *             Reports: {@link BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem} (ERROR) if CodeSystem is unknown</li>
+ *         <li><strong>taskOutputCode</strong>: Should be a valid code in the referenced CodeSystem.
+     *             Validated against {@link FhirAuthorizationCache}. Reports:
+     *             {@link BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem} (ERROR) if code is unknown</li>
+     *         <li><strong>taskOutputVersion</strong>: Must contain a placeholder (e.g., {@code #{version}}).
+     *             Reports: {@link BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem} (WARN)
+     *             if no placeholder found</li>
+     *       </ul>
+     *   </li>
+     * </ol>
+     * <p>
+     * For each successful validation check, a {@link BpmnElementLintItemSuccess} is added to the issues list.
+     * </p>
+     *
+     * @param listener   the TaskListener to validate
+     * @param elementId  the identifier of the BPMN element
+     * @param issues     the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param bpmnFile   the BPMN file under lint
+     * @param processId  the identifier of the BPMN process containing the element
+     * @param projectRoot the project root directory
+     */
+    private static void validateTaskListenerTaskOutputFields(
+            CamundaTaskListener listener,
+            String elementId,
+            List<BpmnElementLintItem> issues,
+            File bpmnFile,
+            String processId,
+            File projectRoot) {
+
+        DomElement domElement = listener.getDomElement();
+        if (domElement == null) return;
+
+        // Find extensionElements within the task listener
+        DomElement extensionElements = findExtensionElements(domElement);
+        if (extensionElements == null) return;
+
+        String taskOutputSystem = null;
+        String taskOutputCode = null;
+        String taskOutputVersion = null;
+
+        // Read field values from extensionElements
+        for (DomElement child : extensionElements.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn")
+                    && "field".equals(localName)) {
+                String fieldName = child.getAttribute("name");
+                if (fieldName == null) continue;
+
+                String value = readFieldValueFromDom(child);
+                if (value == null) continue;
+
+                switch (fieldName) {
+                    case "taskOutputSystem" -> taskOutputSystem = value;
+                    case "taskOutputCode" -> taskOutputCode = value;
+                    case "taskOutputVersion" -> taskOutputVersion = value;
+                }
+            }
+        }
+
+        // Check 1: Completeness check - If any of the three fields is set, all three must be set
+        boolean anySet = (taskOutputSystem != null && !taskOutputSystem.trim().isEmpty())
+                || (taskOutputCode != null && !taskOutputCode.trim().isEmpty())
+                || (taskOutputVersion != null && !taskOutputVersion.trim().isEmpty());
+
+        boolean allSet = (taskOutputSystem != null && !taskOutputSystem.trim().isEmpty())
+                && (taskOutputCode != null && !taskOutputCode.trim().isEmpty())
+                && (taskOutputVersion != null && !taskOutputVersion.trim().isEmpty());
+
+        if (anySet && !allSet) {
+            issues.add(new BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem(
+                    elementId, bpmnFile, processId));
+            return; // Skip further validation if incomplete
+        }
+
+        // If none are set, skip validation
+        if (!allSet) {
+            return;
+        }
+
+        // All three fields are set and not empty (validated in Check 1)
+        issues.add(new BpmnElementLintItemSuccess(
+                elementId, bpmnFile, processId,
+                "All taskOutput fields (taskOutputSystem, taskOutputCode, taskOutputVersion) are set and not blank"));
+
+        // Check 2: FHIR Resource validation
+        validateTaskOutputFhirResources(elementId, issues, bpmnFile, processId, projectRoot,
+                taskOutputSystem, taskOutputCode, taskOutputVersion);
+    }
+
+    /**
+     * Finds the extensionElements element within a task listener DOM element.
+     *
+     * @param taskListenerElement the task listener DOM element
+     * @return the extensionElements element, or null if not found
+     */
+    private static DomElement findExtensionElements(DomElement taskListenerElement) {
+        for (DomElement child : taskListenerElement.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn")
+                    && "extensionElements".equals(localName)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reads the value from a field DOM element.
+     * Supports string literals only (expressions are not supported for taskOutput fields).
+     *
+     * @param fieldElement the field DOM element
+     * @return the string value, or null if not found or is an expression
+     */
+    private static String readFieldValueFromDom(DomElement fieldElement) {
+        if (fieldElement == null) return null;
+
+        // Check for stringValue attribute
+        String stringValue = fieldElement.getAttribute("stringValue");
+        if (stringValue != null && !stringValue.trim().isEmpty()) {
+            return stringValue.trim();
+        }
+
+        // Check for nested string element
+        for (DomElement child : fieldElement.getChildElements()) {
+            String namespaceUri = child.getNamespaceURI();
+            String localName = child.getLocalName();
+            if (namespaceUri != null && namespaceUri.equals("http://camunda.org/schema/1.0/bpmn")
+                    && "string".equals(localName)) {
+                String value = child.getTextContent();
+                if (value != null && !value.trim().isEmpty()) {
+                    return value.trim();
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validates that taskOutput field values correspond to valid FHIR resources.
+     * <p>
+     * Performs FHIR resource validation for the three taskOutput fields:
+     * </p>
+     * <ul>
+     *   <li><strong>taskOutputSystem</strong>: Validates that the system references a valid CodeSystem.
+     *       Uses {@link FhirAuthorizationCache#containsSystem(String)} to check if the CodeSystem exists.
+     *       Reports: {@link BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem} (ERROR) if CodeSystem is unknown</li>
+     *   <li><strong>taskOutputCode</strong>: Validates that the code is a valid code in the referenced CodeSystem.
+     *       Uses {@link FhirAuthorizationCache#isUnknown(String, String)} to check code existence.
+     *       Reports: {@link BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem} (ERROR) if code is unknown</li>
+     *   <li><strong>taskOutputVersion</strong>: Validates that the version contains a placeholder (e.g., {@code #{version}}).
+     *       Uses {@link dev.dsf.linter.util.linting.LintingUtils#containsPlaceholder(String)} to check for placeholders.
+     *       Reports: {@link BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem} (WARN) if no placeholder found</li>
+     * </ul>
+     * <p>
+     * For each successful validation check, a {@link BpmnElementLintItemSuccess} is added to the issues list.
+     * </p>
+     *
+     * @param elementId  the identifier of the BPMN element
+     * @param issues     the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
+     * @param bpmnFile   the BPMN file under lint
+     * @param processId  the identifier of the BPMN process containing the element
+     * @param projectRoot the project root directory
+     * @param system     the taskOutputSystem value
+     * @param code       the taskOutputCode value
+     * @param version    the taskOutputVersion value
+     */
+    private static void validateTaskOutputFhirResources(
+            String elementId,
+            List<BpmnElementLintItem> issues,
+            File bpmnFile,
+            String processId,
+            File projectRoot,
+            String system,
+            String code,
+            String version) {
+
+        if (system != null && !system.trim().isEmpty()) {
+            if (!FhirAuthorizationCache.containsSystem(system)) {
+                issues.add(new BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem(
+                        elementId, bpmnFile, processId, system));
+            } else {
+                issues.add(new BpmnElementLintItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "taskOutputSystem '" + system + "' references a valid CodeSystem"));
+            }
+        }
+
+        if (system != null && !system.trim().isEmpty() && code != null && !code.trim().isEmpty()) {
+            if (FhirAuthorizationCache.isUnknown(system, code)) {
+                issues.add(new BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem(
+                        elementId, bpmnFile, processId, code, system));
+            } else {
+                issues.add(new BpmnElementLintItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "taskOutputCode '" + code + "' is valid in CodeSystem '" + system + "'"));
+            }
+        }
+
+        if (system != null && !system.trim().isEmpty() && version != null && !version.trim().isEmpty()) {
+            if (!containsPlaceholder(version)) {
+                issues.add(new BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem(
+                        elementId, bpmnFile, processId, version, system));
+            } else {
+                issues.add(new BpmnElementLintItemSuccess(
+                        elementId, bpmnFile, processId,
+                        "taskOutputVersion contains placeholder: '" + version + "'"));
+            }
+        }
     }
 }
 
