@@ -20,12 +20,7 @@ import java.util.concurrent.Callable;
  * Command-line interface entry point for the DSF Linter application.
  * <p>
  * This class provides a command-line interface for linting DSF (Data Sharing Framework)
- * process plugins from various input sources:
- * <ul>
- *   <li>Local project directories</li>
- *   <li>Git repositories (via URL)</li>
- *   <li>JAR files (local or remote)</li>
- * </ul>
+ * process plugins from JAR files (local or remote).
  * </p>
  * <p>
  * The linter validates BPMN processes, FHIR resources, and plugin configurations,
@@ -51,7 +46,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "dsf-linter",
         mixinStandardHelpOptions = true,
-        version = "1.2.0",
+        version = "2.0.0",
         description = "Lints DSF process plugins from JAR files (local or remote)."
 )
 public class Main implements Callable<Integer> {
@@ -61,7 +56,7 @@ public class Main implements Callable<Integer> {
     private String inputPath;
 
     @Option(names = {"-r", "--report-path"},
-            description = "Directory for linter reports. Default: <temp-dir>/dsf-linter-<name>/target/dsf-linter-report")
+            description = "Directory for linter reports. Default: <temp-dir>/dsf-linter-report-<name>/dsf-linter-report")
     private Path reportPath;
 
     @Option(names = "--html",
@@ -108,7 +103,7 @@ public class Main implements Callable<Integer> {
      * This method:
      * <ol>
      *   <li>Validates input parameters</li>
-     *   <li>Detects and resolves the input type (directory, Git repo, JAR)</li>
+     *   <li>Resolves the JAR file (downloads if remote)</li>
      *   <li>Prepares the report directory</li>
      *   <li>Executes the linting process</li>
      *   <li>Cleans up temporary resources</li>
@@ -125,7 +120,7 @@ public class Main implements Callable<Integer> {
         if (!disableColor) {
             Console.enableColors();
         }
-        logger.info("DSF Linter v1.0.0");
+        logger.info("DSF Linter v2.0.0");
 
         // Validate input
         if (inputPath == null || inputPath.isBlank()) {
