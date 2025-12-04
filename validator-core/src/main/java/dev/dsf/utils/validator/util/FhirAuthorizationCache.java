@@ -1,149 +1,122 @@
 package dev.dsf.utils.validator.util;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * <h2>DSF CodeSystem Cache</h2>
- * Utility class that maintains an in‑memory, thread‑safe cache of codes taken from selected
- * <a href="https://dsf.dev/">Digital Square Framework</a> (DSF) CodeSystems.
- * <p>
- * The primary purpose is to support validation logic that checks whether a <em>code</em> occurring in an
- * ActivityDefinition (or any other FHIR resource) is allowed by the DSF specification.  At runtime the
- * cache is pre‑filled with <b>all</b> codes of the
- * {@code http://dsf.dev/fhir/CodeSystem/process-authorization} CodeSystem so that the validators can
- * operate even when no CodeSystem bundle has been parsed yet. Additional codes may be registered via
- * {@link #addCodes(Set)} — for example when the validator application loads a newer DSF release bundle
- * on start‑up.
- * </p>
- * <p>
- * <strong>Scope:</strong> Only CodeSystems that are required by the core FHIR validators live here.  BPMN‑specific
- * systems such as {@code bpmn-message} or {@code bpmn-task-profile} are validated by the BPMN layer and are
- * intentionally <em>not</em> covered by this cache.
- * </p>
- * <p>
- * This class is a pure static utility and therefore cannot be instantiated.
- * </p>
+ * <h2>DSF CodeSystem Cache — v2</h2>
+ * <p>A thread‑safe registry that tracks <i>all</i> codes that are relevant for the DSF core validators. 
+ * Unlike the original stub, this version is fully dynamic: any CodeSystem can be registered at
+ * runtime, and new codes can be merged in without restarting the validator.</p>
+ *
+ * <p><b>Design goals</b></p>
+ * <ul>
+ *   <li><b>Extensibility</b> – new CodeSystems & codes can be added via API calls.</li>
+ *   <li><b>Thread‑safety</b> – uses {@link ConcurrentHashMap} and thread‑safe sets.</li>
+ *   <li><b>One source of truth</b> – all look‑ups go through {@link #isKnown(String, String)}.</li>
+ *   <li><b>Zero deprecations</b> – clean, stable API for future validators.</li>
+ * </ul>
+ *
+ * <p><b>Usage</b></p>
+ * <pre>{@code
+ * // automatic seeding happens in the static block
+ * FhirAuthorizationCache.isKnown("http://dsf.dev/fhir/CodeSystem/process-authorization", "LOCAL_ALL");
+ *
+ * // add a custom practitioner‑role at runtime
+ * FhirAuthorizationCache.addCodes("http://dsf.dev/fhir/CodeSystem/practitioner-role",
+ *                                 Set.of("BIOBANK_USER"));
+ * }</pre>
  */
 public final class FhirAuthorizationCache
 {
     /*
-     * Static code sets (extend when DSF introduces new codes)
-     */
-
-    /** All requester/recipient codes as defined in DSF 1.0.0 <em>process‑authorization</em>. */
-    private static final Set<String> PROCESS_AUTHORIZATION_CODES = Set.of(
-            "LOCAL_ALL",
-            "LOCAL_ALL_PRACTITIONER",
-            "LOCAL_ORGANIZATION",
-            "LOCAL_ORGANIZATION_PRACTITIONER",
-            "LOCAL_ROLE",
-            "LOCAL_ROLE_PRACTITIONER",
-            "REMOTE_ALL",
-            "REMOTE_ORGANIZATION",
-            "REMOTE_ROLE"
-    );
-
-    /** Valid codes for the <em>read‑access‑tag</em> CodeSystem. */
-    private static final Set<String> READ_ACCESS_TAG_CODES = Set.of(
-            "ALL", "LOCAL", "ORGANIZATION", "ROLE", "PRACTITIONER", "ROLE_PRACTITIONER");
-
-    /** Example practitioner‑role codes. Extend this set when your installation requires more. */
-    private static final Set<String> PRACTITIONER_ROLE_CODES = Set.of("DSF_ADMIN", "ORGANIZATION_USER");
-
-    /** Example organization‑role codes. Extend as needed. */
-    private static final Set<String> ORGANIZATION_ROLE_CODES = Set.of("DATA_PROVIDER", "COORDINATOR");
-
-
-    /**
-     * Thread‑safe backing set for codes of <em>process‑authorization</em>.
-     * Starts with the predefined codes and can be updated at runtime.
-     */
-    private static final Set<String> AUTH_CODES = ConcurrentHashMap.newKeySet();
-
-    /* Static initializer: preload default codes exactly once. */
-    static
-    {
-        AUTH_CODES.addAll(PROCESS_AUTHORIZATION_CODES);
-    }
-
-    /** Prevent instantiation. */
-    private FhirAuthorizationCache()
-    {
-        throw new AssertionError("Utility class must not be instantiated");
-    }
+      Constants
+      */
+    public static final String CS_PROCESS_AUTH   = "http://dsf.dev/fhir/CodeSystem/process-authorization";
+    public static final String CS_READ_ACCESS    = "http://dsf.dev/fhir/CodeSystem/read-access-tag";
+    public static final String CS_PRACT_ROLE     = "http://dsf.dev/fhir/CodeSystem/practitioner-role";
+    public static final String CS_ORG_ROLE       = "http://dsf.dev/fhir/CodeSystem/organization-role";
+    public static final String CS_RESOURCE_TYPE  = "http://dsf.dev/fhir/CodeSystem/resource-type";
 
     /*
-     * Public API
-     */
+      Storage
+      */
+    private static final Map<String, Set<String>> CODES_BY_SYSTEM = new ConcurrentHashMap<>();
 
-    /**
-     * Registers additional <em>process‑authorization</em> codes. Duplicate entries are ignored.
-     *
-     * @param codes the codes to add; {@code null} is ignored
-     */
-    public static void addCodes(Set<String> codes)
+    /*
+     *  Bootstrap with official DSF 1.7 codes
+      */
+    static
     {
-        if (codes != null)
-            AUTH_CODES.addAll(codes);
+        // process‑authorization (core)
+        register(CS_PROCESS_AUTH, Set.of(
+                "LOCAL_ALL", "LOCAL_ALL_PRACTITIONER", "LOCAL_ORGANIZATION", "LOCAL_ORGANIZATION_PRACTITIONER",
+                "LOCAL_ROLE", "LOCAL_ROLE_PRACTITIONER", "REMOTE_ALL", "REMOTE_ORGANIZATION", "REMOTE_ROLE"));
+
+        // read‑access-tag (core)
+        register(CS_READ_ACCESS, Set.of(
+                "ALL", "LOCAL", "ORGANIZATION", "ROLE", "PRACTITIONER", "ROLE_PRACTITIONER"));
+
+        // practitioner‑role (official DSF release v1.7)
+        register(CS_PRACT_ROLE, Set.of(
+                "DSF_ADMIN", "UAC_USER", "COS_USER", "CRR_USER", "DIC_USER", "DMS_USER", "DTS_USER",
+                "HRP_USER", "TTP_USER", "AMS_USER", "ORGANIZATION_USER"));
+
+        // organization‑role (official DSF release v1.7)
+        register(CS_ORG_ROLE, Set.of(
+                "COORDINATOR", "DATA_PROVIDER", "TTP", "RESEARCH_STUDY", "HRP", "QA"));
     }
 
-    /**
-     * Returns an unmodifiable snapshot of all cached <em>process‑authorization</em> codes. Intended for
-     * diagnostic and unit‑test purposes.
-     */
-    @Deprecated
-    public static Set<String> getCodes()
-    {
-        return Collections.unmodifiableSet(AUTH_CODES);
-    }
+    private FhirAuthorizationCache() { /* utility class */ }
+
+    /*
+     *  Public API
+     *  */
 
     /**
-     * True when the supplied code is contained in the <em>process‑authorization</em> cache.
+     * Registers (or merges) a set of codes for the given CodeSystem URI.
+     * If the system does not exist yet, it is created automatically.
      */
-    public static boolean isKnownAuthorizationCode(String code)
+    public static void addCodes(String system, Set<String> codes)
     {
-        return AUTH_CODES.contains(code);
+        if (system == null || codes == null || codes.isEmpty())
+            return;
+
+        CODES_BY_SYSTEM.computeIfAbsent(system, s -> ConcurrentHashMap.newKeySet())
+                .addAll(codes);
     }
 
-    public static boolean isKnownDsfCode(String system, String code)
+    /** Convenience wrapper for {@link #addCodes(String, Set)}. */
+    public static void register(String system, Set<String> codes) { addCodes(system, codes); }
+
+    /** Returns <code>true</code> iff the code is known for the given CodeSystem URI. */
+    public static boolean isKnown(String system, String code)
     {
         if (system == null || code == null || code.isBlank())
             return false;
+        Set<String> set = CODES_BY_SYSTEM.get(system);
+        if (set != null)
+            return set.contains(code);
 
-        return switch (system)
-        {
-            case "http://dsf.dev/fhir/CodeSystem/process-authorization" -> AUTH_CODES.contains(code);
-            case "http://dsf.dev/fhir/CodeSystem/read-access-tag"       -> READ_ACCESS_TAG_CODES.contains(code);
-            case "http://dsf.dev/fhir/CodeSystem/practitioner-role"     -> PRACTITIONER_ROLE_CODES.contains(code);
-            case "http://dsf.dev/fhir/CodeSystem/organization-role"     -> ORGANIZATION_ROLE_CODES.contains(code);
-            case "http://dsf.dev/fhir/CodeSystem/resource-type"         -> Character.isUpperCase(code.charAt(0));
-            default                                                      -> false;
-        };
-    }
+        // special heuristic for resource‑type CodeSystem (code == FHIR resource name)
+        if (CS_RESOURCE_TYPE.equals(system))
+            return Character.isUpperCase(code.charAt(0));
 
-
-    @Deprecated
-    public static List<String> getKnownDsfCodeSystems()
-    {
-        return List.of(
-                "http://dsf.dev/fhir/CodeSystem/read-access-tag",
-                "http://dsf.dev/fhir/CodeSystem/process-authorization",
-                "http://dsf.dev/fhir/CodeSystem/practitioner-role",
-                "http://dsf.dev/fhir/CodeSystem/organization-role",
-                "http://dsf.dev/fhir/CodeSystem/resource-type"
-        );
+        return false; // unknown system
     }
 
     /**
-     * Clears the runtime cache. <strong>Use only in unit tests!</strong> Production code should never empty
-     * the cache after initialisation.
+     * Exposes an <b>unmodifiable</b> snapshot of the codes currently cached for a system.
+     * Returns an empty set if the system is unknown.
      */
-    @Deprecated
-    public static void clearCache()
+    public static Set<String> getCodes(String system)
     {
-        AUTH_CODES.clear();
+        Set<String> s = CODES_BY_SYSTEM.get(system);
+        return s != null ? Collections.unmodifiableSet(s) : Collections.emptySet();
     }
+
+    /** Removes <strong>all</strong> codes for <em>all</em> systems (unit‑test helper). */
+    public static void clearAll() { CODES_BY_SYSTEM.clear(); }
 }
