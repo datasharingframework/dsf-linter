@@ -383,7 +383,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
             String sys = val(c, "./*[local-name()='system']/@value");
             String code = val(c, "./*[local-name()='code']/@value");
 
-            if (FhirAuthorizationCache.isUnknown(sys, code))
+            if (!FhirAuthorizationCache.isKnownDsfCode(sys, code))
                 out.add(new FhirTaskUnknownCodeValidationItem(f, ref,
                         "Unknown code '" + code + "' in '" + sys + "'"));
         }
@@ -404,7 +404,7 @@ public final class FhirTaskValidator extends AbstractFhirInstanceValidator
 
         String idVal = val(doc,
                 TASK_XP + "/*[local-name()='identifier']/*[local-name()='value']/@value");
-        return !blank(idVal) ? idVal : file.getName();
+        return !blank(idVal) ? idVal : file.toURI().toString();
     }
 
     /**

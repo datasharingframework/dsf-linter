@@ -46,15 +46,12 @@ public final class FhirResourceValidator
         // Fallback in case ServiceLoader finds nothing (e.g., during tests)
         if (validators.isEmpty())
         {
-            validators.add(
+            validators.addAll(List.of(
                     new FhirActivityDefinitionValidator()
-            );
-            validators.add(
+            ));
+            validators.addAll(List.of(
                     new FhirTaskValidator()
-            );
-            validators.add(
-                    new FhirValueSetValidator()
-            );
+            ));
         }
     }
 
