@@ -13,7 +13,7 @@ import java.util.Optional;
 
 import static dev.dsf.linter.bpmn.BpmnElementValidator.*;
 import static dev.dsf.linter.bpmn.BpmnModelUtils.extractImplementationClass;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 /**
  * The {@code BpmnEventValidator} class provides validation logic for various BPMN events,

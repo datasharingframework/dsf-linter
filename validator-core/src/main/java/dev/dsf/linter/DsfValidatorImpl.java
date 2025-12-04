@@ -9,7 +9,8 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.ValidationReportGenerator;
 import dev.dsf.linter.service.*;
 import dev.dsf.linter.setup.ProjectSetupHandler;
-import dev.dsf.linter.util.ValidationUtils;
+import dev.dsf.linter.util.laoder.ClassLoaderUtils;
+import dev.dsf.linter.util.validation.ValidationUtils;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.validation.ValidationOutput;
@@ -125,55 +126,76 @@ public class DsfValidatorImpl {
         long startTime = System.currentTimeMillis();
         reportGenerator.printHeader(config);
 
-        final ClassLoader previousClassLoader = Thread.currentThread().getContextClassLoader();
-
         try {
             // Phase 1: Project Setup
             reportGenerator.printPhaseHeader("Phase 1: Project Setup");
             ProjectSetupHandler.ProjectContext context = setupHandler.setupValidationEnvironment(config.projectPath());
 
-            // Phase 2: Resource Discovery
-            reportGenerator.printPhaseHeader("Phase 2: Resource Discovery");
-            ResourceDiscoveryService.DiscoveryResult discovery =
-                    discoveryService.discover(context);
+            // Execute all validation phases with temporary context classloader
+            return ClassLoaderUtils.withTemporaryContextClassLoader(context.projectClassLoader(), () -> {
+                try {
+                    // Phase 2: Resource Discovery
+                    reportGenerator.printPhaseHeader("Phase 2: Resource Discovery");
+                    ResourceDiscoveryService.DiscoveryResult discovery = discoveryService.discover(context);
 
-            if (discovery.plugins().isEmpty()) {
-                logger.warn("No plugins found. Nothing to validate.");
-                return new OverallValidationResult(Collections.emptyMap(), null, config.reportPath(),
-                        System.currentTimeMillis() - startTime, true);
-            }
+                    if (discovery.plugins().isEmpty()) {
+                        logger.warn("No plugins found. Nothing to validate.");
+                        return new OverallValidationResult(
+                                Collections.emptyMap(),
+                                null,
+                                config.reportPath(),
+                                System.currentTimeMillis() - startTime,
+                                true
+                        );
+                    }
 
-            // Phase 3: Validation (Plugins and Project-level)
-            reportGenerator.printPhaseHeader("Phase 3: Validation");
+                    // Phase 3: Validation (Plugins and Project-level)
+                    reportGenerator.printPhaseHeader("Phase 3: Validation");
 
-            // Always perform project-level leftover analysis (works for 1 or more plugins)
-            LeftoverResourceDetector.AnalysisResult leftoverResults =
-                    performProjectLeftoverAnalysis(context, discovery);
+                    // Always perform project-level leftover analysis (works for 1 or more plugins)
+                    LeftoverResourceDetector.AnalysisResult leftoverResults =
+                            performProjectLeftoverAnalysis(context, discovery);
 
-            // Validate all plugins AND include leftover analysis items
-            Map<String, PluginValidation> validations = validateAllPlugins(context, discovery, leftoverResults);
+                    // Validate all plugins AND include leftover analysis items
+                    Map<String, PluginValidation> validations = validateAllPlugins(context, discovery, leftoverResults);
 
-            // Phase 4: Report Generation
-            reportGenerator.printPhaseHeader("Phase 4: Report Generation");
-            reportGenerator.generateReports(validations, discovery, leftoverResults, config);
+                    // Phase 4: Report Generation
+                    reportGenerator.printPhaseHeader("Phase 4: Report Generation");
+                    reportGenerator.generateReports(validations, discovery, leftoverResults, config);
 
-            // Phase 5: Summary
-            long executionTime = System.currentTimeMillis() - startTime;
-            reportGenerator.printSummary(validations, discovery, leftoverResults, executionTime, config);
+                    // Phase 5: Summary
+                    long executionTime = System.currentTimeMillis() - startTime;
+                    reportGenerator.printSummary(validations, discovery, leftoverResults, executionTime, config);
 
-            // Determine final success status
-            int totalPluginErrors = validations.values().stream().mapToInt(v -> v.output().getErrorCount()).sum();
-            boolean success = !config.failOnErrors() || (totalPluginErrors == 0);
+                    // Determine final success status
+                    int totalPluginErrors = validations.values().stream()
+                            .mapToInt(v -> v.output().getErrorCount())
+                            .sum();
+                    boolean success = !config.failOnErrors() || (totalPluginErrors == 0);
 
-            return new OverallValidationResult(validations, leftoverResults, config.reportPath(), executionTime, success);
+                    return new OverallValidationResult(
+                            validations,
+                            leftoverResults,
+                            config.reportPath(),
+                            executionTime,
+                            success
+                    );
 
+                } catch (ResourceValidationException | MissingServiceRegistrationException e) {
+                    logger.error("FATAL: Validation failed: " + e.getMessage(), e);
+                    throw new IOException("Validation failed", e);
+                } finally {
+                    // Cleanup API version holder
+                    ApiVersionHolder.clear();
+                    logger.debug("ApiVersionHolder cleared.");
+                }
+            });
+
+        } catch (IOException e) {
+            throw e; // Re-throw IOException as-is
         } catch (Exception e) {
             logger.error("FATAL: Validation failed with unexpected error: " + e.getMessage(), e);
             throw new IOException("Validation failed", e);
-        } finally {
-            setupHandler.restoreClassLoader(previousClassLoader);
-            ApiVersionHolder.clear();
-            logger.debug("ClassLoader context restored and ApiVersionHolder cleared.");
         }
     }
 

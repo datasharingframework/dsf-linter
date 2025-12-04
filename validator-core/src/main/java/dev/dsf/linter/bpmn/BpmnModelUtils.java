@@ -5,7 +5,7 @@ import org.camunda.bpm.model.bpmn.instance.*;
 import java.util.Collection;
 import java.util.Optional;
 
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 public class BpmnModelUtils {
 

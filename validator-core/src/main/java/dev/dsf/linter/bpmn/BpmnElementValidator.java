@@ -19,8 +19,8 @@ import java.util.List;
 
 import static dev.dsf.linter.classloading.ClassInspector.*;
 import static dev.dsf.linter.constants.DsfApiConstants.*;
-import static dev.dsf.linter.util.ValidationUtils.containsPlaceholder;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.containsPlaceholder;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 public class BpmnElementValidator {
 

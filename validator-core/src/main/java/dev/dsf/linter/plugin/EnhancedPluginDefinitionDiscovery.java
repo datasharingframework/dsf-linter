@@ -1,5 +1,6 @@
 package dev.dsf.linter.plugin;
 
+import dev.dsf.linter.util.laoder.ServiceLoaderUtils;
 import dev.dsf.linter.util.resource.ResourceDiscoveryUtils;
 
 import java.io.File;
@@ -7,8 +8,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static dev.dsf.linter.classloading.ClassInspector.logger;
-import static dev.dsf.linter.constants.DsfApiConstants.V1_PLUGIN_INTERFACE;
-import static dev.dsf.linter.constants.DsfApiConstants.V2_PLUGIN_INTERFACE;
 
 /**
  * Plugin discovery that supports any number of ProcessPluginDefinition implementations.
@@ -71,7 +70,8 @@ public final class EnhancedPluginDefinitionDiscovery {
         if (cl == null) cl = EnhancedPluginDefinitionDiscovery.class.getClassLoader();
 
         // Step 1: Try with ServiceLoader (finds all registered plugins)
-        List<PluginDefinitionDiscovery.PluginAdapter> allCandidates = new ArrayList<>(discoverViaServiceLoader(cl));
+        List<PluginDefinitionDiscovery.PluginAdapter> allCandidates =
+                new ArrayList<>(ServiceLoaderUtils.discoverPluginsViaServiceLoader(cl));
 
         // Debug output for ServiceLoader results
         if (!allCandidates.isEmpty()) {
@@ -114,34 +114,5 @@ public final class EnhancedPluginDefinitionDiscovery {
         System.out.println("[DEBUG] Total unique plugins discovered: " + finalPlugins.size());
 
         return new DiscoveryResult(finalPlugins);
-    }
-
-    /**
-     * Discovers plugins using ServiceLoader for both v1 and v2.
-     * Collects ALL plugins instead of stopping at the first one.
-     */
-
-    private static List<PluginDefinitionDiscovery.PluginAdapter> discoverViaServiceLoader(ClassLoader cl) {
-        List<PluginDefinitionDiscovery.PluginAdapter> plugins = new ArrayList<>();
-
-        // Try v2
-        try {
-            Class<?> v2Class = Class.forName(V2_PLUGIN_INTERFACE, false, cl);
-            ServiceLoader<?> v2Loader = ServiceLoader.load(v2Class, cl);
-            for (Object instance : v2Loader) {
-                plugins.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V2));
-            }
-        } catch (ClassNotFoundException ignored) {}
-
-        // Try v1
-        try {
-            Class<?> v1Class = Class.forName(V1_PLUGIN_INTERFACE, false, cl);
-            ServiceLoader<?> v1Loader = ServiceLoader.load(v1Class, cl);
-            for (Object instance : v1Loader) {
-                plugins.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V1));
-            }
-        } catch (ClassNotFoundException ignored) {}
-
-        return plugins;
     }
 }

@@ -19,7 +19,7 @@ import static dev.dsf.linter.bpmn.BpmnElementValidator.checkMessageName;
 import static dev.dsf.linter.bpmn.BpmnElementValidator.checkTaskListenerClasses;
 import static dev.dsf.linter.classloading.ClassInspector.classExists;
 import static dev.dsf.linter.classloading.ClassInspector.implementsDsfTaskInterface;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 /**
  * <h2>DSF BPMN Task Validator</h2>

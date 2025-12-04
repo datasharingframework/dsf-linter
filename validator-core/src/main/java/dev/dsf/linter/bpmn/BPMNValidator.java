@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static dev.dsf.linter.util.ValidationUtils.getFile;
+import static dev.dsf.linter.util.validation.ValidationUtils.getFile;
 
 /**
  * BPMNValidator is the primary entry point for validating a single BPMN file.

@@ -14,7 +14,7 @@ import java.util.*;
 
 import static dev.dsf.linter.bpmn.BpmnElementValidator.checkInstantiatesCanonicalField;
 import static dev.dsf.linter.bpmn.BpmnElementValidator.checkProfileField;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 /**
  * Validates {@code <camunda:field>} injections on BPMN elements.

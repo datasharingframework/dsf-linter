@@ -8,7 +8,7 @@ import java.net.URLClassLoader;
 import java.util.Optional;
 
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateProjectClassLoader;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 import static dev.dsf.linter.constants.DsfApiConstants.DSF_TASK_INTERFACES;
 
 public class ClassInspector {

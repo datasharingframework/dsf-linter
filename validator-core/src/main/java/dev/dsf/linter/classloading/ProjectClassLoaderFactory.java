@@ -1,6 +1,7 @@
 package dev.dsf.linter.classloading;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -108,17 +109,19 @@ public class ProjectClassLoaderFactory {
      * @see #getOrCreateCachedClassLoader(Path, ConcurrentMap, Supplier)
      * @see #CL_CACHE
      */
-    public static ClassLoader getOrCreateProjectClassLoader(File projectRoot) throws Exception {
-        Path key = projectRoot.getCanonicalFile().toPath();
-        return getOrCreateCachedClassLoader(key, CL_CACHE, () -> {
-            try {
-                return createProjectClassLoader(projectRoot);
-            } catch (Exception e) {
-                // This is necessary because the lambda can't throw a checked exception directly.
-                // The helper method will catch and re-throw it as a RuntimeException.
-                throw new RuntimeException(e);
-            }
-        });
+    public static ClassLoader getOrCreateProjectClassLoader(File projectRoot) {
+        try {
+            Path key = projectRoot.getCanonicalFile().toPath();
+            return getOrCreateCachedClassLoader(key, CL_CACHE, () -> {
+                try {
+                    return createProjectClassLoader(projectRoot);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to create project classloader for: " + projectRoot, e);
+                }
+            });
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to resolve canonical path for: " + projectRoot, e);
+        }
     }
 
     /**
@@ -262,13 +265,11 @@ public class ProjectClassLoaderFactory {
      */
     public static ClassLoader createRecursiveProjectClassLoader(File projectRoot) throws Exception {
         final Path root = projectRoot.toPath();
-        // Change: Use a Set<URI> to avoid potential network I/O from URL.equals()
         final Set<URI> uris = new LinkedHashSet<>();
 
-        // Always include root so "exploded" class dirs are visible
         uris.add(projectRoot.toURI());
 
-        // Recursively add common build output directories using constants
+        // Add common build output directories
         try (Stream<Path> s = Files.walk(root)) {
             s.filter(Files::isDirectory)
                     .filter(p -> p.endsWith(MAVEN_CLASSES_PATH)
@@ -277,38 +278,31 @@ public class ProjectClassLoaderFactory {
                     .forEach(p -> uris.add(p.toUri()));
         }
 
-        // Recursively add dependency jars using constants
-        final String targetDepStr = File.separator + MAVEN_DEPENDENCY_PATH + File.separator;
-        final String targetDepsStr = File.separator + MAVEN_DEPENDENCIES_PATH + File.separator;
+        // Add dependency jars
         try (Stream<Path> s = Files.walk(root)) {
             s.filter(Files::isRegularFile)
-                    .filter(p -> {
-                        String ps = p.toString();
-                        return (ps.contains(targetDepStr) || ps.contains(targetDepsStr)) && ps.endsWith(".jar");
-                    })
+                    .filter(p -> p.toString().endsWith(".jar"))
+                    .filter(p -> isInDependencyFolder(root, p))
                     .forEach(p -> uris.add(p.toUri()));
         }
 
-        // Add root-level *.jar files at the top-level project root
+        // Add root-level *.jar files
         try (Stream<Path> s = Files.walk(root, 1)) {
             s.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(".jar"))
                     .forEach(p -> uris.add(p.toUri()));
         }
 
-        // Convert the safe URI set to a URL array only when creating the ClassLoader
         URL[] urls = uris.stream().map(uri -> {
             try {
                 return uri.toURL();
             } catch (Exception e) {
-                // This is unlikely to happen for file-based URIs, but handle it defensively
                 throw new RuntimeException("Failed to convert URI to URL: " + uri, e);
             }
         }).toArray(URL[]::new);
 
         return new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
     }
-
     /**
      * A generic helper to retrieve or create a cached {@link ClassLoader}.
      * <p>
@@ -342,6 +336,17 @@ public class ProjectClassLoaderFactory {
                 throw new RuntimeException("Failed to create and cache the classloader for key: " + k, e);
             }
         });
+    }
+
+    private static boolean isInDependencyFolder(Path root, Path jarPath) {
+        Path relativePath = root.relativize(jarPath);
+        for (Path part : relativePath) {
+            String partName = part.toString();
+            if (partName.equals("dependency") || partName.equals("dependencies")) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

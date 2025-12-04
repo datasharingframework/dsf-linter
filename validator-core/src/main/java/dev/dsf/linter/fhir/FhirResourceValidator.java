@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static dev.dsf.linter.util.ValidationUtils.getFile;
+import static dev.dsf.linter.util.validation.ValidationUtils.getFile;
 
 /**
  * Validates FHIR resources by aggregating concrete {@link AbstractFhirInstanceValidator} implementations

@@ -9,7 +9,7 @@ import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.service.ResourceDiscoveryService;
 import dev.dsf.linter.service.ValidationResult;
 import dev.dsf.linter.util.Console;
-import dev.dsf.linter.util.ValidationUtils;
+import dev.dsf.linter.util.validation.ValidationUtils;
 import dev.dsf.linter.util.validation.ValidationOutput;
 
 import java.util.List;

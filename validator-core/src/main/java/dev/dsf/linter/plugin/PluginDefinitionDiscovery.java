@@ -1,6 +1,9 @@
 package dev.dsf.linter.plugin;
 
 import dev.dsf.linter.util.LogUtils;
+import dev.dsf.linter.util.laoder.ClassLoaderUtils;
+import dev.dsf.linter.util.validation.PluginValidationUtils;
+import dev.dsf.linter.util.laoder.ServiceLoaderUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,15 +17,12 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
 import static dev.dsf.linter.classloading.ClassInspector.logger;
 import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateRecursiveProjectClassLoader;
-import static dev.dsf.linter.constants.DsfApiConstants.V1_PLUGIN_INTERFACE;
-import static dev.dsf.linter.constants.DsfApiConstants.V2_PLUGIN_INTERFACE;
 
 /**
  * Discovers and loads ProcessPluginDefinition implementations from the classpath.
@@ -58,54 +58,33 @@ public final class PluginDefinitionDiscovery
      * @return list of discovered PluginAdapter instances
      */
     static List<PluginAdapter> scanProjectRoot(File projectRoot) {
-        List<PluginAdapter> found = new ArrayList<>();
-
         try {
-            // 1) Get cached recursive project class loader
+            // Get cached recursive project class loader
             ClassLoader projectCl = getOrCreateRecursiveProjectClassLoader(projectRoot);
 
-            // 2) Temporarily set TCCL so ServiceLoader.load(service) uses it
-            ClassLoader oldCl = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(projectCl);
+            // Execute discovery with temporary TCCL (automatically restored)
+            return ClassLoaderUtils.withTemporaryContextClassLoader(projectCl, () -> {
 
-            try {
-                System.out.println("[DEBUG] Classpath (recursive) prepared via BpmnValidationUtils. Trying ServiceLoader discovery...");
+                logger.debug("[DEBUG] Classpath (recursive) prepared via ProjectClassLoaderFactory. Trying ServiceLoader discovery...");
 
-                // 3) Try V2 first (prefer V2 if both exist)
-                try {
-                    Class<?> v2Class = Class.forName(V2_PLUGIN_INTERFACE, false, projectCl);
-                    ServiceLoader.load(v2Class, projectCl).forEach(instance ->
-                            found.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V2))
-                    );
-                } catch (ClassNotFoundException ignored) {}
-
-                // 4) Then try V1
-                try {
-                    Class<?> v1Class = Class.forName(V1_PLUGIN_INTERFACE, false, projectCl);
-                    ServiceLoader.load(v1Class, projectCl).forEach(instance ->
-                            found.add(new GenericPluginAdapter(instance, GenericPluginAdapter.ApiVersion.V1))
-                    );
-                } catch (ClassNotFoundException ignored) {}
+                // Try ServiceLoader discovery using utility method
+                List<PluginAdapter> found = new ArrayList<>(ServiceLoaderUtils.discoverPluginsViaServiceLoader(projectCl));
 
                 if (!found.isEmpty()) {
-                    logger.debug("[DEBUG] SUCCESS: Plugin found via ServiceLoader with recursive classpath.");
+                    logger.debug("[DEBUG] SUCCESS: Plugin(s) found via ServiceLoader with recursive classpath.");
                 } else {
-                    // 5) Fallback: direct class scan using the same loader
+                    // Fallback: direct class scan using the same loader
                     logger.debug("[DEBUG] ServiceLoader found nothing. Starting direct scan with recursive classpath...");
                     found.addAll(scanProjectClassesDirectly(projectRoot, projectCl));
                 }
-            } finally {
-                // 6) Always restore TCCL
-                Thread.currentThread().setContextClassLoader(oldCl);
-            }
+
+                return found;
+            });
 
         } catch (Exception e) {
             LogUtils.logAndRethrow(logger, "Plugin discovery failed", e);
+            return new ArrayList<>(); // Never reached, but needed for compilation
         }
-
-
-
-        return found;
     }
 
 
@@ -176,7 +155,7 @@ public final class PluginDefinitionDiscovery
                         Class<?> c = Class.forName(fqdn, false, cl);
 
                         // --- Strict, step-by-step validation logic ---
-                        boolean implementsInterface = implementsProcessPluginDefinition(c, cl);
+                        boolean implementsInterface = PluginValidationUtils.implementsProcessPluginDefinition(c, cl);
                         if (!implementsInterface) {
                             // FAILURE case 1: Does not implement the interface at all.
                             logger.debug("[DEBUG] FAILED: Candidate class does not implement the 'ProcessPluginDefinition' interface.");
@@ -186,7 +165,7 @@ public final class PluginDefinitionDiscovery
                         }
 
                         // At this point, the class IMPLEMENTS the interface. Now check if methods are also present.
-                        boolean hasRequiredMethods = hasPluginSignature(c);
+                        boolean hasRequiredMethods = PluginValidationUtils.hasPluginSignature(c);
                         if (hasRequiredMethods) {
                             // --- SUCCESS CASE ---
                             // Only succeeds if it implements the interface AND has the methods.
@@ -196,7 +175,7 @@ public final class PluginDefinitionDiscovery
                             logger.debug("     -> Validation method: Implements Interface AND has required methods.");
 
                             Object inst = c.getDeclaredConstructor().newInstance();
-                            GenericPluginAdapter.ApiVersion version = isAssignableTo(c, cl)
+                            GenericPluginAdapter.ApiVersion version = PluginValidationUtils.isV2Plugin(c, cl)
                                     ? GenericPluginAdapter.ApiVersion.V2
                                     : GenericPluginAdapter.ApiVersion.V1;
                             out.add(new GenericPluginAdapter(inst, version));
@@ -234,7 +213,7 @@ public final class PluginDefinitionDiscovery
                         try {
                             Class<?> c = Class.forName(fqcn, false, jarCl);
 
-                            boolean implementsInterface = implementsProcessPluginDefinition(c, jarCl);
+                            boolean implementsInterface = PluginValidationUtils.implementsProcessPluginDefinition(c, jarCl);
                             if (!implementsInterface) {
                                 // FAILURE case 1
                                 logger.debug("[DEBUG] FAILED: Candidate in JAR does not implement 'ProcessPluginDefinition' interface.");
@@ -243,7 +222,7 @@ public final class PluginDefinitionDiscovery
                                 continue; // Skip to next class in JAR
                             }
 
-                            boolean hasRequiredMethods = hasPluginSignature(c);
+                            boolean hasRequiredMethods = PluginValidationUtils.hasPluginSignature(c);
                             if (hasRequiredMethods) {
                                 // --- SUCCESS CASE ---
                                 logger.debug("[DEBUG] SUCCESS: Found valid plugin definition in JAR.");
@@ -251,7 +230,7 @@ public final class PluginDefinitionDiscovery
                                 logger.debug("     -> From root: " + e);
 
                                 Object inst = c.getDeclaredConstructor().newInstance();
-                                GenericPluginAdapter.ApiVersion version = isAssignableTo(c, jarCl)
+                                GenericPluginAdapter.ApiVersion version = PluginValidationUtils.isV2Plugin(c, jarCl)
                                         ? GenericPluginAdapter.ApiVersion.V2
                                         : GenericPluginAdapter.ApiVersion.V1;
                                 found.add(new GenericPluginAdapter(inst, version));
@@ -302,36 +281,6 @@ public final class PluginDefinitionDiscovery
         return out;
     }
 
-        private static boolean implementsProcessPluginDefinition(Class<?> c, ClassLoader cl) {
-            try {
-                if (Class.forName(V2_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c)) return true;
-            } catch (ClassNotFoundException ignored) {
-                // V2 not available, try V1
-            }
-            try {
-                if (Class.forName(V1_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c)) return true;
-            } catch (ClassNotFoundException ignored) {
-                // V1 not available either
-            }
-            return false;
-        }
-
-    /**
-     * Verifies class has required plugin method signatures.
-     * @param c the class to check
-     * @return true if all required methods are present
-     */
-    private static boolean hasPluginSignature(Class<?> c) {
-        try {
-            c.getMethod("getName");
-            c.getMethod("getProcessModels");
-            c.getMethod("getFhirResourcesByProcessId");
-            return true;
-        } catch (NoSuchMethodException e) {
-            return false;
-        }
-    }
-
     /**
      * Converts file path to fully qualified class name.
      * @param root the root path
@@ -342,21 +291,4 @@ public final class PluginDefinitionDiscovery
         String rel = root.relativize(clazz).toString();
         return rel.substring(0, rel.length() - ".class".length()).replace(File.separatorChar, '.');
     }
-
-    /**
-     * Determines if the given class is assignable to the V2 ProcessPluginDefinition interface.
-     * This helper is used to decide whether to wrap with V2Adapter (else V1Adapter).
-     *
-     * @param c  the class to check
-     * @param cl the ClassLoader to resolve the DSF API interface
-     * @return true if {@code c} implements the V2 ProcessPluginDefinition interface
-     */
-    private static boolean isAssignableTo(Class<?> c, ClassLoader cl) {
-        try {
-            return Class.forName(V2_PLUGIN_INTERFACE, false, cl).isAssignableFrom(c);
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
 }

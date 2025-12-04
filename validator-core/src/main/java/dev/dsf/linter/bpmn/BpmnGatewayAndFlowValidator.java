@@ -19,7 +19,7 @@ import java.io.File;
 import java.util.List;
 
 import static dev.dsf.linter.bpmn.BpmnElementValidator.checkExecutionListenerClasses;
-import static dev.dsf.linter.util.ValidationUtils.isEmpty;
+import static dev.dsf.linter.util.validation.ValidationUtils.isEmpty;
 
 /**
  * The {@code BpmnGatewayAndFlowValidator} class handles validation logic for BPMN gateway and flow elements,

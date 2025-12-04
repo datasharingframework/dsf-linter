@@ -1,4 +1,4 @@
-package dev.dsf.linter.util;
+package dev.dsf.linter.util.validation;
 
 import dev.dsf.linter.item.BpmnValidationItem;
 import dev.dsf.linter.item.FhirValidationItem;
