@@ -81,23 +81,34 @@ public class DsfValidatorImpl implements DsfValidator
      * </ul>
      */
     @Override
-    public ValidationOutput validate(Path path)
-    {
-        String fn = path.getFileName().toString().toLowerCase();
-        if (fn.endsWith(".bpmn"))
-        {
-            return validateBpmn(path);
+    public ValidationOutput validate(Path path) {
+
+        // A) ProjectFolder
+        if (Files.isDirectory(path)) {
+            File reportRoot = new File("report");
+            reportRoot.mkdirs();
+
+            List<AbstractValidationItem> bpmnItems =
+                    validateAllBpmnFilesSplitNewStructure(path.toFile(), reportRoot);
+
+            List<AbstractValidationItem> fhirItems =
+                    Optional.ofNullable(
+                            validateAllFhirResourcesSplitNewStructure(path.toFile(), reportRoot)
+                    ).orElse(List.of());                     // ← avoid NPE
+
+            List<AbstractValidationItem> all = new ArrayList<>(bpmnItems);
+            all.addAll(fhirItems);
+
+            ValidationOutput combined = new ValidationOutput(all);
+            combined.writeResultsAsJson(new File(reportRoot, "aggregated.json"));
+            return combined;
         }
-        else if (fn.endsWith(".xml") || fn.endsWith(".json"))
-        {
-            return validateFhir(path);
-        }
-        else
-        {
-            System.err.println("Unrecognized extension for: " + path);
-            return null;
-        }
+
+        // B) single file
+        return validateSingleFile(path);
     }
+
+
 
     // BPMN (Split with sub-aggregators)
 
@@ -332,7 +343,7 @@ public class DsfValidatorImpl implements DsfValidator
         return allFhirItems;
     }
 
-    // Single-file BPMN / FHIR validations
+    // Single-file BPMN  validations
     private ValidationOutput validateBpmn(Path path)
     {
         List<AbstractValidationItem> allIssues = new ArrayList<>();
@@ -399,7 +410,14 @@ public class DsfValidatorImpl implements DsfValidator
         return new ValidationOutput(allIssues);
     }
 
+
     // Common Utility
+    /**
+     * Determines if the validation item is "SUCCESS." Adjust if your success logic differs.
+     *
+     * @param item a validation item
+     * @return {@code true} if severity == {@link ValidationSeverity#SUCCESS}, else false
+     */
     private boolean isSuccessItem(AbstractValidationItem item)
     {
         return item.getSeverity() == ValidationSeverity.SUCCESS;
@@ -407,7 +425,7 @@ public class DsfValidatorImpl implements DsfValidator
 
     /**
      * Checks if the given file is readable using {@link Files#isReadable(Path)}.
-     * Override or mock in tests for specific scenarios.
+     * Override or mock in tests for special scenarios.
      *
      * @param path the path to check
      * @return true if readable, false otherwise
@@ -416,7 +434,6 @@ public class DsfValidatorImpl implements DsfValidator
     {
         return Files.isReadable(path);
     }
-
     /**
      * Attempts to locate the root directory of a Maven project by traversing up the directory tree
      * from the given file path until a {@code pom.xml} file is found.
@@ -551,7 +568,6 @@ public class DsfValidatorImpl implements DsfValidator
         }
         return result;
     }
-
     /**
      * Recursively searches for BPMN files under {@code src/main/resources/bpe} in the given {@code projectDir},
      * validates them, and returns a combined {@link ValidationOutput} of all issues.
@@ -592,6 +608,39 @@ public class DsfValidatorImpl implements DsfValidator
         }
 
         return new ValidationOutput(allBpmnItems);
+    }
+
+    /**
+     * <p>
+     * Validates a single file based on its file extension.
+     * </p>
+     *
+     * <p>
+     * Supported file types:
+     * <ul>
+     *   <li><strong>BPMN files</strong> – Files ending with {@code .bpmn} will be validated using the BPMN validation logic.</li>
+     *   <li><strong>FHIR files</strong> – Files ending with {@code .xml} or {@code .json} will be validated using the FHIR validation logic (to be implemented).</li>
+     * </ul>
+     * </p>
+     *
+     * <p>
+     * If the file extension is not recognized, an empty {@link ValidationOutput} will be returned, and an error message will be printed.
+     * </p>
+     *
+     * @param file the {@link Path} of the file to validate
+     * @return a {@link ValidationOutput} containing validation results; empty if the file type is unsupported
+     */
+    private ValidationOutput validateSingleFile(Path file) {
+        String fn = file.getFileName().toString().toLowerCase();
+
+        if (fn.endsWith(".bpmn"))
+            return validateBpmn(file);
+        else if (fn.endsWith(".xml") || fn.endsWith(".json"))
+            return validateFhir(file);
+        else {
+            System.err.println("Unrecognized extension for: " + file);
+            return new ValidationOutput(List.of());
+        }
     }
 
     /**
