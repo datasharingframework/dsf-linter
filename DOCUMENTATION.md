@@ -786,7 +786,7 @@ ValueSet resources are validated against the DSF ValueSet base profile.
 
 - **CodeSystem Validation**:
   - CodeSystem URLs validated against DSF terminology cache
-  - Error: `FhirValueSetUnknownCodeLintItem`
+  - Warn: `FhirValueSetUnknownCodeLintItem`
   - Code exists but in different CodeSystem
   - Error: `FhirValueSetFalseUrlReferencedLintItem`
 

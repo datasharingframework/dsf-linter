@@ -6,11 +6,16 @@ import dev.dsf.linter.output.LintingType;
 import java.io.File;
 
 /**
- * Represents a FHIR lint error indicating that a <code>code</code> inside a
+ * Represents a FHIR lint warn indicating that a <code>code</code> inside a
  * <code>compose.include.concept</code> is not recognized as valid by DSF.
  * <p>
  * This check uses {@code FhirAuthorizationCache.isKnownDsfCode(system, code)} to determine
  * whether the specified combination is approved for use in DSF ValueSets.
+ * </p>
+ * <p>
+ * The severity is set to {@link LinterSeverity#WARN} because the linter cannot definitively
+ * distinguish between a code that is truly unknown or invalid, and a valid code that
+ * belongs to an external system.
  * </p>
  */
 public class FhirValueSetUnknownCodeLintItem extends FhirElementLintItem {
@@ -26,7 +31,7 @@ public class FhirValueSetUnknownCodeLintItem extends FhirElementLintItem {
             String fhirReference,
             String description) {
         super(
-                LinterSeverity.ERROR,
+                LinterSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 LintingType.FHIR_VALUE_SET_UNKNOWN_CODE,
@@ -49,7 +54,7 @@ public class FhirValueSetUnknownCodeLintItem extends FhirElementLintItem {
             String description,
             String resourceId) {
         super(
-                LinterSeverity.ERROR,
+                LinterSeverity.WARN,
                 resourceFile != null ? resourceFile.getName() : "unknown.xml",
                 fhirReference,
                 LintingType.FHIR_VALUE_SET_UNKNOWN_CODE,
