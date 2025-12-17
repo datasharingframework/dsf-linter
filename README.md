@@ -2,6 +2,8 @@
 
 Linter for DSF (Data Sharing Framework) process plugins. Validates BPMN processes, FHIR resources, and plugin configurations from JAR files.
 
+For more information, see the [DSF Linter Tool documentation](https://dsf.dev/process-development/linter-tool/).
+
 ## Quick Start
 
 ```bash
