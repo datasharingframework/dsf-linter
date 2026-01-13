@@ -2,6 +2,8 @@ package dev.dsf.linter.util;
 
 import dev.dsf.linter.bpmn.BpmnElementLinter;
 import dev.dsf.linter.classloading.ClassInspector;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
@@ -59,6 +61,27 @@ class BpmnElementLinterTaskListenerTest {
         issues = new ArrayList<>();
     }
 
+    /**
+     * Helper method to assert that a lint item is a success item.
+     * @param item The lint item to check
+     */
+    private void assertSuccessItem(BpmnElementLintItem item) {
+        assertNotNull(item, "Item should not be null");
+        assertEquals(LinterSeverity.SUCCESS, item.getSeverity(), 
+                "Item should have SUCCESS severity");
+    }
+
+    /**
+     * Helper method to assert that a lint item has a specific LintingType.
+     * @param expectedType The expected LintingType
+     * @param item The lint item to check
+     */
+    private void assertLintType(LintingType expectedType, BpmnElementLintItem item) {
+        assertNotNull(item, "Item should not be null");
+        assertEquals(expectedType, item.getType(), 
+                "Item should have type " + expectedType);
+    }
+
     @Test
     @DisplayName("Should not report issues for UserTask without extension elements")
     public void testUserTaskWithNoExtensionElements() {
@@ -103,7 +126,7 @@ class BpmnElementLinterTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeLintItem.class, issues.get(0));
+        assertLintType(LintingType.BPMN_USER_TASK_LISTENER_MISSING_CLASS_ATTRIBUTE, issues.get(0));
     }
 
     @Test
@@ -117,7 +140,7 @@ class BpmnElementLinterTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeLintItem.class, issues.get(0));
+        assertLintType(LintingType.BPMN_USER_TASK_LISTENER_MISSING_CLASS_ATTRIBUTE, issues.get(0));
     }
 
     @Test
@@ -131,7 +154,7 @@ class BpmnElementLinterTaskListenerTest {
 
         // Then
         assertEquals(1, issues.size());
-        assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeLintItem.class, issues.get(0));
+        assertLintType(LintingType.BPMN_USER_TASK_LISTENER_MISSING_CLASS_ATTRIBUTE, issues.get(0));
     }
 
     @Test
@@ -150,8 +173,8 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(2, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0));
-            assertInstanceOf(BpmnUserTaskListenerJavaClassNotFoundLintItem.class, issues.get(1));
+            assertSuccessItem( issues.get(0));
+            assertLintType(LintingType.BPMN_USER_TASK_LISTENER_JAVA_CLASS_NOT_FOUND, issues.get(1));
         }
     }
 
@@ -178,9 +201,9 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(3, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(2)); // Correct interface implemented
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
+            assertSuccessItem( issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -208,9 +231,9 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(3, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(2)); // Correct interface implemented
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
+            assertSuccessItem( issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -235,9 +258,9 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(3, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(2)); // Correct interface implemented
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
+            assertSuccessItem( issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -262,9 +285,9 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(3, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(2)); // Correct interface implemented
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
+            assertSuccessItem( issues.get(2)); // Correct interface implemented
         }
     }
 
@@ -291,9 +314,9 @@ class BpmnElementLinterTaskListenerTest {
 
             // Then
             assertEquals(3, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
-            assertInstanceOf(BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem.class, issues.get(2));
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
+            assertLintType(LintingType.BPMN_USER_TASK_LISTENER_NOT_EXTENDING_OR_IMPLEMENTING_REQUIRED_CLASS, issues.get(2));
         }
     }
 
@@ -319,10 +342,10 @@ class BpmnElementLinterTaskListenerTest {
             // Then
             assertEquals(3, issues.size());
 
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
 
-            assertInstanceOf(BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem.class, issues.get(2));
+            assertLintType(LintingType.BPMN_USER_TASK_LISTENER_NOT_EXTENDING_OR_IMPLEMENTING_REQUIRED_CLASS, issues.get(2));
         }
     }
 
@@ -347,8 +370,8 @@ class BpmnElementLinterTaskListenerTest {
             // Then
             // For UNKNOWN API version, validateTaskListenerInheritance returns early without adding any lint item
             assertEquals(2, issues.size());
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0)); // Class attribute provided
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1)); // Class found
+            assertSuccessItem( issues.get(0)); // Class attribute provided
+            assertSuccessItem( issues.get(1)); // Class found
         }
     }
 
@@ -380,14 +403,14 @@ class BpmnElementLinterTaskListenerTest {
 
             // 2. Verify the items for each listener in the correct order
             // Listener 1 (Valid)
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(0));
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(1));
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(2));
+            assertSuccessItem( issues.get(0));
+            assertSuccessItem( issues.get(1));
+            assertSuccessItem( issues.get(2));
             // Listener 2 (Class Not Found)
-            assertInstanceOf(BpmnElementLintItemSuccess.class, issues.get(3));
-            assertInstanceOf(BpmnUserTaskListenerJavaClassNotFoundLintItem.class, issues.get(4));
+            assertSuccessItem( issues.get(3));
+            assertLintType(LintingType.BPMN_USER_TASK_LISTENER_JAVA_CLASS_NOT_FOUND, issues.get(4));
             // Listener 3 (Missing Attribute)
-            assertInstanceOf(BpmnUserTaskListenerMissingClassAttributeLintItem.class, issues.get(5));
+            assertLintType(LintingType.BPMN_USER_TASK_LISTENER_MISSING_CLASS_ATTRIBUTE, issues.get(5));
         }
     }
 
