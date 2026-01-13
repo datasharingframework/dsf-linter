@@ -1,8 +1,8 @@
 package dev.dsf.linter.bpmn;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
-import dev.dsf.linter.output.item.BpmnElementLintItemSuccess;
-import dev.dsf.linter.output.item.BpmnSubProcessHasMultiInstanceButIsNotAsyncBeforeTrueLintItem;
 import org.camunda.bpm.model.bpmn.instance.MultiInstanceLoopCharacteristics;
 import org.camunda.bpm.model.bpmn.instance.SubProcess;
 
@@ -103,9 +103,6 @@ import static dev.dsf.linter.bpmn.BpmnElementLinter.checkExecutionListenerClasse
  */
 public record BpmnSubProcessLinter(File projectRoot) {
 
-    /**
-     * Lints a given {@link SubProcess} element and adds the results to the issues list.
-     */
     public void lintSubProcess(
             SubProcess subProcess,
             List<BpmnElementLintItem> issues,
@@ -113,16 +110,15 @@ public record BpmnSubProcessLinter(File projectRoot) {
             String processId) {
         String elementId = subProcess.getId();
 
-        // 1. Check multi-instance async before
+        // Check multi-instance async before
         if (subProcess.getLoopCharacteristics() instanceof MultiInstanceLoopCharacteristics multi) {
             if (!multi.isCamundaAsyncBefore()) {
-                issues.add(new BpmnSubProcessHasMultiInstanceButIsNotAsyncBeforeTrueLintItem(
+                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                        LintingType.BPMN_SUB_PROCESS_HAS_MULTI_INSTANCE_BUT_IS_NOT_ASYNC_BEFORE_TRUE,
                         elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
-                        "SubProcess with multi-instance loop characteristics is correctly configured with asyncBefore=true"
-                ));
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
+                        "SubProcess with multi-instance loop characteristics is correctly configured with asyncBefore=true"));
             }
         }
 
