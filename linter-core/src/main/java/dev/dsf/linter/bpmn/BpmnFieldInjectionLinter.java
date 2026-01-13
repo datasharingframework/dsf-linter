@@ -1,6 +1,7 @@
 package dev.dsf.linter.bpmn;
 
 import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceExtractor;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
@@ -140,13 +141,6 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * @see BpmnTaskLinter
  * @see BpmnEventLinter
  * @see BpmnElementLintItem
- * @see BpmnFieldInjectionProfileEmptyLintItem
- * @see BpmnFieldInjectionProfileNoVersionPlaceholderLintItem
- * @see BpmnFieldInjectionInstantiatesCanonicalEmptyLintItem
- * @see BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderLintItem
- * @see BpmnFieldInjectionNotStringLiteralLintItem
- * @see BpmnFieldInjectionMessageValueEmptyLintItem
- * @see BpmnUnknownFieldInjectionLintItem
  * @since 1.0
  */
 public class BpmnFieldInjectionLinter {
@@ -311,7 +305,7 @@ public class BpmnFieldInjectionLinter {
 
             // If field value is a plain string literal, record a success for clarity.
             if (fv != null && fv.type == FieldValueType.STRING) {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId,
                         bpmnFile,
                         processId,
@@ -320,8 +314,9 @@ public class BpmnFieldInjectionLinter {
 
             // expression? -> immediate error + skip further processing of this field
             if (fv != null && fv.type == FieldValueType.EXPRESSION) {
-                issues.add(new BpmnFieldInjectionNotStringLiteralLintItem(
-                        elementId, bpmnFile, processId, fieldName,
+                issues.add(new BpmnElementLintItem(
+                        LinterSeverity.ERROR, LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL,
+                        elementId, bpmnFile, processId,
                         "Field injection '" + fieldName + "' is provided as expression, expected string literal"));
                 continue;
             }
@@ -335,7 +330,7 @@ public class BpmnFieldInjectionLinter {
                     profileVal = literal;
                     if (!isEmpty(literal) && locator.structureDefinitionExists(literal, projectRoot)) {
                         structureFoundForProfile = true;
-                        issues.add(new BpmnElementLintItemSuccess(
+                        issues.add(BpmnElementLintItem.success(
                                 elementId,
                                 bpmnFile,
                                 processId,
@@ -344,10 +339,13 @@ public class BpmnFieldInjectionLinter {
                 }
                 case "messageName" -> {
                     if (isEmpty(literal)) {
-                        issues.add(new BpmnFieldInjectionMessageValueEmptyLintItem(elementId, bpmnFile, processId));
+                        issues.add(new BpmnElementLintItem(
+                                LinterSeverity.ERROR, LintingType.BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY,
+                                elementId, bpmnFile, processId,
+                                "Field injection messageName is empty"));
                     } else {
                         messageNameVal = literal;
-                        issues.add(new BpmnElementLintItemSuccess(elementId, bpmnFile, processId,
+                        issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                                 "Field 'messageName' is valid with value: '" + literal + "'"));
                     }
                 }
@@ -355,7 +353,10 @@ public class BpmnFieldInjectionLinter {
                     checkInstantiatesCanonicalField(elementId, literal, bpmnFile, processId, issues, projectRoot);
                     instantiatesVal = literal;
                 }
-                default -> issues.add(new BpmnUnknownFieldInjectionLintItem(elementId, bpmnFile, processId, fieldName));
+                default -> issues.add(new BpmnElementLintItem(
+                        LinterSeverity.WARN, LintingType.BPMN_UNKNOWN_FIELD_INJECTION,
+                        elementId, bpmnFile, processId,
+                        "Unknown field injection: " + fieldName));
             }
         }
 
@@ -398,26 +399,29 @@ public class BpmnFieldInjectionLinter {
             if (!isEmpty(instantiatesVal)) {
                 String fixedCanonical = FhirResourceExtractor.getTaskInstantiatesCanonicalValue(doc);
                 if (fixedCanonical == null) {
-                    issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(LinterSeverity.ERROR,
-                            elementId, bpmnFile, processId, structureFile.getName(),
+                    issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                            LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                            elementId, bpmnFile, processId,
                             "StructureDefinition lacks <fixedCanonical> for Task.instantiatesCanonical"));
                 } else if (fixedCanonical.isBlank()) {
-                    issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(LinterSeverity.ERROR,
-                            elementId, bpmnFile, processId, structureFile.getName(),
+                    issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                            LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                            elementId, bpmnFile, processId,
                             "<fixedCanonical> present but empty in StructureDefinition"));
                 } else {
-                    issues.add(new BpmnElementLintItemSuccess(elementId, bpmnFile, processId,
+                    issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                             "StructureDefinition contains valid <fixedCanonical>."));
                 }
             }
 
             String fixedString = FhirResourceExtractor.getTaskMessageNameFixedStringValue(doc);
             if (fixedString == null || fixedString.isBlank()) {
-                issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(LinterSeverity.ERROR,
-                        elementId, bpmnFile, processId, structureFile.getName(),
+                issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                        LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                        elementId, bpmnFile, processId,
                         "StructureDefinition has no valid <fixedString> for message‑name."));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(elementId, bpmnFile, processId,
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "StructureDefinition contains valid <fixedString>."));
             }
         } catch (Exception ignored) { /* parsing errors are ignored */ }
@@ -426,17 +430,19 @@ public class BpmnFieldInjectionLinter {
         if (!isEmpty(instantiatesVal)) {
             boolean actDefFound = locator.activityDefinitionExistsForInstantiatesCanonical(instantiatesVal, projectRoot);
             if (!actDefFound) {
-                issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(LinterSeverity.WARN,
-                        elementId, bpmnFile, processId, instantiatesVal,
+                issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                        LintingType.BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE,
+                        elementId, bpmnFile, processId,
                         "No ActivityDefinition found for instantiatesCanonical " + instantiatesVal));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(elementId, bpmnFile, processId,
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "ActivityDefinition exists for instantiatesCanonical: '" + instantiatesVal + "'."));
 
                 if (!isEmpty(messageNameVal) &&
                         !locator.activityDefinitionHasMessageName(messageNameVal, projectRoot)) {
-                    issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(LinterSeverity.ERROR,
-                            elementId, bpmnFile, processId, instantiatesVal,
+                    issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                            LintingType.BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE,
+                            elementId, bpmnFile, processId,
                             "ActivityDefinition does not contain message name '" + messageNameVal + "'."));
                 }
             }
@@ -467,29 +473,35 @@ public class BpmnFieldInjectionLinter {
             File projectRoot) {
         var locator = FhirResourceLocator.create(projectRoot);
         if (isEmpty(literalValue)) {
-            issues.add(new BpmnFieldInjectionProfileEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                    LintingType.BPMN_FIELD_INJECTION_PROFILE_EMPTY,
+                    elementId, bpmnFile, processId,
+                    "Field injection profile is empty"));
             return;
         }
 
-        issues.add(new BpmnElementLintItemSuccess(
+        issues.add(BpmnElementLintItem.success(
                 elementId, bpmnFile, processId,
                 "Profile field is provided with value: '" + literalValue + "'"));
 
         if (!containsPlaceholder(literalValue)) {
-            issues.add(new BpmnFieldInjectionProfileNoVersionPlaceholderLintItem(
-                    elementId, bpmnFile, processId, literalValue));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_FIELD_INJECTION_PROFILE_NO_VERSION_PLACEHOLDER,
+                    elementId, bpmnFile, processId,
+                    "Profile field does not contain version placeholder: " + literalValue));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Profile field contains a version placeholder: '" + literalValue + "'"));
         }
 
         if (!locator.structureDefinitionExists(literalValue, projectRoot)) {
-            issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
-                    LinterSeverity.WARN, elementId, bpmnFile, processId, literalValue,
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                    elementId, bpmnFile, processId,
                     "StructureDefinition for the profile: [" + literalValue + "] not found."));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "StructureDefinition found for profile: '" + literalValue + "'"));
         }
@@ -514,16 +526,20 @@ public class BpmnFieldInjectionLinter {
             File projectRoot) {
 
         if (isEmpty(literalValue)) {
-            issues.add(new BpmnFieldInjectionInstantiatesCanonicalEmptyLintItem(
-                    elementId, bpmnFile, processId));
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                    LintingType.BPMN_FIELD_INJECTION_INSTANTIATES_CANONICAL_EMPTY,
+                    elementId, bpmnFile, processId,
+                    "Field injection instantiatesCanonical is empty"));
             return;
         }
 
         if (!containsPlaceholder(literalValue)) {
-            issues.add(new BpmnFieldInjectionInstantiatesCanonicalNoVersionPlaceholderLintItem(
-                    elementId, bpmnFile, processId));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_FIELD_INJECTION_INSTANTIATES_CANONICAL_NO_VERSION_PLACEHOLDER,
+                    elementId, bpmnFile, processId,
+                    "instantiatesCanonical does not contain version placeholder"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "instantiatesCanonical field is valid with value: '" + literalValue + "'"));
         }
