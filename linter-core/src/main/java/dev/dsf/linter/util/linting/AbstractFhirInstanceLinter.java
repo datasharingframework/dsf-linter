@@ -1,6 +1,6 @@
 package dev.dsf.linter.util.linting;
 
-import dev.dsf.linter.output.item.FhirElementLintItemSuccess;
+import dev.dsf.linter.output.item.FhirElementLintItem;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -126,7 +126,7 @@ public abstract class AbstractFhirInstanceLinter
     /**
      * Records a successful linting step.
      *
-     * <p>This helper creates a {@link FhirElementLintItemSuccess} item to document
+     * <p>This helper creates a {@link FhirElementLintItem} with SUCCESS severity to document
      * a passed linting check. It mirrors the success reporting approach used in
      * {@code FhirTaskLinter} and is designed for reuse in other linters.</p>
      *
@@ -135,9 +135,9 @@ public abstract class AbstractFhirInstanceLinter
      * @param message a message describing the successful linting
      * @return a success item to be added to the result list
      */
-    protected FhirElementLintItemSuccess ok(File file, String ref, String message)
+    protected FhirElementLintItem ok(File file, String ref, String message)
     {
-        return new FhirElementLintItemSuccess(file, ref, message);
+        return FhirElementLintItem.success(file, ref, message);
     }
 
     /**
