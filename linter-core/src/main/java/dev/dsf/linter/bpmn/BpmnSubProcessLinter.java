@@ -113,7 +113,7 @@ public record BpmnSubProcessLinter(File projectRoot) {
         // Check multi-instance async before
         if (subProcess.getLoopCharacteristics() instanceof MultiInstanceLoopCharacteristics multi) {
             if (!multi.isCamundaAsyncBefore()) {
-                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
                         LintingType.BPMN_SUB_PROCESS_HAS_MULTI_INSTANCE_BUT_IS_NOT_ASYNC_BEFORE_TRUE,
                         elementId, bpmnFile, processId));
             } else {
