@@ -1,7 +1,9 @@
 package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.bpmn.BpmnFieldInjectionLinter;
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.BpmnElementLintItem;
 import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
 import org.camunda.bpm.model.bpmn.instance.StartEvent;
 import org.camunda.bpm.model.bpmn.instance.SubProcess;
@@ -45,10 +47,12 @@ public final class BpmnStartEventLinter {
 
         // 1. Check event name
         if (isEmpty(startEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
+                    elementId, bpmnFile, processId,
+                    "'" + elementId + "' has no name."));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Start event has a non-empty name: '" + startEvent.getName() + "'"));
         }
@@ -58,7 +62,9 @@ public final class BpmnStartEventLinter {
                 (MessageEventDefinition) startEvent.getEventDefinitions().iterator().next();
 
         if (messageDef.getMessage() == null || isEmpty(messageDef.getMessage().getName())) {
-            issues.add(new BpmnMessageStartEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(
+                    LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
             BpmnMessageLinter.lintMessageEventDefinition(messageDef, elementId, issues, bpmnFile, processId, projectRoot);
         }
@@ -90,9 +96,11 @@ public final class BpmnStartEventLinter {
 
         if (!(startEvent.getParentElement() instanceof SubProcess)) {
             if (isEmpty(startEvent.getName())) {
-                issues.add(new BpmnStartEventNotPartOfSubProcessLintItem(elementId, bpmnFile, processId));
+                issues.add(BpmnElementLintItem.of(
+                        LinterSeverity.WARN, LintingType.BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS,
+                        elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Generic start event has a non-empty name: '" + startEvent.getName() + "'"));
             }
@@ -102,4 +110,3 @@ public final class BpmnStartEventLinter {
         checkExecutionListenerClasses(startEvent, elementId, issues, bpmnFile, processId, projectRoot);
     }
 }
-

@@ -2,6 +2,8 @@ package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.bpmn.BpmnFieldInjectionLinter;
 import dev.dsf.linter.constants.BpmnElementType;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
@@ -51,10 +53,10 @@ public final class BpmnIntermediateThrowEventLinter {
 
         // 1. Check event name
         if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Message Intermediate Throw Event has a non-empty name: '" + throwEvent.getName() + "'"));
         }
@@ -63,7 +65,8 @@ public final class BpmnIntermediateThrowEventLinter {
         Optional<String> implClassOpt = extractImplementationClass(throwEvent);
 
         if (implClassOpt.isEmpty()) {
-            issues.add(new BpmnMessageSendEventImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
             String implClass = implClassOpt.get();
             BpmnMessageEventImplementationLinter.lintMessageEventImplementationClass(
@@ -81,11 +84,11 @@ public final class BpmnIntermediateThrowEventLinter {
 
         if (msgDef.getMessage() != null) {
             String messageName = msgDef.getMessage().getName();
-            issues.add(new BpmnMessageIntermediateThrowEventHasMessageLintItem(
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
                     elementId, bpmnFile, processId,
                     "Message Intermediate Throw Event has a message with name: " + messageName));
         } else {
-            issues.add(new BpmnMessageIntermediateThrowEventHasMessageLintItem(
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
                     elementId, bpmnFile, processId));
         }
 
@@ -113,10 +116,10 @@ public final class BpmnIntermediateThrowEventLinter {
 
         // 1. Check event name
         if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnSignalIntermediateThrowEventNameEmptyLintItem(
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_SIGNAL_INTERMEDIATE_THROW_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Throw Event has a non-empty name: '" + throwEvent.getName() + "'"));
         }
@@ -126,10 +129,10 @@ public final class BpmnIntermediateThrowEventLinter {
                 (SignalEventDefinition) throwEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnSignalIntermediateThrowEventSignalEmptyLintItem(
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_SIGNAL_INTERMEDIATE_THROW_EVENT_SIGNAL_EMPTY,
                     elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal is present with name: '" + def.getSignal().getName() + "'"));
         }

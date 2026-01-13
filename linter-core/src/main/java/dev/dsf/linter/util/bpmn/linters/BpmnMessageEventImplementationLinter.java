@@ -1,6 +1,8 @@
 package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.constants.BpmnElementType;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 
@@ -48,8 +50,8 @@ public final class BpmnMessageEventImplementationLinter {
 
         // Step 1: Check class existence
         if (!classExists(implClass, projectRoot)) {
-            issues.add(new BpmnMessageSendEventImplementationClassNotFoundLintItem(
-                    elementId, bpmnFile, processId, implClass));
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_FOUND,
+                    elementId, bpmnFile, processId, "Implementation class not found: " + implClass));
             return;
         }
 
@@ -59,12 +61,11 @@ public final class BpmnMessageEventImplementationLinter {
 
             switch (apiVersion) {
                 case V1 -> issues.add(
-                        new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateLintItem(
-                                elementId, bpmnFile, processId, implClass));
+                        new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_IMPLEMENTING_JAVA_DELEGATE,
+                                elementId, bpmnFile, processId, "Implementation class does not implement JavaDelegate: " + implClass));
                 case V2 -> issues.add(
-                        new BpmnEndOrIntermediateThrowEventMissingInterfaceLintItem(
-                                elementId, bpmnFile, processId, implClass,
-                                "Implementation class '" + implClass
+                        new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING,
+                                elementId, bpmnFile, processId, "Implementation class '" + implClass
                                         + "' does not implement " + expectedInterface + "."));
             }
             return;
@@ -76,7 +77,7 @@ public final class BpmnMessageEventImplementationLinter {
                 ? getSimpleName(implementedInterface)
                 : getExpectedInterfaceDescription(apiVersion, elementType);
 
-        issues.add(new BpmnElementLintItemSuccess(
+        issues.add(BpmnElementLintItem.success(
                 elementId, bpmnFile, processId,
                 "Implementation class '" + implClass + "' implements " + interfaceName + "."));
     }

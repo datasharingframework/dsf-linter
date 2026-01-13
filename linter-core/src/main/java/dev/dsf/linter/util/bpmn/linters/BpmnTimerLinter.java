@@ -1,6 +1,5 @@
 package dev.dsf.linter.util.bpmn.linters;
 
-import dev.dsf.linter.output.FloatingElementType;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
@@ -51,26 +50,22 @@ public final class BpmnTimerLinter {
         boolean isTimeDurationEmpty = (timeDurationExpr == null || isEmpty(timeDurationExpr.getTextContent()));
 
         if (isTimeDateEmpty && isTimeCycleEmpty && isTimeDurationEmpty) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Timer type is empty (no timeDate, timeCycle, or timeDuration)",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.ERROR,
-                    FloatingElementType.TIMER_TYPE_IS_EMPTY));
+                    "Timer type is empty (no timeDate, timeCycle, or timeDuration)"));
             return;
         }
 
-        issues.add(new BpmnElementLintItemSuccess(
+        issues.add(BpmnElementLintItem.success(
                 elementId, bpmnFile, processId, "Timer type is provided."));
 
         if (!isTimeDateEmpty) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.INFO, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Timer type is a fixed date/time (timeDate) – please verify if this is intended",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.INFO,
-                    FloatingElementType.TIMER_TYPE_IS_A_FIXED_DATE_TIME));
-            issues.add(new BpmnElementLintItemSuccess(
+                    "Timer type is a fixed date/time (timeDate) – please verify if this is intended"));
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Fixed date/time (timeDate) provided: '" + timeDateExpr.getTextContent() + "'"));
         } else {
@@ -79,14 +74,12 @@ public final class BpmnTimerLinter {
                     : timeDurationExpr.getTextContent();
 
             if (!containsPlaceholder(timerValue)) {
-                issues.add(new BpmnFloatingElementLintItem(
+                issues.add(new BpmnElementLintItem(
+                        LinterSeverity.WARN, LintingType.BPMN_FLOATING_ELEMENT,
                         elementId, bpmnFile, processId,
-                        "Timer value appears fixed (no placeholder found)",
-                        LintingType.BPMN_FLOATING_ELEMENT,
-                        LinterSeverity.WARN,
-                        FloatingElementType.TIMER_VALUE_APPEARS_FIXED_NO_PLACEHOLDER_FOUND));
+                        "Timer value appears fixed (no placeholder found)"));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Timer value contains a valid placeholder: '" + timerValue + "'"));
             }

@@ -1,6 +1,5 @@
 package dev.dsf.linter.util.bpmn.linters;
 
-import dev.dsf.linter.output.FloatingElementType;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
@@ -49,10 +48,10 @@ public final class BpmnIntermediateCatchEventLinter {
 
         // 1. Check event name
         if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnMessageIntermediateCatchEventNameEmptyLintItem(
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Message Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
         }
@@ -62,10 +61,11 @@ public final class BpmnIntermediateCatchEventLinter {
                 (MessageEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
-            issues.add(new BpmnMessageIntermediateCatchEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_MESSAGE_NAME_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
             String msgName = def.getMessage().getName();
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Message name is not empty: '" + msgName + "'"));
 
@@ -96,14 +96,12 @@ public final class BpmnIntermediateCatchEventLinter {
 
         // 1. Check event name
         if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Timer Intermediate Catch Event name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.WARN,
-                    FloatingElementType.TIMER_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY));
+                    "Timer Intermediate Catch Event name is empty"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Timer Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
         }
@@ -137,14 +135,12 @@ public final class BpmnIntermediateCatchEventLinter {
 
         // 1. Check event name
         if (isEmpty(catchEvent.getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Signal Intermediate Catch Event name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.WARN,
-                    FloatingElementType.SIGNAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY));
+                    "Signal Intermediate Catch Event name is empty"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal Intermediate Catch Event has a non-empty name: '" + catchEvent.getName() + "'"));
         }
@@ -154,14 +150,12 @@ public final class BpmnIntermediateCatchEventLinter {
                 (SignalEventDefinition) catchEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Signal is empty in Signal Intermediate Catch Event",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.ERROR,
-                    FloatingElementType.SIGNAL_IS_EMPTY_IN_SIGNAL_INTERMEDIATE_CATCH_EVENT));
+                    "Signal is empty in Signal Intermediate Catch Event"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal is present with name: '" + def.getSignal().getName() + "'"));
         }

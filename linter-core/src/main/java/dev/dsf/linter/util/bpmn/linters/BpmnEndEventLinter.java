@@ -2,6 +2,8 @@ package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.bpmn.BpmnFieldInjectionLinter;
 import dev.dsf.linter.constants.BpmnElementType;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
@@ -51,10 +53,10 @@ public final class BpmnEndEventLinter {
 
         // 1. Check event name
         if (isEmpty(endEvent.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Message End Event has a non-empty name: '" + endEvent.getName() + "'"));
         }
@@ -63,7 +65,8 @@ public final class BpmnEndEventLinter {
         Optional<String> implClassOpt = extractImplementationClass(endEvent);
 
         if (implClassOpt.isEmpty()) {
-            issues.add(new BpmnMessageSendEventImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
             String implClass = implClassOpt.get();
             BpmnMessageEventImplementationLinter.lintMessageEventImplementationClass(
@@ -100,9 +103,10 @@ public final class BpmnEndEventLinter {
         // 1. Name check for non-SubProcess end events
         if (!(endEvent.getParentElement() instanceof SubProcess)) {
             if (isEmpty(endEvent.getName())) {
-                issues.add(new BpmnEndEventNotPartOfSubProcessLintItem(elementId, bpmnFile, processId));
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS,
+                        elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "End event has a non-empty name: '" + endEvent.getName() + "'"));
             }
@@ -111,10 +115,10 @@ public final class BpmnEndEventLinter {
         // 2. AsyncAfter check for SubProcess end events
         if (endEvent.getParentElement() instanceof SubProcess) {
             if (!endEvent.isCamundaAsyncAfter()) {
-                issues.add(new BpmnEndEventInsideSubProcessShouldHaveAsyncAfterTrueLintItem(
+                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE,
                         elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "End Event inside a SubProcess has asyncAfter=true"));
             }
@@ -144,10 +148,10 @@ public final class BpmnEndEventLinter {
 
         // 1. Check event name
         if (isEmpty(endEvent.getName())) {
-            issues.add(new BpmnSignalEndEventNameEmptyLintItem(
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_SIGNAL_END_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal End Event has a non-empty name: '" + endEvent.getName() + "'"));
         }
@@ -157,10 +161,10 @@ public final class BpmnEndEventLinter {
                 (SignalEventDefinition) endEvent.getEventDefinitions().iterator().next();
 
         if (def.getSignal() == null || isEmpty(def.getSignal().getName())) {
-            issues.add(new BpmnSignalEndEventSignalEmptyLintItem(
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_SIGNAL_END_EVENT_SIGNAL_EMPTY,
                     elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Signal is present with name: '" + def.getSignal().getName() + "'"));
         }

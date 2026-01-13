@@ -1,6 +1,5 @@
 package dev.dsf.linter.util.bpmn.linters;
 
-import dev.dsf.linter.output.FloatingElementType;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
@@ -53,11 +52,10 @@ public final class BpmnEventLinter {
 
         // 1. Check if the BoundaryEvent's name is empty.
         if (isEmpty(boundaryEvent.getName())) {
-            issues.add(new BpmnErrorBoundaryEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId
-            ));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_ERROR_BOUNDARY_EVENT_NAME_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "BoundaryEvent has a non-empty name: '" + boundaryEvent.getName() + "'"));
         }
@@ -69,22 +67,20 @@ public final class BpmnEventLinter {
         if (errorDef.getError() != null) {
             // 2a. Check the error name.
             if (isEmpty(errorDef.getError().getName())) {
-                issues.add(new BpmnErrorBoundaryEventErrorNameEmptyLintItem(
-                        elementId, bpmnFile, processId
-                ));
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_ERROR_BOUNDARY_EVENT_ERROR_NAME_EMPTY,
+                        elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Error name is provided: '" + errorDef.getError().getName() + "'"
                 ));
             }
             // 2b. Check the error code.
             if (isEmpty(errorDef.getError().getErrorCode())) {
-                issues.add(new BpmnErrorBoundaryEventErrorCodeEmptyLintItem(
-                        elementId, bpmnFile, processId
-                ));
+                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_EMPTY,
+                        elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Error code is provided: '" + errorDef.getError().getErrorCode() + "'"));
             }
@@ -95,11 +91,10 @@ public final class BpmnEventLinter {
                 "http://camunda.org/schema/1.0/bpmn",
                 "errorCodeVariable");
         if (isEmpty(errorCodeVariable)) {
-            issues.add(new BpmnErrorBoundaryEventErrorCodeVariableEmptyLintItem(
-                    elementId, bpmnFile, processId
-            ));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "errorCodeVariable is provided: '" + errorCodeVariable + "'"
             ));
@@ -142,14 +137,12 @@ public final class BpmnEventLinter {
         // 1. Check event name
         String eventName = catchEvent.getName();
         if (isEmpty(eventName)) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.WARN,
-                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_NAME_IS_EMPTY));
+                    "Conditional Intermediate Catch Event name is empty"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event name is provided: '" + eventName + "'"));
         }
@@ -161,14 +154,12 @@ public final class BpmnEventLinter {
         // 3. Check conditional event variable name.
         String variableName = condDef.getCamundaVariableName();
         if (isEmpty(variableName)) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event variable name is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.ERROR,
-                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_NAME_IS_EMPTY));
+                    "Conditional Intermediate Catch Event variable name is empty"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variable name is provided: '" + variableName + "'"
             ));
@@ -179,14 +170,12 @@ public final class BpmnEventLinter {
                 "http://camunda.org/schema/1.0/bpmn",
                 "variableEvents");
         if (isEmpty(variableEvents)) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event variableEvents is empty",
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.ERROR,
-                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_VARIABLE_EVENTS_IS_EMPTY));
+                    "Conditional Intermediate Catch Event variableEvents is empty"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event variableEvents is provided: '" + variableEvents + "'"
             ));
@@ -200,26 +189,22 @@ public final class BpmnEventLinter {
         if (isEmpty(conditionType)) {
             if (condDef.getCondition() != null && !isEmpty(condDef.getCondition().getRawTextContent())) {
                 conditionType = "expression";
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Condition type assumed to be 'expression' as condition expression is provided."));
             } else {
-                issues.add(new BpmnFloatingElementLintItem(
+                issues.add(new BpmnElementLintItem(
+                        LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                         elementId, bpmnFile, processId,
-                        "Conditional Intermediate Catch Event condition type is empty",
-                        LintingType.BPMN_FLOATING_ELEMENT,
-                        LinterSeverity.ERROR,
-                        FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_CONDITION_TYPE_IS_EMPTY));
+                        "Conditional Intermediate Catch Event condition type is empty"));
             }
         } else if (!"expression".equalsIgnoreCase(conditionType)) {
-            issues.add(new BpmnFloatingElementLintItem(
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.INFO, LintingType.BPMN_FLOATING_ELEMENT,
                     elementId, bpmnFile, processId,
-                    "Conditional Intermediate Catch Event condition type is not 'expression': " + conditionType,
-                    LintingType.BPMN_FLOATING_ELEMENT,
-                    LinterSeverity.INFO,
-                    FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_CONDITION_TYPE_IS_NOT_EXPRESSION));
+                    "Conditional Intermediate Catch Event condition type is not 'expression': " + conditionType));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Conditional Intermediate Catch Event condition type is 'expression'"));
         }
@@ -227,14 +212,12 @@ public final class BpmnEventLinter {
         // 6. Check condition expression (only if condition type is 'expression').
         if ("expression".equalsIgnoreCase(conditionType)) {
             if (condDef.getCondition() == null || isEmpty(condDef.getCondition().getRawTextContent())) {
-                issues.add(new BpmnFloatingElementLintItem(
+                issues.add(new BpmnElementLintItem(
+                        LinterSeverity.ERROR, LintingType.BPMN_FLOATING_ELEMENT,
                         elementId, bpmnFile, processId,
-                        "Conditional Intermediate Catch Event expression is empty",
-                        LintingType.BPMN_FLOATING_ELEMENT,
-                        LinterSeverity.ERROR,
-                        FloatingElementType.CONDITIONAL_INTERMEDIATE_CATCH_EVENT_EXPRESSION_IS_EMPTY));
+                        "Conditional Intermediate Catch Event expression is empty"));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId, bpmnFile, processId,
                         "Condition expression is provided: '" + condDef.getCondition().getRawTextContent() + "'"));
             }
