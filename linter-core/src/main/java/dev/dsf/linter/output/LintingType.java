@@ -95,6 +95,10 @@ public enum LintingType {
     BPMN_EXECUTION_LISTENER_CLASS_NOT_FOUND("Execution listener class not found."),
     BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener does not implement required interface."),
 
+    // ==================== BPMN PROCESS ====================
+    BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
+    BPMN_PROCESS_ID_EMPTY("Process ID is empty."),
+
     // ==================== BPMN GENERAL ====================
     BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
     BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL("PractitionerRole has no value or is null."),

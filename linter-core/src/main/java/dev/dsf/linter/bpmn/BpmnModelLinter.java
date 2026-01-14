@@ -1,5 +1,7 @@
 package dev.dsf.linter.bpmn;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.*;
@@ -10,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Main linter class for validating Camunda BPMN models against business logic and FHIR-related constraints.
@@ -131,6 +134,25 @@ import java.util.Objects;
 public record BpmnModelLinter(File projectRoot) {
 
     /**
+     * Pattern for validating BPMN Process IDs.
+     * <p>
+     * The Process ID must follow the format: {@code domain_processname}
+     * where both domain and processname consist only of alphanumeric characters and hyphens.
+     * </p>
+     * <p>
+     * Examples of valid IDs:
+     * <ul>
+     *   <li>{@code testorg_myprocess}</li>
+     *   <li>{@code dsf-dev_download-allowlist}</li>
+     * </ul>
+     * </p>
+     *
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
+     */
+    private static final String PROCESS_ID_PATTERN_STRING = "^(?<domainNoDots>[a-zA-Z0-9-]+)_(?<processName>[a-zA-Z0-9-]+)$";
+    private static final Pattern PROCESS_ID_PATTERN = Pattern.compile(PROCESS_ID_PATTERN_STRING);
+
+    /**
      * Constructs a new {@code BpmnModelLinter} instance with the specified project root directory.
      *
      * <p>
@@ -229,6 +251,9 @@ public record BpmnModelLinter(File projectRoot) {
         // The processId is now extracted internally, simplifying the method call.
         String processId = extractProcessId(model);
 
+        // Validate Process ID pattern
+        validateProcessIdPattern(processId, bpmnFile, issues);
+
         // Initialize sub-linters with the project root
         BpmnTaskLinter taskLinter = new BpmnTaskLinter(projectRoot);
         BpmnEventLinter eventLinter = new BpmnEventLinter(projectRoot);
@@ -321,6 +346,63 @@ public record BpmnModelLinter(File projectRoot) {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse("");
+    }
+
+    /**
+     * Validates that the BPMN Process ID matches the required DSF pattern.
+     *
+     * <p>
+     * The Process ID must follow the pattern: {@code domain_processname}
+     * where both domain and processname consist only of alphanumeric characters and hyphens.
+     * </p>
+     *
+     * <p>
+     * This validation is based on the DSF Framework requirement defined in:
+     * {@code dsf-bpe/dsf-bpe-process-api/src/main/java/dev/dsf/bpe/api/plugin/AbstractProcessPlugin.java}
+     * </p>
+     *
+     * @param processId the process ID to validate
+     * @param bpmnFile  the BPMN file for error reporting
+     * @param issues    the list to add validation issues to
+     */
+    private void validateProcessIdPattern(String processId, File bpmnFile, List<BpmnElementLintItem> issues) {
+        if (processId == null || processId.isEmpty()) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_PROCESS_ID_EMPTY,
+                    "Process",
+                    bpmnFile,
+                    "",
+                    "BPMN Process ID is empty or not defined."
+            ));
+            return;
+        }
+
+        if (!PROCESS_ID_PATTERN.matcher(processId).matches()) {
+            String description = String.format(
+                    "Process ID '%s' does not match the required pattern '%s'. " +
+                    "Expected format: domain_processname (e.g., testorg_myprocess, dsf-dev_download-allowlist).",
+                    processId,
+                    PROCESS_ID_PATTERN_STRING
+            );
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_PROCESS_ID_PATTERN_MISMATCH,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    description
+            ));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process ID '%s' matches the required pattern.", processId)
+            ));
+        }
     }
 }
 
