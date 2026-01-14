@@ -252,6 +252,11 @@ public record BpmnModelLinter(File projectRoot) {
         Collection<Process> processes = model.getModelElementsByType(Process.class);
         validateProcessCount(processes, bpmnFile, issues);
 
+        // Validate history time to live for each process
+        for (Process process : processes) {
+            validateHistoryTimeToLive(process, bpmnFile, issues);
+        }
+
         // The processId is now extracted internally, simplifying the method call.
         String processId = extractProcessId(model);
 
@@ -453,6 +458,53 @@ public record BpmnModelLinter(File projectRoot) {
                     bpmnFile,
                     processes.iterator().next().getId(),
                     String.format("BPMN file '%s' contains exactly 1 process.", bpmnFile.getName())
+            ));
+        }
+    }
+
+    /**
+     * Validates that the process has a historyTimeToLive attribute set.
+     *
+     * <p>
+     * If {@code camunda:historyTimeToLive} is not set (null or empty), a WARNING is issued.
+     * DSF automatically sets the default value 'P30D' (30 days) at runtime, but it is best
+     * practice to explicitly set this attribute in the BPMN file.
+     * </p>
+     *
+     * <p>
+     * This validation is based on the DSF Framework behavior defined in:
+     * {@code dsf-bpe/dsf-bpe-process-api/src/main/java/dev/dsf/bpe/api/plugin/AbstractProcessPlugin.java}
+     * </p>
+     *
+     * @param process  the BPMN process to validate
+     * @param bpmnFile the BPMN file for error reporting
+     * @param issues   the list to add validation issues to
+     */
+    private void validateHistoryTimeToLive(Process process, File bpmnFile, List<BpmnElementLintItem> issues) {
+        String processId = process.getId() != null ? process.getId() : "";
+
+        // Check camunda:historyTimeToLive attribute (using String version to match DSF behavior)
+        String historyTimeToLive = process.getCamundaHistoryTimeToLiveString();
+
+        if (historyTimeToLive == null || historyTimeToLive.isBlank()) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN,
+                    LintingType.BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': camunda:historyTimeToLive is not set. " +
+                            "DSF uses default 'P30D' (30 days). Best practice: set explicitly, e.g., 'P30D'.",
+                            processId)
+            ));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': historyTimeToLive is set to '%s'.", processId, historyTimeToLive)
             ));
         }
     }
