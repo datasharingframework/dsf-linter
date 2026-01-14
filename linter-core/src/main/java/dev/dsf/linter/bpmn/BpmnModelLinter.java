@@ -248,6 +248,10 @@ public record BpmnModelLinter(File projectRoot) {
         List<BpmnElementLintItem> issues = new ArrayList<>();
         Collection<FlowElement> flowElements = model.getModelElementsByType(FlowElement.class);
 
+        // Validate process count - must be exactly one process per BPMN file
+        Collection<Process> processes = model.getModelElementsByType(Process.class);
+        validateProcessCount(processes, bpmnFile, issues);
+
         // The processId is now extracted internally, simplifying the method call.
         String processId = extractProcessId(model);
 
@@ -401,6 +405,54 @@ public record BpmnModelLinter(File projectRoot) {
                     bpmnFile,
                     processId,
                     String.format("Process ID '%s' matches the required pattern.", processId)
+            ));
+        }
+    }
+
+    /**
+     * Validates that the BPMN file contains exactly one process definition.
+     *
+     * <p>
+     * According to DSF Framework requirements, each BPMN file must contain exactly one process.
+     * This validation is based on the DSF Framework requirement defined in:
+     * {@code dsf-bpe/dsf-bpe-process-api/src/main/java/dev/dsf/bpe/api/plugin/AbstractProcessPlugin.java}
+     * </p>
+     *
+     * @param processes the collection of processes found in the BPMN model
+     * @param bpmnFile  the BPMN file for error reporting
+     * @param issues    the list to add validation issues to
+     */
+    private void validateProcessCount(Collection<Process> processes, File bpmnFile, List<BpmnElementLintItem> issues) {
+        int processCount = processes.size();
+
+        if (processCount == 0) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_FILE_NO_PROCESS,
+                    "Process",
+                    bpmnFile,
+                    "",
+                    String.format("BPMN file '%s' contains no process definition. Expected exactly 1 process.",
+                            bpmnFile.getName())
+            ));
+        } else if (processCount > 1) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_FILE_MULTIPLE_PROCESSES,
+                    "Process",
+                    bpmnFile,
+                    "",
+                    String.format("BPMN file '%s' contains %d processes. Expected exactly 1 process.",
+                            bpmnFile.getName(), processCount)
+            ));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processes.iterator().next().getId(),
+                    bpmnFile,
+                    processes.iterator().next().getId(),
+                    String.format("BPMN file '%s' contains exactly 1 process.", bpmnFile.getName())
             ));
         }
     }

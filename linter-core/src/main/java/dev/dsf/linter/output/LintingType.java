@@ -98,6 +98,8 @@ public enum LintingType {
     // ==================== BPMN PROCESS ====================
     BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
     BPMN_PROCESS_ID_EMPTY("Process ID is empty."),
+    BPMN_FILE_NO_PROCESS("BPMN file contains no process definition."),
+    BPMN_FILE_MULTIPLE_PROCESSES("BPMN file contains multiple process definitions, expected exactly one."),
 
     // ==================== BPMN GENERAL ====================
     BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
