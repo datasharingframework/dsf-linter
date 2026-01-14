@@ -101,6 +101,7 @@ public enum LintingType {
     BPMN_FILE_NO_PROCESS("BPMN file contains no process definition."),
     BPMN_FILE_MULTIPLE_PROCESSES("BPMN file contains multiple process definitions, expected exactly one."),
     BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING("Process historyTimeToLive is not set. DSF uses default 'P30D'. Best practice: set explicitly."),
+    BPMN_PROCESS_NOT_EXECUTABLE("Process is not executable. Set isExecutable='true' for the process to be deployable."),
 
     // ==================== BPMN GENERAL ====================
     BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),

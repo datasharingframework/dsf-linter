@@ -79,6 +79,22 @@ import java.util.regex.Pattern;
  *       configured with {@code asyncBefore} set to true for proper asynchronous execution</li>
  * </ul>
  *
+ * <h3>Process Validation (DSF-Specific)</h3>
+ * <p>
+ * The following process-level validations are performed according to DSF Framework requirements:
+ * </p>
+ * <ul>
+ *   <li><strong>Process ID Pattern</strong>: Validates that the process ID matches the DSF pattern
+ *       {@code domain_processname} (e.g., {@code testorg_myprocess}). Domain and process name must
+ *       consist only of alphanumeric characters and hyphens.</li>
+ *   <li><strong>Process Count</strong>: Validates that each BPMN file contains exactly one process
+ *       definition, as required by the DSF Framework.</li>
+ *   <li><strong>History Time To Live</strong>: Warns if {@code camunda:historyTimeToLive} is not set.
+ *       DSF uses default value {@code P30D} (30 days) at runtime. Best practice is to set explicitly.</li>
+ *   <li><strong>Process Executable</strong>: Validates that the process has {@code isExecutable="true"},
+ *       which is required for the process to be deployable and executable by the process engine.</li>
+ * </ul>
+ *
  * <h3>FHIR-Specific Validation</h3>
  * <p>
  * For BPMN elements utilizing Camunda field injections (e.g., {@code <camunda:field>}), the following
@@ -122,6 +138,7 @@ import java.util.regex.Pattern;
  *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
  *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
  *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
+ *   <li><a href="https://github.com/datasharingframework/dsf">DSF Framework</a> - Process validation requirements</li>
  * </ul>
  *
  * @see BpmnTaskLinter
@@ -252,9 +269,10 @@ public record BpmnModelLinter(File projectRoot) {
         Collection<Process> processes = model.getModelElementsByType(Process.class);
         validateProcessCount(processes, bpmnFile, issues);
 
-        // Validate history time to live for each process
+        // Validate process-level attributes and history time to live for each process for each process
         for (Process process : processes) {
             validateHistoryTimeToLive(process, bpmnFile, issues);
+            validateProcessExecutable(process, bpmnFile, issues);
         }
 
         // The processId is now extracted internally, simplifying the method call.
@@ -505,6 +523,44 @@ public record BpmnModelLinter(File projectRoot) {
                     bpmnFile,
                     processId,
                     String.format("Process '%s': historyTimeToLive is set to '%s'.", processId, historyTimeToLive)
+            ));
+        }
+    }
+
+    /**
+     * Validates that the process has isExecutable set to true.
+     *
+     * <p>
+     * Processes without {@code isExecutable="true"} cannot be executed by the process engine.
+     * This is a critical requirement for DSF process plugins.
+     * </p>
+     *
+     * @param process  the BPMN process to validate
+     * @param bpmnFile the BPMN file for error reporting
+     * @param issues   the list to add validation issues to
+     */
+    private void validateProcessExecutable(Process process, File bpmnFile, List<BpmnElementLintItem> issues) {
+        String processId = process.getId() != null ? process.getId() : "";
+
+        if (!process.isExecutable()) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_PROCESS_NOT_EXECUTABLE,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': isExecutable is not set to 'true'. " +
+                            "The process cannot be deployed and executed by the process engine.",
+                            processId)
+            ));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': isExecutable is set to 'true'.", processId)
             ));
         }
     }
