@@ -230,7 +230,8 @@ public enum LintingType {
     PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION("Plugin definition is missing ServiceLoader registration."),
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
-    PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed.");
+    PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
+    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid.");
 
     private final String defaultMessage;
 

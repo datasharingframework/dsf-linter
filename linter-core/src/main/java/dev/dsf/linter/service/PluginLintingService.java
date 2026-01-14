@@ -49,6 +49,9 @@ public class PluginLintingService {
                 ? projectPath.getFileName().toString()
                 : "project";
 
+        // Validate resource version
+        validateResourceVersion(pluginAdapter, projectName, items);
+
         String expectedServiceFile = determineExpectedServiceFile(pluginAdapter, apiVersion);
         boolean found = findServiceFile(projectPath, expectedServiceFile);
 
@@ -62,6 +65,55 @@ public class PluginLintingService {
         }
 
         return new LintingResult(items);
+    }
+
+    /**
+     * Validates the resource version of the plugin.
+     * <p>
+     * The resource version is derived from the plugin version using the pattern
+     * {@code (?<resourceVersion>\d+\.\d+)\.\d+\.\d+}. If the plugin version does not
+     * match this pattern, getResourceVersion() returns null and an error is reported.
+     * </p>
+     *
+     * @param pluginAdapter the plugin adapter to validate
+     * @param projectName   the project name for error reporting
+     * @param items         the list to add validation items to
+     */
+    private void validateResourceVersion(PluginAdapter pluginAdapter, String projectName, List<AbstractLintItem> items) {
+        if (pluginAdapter == null) {
+            return;
+        }
+
+        try {
+            String resourceVersion = pluginAdapter.getResourceVersion();
+
+            if (resourceVersion == null) {
+                String description = String.format(
+                        "Plugin '%s': getResourceVersion() returned null. " +
+                        "The plugin version must match the pattern 'd.d.d.d' (e.g., '1.0.0.1') " +
+                        "to derive a valid resource version (e.g., '1.0').",
+                        pluginAdapter.getName()
+                );
+                items.add(new PluginLintItem(
+                        LinterSeverity.ERROR,
+                        LintingType.PLUGIN_DEFINITION_RESOURCE_VERSION_NULL,
+                        new File(projectName),
+                        pluginAdapter.getName(),
+                        description
+                ));
+            } else {
+                items.add(new PluginLintItem(
+                        LinterSeverity.SUCCESS,
+                        LintingType.SUCCESS,
+                        new File(projectName),
+                        pluginAdapter.getName(),
+                        String.format("Plugin '%s': Resource version '%s' is valid.",
+                                pluginAdapter.getName(), resourceVersion)
+                ));
+            }
+        } catch (Exception e) {
+            logger.debug("Could not validate resource version for plugin: " + e.getMessage());
+        }
     }
 
     private String determineExpectedServiceFile(PluginAdapter pluginAdapter, ApiVersion apiVersion) {
