@@ -9,6 +9,8 @@ import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.File;
 import java.nio.file.*;
 import java.io.IOException;
@@ -185,7 +187,7 @@ public class PluginLintingService {
         }
 
         @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+        public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
             if (isServiceFile(file)) {
                 found = true;
                 return FileVisitResult.TERMINATE;
@@ -194,7 +196,7 @@ public class PluginLintingService {
         }
 
         @Override
-        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+        public @NotNull FileVisitResult preVisitDirectory(@NotNull Path dir, @NotNull BasicFileAttributes attrs) {
             return isIgnoredDirectory(dir)
                     ? FileVisitResult.SKIP_SUBTREE
                     : FileVisitResult.CONTINUE;
