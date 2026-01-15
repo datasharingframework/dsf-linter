@@ -189,11 +189,14 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
      * {@code {process-url}/{process-version}/{task-example-name}}
      * <p>
      * Example: {@code http://test.org/bpe/Process/someProcessName/1.0/someExampleName}
+     * <p>
+     * The pattern accepts both actual version numbers ({@code /\d+\.\d+/}) and placeholders
+     * ({@code /#{version}/}) for development-time validation.
      *
      * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
      */
     private static final String TASK_IDENTIFIER_PATTERN_STRING =
-            "^https?://[^/]+/bpe/Process/[a-zA-Z0-9-]+/\\d+\\.\\d+/.+$";
+            "^https?://[^/]+/bpe/Process/[a-zA-Z0-9-]+/(?:\\d+\\.\\d+|#\\{version\\})/.+$";
     private static final java.util.regex.Pattern TASK_IDENTIFIER_PATTERN =
             java.util.regex.Pattern.compile(TASK_IDENTIFIER_PATTERN_STRING);
 
