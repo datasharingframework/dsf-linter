@@ -334,3 +334,15 @@ curl -L -o test.jar https://example.com/plugin.jar
 java -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
   --path test.jar --html
 ```
+
+## Support & Contact
+
+### Contact Developer
+
+For questions or support, you can reach the developer via Zulip:
+- [Direct Message on Zulip](https://mii.zulipchat.com/#narrow/dm/1015673-Khalil-Malla)
+
+### Bug Reports
+
+If you encounter a bug, please create an issue on GitHub:
+- [Create GitHub Issue](https://github.com/datasharingframework/dsf-linter/issues/new)
