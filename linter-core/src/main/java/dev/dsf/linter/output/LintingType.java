@@ -121,6 +121,7 @@ public enum LintingType {
     MISSING_READ_ACCESS_TAG("Missing read access tag."),
 
     // ==================== FHIR ACTIVITY DEFINITION ====================
+    ACTIVITY_DEFINITION_INVALID_URL_PATTERN("ActivityDefinition URL does not match required pattern. Expected: http[s]://domain/bpe/Process/processName"),
     ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER("ActivityDefinition entry has invalid requester."),
     ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT("ActivityDefinition entry has invalid recipient."),
     ACTIVITY_DEFINITION_ENTRY_MISSING_REQUESTER("ActivityDefinition entry is missing requester."),
