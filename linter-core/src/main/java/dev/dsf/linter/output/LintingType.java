@@ -143,6 +143,9 @@ public enum LintingType {
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_ABOVE_BASE_MIN("StructureDefinition slice min sum above base min."),
 
     // ==================== FHIR TASK ====================
+    FHIR_TASK_IDENTIFIER_INVALID_FORMAT("Task identifier with system 'http://dsf.dev/sid/task-identifier' has invalid format. Expected: {process-url}/{process-version}/{task-example-name}"),
+    FHIR_TASK_IDENTIFIER_INVALID_SYSTEM("Task identifier has invalid system. Expected: 'http://dsf.dev/sid/task-identifier'."),
+    FHIR_TASK_IDENTIFIER_MISSING_SYSTEM("Task identifier is missing system element."),
     FHIR_TASK_MISSING_INSTANTIATES_CANONICAL("Task is missing instantiatesCanonical."),
     FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER("Task requester organization does not use placeholder."),
     FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER("Task recipient organization does not use placeholder."),
