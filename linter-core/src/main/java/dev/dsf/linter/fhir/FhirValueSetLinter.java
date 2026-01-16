@@ -1,5 +1,7 @@
 package dev.dsf.linter.fhir;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
@@ -84,29 +86,11 @@ import java.util.*;
  * </ul>
  *
  * <h3>Validation Results</h3>
- * <p>Each validation check produces one of the following result types:</p>
+ * <p>Each validation check produces a {@link FhirElementLintItem} with an appropriate
+ * {@link dev.dsf.linter.output.LintingType} and {@link dev.dsf.linter.output.LinterSeverity}:</p>
  * <ul>
- *   <li>{@link FhirElementLintItemSuccess} – Validation passed successfully</li>
- *   <li>Error-specific {@link FhirElementLintItem} subclasses:
- *       <ul>
- *         <li>{@link FhirValueSetMissingReadAccessTagAllOrLocalLintItem} – Missing required read access tag</li>
- *         <li>{@link FhirValueSetOrganizationRoleMissingValidCodeValueLintItem} – Invalid organization role code</li>
- *         <li>{@link FhirValueSetMissingUrlLintItem} – Missing canonical URL</li>
- *         <li>{@link FhirValueSetMissingNameLintItem} – Missing name element</li>
- *         <li>{@link FhirValueSetMissingTitleLintItem} – Missing title element</li>
- *         <li>{@link FhirValueSetMissingPublisherLintItem} – Missing publisher element</li>
- *         <li>{@link FhirValueSetMissingDescriptionLintItem} – Missing description element</li>
- *         <li>{@link FhirValueSetVersionNoPlaceholderLintItem} – Incorrect or missing version placeholder</li>
- *         <li>{@link FhirValueSetDateNoPlaceholderLintItem} – Incorrect or missing date placeholder</li>
- *         <li>{@link FhirValueSetMissingComposeIncludeLintItem} – No compose.include elements found</li>
- *         <li>{@link FhirValueSetIncludeMissingSystemLintItem} – Include element missing system attribute</li>
- *         <li>{@link FhirValueSetIncludeVersionPlaceholderLintItem} – Incorrect include version placeholder</li>
- *         <li>{@link FhirValueSetConceptMissingCodeLintItem} – Concept element without code</li>
- *         <li>{@link FhirValueSetDuplicateConceptCodeLintItem} – Duplicate code in same include</li>
- *         <li>{@link FhirValueSetUnknownCodeLintItem} – Code not found in DSF terminology cache</li>
- *         <li>{@link FhirValueSetFalseUrlReferencedLintItem} – Code exists but in different CodeSystem</li>
- *       </ul>
- *   </li>
+ *   <li>{@code FhirElementLintItem.success(...)} – Validation passed successfully</li>
+ *   <li>{@code FhirElementLintItem.of(severity, type, ...)} – Validation issue found, identified by LintingType</li>
  * </ul>
  *
  * <h3>Implementation Details</h3>
@@ -137,7 +121,7 @@ import java.util.*;
  * @see AbstractFhirInstanceLinter
  * @see FhirAuthorizationCache
  * @see FhirElementLintItem
- * @see FhirElementLintItemSuccess
+ * @see dev.dsf.linter.output.LintingType
  */
 public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
 {
@@ -250,14 +234,14 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
                 }
             }
             if (!hasAllOrLocal)
-                out.add(new FhirValueSetMissingReadAccessTagAllOrLocalLintItem(res, ref,
-                    "meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL,
+                    res, ref, "meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
             else
                 out.add(ok(res, ref,
                     "meta.tag read-access-tag contains ALL or LOCAL – OK."));
         } catch (Exception e) {
-            out.add(new FhirValueSetMissingReadAccessTagAllOrLocalLintItem(res, ref,
-                "Failed to evaluate meta.tag read-access linting: " + e.getMessage()));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL,
+                res, ref, "Failed to evaluate meta.tag read-access linting: " + e.getMessage()));
         }
 
         // lint organization role codes
@@ -266,35 +250,35 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         // url
         String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
         if (blank(url))
-            out.add(new FhirValueSetMissingUrlLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_URL, res, ref));
         else
             out.add(ok(res, ref, "url = '" + url + "'"));
 
         // name
         String name = val(doc, VS_XP + "/*[local-name()='name']/@value");
         if (blank(name))
-            out.add(new FhirValueSetMissingNameLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_NAME, res, ref));
         else
             out.add(ok(res, ref, "name OK"));
 
         // title
         String title = val(doc, VS_XP + "/*[local-name()='title']/@value");
         if (blank(title))
-            out.add(new FhirValueSetMissingTitleLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_TITLE, res, ref));
         else
             out.add(ok(res, ref, "title OK"));
 
         // publisher
         String publisher = val(doc, VS_XP + "/*[local-name()='publisher']/@value");
         if (blank(publisher))
-            out.add(new FhirValueSetMissingPublisherLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_PUBLISHER, res, ref));
         else
             out.add(ok(res, ref, "publisher OK"));
 
         // description
         String desc = val(doc, VS_XP + "/*[local-name()='description']/@value");
         if (blank(desc))
-            out.add(new FhirValueSetMissingDescriptionLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_DESCRIPTION, res, ref));
         else
             out.add(ok(res, ref, "description OK"));
     }
@@ -331,9 +315,8 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
                 if (FhirAuthorizationCache.isUnknown(
                         FhirAuthorizationCache.CS_ORG_ROLE, roleCode))
                 {
-                    out.add(new FhirValueSetOrganizationRoleMissingValidCodeValueLintItem(
-                            res, ref,
-                            "Invalid organization-role code '" + roleCode + "'"));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE,
+                            res, ref, "Invalid organization-role code '" + roleCode + "'"));
                 }
                 else
                 {
@@ -342,8 +325,8 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
                 }
             }
         } catch (Exception e) {
-            out.add(new FhirValueSetOrganizationRoleMissingValidCodeValueLintItem(res, ref,
-                "Failed to evaluate parent-organization-role linting: " + e.getMessage()));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE,
+                res, ref, "Failed to evaluate parent-organization-role linting: " + e.getMessage()));
         }
     }
 
@@ -374,16 +357,16 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         // version → #{version}
         String version = val(doc, VS_XP + "/*[local-name()='version']/@value");
         if (version == null || !version.equals("#{version}"))
-            out.add(new FhirValueSetVersionNoPlaceholderLintItem(res, ref,
-                    "<version> must contain '#{version}'."));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
+                    res, ref, "<version> must contain '#{version}'."));
         else
             out.add(ok(res, ref, "version placeholder OK." ));
 
         // date → #{date}
         String date = val(doc, VS_XP + "/*[local-name()='date']/@value");
         if (date == null || !date.equals("#{date}"))
-            out.add(new FhirValueSetDateNoPlaceholderLintItem(res, ref,
-                    "<date> must contain '#{date}'."));
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
+                    res, ref, "<date> must contain '#{date}'."));
         else
             out.add(ok(res, ref, "date placeholder OK."));
     }
@@ -449,7 +432,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         NodeList includes = xp(doc, COMPOSE_INCLUDE_XP);
         if (includes == null || includes.getLength() == 0)
         {
-            out.add(new FhirValueSetMissingComposeIncludeLintItem(res, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_COMPOSE_INCLUDE, res, ref));
             return;
         }
 
@@ -459,8 +442,8 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
             String system = val(inc, "./*[local-name()='system']/@value");
             if (blank(system))
             {
-                out.add(new FhirValueSetIncludeMissingSystemLintItem(res, ref,
-                        "compose.include without system attribute"));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_INCLUDE_MISSING_SYSTEM,
+                        res, ref, "compose.include without system attribute"));
                 continue;
             }
             else
@@ -469,8 +452,8 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
             // version placeholder
             String incVersion = val(inc, INCLUDE_VERSION_XP);
             if (incVersion == null || !incVersion.equals("#{version}"))
-                out.add(new FhirValueSetIncludeVersionPlaceholderLintItem(res, ref,
-                        "include(version) should contain '#{version}'"));
+                out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_INCLUDE_VERSION_NO_PLACEHOLDER,
+                        res, ref, "include(version) should contain '#{version}'"));
             else
                 out.add(ok(res, ref, "include.version placeholder OK" ));
 
@@ -490,23 +473,22 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
 
                 if (blank(code))
                 {
-                    out.add(new FhirValueSetConceptMissingCodeLintItem(res, ref,
-                            "include.concept without code"));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_CONCEPT_MISSING_CODE,
+                            res, ref, "include.concept without code"));
                     continue;
                 }
 
                 // duplicates
                 if (!duplicateGuard.add(code))
                 {
-                    out.add(new FhirValueSetDuplicateConceptCodeLintItem(res, ref,
-                            "duplicate code '" + code + "' in the same include"));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_DUPLICATE_CONCEPT_CODE,
+                            res, ref, "duplicate code '" + code + "' in the same include"));
                 }
 
                 // DSF‑Terminology‑Check
                 if (system.isBlank() || code.isBlank()) {
-                    out.add(new FhirValueSetUnknownCodeLintItem(
-                            res, ref,
-                            "missing system/code for ValueSet include; cannot lint '" + code + "' in system '" + system + "'"));
+                    out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_UNKNOWN_CODE,
+                            res, ref, "missing system/code for ValueSet include; cannot lint '" + code + "' in system '" + system + "'"));
                 }
                 else if (!FhirAuthorizationCache.containsSystem(system)
                         || !FhirAuthorizationCache.isKnown(system, code)) {
@@ -521,13 +503,11 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
     private void lintCodeInAlternateSystems(File res, String ref, List<FhirElementLintItem> out, String system, String code) {
         Set<String> hits = FhirAuthorizationCache.findSystemsContainingCode(code);
         if (!hits.isEmpty()) {
-            out.add(new FhirValueSetFalseUrlReferencedLintItem(
-                    res, ref,
-                    "code '" + code + "' exists in system(s) " + hits + " but ValueSet references '" + system + "'."));
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_FALSE_URL_REFERENCED,
+                    res, ref, "code '" + code + "' exists in system(s) " + hits + " but ValueSet references '" + system + "'."));
         } else {
-            out.add(new FhirValueSetUnknownCodeLintItem(
-                    res, ref,
-                    "unknown code '" + code + "' in system '" + system + "'"));
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_UNKNOWN_CODE,
+                    res, ref, "unknown code '" + code + "' in system '" + system + "'"));
         }
     }
 

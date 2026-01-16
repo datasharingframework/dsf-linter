@@ -2,7 +2,8 @@ package dev.dsf.linter.bpmn;
 
 import dev.dsf.linter.constants.BpmnElementType;
 import dev.dsf.linter.output.LinterSeverity;
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.BpmnElementLintItem;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
@@ -176,46 +177,15 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * @see BpmnModelLinter
  * @see BpmnElementLinter
  * @see BpmnFieldInjectionLinter
- * @see BpmnUserTaskNameEmptyLintItem
- * @see BpmnUserTaskFormKeyEmptyLintItem
- * @see BpmnUserTaskFormKeyIsNotAnExternalFormLintItem
- * @see BpmnUserTaskListenerMissingClassAttributeLintItem
- * @see BpmnUserTaskListenerJavaClassNotFoundLintItem
- * @see BpmnUserTaskListenerNotExtendingOrImplementingRequiredClassLintItem
- * @see BpmnExecutionListenerClassNotFoundLintItem
- * @see BpmnExecutionListenerNotImplementingRequiredInterfaceLintItem
  * @since 1.0
  */
 public record BpmnTaskLinter(File projectRoot) {
-    /**
-     * Constructs a new {@code BpmnTaskLinter} instance with the specified project root directory.
-     *
-     * <p>
-     * The project root is used by the linter to locate compiled classes, FHIR resources, and other
-     * project artifacts required for validation. It typically points to the root directory of a Maven
-     * or Gradle project containing build output directories such as {@code target/classes} or
-     * {@code build/classes}.
-     * </p>
-     *
-     * @param projectRoot the root directory of the project; must not be {@code null}
-     * @throws IllegalArgumentException if {@code projectRoot} is {@code null}
-     */
+
     public BpmnTaskLinter {
     }
 
     // ==================== SERVICE TASK ====================
 
-    /**
-     * Lints a {@link ServiceTask} with element-specific interface validation.
-     * <p>
-     * Validates the task name, implementation class existence and interface compliance,
-     * and execution listener classes if present.
-     *
-     * @param task      the ServiceTask to lint
-     * @param issues    the list to collect lint items
-     * @param bpmnFile  the BPMN file reference
-     * @param processId the process identifier
-     */
     public void lintServiceTask(
             ServiceTask task,
             List<BpmnElementLintItem> issues,
@@ -227,10 +197,10 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(task.getName())) {
-            issues.add(new BpmnServiceTaskNameEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_SERVICE_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "ServiceTask has a non-empty name: '" + task.getName() + "'"));
         }
 
@@ -238,86 +208,69 @@ public record BpmnTaskLinter(File projectRoot) {
         String implClass = task.getCamundaClass();
 
         if (implClass == null) {
-            issues.add(new BpmnServiceTaskImplementationNotExistLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_SERVICE_TASK_IMPLEMENTATION_NOT_EXIST, elementId, bpmnFile, processId));
             return;
         }
 
         if (implClass.trim().isEmpty()) {
-            issues.add(new BpmnServiceTaskImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_SERVICE_TASK_IMPLEMENTATION_CLASS_EMPTY, elementId, bpmnFile, processId));
             return;
         }
 
         if (!classExists(implClass, projectRoot)) {
-            issues.add(new BpmnServiceTaskImplementationClassNotFoundLintItem(
-                    elementId, bpmnFile, processId, implClass));
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                    LintingType.BPMN_SERVICE_TASK_IMPLEMENTATION_CLASS_NOT_FOUND,
+                    elementId, bpmnFile, processId,
+                    "Service task implementation class '" + implClass + "' not found."));
             return;
         }
 
         // Element-specific interface/inheritance check
         if (apiVersion == ApiVersion.V1) {
-            // V1: Check inheritance and interface separately
             boolean extendsAbstract = isSubclassOf(implClass, V1_ABSTRACT_SERVICE_DELEGATE, projectRoot);
             boolean implementsInterface = implementsInterface(implClass, V1_JAVA_DELEGATE, projectRoot);
 
-            // Check 1: Extends AbstractServiceDelegate
             if (extendsAbstract) {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "ServiceTask implementation class '" + implClass + "' extends " + getSimpleName(V1_ABSTRACT_SERVICE_DELEGATE) + "."));
             } else {
-                issues.add(new BpmnServiceTaskNotExtendingAbstractServiceDelegateLintItem(
-                        elementId, bpmnFile, processId, implClass,
+                issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                        LintingType.BPMN_SERVICE_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_SERVICE_DELEGATE,
+                        elementId, bpmnFile, processId,
                         "ServiceTask implementation class '" + implClass + "' does not extend '" + getSimpleName(V1_ABSTRACT_SERVICE_DELEGATE) + "'."));
             }
 
-            // Check 2: Implements JavaDelegate
             if (implementsInterface) {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "ServiceTask implementation class '" + implClass + "' implements " + getSimpleName(V1_JAVA_DELEGATE) + "."));
             } else {
-                issues.add(new BpmnServiceTaskImplementationClassNotImplementingJavaDelegateLintItem(
-                        elementId, bpmnFile, processId, implClass,
+                issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                        LintingType.BPMN_SERVICE_TASK_IMPLEMENTATION_CLASS_NOT_IMPLEMENTING_JAVA_DELEGATE,
+                        elementId, bpmnFile, processId,
                         "ServiceTask implementation class '" + implClass + "' does not implement '" + getSimpleName(V1_JAVA_DELEGATE) + "'."));
             }
         } else {
-            // V2: Check interface implementation
             if (doesNotImplementCorrectInterface(implClass, projectRoot, apiVersion, BpmnElementType.SERVICE_TASK)) {
-                issues.add(new BpmnServiceTaskNoInterfaceClassImplementingLintItem(
+                issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                        LintingType.BPMN_SERVICE_TASK_NO_INTERFACE_CLASS_IMPLEMENTING,
                         elementId, bpmnFile, processId,
-                        "ServiceTask implementation class '" + implClass
-                                + "' does not implement ServiceTask interface."));
+                        "ServiceTask implementation class '" + implClass + "' does not implement ServiceTask interface."));
                 return;
             }
 
-            // Success
             String implementedInterface = findImplementedInterface(implClass, projectRoot, apiVersion, BpmnElementType.SERVICE_TASK);
-            String interfaceName = implementedInterface != null
-                    ? getSimpleName(implementedInterface)
-                    : "ServiceTask";
-
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            String interfaceName = implementedInterface != null ? getSimpleName(implementedInterface) : "ServiceTask";
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "ServiceTask implementation class '" + implClass + "' implements " + interfaceName + "."));
         }
 
-        // Check execution listener classes (ServiceTasks can also have execution listeners)
         checkExecutionListenerClasses(task, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== SEND TASK ====================
 
-    /**
-     * Lints a {@link SendTask} with element-specific interface validation.
-     * <p>
-     * Validates the task name, implementation class existence and interface compliance,
-     * field injections, and execution listener classes if present.
-     *
-     * @param sendTask  the SendTask to lint
-     * @param issues    the list to collect lint items
-     * @param bpmnFile  the BPMN file reference
-     * @param processId the process identifier
-     */
     public void lintSendTask(
             SendTask sendTask,
             List<BpmnElementLintItem> issues,
@@ -329,11 +282,11 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(sendTask.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_EVENT_NAME_EMPTY, elementId, bpmnFile, processId,
+                    "'" + elementId + "' has no name"));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "SendTask has a non-empty name: '" + sendTask.getName() + "'"));
         }
 
@@ -341,80 +294,58 @@ public record BpmnTaskLinter(File projectRoot) {
         String implClass = sendTask.getCamundaClass();
 
         if (isEmpty(implClass)) {
-            issues.add(new BpmnMessageSendTaskImplementationClassEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_MESSAGE_SEND_TASK_IMPLEMENTATION_CLASS_EMPTY, elementId, bpmnFile, processId));
         } else if (!classExists(implClass, projectRoot)) {
-            issues.add(new BpmnMessageSendTaskImplementationClassNotFoundLintItem(
-                    elementId, bpmnFile, processId, implClass));
+            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                    LintingType.BPMN_MESSAGE_SEND_TASK_IMPLEMENTATION_CLASS_NOT_FOUND,
+                    elementId, bpmnFile, processId,
+                    "Message send task implementation class '" + implClass + "' not found."));
         } else {
-            // Element-specific interface/inheritance check
             if (apiVersion == ApiVersion.V1) {
-                // V1: Check inheritance and interface separately
                 boolean extendsAbstract = isSubclassOf(implClass, V1_ABSTRACT_TASK_MESSAGE_SEND, projectRoot);
                 boolean implementsInterface = implementsInterface(implClass, V1_JAVA_DELEGATE, projectRoot);
 
-                // Check 1: Extends AbstractTaskMessageSend
                 if (extendsAbstract) {
-                    issues.add(new BpmnElementLintItemSuccess(
-                            elementId, bpmnFile, processId,
+                    issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                             "SendTask implementation class '" + implClass + "' extends " + getSimpleName(V1_ABSTRACT_TASK_MESSAGE_SEND) + "."));
                 } else {
-                    issues.add(new BpmnSendTaskNotExtendingAbstractTaskMessageSendLintItem(
-                            elementId, bpmnFile, processId, implClass,
+                    issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                            LintingType.BPMN_SEND_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND,
+                            elementId, bpmnFile, processId,
                             "SendTask implementation class '" + implClass + "' does not extend '" + getSimpleName(V1_ABSTRACT_TASK_MESSAGE_SEND) + "'."));
                 }
 
-                // Check 2: Implements JavaDelegate
                 if (implementsInterface) {
-                    issues.add(new BpmnElementLintItemSuccess(
-                            elementId, bpmnFile, processId,
+                    issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                             "SendTask implementation class '" + implClass + "' implements " + getSimpleName(V1_JAVA_DELEGATE) + "."));
                 } else {
-                    issues.add(new BpmnMessageSendEventImplementationClassNotImplementingJavaDelegateLintItem(
-                            elementId, bpmnFile, processId, implClass,
+                    issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                            LintingType.BPMN_MESSAGE_SEND_EVENT_IMPLEMENTATION_CLASS_NOT_IMPLEMENTING_JAVA_DELEGATE,
+                            elementId, bpmnFile, processId,
                             "SendTask implementation class '" + implClass + "' does not implement '" + getSimpleName(V1_JAVA_DELEGATE) + "'."));
                 }
             } else {
-                // V2: Check interface implementation
                 if (doesNotImplementCorrectInterface(implClass, projectRoot, apiVersion, BpmnElementType.SEND_TASK)) {
-                    issues.add(new BpmnSendTaskNoInterfaceClassImplementingLintItem(
+                    issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
+                            LintingType.BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING,
                             elementId, bpmnFile, processId,
-                            "SendTask implementation class '" + implClass
-                                    + "' does not implement MessageSendTask interface."));
+                            "SendTask implementation class '" + implClass + "' does not implement MessageSendTask interface."));
                 } else {
-                    // Success
                     String implementedInterface = findImplementedInterface(implClass, projectRoot, apiVersion, BpmnElementType.SEND_TASK);
-                    String interfaceName = implementedInterface != null
-                            ? getSimpleName(implementedInterface)
-                            : "MessageSendTask";
-
-                    issues.add(new BpmnElementLintItemSuccess(
-                            elementId, bpmnFile, processId,
+                    String interfaceName = implementedInterface != null ? getSimpleName(implementedInterface) : "MessageSendTask";
+                    issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                             "SendTask implementation class '" + implClass + "' implements " + interfaceName + "."));
                 }
             }
         }
 
-        // 3. Validate field injections
-        BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
-                sendTask, issues, bpmnFile, processId, projectRoot);
-
-        // Check execution listener classes
+        BpmnFieldInjectionLinter.lintMessageSendFieldInjections(sendTask, issues, bpmnFile, processId, projectRoot);
         checkExecutionListenerClasses(sendTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== USER TASK ====================
 
-    /**
-     * Lints a {@link UserTask} including formKey, task listeners, and execution listeners.
-     * <p>
-     * Validates the task name, formKey configuration, questionnaire references,
-     * task listener classes, and execution listener classes if present.
-     *
-     * @param userTask  the UserTask to lint
-     * @param issues    the list to collect lint items
-     * @param bpmnFile  the BPMN file reference
-     * @param processId the process identifier
-     */
     public void lintUserTask(
             UserTask userTask,
             List<BpmnElementLintItem> issues,
@@ -426,11 +357,10 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(userTask.getName())) {
-            issues.add(new BpmnUserTaskNameEmptyLintItem(
-                    elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_USER_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "User Task has a non-empty name: '" + userTask.getName() + "'"));
         }
 
@@ -438,86 +368,65 @@ public record BpmnTaskLinter(File projectRoot) {
         String formKey = userTask.getCamundaFormKey();
 
         if (isEmpty(formKey)) {
-            issues.add(new BpmnUserTaskFormKeyEmptyLintItem(
-                    elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_USER_TASK_FORM_KEY_EMPTY, elementId, bpmnFile, processId));
         } else {
             boolean isExternalForm = formKey.startsWith("external:")
                     || formKey.startsWith("http://")
                     || formKey.startsWith("https://");
 
             if (!isExternalForm) {
-                issues.add(new BpmnUserTaskFormKeyIsNotAnExternalFormLintItem(
-                        elementId, bpmnFile, processId));
+                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                        LintingType.BPMN_USER_TASK_FORM_KEY_IS_NOT_AN_EXTERNAL_FORM, elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
-                        elementId, bpmnFile, processId,
+                issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "User Task formKey is valid: '" + formKey + "'"));
 
-                // Check questionnaire existence
                 if (!locator.questionnaireExists(formKey, projectRoot)) {
-                    issues.add(new FhirQuestionnaireDefinitionLintItem(
-                            LinterSeverity.ERROR, elementId, bpmnFile, processId, formKey,
+                    issues.add(new BpmnElementLintItem(
+                            LinterSeverity.ERROR, LintingType.BPMN_USER_TASK_QUESTIONNAIRE_NOT_FOUND,
+                            elementId, bpmnFile, processId,
                             "User Task questionnaire not found for formKey: " + formKey));
                 } else {
-                    issues.add(new BpmnElementLintItemSuccess(
-                            elementId, bpmnFile, processId,
+                    issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                             "Questionnaire exists for formKey: '" + formKey + "'"));
                 }
             }
         }
 
-        // 3. Validate task listener classes
         checkTaskListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
-
-        // Check execution listener classes (UserTasks can also have execution listeners)
         checkExecutionListenerClasses(userTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 
     // ==================== RECEIVE TASK ====================
 
-    /**
-     * Lints a {@link ReceiveTask} including message definition validation.
-     * <p>
-     * Validates the task name, message definition, FHIR resource references,
-     * and execution listener classes if present.
-     *
-     * @param receiveTask the ReceiveTask to lint
-     * @param issues      the list to collect lint items
-     * @param bpmnFile    the BPMN file reference
-     * @param processId   the process identifier
-     */
     public void lintReceiveTask(
             ReceiveTask receiveTask,
             List<BpmnElementLintItem> issues,
             File bpmnFile,
             String processId) {
+
         String elementId = receiveTask.getId();
 
-        // Check if the ReceiveTask name is non-empty.
         if (isEmpty(receiveTask.getName())) {
-            issues.add(new BpmnEventNameEmptyLintItem(
-                    elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_EVENT_NAME_EMPTY, elementId, bpmnFile, processId,
+                    "'" + elementId + "' has no name."));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "ReceiveTask has a non-empty name: '" + receiveTask.getName() + "'"));
         }
 
-        // Check if the message definition exists and its name is non-empty.
         if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName())) {
-            issues.add(new BpmnMessageStartEventMessageNameEmptyLintItem(
-                    elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+                    LintingType.BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             String msgName = receiveTask.getMessage().getName();
-            issues.add(new BpmnElementLintItemSuccess(
-                    elementId, bpmnFile, processId,
+            issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "ReceiveTask message name is non-empty: '" + msgName + "'"));
-
-            // Check FHIR references
             checkMessageName(msgName, issues, elementId, bpmnFile, processId, projectRoot);
         }
 
-        // Check execution listener classes
         checkExecutionListenerClasses(receiveTask, elementId, issues, bpmnFile, processId, projectRoot);
     }
 }

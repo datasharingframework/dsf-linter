@@ -1,6 +1,7 @@
 package dev.dsf.linter.util.bpmn.linters;
 
 import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
 import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
@@ -46,38 +47,32 @@ public final class BpmnMessageLinter {
 
         // Check for a matching ActivityDefinition.
         if (locator.activityDefinitionExists(messageName, projectRoot)) {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId,
                     bpmnFile,
                     processId,
                     "ActivityDefinition found for messageName: '" + messageName + "'"
             ));
         } else {
-            issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(
-                    LinterSeverity.ERROR,
-                    elementId,
-                    bpmnFile,
-                    processId,
-                    messageName,
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE,
+                    elementId, bpmnFile, processId,
                     "No ActivityDefinition found for messageName: " + messageName
             ));
         }
 
         // Check for a matching StructureDefinition.
         if (locator.structureDefinitionExists(messageName, projectRoot)) {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId,
                     bpmnFile,
                     processId,
                     "StructureDefinition found for messageName: '" + messageName + "'"
             ));
         } else {
-            issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
-                    LinterSeverity.ERROR,
-                    elementId,
-                    bpmnFile,
-                    processId,
-                    messageName,
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                    elementId, bpmnFile, processId,
                     "StructureDefinition [" + messageName + "] not found."
             ));
         }
@@ -110,21 +105,23 @@ public final class BpmnMessageLinter {
         boolean activityDefFound = locator.activityDefinitionExists(msgName, projectRoot);
 
         if (!activityDefFound) {
-            issues.add(new BpmnNoActivityDefinitionFoundForMessageLintItem(
-                    LinterSeverity.ERROR, elementId, bpmnFile, processId, msgName,
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE,
+                    elementId, bpmnFile, processId,
                     "No ActivityDefinition found for messageName: " + msgName));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "ActivityDefinition found for messageName: '" + msgName + "'"));
 
         }
         if (!locator.structureDefinitionExists(msgName, projectRoot)) {
-            issues.add(new BpmnNoStructureDefinitionFoundForMessageLintItem(
-                    LinterSeverity.ERROR, elementId, bpmnFile, processId, msgName,
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR, LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
+                    elementId, bpmnFile, processId,
                     "No StructureDefinition found for messageName: " + msgName));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "StructureDefinition found for messageName: '" + msgName + "'"));
         }
@@ -153,7 +150,7 @@ public final class BpmnMessageLinter {
             File projectRoot) {
 
         String msgName = messageDef.getMessage().getName();
-        issues.add(new BpmnElementLintItemSuccess(
+        issues.add(BpmnElementLintItem.success(
                 elementId, bpmnFile, processId,
                 "Message name is not empty: '" + msgName + "'"));
 

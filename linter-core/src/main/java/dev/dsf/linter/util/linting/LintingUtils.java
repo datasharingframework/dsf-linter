@@ -253,7 +253,7 @@ public class LintingUtils {
             ResourceResolutionResult result = entry.getValue();
 
             if (result.file().isPresent()) {
-                items.add(new PluginDefinitionLintItemSuccess(
+                items.add(PluginLintItem.success(
                         result.file().get(),
                         pluginName,
                         String.format("%s resource '%s' found in dependency JAR (%s)",

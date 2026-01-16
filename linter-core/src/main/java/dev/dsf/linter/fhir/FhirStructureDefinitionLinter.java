@@ -1,5 +1,7 @@
 package dev.dsf.linter.fhir;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
@@ -180,21 +182,21 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             }
         }
         if (!tagOk)
-            out.add(new FhirStructureDefinitionMissingReadAccessTagLintItem(file, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_READ_ACCESS_TAG_MISSING, file, ref));
         else
             out.add(ok(file, ref, "meta.tag read‑access‑tag OK (" + tags.getLength() + " tag(s))"));
 
         /* url */
         String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
         if (blank(url))
-            out.add(new FhirStructureDefinitionMissingUrlLintItem(file, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_URL_MISSING, file, ref));
         else
             out.add(ok(file, ref, "url looks good"));
 
         /* status */
         String status = val(doc, SD_XP + "/*[local-name()='status']/@value");
         if (!"unknown".equals(status))
-            out.add(new FhirStructureDefinitionInvalidStatusLintItem(file, ref, status));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_INVALID_STATUS, file, ref, "Invalid status: " + status));
         else
             out.add(ok(file, ref, "status = unknown"));
     }
@@ -217,14 +219,14 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
         /* version */
         String version = val(doc, SD_XP + "/*[local-name()='version']/@value");
         if (version == null || !version.equals("#{version}"))
-            out.add(new FhirStructureDefinitionVersionNoPlaceholderLintItem(file, ref, version));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER, file, ref, "Version does not use placeholder: " + version));
         else
             out.add(ok(file, ref, "version placeholder present"));
 
         /* date */
         String date = val(doc, SD_XP + "/*[local-name()='date']/@value");
         if (date == null || !date.equals("#{date}"))
-            out.add(new FhirStructureDefinitionDateNoPlaceholderLintItem(file, ref, date));
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER, file, ref, "Date does not use placeholder: " + date));
         else
             out.add(ok(file, ref, "date placeholder present"));
     }
@@ -252,13 +254,13 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
         boolean hasSnap = snapNodes != null && snapNodes.getLength() > 0;
 
         if (!hasDiff) {
-            out.add(new FhirStructureDefinitionMissingDifferentialLintItem(file, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_DIFFERENTIAL_MISSING, file, ref));
         } else {
             out.add(ok(file, ref, "differential section present"));
         }
 
         if (hasSnap) {
-            out.add(new FhirStructureDefinitionSnapshotPresentLintItem(file, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_SNAPSHOT_PRESENT, file, ref));
         } else {
             out.add(ok(file, ref, "snapshot section absent (OK)"));
         }
@@ -275,13 +277,13 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             String id = val(elems.item(i), "./@id");
             if (blank(id))
             {
-                out.add(new FhirStructureDefinitionElementWithoutIdLintItem(file, ref));
+                out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_ELEMENT_ID_MISSING, file, ref));
                 idErrorFound = true; // Error found
                 continue;
             }
             if (!ids.add(id))
             {
-                out.add(new FhirStructureDefinitionDuplicateElementIdLintItem(file, ref, id));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_ELEMENT_ID_DUPLICATE, file, ref, "Duplicate element ID: " + id));
                 idErrorFound = true; // Error found
             }
         }
@@ -327,9 +329,6 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
      * @param out  list to which linting results (errors, warnings, OKs) are appended
      *
      * @see <a href="https://hl7.org/fhir/profiling.html#slicing">FHIR Profiling §5.1.0.14 – Slice Cardinality</a>
-     * @see FhirStructureDefinitionSliceMinSumAboveBaseMinLintItem
-     * @see FhirStructureDefinitionSliceMinSumExceedsMaxLintItem
-     * @see FhirStructureDefinitionSliceMaxExceedsBaseMaxLintItem
      */
     private void checkSliceCardinality(Document doc,
                                        File file,
@@ -402,8 +401,8 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
              */
             if (baseMinSpecified) {
                 if (sumSliceMin > baseMin)
-                    out.add(new FhirStructureDefinitionSliceMinSumAboveBaseMinLintItem(
-                            file, ref, baseId, baseMin, sumSliceMin));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_SLICE_MIN_SUM_ABOVE_BASE_MIN,
+                            file, ref, "Element '" + baseId + "': slice min sum (" + sumSliceMin + ") > base min (" + baseMin + ")"));
                 else
                     out.add(ok(file, ref,
                             "element '" + baseId + "': Σ min(" + sumSliceMin +
@@ -419,16 +418,16 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
 
                 if (sliceMaxViolation) {
                     String label = (worstSliceMax == Integer.MAX_VALUE) ? "*" : String.valueOf(worstSliceMax);
-                    out.add(new FhirStructureDefinitionSliceMaxExceedsBaseMaxLintItem(
-                            file, ref, baseId, baseMax, offendingSlice, label));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_SLICE_MAX_TOO_HIGH,
+                            file, ref, "Element '" + baseId + "': slice '" + offendingSlice + "' max (" + label + ") > base max (" + baseMax + ")"));
                 } else {
                     out.add(ok(file, ref,
                             "element '" + baseId + "': all slice.max ≤ " + baseMax));
                 }
 
                 if (maxSumViolation) {
-                    out.add(new FhirStructureDefinitionSliceMinSumExceedsMaxLintItem(
-                            file, ref, baseId, baseMax, sumSliceMin));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_SLICE_MIN_SUM_EXCEEDS_MAX,
+                            file, ref, "Element '" + baseId + "': slice min sum (" + sumSliceMin + ") > base max (" + baseMax + ")"));
                 } else {
                     out.add(ok(file, ref,
                             "element '" + baseId + "': Σ slice.min (" + sumSliceMin + ") ≤ declared max (" + baseMax + ")"));

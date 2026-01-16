@@ -1,8 +1,7 @@
 package dev.dsf.linter.fhir;
 
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.FhirElementLintItem;
-import dev.dsf.linter.output.item.FhirValueSetMissingReadAccessTagAllOrLocalLintItem;
-import dev.dsf.linter.output.item.FhirValueSetOrganizationRoleMissingValidCodeValueLintItem;
 import dev.dsf.linter.util.resource.FhirResourceParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +85,7 @@ class FhirValueSetLinterTest {
 
         // Should not contain any missing read access tag errors
         boolean hasMissingTagError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL);
 
         assertFalse(hasMissingTagError, "Should not have missing read access tag errors for file: " + filePath.getFileName());
     }
@@ -207,7 +206,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL
                         && item.getDescription().contains("meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
         assertTrue(hasError, "Should report error for missing read access tag");
     }
@@ -248,7 +247,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL);
         assertTrue(hasError, "Should report error for wrong code in read access tag");
     }
 
@@ -331,7 +330,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL);
         assertTrue(hasError, "Should report error when no meta section exists");
     }
 
@@ -367,7 +366,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetMissingReadAccessTagAllOrLocalLintItem);
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL);
         assertTrue(hasError, "Should report error when meta section is empty");
     }
 
@@ -465,7 +464,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE
                         && item.getDescription().contains("Invalid organization-role code 'INVALID_ROLE'"));
         assertTrue(hasError, "Should report error for invalid organization role code");
     }
@@ -524,7 +523,7 @@ class FhirValueSetLinterTest {
         boolean hasValidSuccess = results.stream()
                 .anyMatch(item -> item.getDescription().contains("meta.tag parent-organization-role code 'DIC' OK"));
         boolean hasInvalidError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE
                         && item.getDescription().contains("Invalid organization-role code 'INVALID_CODE'"));
 
         assertTrue(hasValidSuccess, "Should lint successfully for valid organization role code");
@@ -567,7 +566,7 @@ class FhirValueSetLinterTest {
         List<FhirElementLintItem> results = linter.lint(doc, testFile);
 
         boolean hasOrgRoleError = results.stream()
-                .anyMatch(item -> item instanceof FhirValueSetOrganizationRoleMissingValidCodeValueLintItem);
+                .anyMatch(item -> item.getType() == LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE);
         assertFalse(hasOrgRoleError, "Should not report organization role errors when no extensions are present");
     }
 

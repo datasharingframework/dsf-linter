@@ -2,6 +2,7 @@ package dev.dsf.linter.util;
 
 import dev.dsf.linter.classloading.ClassInspector;
 import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
@@ -65,6 +66,15 @@ class BpmnTaskListenerInputParameterTest {
         issues = new ArrayList<>();
     }
 
+    /**
+     * Helper method to assert that a lint item has a specific LintingType.
+     */
+    private void assertLintType(LintingType expectedType, BpmnElementLintItem item) {
+        assertNotNull(item, "Item should not be null");
+        assertEquals(expectedType, item.getType(), 
+                "Item should have type " + expectedType);
+    }
+
     private BpmnModelInstance createModelFromXml(String bpmnXml) {
         return Bpmn.readModelFromStream(
                 new java.io.ByteArrayInputStream(bpmnXml.getBytes(StandardCharsets.UTF_8)));
@@ -112,7 +122,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnPractitionerRoleHasNoValueOrNullLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL),
                     "Should report ERROR for empty practitionerRole when extending DefaultUserTaskListener");
         }
     }
@@ -160,7 +170,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
                     .toList();
-            assertTrue(warnings.stream().anyMatch(item -> item instanceof BpmnPractitionerRoleHasNoValueOrNullLintItem),
+            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL),
                     "Should report WARN for empty practitionerRole when NOT extending DefaultUserTaskListener");
         }
     }
@@ -207,7 +217,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnPractitionersHasNoValueOrNullLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
                     "Should report ERROR for empty practitioners when extending DefaultUserTaskListener");
         }
     }
@@ -255,7 +265,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
                     .toList();
-            assertTrue(warnings.stream().anyMatch(item -> item instanceof BpmnPractitionersHasNoValueOrNullLintItem),
+            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
                     "Should report WARN for empty practitioners when NOT extending DefaultUserTaskListener");
         }
     }
@@ -507,8 +517,8 @@ class BpmnTaskListenerInputParameterTest {
             // Then - should not have any warnings for input parameters
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
-                    .filter(item -> item instanceof BpmnPractitionerRoleHasNoValueOrNullLintItem
-                            || item instanceof BpmnPractitionersHasNoValueOrNullLintItem)
+                    .filter(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
+                            || item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL)
                     .toList();
             assertTrue(warnings.isEmpty(),
                     "Should not validate input parameters for API v1");
@@ -561,7 +571,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnPractitionersHasNoValueOrNullLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
                     "Should report ERROR for empty practitioners when extending DefaultUserTaskListener");
             
             List<BpmnElementLintItem> successItems = issues.stream()
@@ -610,8 +620,8 @@ class BpmnTaskListenerInputParameterTest {
 
             // Then - should not have any errors or warnings for input parameters when they are not present
             List<BpmnElementLintItem> inputParamIssues = issues.stream()
-                    .filter(item -> item instanceof BpmnPractitionerRoleHasNoValueOrNullLintItem
-                            || item instanceof BpmnPractitionersHasNoValueOrNullLintItem)
+                    .filter(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
+                            || item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL)
                     .toList();
             assertTrue(inputParamIssues.isEmpty(),
                     "Should not validate when input parameters are not present");
@@ -664,7 +674,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_INCOMPLETE_TASK_OUTPUT_FIELDS),
                     "Should report ERROR for incomplete taskOutput fields when only taskOutputSystem is set");
         }
     }
@@ -713,7 +723,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_INCOMPLETE_TASK_OUTPUT_FIELDS),
                     "Should report ERROR for incomplete taskOutput fields when only taskOutputCode is set");
         }
     }
@@ -773,7 +783,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE),
                     "Should report ERROR for unknown CodeSystem");
         }
     }
@@ -834,7 +844,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item instanceof BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE),
                     "Should report ERROR for unknown code in CodeSystem");
         }
     }
@@ -895,7 +905,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
                     .toList();
-            assertTrue(warnings.stream().anyMatch(item -> item instanceof BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem),
+            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER),
                     "Should report WARN for taskOutputVersion without placeholder");
         }
     }
@@ -1002,10 +1012,10 @@ class BpmnTaskListenerInputParameterTest {
 
             // Then - should not have any taskOutput-related errors
             List<BpmnElementLintItem> taskOutputErrors = issues.stream()
-                    .filter(item -> item instanceof BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem)
+                    .filter(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_INCOMPLETE_TASK_OUTPUT_FIELDS
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER)
                     .toList();
             assertTrue(taskOutputErrors.isEmpty(),
                     "Should not validate taskOutput fields when none are set");
@@ -1054,10 +1064,10 @@ class BpmnTaskListenerInputParameterTest {
 
             // Then - should not have any taskOutput-related errors
             List<BpmnElementLintItem> taskOutputErrors = issues.stream()
-                    .filter(item -> item instanceof BpmnUserTaskListenerIncompleteTaskOutputFieldsLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputSystemInvalidFhirResourceLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputCodeInvalidFhirResourceLintItem
-                            || item instanceof BpmnUserTaskListenerTaskOutputVersionNoPlaceholderLintItem)
+                    .filter(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_INCOMPLETE_TASK_OUTPUT_FIELDS
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER)
                     .toList();
             assertTrue(taskOutputErrors.isEmpty(),
                     "Should not validate taskOutput fields for API v1");

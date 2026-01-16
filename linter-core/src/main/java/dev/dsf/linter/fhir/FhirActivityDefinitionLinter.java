@@ -1,6 +1,8 @@
 package dev.dsf.linter.fhir;
 
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.FhirElementLintItem;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
 import org.w3c.dom.Document;
@@ -22,23 +24,19 @@ import java.util.Objects;
  * <ol>
  *     <li><strong>Resource URL</strong><br/>
  *         The {@code <url>} element must be present and non-blank.
- *         Reports {@link FhirActivityDefinitionInvalidFhirUrlLintItem} if missing or empty.
+ *         Reports ERROR if missing or empty.
  *     </li>
  *     <li><strong>Status Element</strong><br/>
  *         The {@code <status>} element must be present and set to {@code "unknown"} (required by DSF).
- *         Reports {@link FhirActivityDefinitionInvalidFhirStatusLintItem} if missing or empty,
- *         or {@link FhirStatusIsNotSetAsUnknownLintItem} if set to a different value.
+ *         Reports ERROR if missing or empty, or if set to a different value.
  *     </li>
  *     <li><strong>Kind Element</strong><br/>
  *         The {@code <kind>} element must be present and set to {@code "Task"}.
- *         Reports {@link FhirKindIsMissingOrEmptyLintItem} if missing or empty,
- *         or {@link FhirKindNotSetAsTaskLintItem} if set to a different value.
+ *         Reports ERROR if missing or empty, or if set to a different value.
  *     </li>
  *     <li><strong>Profile Declaration</strong><br/>
  *         The {@code <meta><profile>} element should contain {@value #EXPECTED_PROFILE}.
- *         Reports {@link FhirActivityDefinitionMissingProfileLintItem} if missing or incorrect,
- *         or {@link FhirActivityDefinitionProfileHasVersionNumberLintItem} if a version suffix
- *         (e.g., {@code |1.0.0}) is present.
+ *         Reports ERROR if missing or incorrect, or if a version suffix is present.
  *     </li>
  *     <li><strong>Read-Access Tag</strong><br/>
  *         The first {@code <meta><tag>} must specify:
@@ -46,58 +44,12 @@ import java.util.Objects;
  *             <li>{@code <system>} = {@value #READ_ACCESS_TAG_SYSTEM}</li>
  *             <li>{@code <code>} = {@value #READ_ACCESS_TAG_CODE_ALL}</li>
  *         </ul>
- *         This tag allows global read access to the ActivityDefinition.
- *         Reports {@link FhirMissingFhirAccessTagLintItem} if missing,
- *         or {@link FhirInvalidFhirAccessTagLintItem} if the values are incorrect.
  *     </li>
  *     <li><strong>Process-Authorization Extension</strong><br/>
  *         At least one {@code <extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">}
- *         must be present. Reports {@link FhirNoExtensionProcessAuthorizationFoundLintItem} if missing.
- *         <br/>
- *         For each process-authorization extension:
- *         <ul>
- *             <li><strong>Requester sub-extension:</strong> Must contain at least one
- *                 {@code <extension url="requester">} with a valid {@code valueCoding}.
- *                 Reports {@link FhirActivityDefinitionEntryMissingRequesterLintItem} if missing,
- *                 or {@link FhirActivityDefinitionEntryInvalidRequesterLintItem} if the coding is invalid.
- *             </li>
- *             <li><strong>Recipient sub-extension:</strong> Must contain at least one
- *                 {@code <extension url="recipient">} with a valid {@code valueCoding}.
- *                 Reports {@link FhirActivityDefinitionEntryMissingRecipientLintItem} if missing,
- *                 or {@link FhirActivityDefinitionEntryInvalidRecipientLintItem} if the coding is invalid.
- *             </li>
- *             <li>Each {@code valueCoding} must have:
- *                 <ul>
- *                     <li>{@code <system>} = {@value #PROCESS_AUTHORIZATION_SYSTEM}</li>
- *                     <li>{@code <code>} = a code recognized by {@link FhirAuthorizationCache#isUnknown(String, String)}
- *                         (i.e., the code must NOT be unknown)</li>
- *                 </ul>
- *             </li>
- *         </ul>
+ *         must be present.
  *     </li>
  * </ol>
- *
- * <p><strong>Checks Intentionally Delegated to Other Linters:</strong></p>
- * <ul>
- *     <li>{@code <version>} element placeholder validation (expected value: {@code "#{version}"})</li>
- *     <li>{@code <date>} element placeholder validation (expected value: {@code "#{date}"})</li>
- *     <li>{@code <extension url="http://dsf.dev/fhir/StructureDefinition/task-profile">}</li>
- *     <li>{@code <extension url="http://dsf.dev/fhir/StructureDefinition/message-name">}</li>
- * </ul>
- *
- * <p><strong>Lint Item Types:</strong></p>
- * <p>For each validation step, the linter produces one of the following item types:</p>
- * <ul>
- *     <li><strong>Success items</strong> (neutral/info) when validation passes</li>
- *     <li><strong>Warning items</strong> for non-critical issues</li>
- *     <li><strong>Error items</strong> for validation failures that must be corrected</li>
- * </ul>
- *
- * <p><strong>References:</strong></p>
- * <ul>
- *   <li><a href="http://hl7.org/fhir/R4/activitydefinition.html">HL7 FHIR R4 – ActivityDefinition</a></li>
- *   <li><a href="https://dsf.dev/">DSF Developer Documentation</a></li>
- * </ul>
  *
  * @see AbstractFhirInstanceLinter
  * @see FhirAuthorizationCache
@@ -152,29 +104,30 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
         /* (1) <url>  */
         final String resourceUrl = val(doc, URL_XP);
         if (blank(resourceUrl))
-            issues.add(new FhirActivityDefinitionInvalidFhirUrlLintItem(resourceFile, null,
-                    "ActivityDefinition is missing <url> or it is empty."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.INVALID_FHIR_URL,
+                    resourceFile, null, "ActivityDefinition is missing <url> or it is empty."));
         else
             issues.add(ok(resourceFile, resourceUrl, "Found <url>: '" + resourceUrl + "'."));
 
         /* (2) <status> must be "unknown"  */
         final String statusVal = val(doc, STATUS_XP);
         if (blank(statusVal))
-            issues.add(new FhirActivityDefinitionInvalidFhirStatusLintItem(resourceFile, resourceUrl,
-                    "ActivityDefinition is missing <status> or it is empty."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.INVALID_FHIR_STATUS,
+                    resourceFile, resourceUrl, "ActivityDefinition is missing <status> or it is empty."));
         else if (!"unknown".equals(statusVal))
-            issues.add(new FhirStatusIsNotSetAsUnknownLintItem(resourceFile, resourceUrl,
-                    "<status> must be 'unknown' (found '" + statusVal + "')."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_STATUS_IS_NOT_SET_AS_UNKNOWN,
+                    resourceFile, resourceUrl, "<status> must be 'unknown' (found '" + statusVal + "')."));
         else
             issues.add(ok(resourceFile, resourceUrl, "<status> is 'unknown'."));
 
         /* (3) <kind> must be "Task"  */
         final String kindVal = val(doc, KIND_XP);
         if (blank(kindVal))
-            issues.add(new FhirKindIsMissingOrEmptyLintItem(resourceFile, resourceUrl));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.INVALID_FHIR_KIND,
+                    resourceFile, resourceUrl, "ActivityDefinition is missing <kind> or it is empty."));
         else if (!"Task".equals(kindVal))
-            issues.add(new FhirKindNotSetAsTaskLintItem(resourceFile, resourceUrl,
-                    "<kind> must be 'Task' (found '" + kindVal + "')."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_KIND_NOT_SET_AS_TASK,
+                    resourceFile, resourceUrl, "<kind> must be 'Task' (found '" + kindVal + "')."));
         else
             issues.add(ok(resourceFile, resourceUrl, "<kind> is 'Task'."));
 
@@ -182,20 +135,20 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
         final String profileVal = val(doc, PROFILE_XP);
         if (blank(profileVal))
         {
-            issues.add(new FhirActivityDefinitionMissingProfileLintItem(resourceFile, resourceUrl,
-                    "ActivityDefinition is missing <meta><profile> with value '" + EXPECTED_PROFILE + "'."));
+            issues.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.ACTIVITY_DEFINITION_MISSING_PROFILE,
+                    resourceFile, resourceUrl, "ActivityDefinition is missing <meta><profile> with value '" + EXPECTED_PROFILE + "'."));
         }
         else if (!profileVal.startsWith(EXPECTED_PROFILE))
         {
-            issues.add(new FhirActivityDefinitionMissingProfileLintItem(resourceFile, resourceUrl,
-                    "ActivityDefinition <meta><profile> should be '" + EXPECTED_PROFILE +
-                            "' (found '" + profileVal + "')."));
+            issues.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.ACTIVITY_DEFINITION_MISSING_PROFILE,
+                    resourceFile, resourceUrl, "ActivityDefinition <meta><profile> should be '" + EXPECTED_PROFILE +
+                    "' (found '" + profileVal + "')."));
         }
         else if (profileVal.contains("|"))
         {
-            issues.add(new FhirActivityDefinitionProfileHasVersionNumberLintItem(resourceFile, resourceUrl,
-                    "ActivityDefinition profile must not contain a version number (found '" + profileVal +
-                            "'). Use '" + EXPECTED_PROFILE + "' without version suffix."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.ACTIVITY_DEFINITION_PROFILE_NO_PLACEHOLDER,
+                    resourceFile, resourceUrl, "ActivityDefinition profile must not contain a version number (found '" + profileVal +
+                    "'). Use '" + EXPECTED_PROFILE + "' without version suffix."));
         }
         else
         {
@@ -208,13 +161,13 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
         final String tagCode   = val(doc, TAG_CODE_XP);
 
         if (blank(tagSystem) || blank(tagCode))
-            issues.add(new FhirMissingFhirAccessTagLintItem(resourceFile, resourceUrl,
-                    "Missing read-access tag (system + code)."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.MISSING_FHIR_ACCESS_TAG,
+                    resourceFile, resourceUrl, "Missing read-access tag (system + code)."));
         else if (!Objects.equals(READ_ACCESS_TAG_SYSTEM, tagSystem) ||
                 !Objects.equals(READ_ACCESS_TAG_CODE_ALL, tagCode))
-            issues.add(new FhirInvalidFhirAccessTagLintItem(resourceFile, resourceUrl,
-                    "Read-access tag must be system='" + READ_ACCESS_TAG_SYSTEM + "', code='" + READ_ACCESS_TAG_CODE_ALL +
-                            "' (found system='" + tagSystem + "', code='" + tagCode + "')."));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.INVALID_FHIR_ACCESS_TAG,
+                    resourceFile, resourceUrl, "Read-access tag must be system='" + READ_ACCESS_TAG_SYSTEM + "', code='" + READ_ACCESS_TAG_CODE_ALL +
+                    "' (found system='" + tagSystem + "', code='" + tagCode + "')."));
         else
             issues.add(ok(resourceFile, resourceUrl,
                     "Read-access tag ok (system '" + tagSystem + "', code '" + tagCode + "')."));
@@ -223,7 +176,8 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
         NodeList authExts = xp(doc, AUTH_EXT_BASE_XP);
         if (authExts == null || authExts.getLength() == 0)
         {
-            issues.add(new FhirNoExtensionProcessAuthorizationFoundLintItem(resourceFile, resourceUrl));
+            issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.NO_EXTENSION_PROCESS_AUTHORIZATION_FOUND,
+                    resourceFile, resourceUrl, "No extension-process-authorization found."));
         }
         else
         {
@@ -237,8 +191,8 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
                 /* requester  */
                 NodeList requesterNodes = xp(authExt, AUTH_EXT_REQUESTER_XP);
                 if (requesterNodes.getLength() == 0)
-                    issues.add(new FhirActivityDefinitionEntryMissingRequesterLintItem(resourceFile, resourceUrl,
-                            "No <extension url='requester'> found in process-authorization."));
+                    issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.ACTIVITY_DEFINITION_ENTRY_MISSING_REQUESTER,
+                            resourceFile, resourceUrl, "No <extension url='requester'> found in process-authorization."));
                 else
                 {
                     issues.add(ok(resourceFile, resourceUrl,
@@ -249,8 +203,8 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
                 /* recipient  */
                 NodeList recipientNodes = xp(authExt, AUTH_EXT_RECIPIENT_XP);
                 if (recipientNodes.getLength() == 0)
-                    issues.add(new FhirActivityDefinitionEntryMissingRecipientLintItem(resourceFile, resourceUrl,
-                            "No <extension url='recipient'> found in process-authorization."));
+                    issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.ACTIVITY_DEFINITION_ENTRY_MISSING_RECIPIENT,
+                            resourceFile, resourceUrl, "No <extension url='recipient'> found in process-authorization."));
                 else
                 {
                     issues.add(ok(resourceFile, resourceUrl,
@@ -328,8 +282,10 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
                                                     String url,
                                                     String message)
     {
-        return requester
-                ? new FhirActivityDefinitionEntryInvalidRequesterLintItem(file, url, message)
-                : new FhirActivityDefinitionEntryInvalidRecipientLintItem(file, url, message);
+        return new FhirElementLintItem(
+                LinterSeverity.ERROR,
+                requester ? LintingType.ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER
+                         : LintingType.ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT,
+                file, url, message);
     }
 }
