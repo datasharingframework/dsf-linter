@@ -1,1 +1,169 @@
-package dev.dsf.linter.output.item;import com.fasterxml.jackson.annotation.JsonProperty;import dev.dsf.linter.output.LinterSeverity;import dev.dsf.linter.output.LintingType;import java.io.File;/** * A linting item tied to a specific BPMN element, storing the short BPMN filename * and the process/element IDs. * <p> * This is a concrete class that can be instantiated directly. The {@link LintingType} * serves as the unique identifier for the type of issue, replacing the need for * many individual subclasses. * </p> * * <h3>Usage Example:</h3> * <pre> * // Instead of: new BpmnServiceTaskNameEmptyLintItem(elementId, bpmnFile, processId) * // Use: * new BpmnElementLintItem( *     LinterSeverity.WARN, *     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY, *     elementId, *     bpmnFile, *     processId, *     "Service task name is empty" * ); * * // Or with default message from LintingType: * BpmnElementLintItem.of( *     LinterSeverity.WARN, *     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY, *     elementId, *     bpmnFile, *     processId * ); * </pre> */public class BpmnElementLintItem extends BpmnLintItem {    @JsonProperty("elementId")    protected final String elementId;    @JsonProperty("processId")    protected final String processId;    @JsonProperty("description")    protected final String description;    /**     * Constructs a {@code BpmnElementLintItem} with all parameters.     *     * @param severity     the linting severity (ERROR, WARN, SUCCESS, etc.)     * @param type         the linting type/category - serves as unique identifier     * @param elementId    e.g., "StartEvent_1"     * @param bpmnFileName short BPMN file name, e.g., "download-allow-list.bpmn"     * @param processId    e.g., "dsfdev_downloadAllowList"     * @param description  textual description of the linting issue     */    public BpmnElementLintItem(LinterSeverity severity,                               LintingType type,                               String elementId,                               String bpmnFileName,                               String processId,                               String description) {        super(severity, type, bpmnFileName);        this.elementId = elementId;        this.processId = processId;        this.description = description;    }    /**     * Constructs a {@code BpmnElementLintItem} with a File object.     *     * @param severity    the linting severity     * @param type        the linting type/category     * @param elementId   e.g., "StartEvent_1"     * @param bpmnFile    the BPMN file (will extract filename)     * @param processId   e.g., "dsfdev_downloadAllowList"     * @param description textual description of the linting issue     */    public BpmnElementLintItem(LinterSeverity severity,                               LintingType type,                               String elementId,                               File bpmnFile,                               String processId,                               String description) {        this(severity, type, elementId,                bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn",                processId, description);    }    /**     * Factory method that uses the default message from LintingType.     *     * @param severity  the linting severity     * @param type      the linting type (must have a default message)     * @param elementId the BPMN element ID     * @param bpmnFile  the BPMN file     * @param processId the process ID     * @return a new BpmnElementLintItem     */    public static BpmnElementLintItem of(LinterSeverity severity,                                         LintingType type,                                         String elementId,                                         File bpmnFile,                                         String processId) {        return new BpmnElementLintItem(severity, type, elementId, bpmnFile, processId,                type.getDefaultMessageOrElse("BPMN element issue"));    }    /**     * Factory method for SUCCESS items with custom message.     *     * @param elementId   the BPMN element ID     * @param bpmnFile    the BPMN file     * @param processId   the process ID     * @param description the success description     * @return a new BpmnElementLintItem with SUCCESS severity     */    public static BpmnElementLintItem success(String elementId,                                              File bpmnFile,                                              String processId,                                              String description) {        return new BpmnElementLintItem(LinterSeverity.SUCCESS, LintingType.SUCCESS,                elementId, bpmnFile, processId, description);    }    /**     * Backward compatible constructor (deprecated).     *     * @deprecated Use constructor with LintingType instead     */    @Deprecated    public BpmnElementLintItem(LinterSeverity severity,                               String elementId,                               String bpmnFileName,                               String processId,                               String description) {        this(severity, LintingType.UNKNOWN, elementId, bpmnFileName, processId, description);    }    public String getElementId() {        return elementId;    }    public String getProcessId() {        return processId;    }    @Override    public String getDescription() {        return description;    }    @Override    public String toString() {        return String.format(                "[%s] %s (elementId=%s, processId=%s, file=%s) : %s",                getSeverity(),                getType(),                elementId,                processId,                getBpmnFile(),                description        );    }}
+package dev.dsf.linter.output.item;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+
+import java.io.File;
+
+/**
+ * A linting item tied to a specific BPMN element, storing the short BPMN filename
+ * and the process/element IDs.
+ * <p>
+ * This is a concrete class that can be instantiated directly. The {@link LintingType}
+ * serves as the unique identifier for the type of issue, replacing the need for
+ * many individual subclasses.
+ * </p>
+ *
+ * <h3>Usage Example:</h3>
+ * <pre>
+ * // Instead of: new BpmnServiceTaskNameEmptyLintItem(elementId, bpmnFile, processId)
+ * // Use:
+ * new BpmnElementLintItem(
+ *     LinterSeverity.WARN,
+ *     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY,
+ *     elementId,
+ *     bpmnFile,
+ *     processId,
+ *     "Service task name is empty"
+ * );
+ *
+ * // Or with default message from LintingType:
+ * BpmnElementLintItem.of(
+ *     LinterSeverity.WARN,
+ *     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY,
+ *     elementId,
+ *     bpmnFile,
+ *     processId
+ * );
+ * </pre>
+ */
+public class BpmnElementLintItem extends BpmnLintItem {
+    @JsonProperty("elementId")
+    protected final String elementId;
+
+    @JsonProperty("processId")
+    protected final String processId;
+
+    @JsonProperty("description")
+    protected final String description;
+
+    /**
+     * Constructs a {@code BpmnElementLintItem} with all parameters.
+     *
+     * @param severity     the linting severity (ERROR, WARN, SUCCESS, etc.)
+     * @param type         the linting type/category - serves as unique identifier
+     * @param elementId    e.g., "StartEvent_1"
+     * @param bpmnFileName short BPMN file name, e.g., "download-allow-list.bpmn"
+     * @param processId    e.g., "dsfdev_downloadAllowList"
+     * @param description  textual description of the linting issue
+     */
+    public BpmnElementLintItem(LinterSeverity severity,
+                               LintingType type,
+                               String elementId,
+                               String bpmnFileName,
+                               String processId,
+                               String description) {
+        super(severity, type, bpmnFileName);
+        this.elementId = elementId;
+        this.processId = processId;
+        this.description = description;
+    }
+
+    /**
+     * Constructs a {@code BpmnElementLintItem} with a File object.
+     *
+     * @param severity    the linting severity
+     * @param type        the linting type/category
+     * @param elementId   e.g., "StartEvent_1"
+     * @param bpmnFile    the BPMN file (will extract filename)
+     * @param processId   e.g., "dsfdev_downloadAllowList"
+     * @param description textual description of the linting issue
+     */
+    public BpmnElementLintItem(LinterSeverity severity,
+                               LintingType type,
+                               String elementId,
+                               File bpmnFile,
+                               String processId,
+                               String description) {
+        this(severity, type, elementId,
+                bpmnFile != null ? bpmnFile.getName() : "unknown.bpmn",
+                processId, description);
+    }
+
+    /**
+     * Factory method that uses the default message from LintingType.
+     *
+     * @param severity  the linting severity
+     * @param type      the linting type (must have a default message)
+     * @param elementId the BPMN element ID
+     * @param bpmnFile  the BPMN file
+     * @param processId the process ID
+     * @return a new BpmnElementLintItem
+     */
+    public static BpmnElementLintItem of(LinterSeverity severity,
+                                         LintingType type,
+                                         String elementId,
+                                         File bpmnFile,
+                                         String processId) {
+        return new BpmnElementLintItem(severity, type, elementId, bpmnFile, processId,
+                type.getDefaultMessageOrElse("BPMN element issue"));
+    }
+
+    /**
+     * Factory method for SUCCESS items with custom message.
+     *
+     * @param elementId   the BPMN element ID
+     * @param bpmnFile    the BPMN file
+     * @param processId   the process ID
+     * @param description the success description
+     * @return a new BpmnElementLintItem with SUCCESS severity
+     */
+    public static BpmnElementLintItem success(String elementId,
+                                              File bpmnFile,
+                                              String processId,
+                                              String description) {
+        return new BpmnElementLintItem(LinterSeverity.SUCCESS, LintingType.SUCCESS,
+                elementId, bpmnFile, processId, description);
+    }
+
+    /**
+     * Backward compatible constructor (deprecated).
+     *
+     * @deprecated Use constructor with LintingType instead
+     */
+    @Deprecated
+    public BpmnElementLintItem(LinterSeverity severity,
+                               String elementId,
+                               String bpmnFileName,
+                               String processId,
+                               String description) {
+        this(severity, LintingType.UNKNOWN, elementId, bpmnFileName, processId, description);
+    }
+
+    public String getElementId() {
+        return elementId;
+    }
+
+    public String getProcessId() {
+        return processId;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "[%s] %s (elementId=%s, processId=%s, file=%s) : %s",
+                getSeverity(),
+                getType(),
+                elementId,
+                processId,
+                getBpmnFile(),
+                description
+        );
+    }
+}
