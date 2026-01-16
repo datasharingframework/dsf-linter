@@ -1,7 +1,7 @@
 package dev.dsf.linter.bpmn;
 
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
-import dev.dsf.linter.output.item.BpmnServiceTaskNameEmptyLintItem;
 import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.camunda.bpm.model.bpmn.instance.UserTask;
 import org.camunda.bpm.model.bpmn.instance.SendTask;
@@ -99,8 +99,8 @@ public class BpmnTaskLinterTest {
 
         // Assert
         assertFalse(issues.isEmpty());
-        assertTrue(issues.stream().anyMatch(i -> i instanceof BpmnServiceTaskNameEmptyLintItem),
-                "We expect a BpmnServiceTaskNameEmptyLintItem for empty service task name.");
+        assertTrue(issues.stream().anyMatch(i -> i.getType() == LintingType.BPMN_SERVICE_TASK_NAME_EMPTY),
+                "We expect a lint item with type BPMN_SERVICE_TASK_NAME_EMPTY for empty service task name.");
     }
 
     /**

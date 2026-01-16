@@ -134,10 +134,12 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
         // Check only if there are multiple outgoing flows.
         if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1) {
             if (isEmpty(gateway.getName())) {
-                issues.add(new BpmnExclusiveGatewayHasMultipleOutgoingFlowsButNameIsEmptyLintItem(
+                issues.add(BpmnElementLintItem.of(
+                        LinterSeverity.WARN,
+                        LintingType.BPMN_EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY,
                         elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId,
                         bpmnFile,
                         processId,
@@ -174,10 +176,12 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
         // Check only if there are multiple outgoing flows.
         if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1) {
             if (isEmpty(gateway.getName())) {
-                issues.add(new BpmnInclusiveGatewayHasMultipleOutgoingFlowsButNameIsEmptyLintItem(
+                issues.add(BpmnElementLintItem.of(
+                        LinterSeverity.ERROR,
+                        LintingType.BPMN_INCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY,
                         elementId, bpmnFile, processId));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId,
                         bpmnFile,
                         processId,
@@ -223,12 +227,12 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
         // Check if source node exists
         if (sourceNode == null) {
             issues.add(new BpmnFlowElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_FLOW_ELEMENT,
                     elementId,
                     bpmnFile,
                     processId,
                     "Sequence flow has no source node.",
-                    LintingType.BPMN_FLOW_ELEMENT,
-                    LinterSeverity.ERROR,
                     FlowElementType.SEQUENCE_FLOW_HAS_NO_SOURCE_NODE
             ));
             return;
@@ -261,16 +265,16 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
             String processId) {
         if (isEmpty(flow.getName())) {
             issues.add(new BpmnFlowElementLintItem(
+                    LinterSeverity.WARN,
+                    LintingType.BPMN_FLOW_ELEMENT,
                     elementId,
                     bpmnFile,
                     processId,
                     "Sequence flow originates from a source with multiple outgoing flows and name is empty.",
-                    LintingType.BPMN_FLOW_ELEMENT,
-                    LinterSeverity.WARN,
                     FlowElementType.SEQUENCE_FLOW_ORIGINATES_FROM_A_SOURCE_WITH_MULTIPLE_OUTGOING_FLOWS_AND_NAME_IS_EMPTY
             ));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId,
                     bpmnFile,
                     processId,
@@ -304,16 +308,16 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
             // Default flow should NOT have a condition
             if (flow.getConditionExpression() != null) {
                 issues.add(new BpmnFlowElementLintItem(
+                        LinterSeverity.WARN,
+                        LintingType.BPMN_FLOW_ELEMENT,
                         elementId,
                         bpmnFile,
                         processId,
                         "Default sequence flow from " + gatewayType + " should not have a condition expression.",
-                        LintingType.BPMN_FLOW_ELEMENT,
-                        LinterSeverity.WARN,
                         FlowElementType.DEFAULT_SEQUENCE_FLOW_HAS_CONDITION_EXPRESSION
                 ));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId,
                         bpmnFile,
                         processId,
@@ -324,16 +328,16 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
             // Non-default flow should have a condition
             if (flow.getConditionExpression() == null) {
                 issues.add(new BpmnFlowElementLintItem(
+                        LinterSeverity.WARN,
+                        LintingType.BPMN_FLOW_ELEMENT,
                         elementId,
                         bpmnFile,
                         processId,
                         "Non-default sequence flow from " + gatewayType + " is missing a condition expression.",
-                        LintingType.BPMN_FLOW_ELEMENT,
-                        LinterSeverity.WARN,
                         FlowElementType.NON_DEFAULT_SEQUENCE_FLOW_IS_MISSING_A_CONDITION_EXPRESSION
                 ));
             } else {
-                issues.add(new BpmnElementLintItemSuccess(
+                issues.add(BpmnElementLintItem.success(
                         elementId,
                         bpmnFile,
                         processId,

@@ -3,7 +3,7 @@ package dev.dsf.linter.service;
 import dev.dsf.linter.exception.ResourceLinterException;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.item.AbstractLintItem;
-import dev.dsf.linter.output.item.PluginDefinitionLintItemSuccess;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.util.linting.LintingOutput;
 import dev.dsf.linter.util.linting.LintingUtils;
 import dev.dsf.linter.util.resource.ResourceResolutionResult;
@@ -251,7 +251,7 @@ public abstract class AbstractResourceLintingService {
         List<AbstractLintItem> items = new ArrayList<>();
 
         for (File resourceFile : resourceFiles) {
-            items.add(new PluginDefinitionLintItemSuccess(
+            items.add(PluginLintItem.success(
                     resourceFile,
                     pluginName,
                     String.format("%s resource '%s' correctly located in resource root",

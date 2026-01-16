@@ -46,6 +46,17 @@ public final class PluginDefinitionDiscovery {
 
         /** Returns the underlying plugin class. */
         Class<?> sourceClass();
+
+        /**
+         * Returns the resource version derived from the plugin version.
+         * <p>
+         * The resource version is extracted from the plugin version pattern.
+         * For example, if the plugin version is "1.5.0.3", the resource version is "1.5".
+         * </p>
+         *
+         * @return the resource version (e.g., "1.5"), or null if the version pattern is invalid
+         */
+        String getResourceVersion();
     }
 
     /**
@@ -97,6 +108,15 @@ public final class PluginDefinitionDiscovery {
         public Class<?> sourceClass() {
             return delegateClass;
         }
+
+        @Override
+        public String getResourceVersion() {
+            try {
+                return (String) delegateClass.getMethod("getResourceVersion").invoke(delegate);
+            } catch (Exception e) {
+                throw new RuntimeException("getResourceVersion", e);
+            }
+        }
     }
 
     /**
@@ -147,6 +167,15 @@ public final class PluginDefinitionDiscovery {
         @Override
         public Class<?> sourceClass() {
             return delegateClass;
+        }
+
+        @Override
+        public String getResourceVersion() {
+            try {
+                return (String) delegateClass.getMethod("getResourceVersion").invoke(delegate);
+            } catch (Exception e) {
+                throw new RuntimeException("getResourceVersion", e);
+            }
         }
     }
 

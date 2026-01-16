@@ -1,5 +1,7 @@
 package dev.dsf.linter.util.bpmn.linters;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import org.camunda.bpm.model.bpmn.instance.BoundaryEvent;
 import org.camunda.bpm.model.bpmn.instance.MessageEventDefinition;
@@ -44,10 +46,10 @@ public final class BpmnBoundaryEventLinter {
 
         // 1. Check event name
         if (isEmpty(boundaryEvent.getName())) {
-            issues.add(new BpmnMessageBoundaryEventNameEmptyLintItem(
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_BOUNDARY_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name."));
         } else {
-            issues.add(new BpmnElementLintItemSuccess(
+            issues.add(BpmnElementLintItem.success(
                     elementId, bpmnFile, processId,
                     "Message Boundary Event has a non-empty name: '" + boundaryEvent.getName() + "'"));
         }
@@ -57,7 +59,8 @@ public final class BpmnBoundaryEventLinter {
                 (MessageEventDefinition) boundaryEvent.getEventDefinitions().iterator().next();
 
         if (def.getMessage() == null || isEmpty(def.getMessage().getName())) {
-            issues.add(new BpmnMessageBoundaryEventMessageNameEmptyLintItem(elementId, bpmnFile, processId));
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_BOUNDARY_EVENT_MESSAGE_NAME_EMPTY,
+                    elementId, bpmnFile, processId));
         } else {
             BpmnMessageLinter.lintMessageEventDefinition(def, elementId, issues, bpmnFile, processId, projectRoot);
         }

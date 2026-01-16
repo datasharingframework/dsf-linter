@@ -2,8 +2,10 @@ package dev.dsf.linter.report;
 
 import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.output.item.AbstractLintItem;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.logger.LogDecorators;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.service.LintingResult;
@@ -147,18 +149,20 @@ public class LintConsolePrinter {
      * Prints the ServiceLoader registration status.
      */
     private void printServiceLoaderStatus(LintingResult pluginResult) {
-        boolean hasServiceLoaderSuccess =
-                pluginResult.getItems().stream()
-                        .anyMatch(i -> i.getClass().getSimpleName().equals("PluginDefinitionLintItemSuccess"));
-
         boolean hasServiceLoaderMissing =
                 pluginResult.getItems().stream()
-                        .anyMatch(i -> i.getClass().getSimpleName().equals("PluginDefinitionMissingServiceLoaderRegistrationLintItem"));
+                        .anyMatch(i -> i instanceof PluginLintItem pli &&
+                                pli.getType() == LintingType.PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION);
 
-        if (hasServiceLoaderSuccess) {
-            Console.green("✓ ServiceLoader registration verified");
-        } else if (hasServiceLoaderMissing) {
+        boolean hasServiceLoaderSuccess =
+                pluginResult.getItems().stream()
+                        .anyMatch(i -> i instanceof PluginLintItem pli &&
+                                pli.getSeverity() == LinterSeverity.SUCCESS);
+
+        if (hasServiceLoaderMissing) {
             Console.red("✗ ServiceLoader registration missing");
+        } else if (hasServiceLoaderSuccess) {
+            Console.green("✓ ServiceLoader registration verified");
         } else {
             Console.yellow("⚠ ServiceLoader registration: not verified explicitly");
         }

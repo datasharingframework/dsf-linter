@@ -1,8 +1,9 @@
 package dev.dsf.linter.service;
 
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.AbstractLintItem;
-import dev.dsf.linter.output.item.PluginDefinitionLintItemSuccess;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 
 import java.nio.file.Path;
@@ -32,14 +33,15 @@ public final class PluginMetadataLinter {
 
         // Check for process models
         if (plugin.getProcessModels().isEmpty()) {
-            items.add(new PluginDefinitionNoProcessModelDefinedLintItem(
+            items.add(new PluginLintItem(
+                    LinterSeverity.WARN, LintingType.PLUGIN_DEFINITION_NO_PROCESS_MODEL_DEFINED,
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No BPMN process models are defined in this plugin."
             ));
         } else {
             // Success case: Process models are defined
-            items.add(new PluginDefinitionLintItemSuccess(
+            items.add(PluginLintItem.success(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Process models are defined in this plugin."
@@ -48,14 +50,15 @@ public final class PluginMetadataLinter {
 
         // Check for FHIR resources
         if (plugin.getFhirResourcesByProcessId().isEmpty()) {
-            items.add(new PluginDefinitionNoFhirResourcesDefinedLintItem(
+            items.add(new PluginLintItem(
+                    LinterSeverity.WARN, LintingType.PLUGIN_DEFINITION_NO_FHIR_RESOURCES_DEFINED,
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "Warning: No FHIR resources are defined in this plugin."
             ));
         } else {
             // Success case: FHIR resources are defined
-            items.add(new PluginDefinitionLintItemSuccess(
+            items.add(PluginLintItem.success(
                     projectPath.toFile(),
                     plugin.sourceClass().getName(),
                     "FHIR resources are defined in this plugin."

@@ -3,7 +3,10 @@ package dev.dsf.linter.service;
 import dev.dsf.linter.fhir.FhirResourceLinter;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.output.LinterSeverity;
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.AbstractLintItem;
+import dev.dsf.linter.output.item.FhirElementLintItem;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.util.linting.LintingOutput;
 import dev.dsf.linter.util.resource.ResourceResolutionResult;
 
@@ -11,11 +14,7 @@ import java.io.File;
 import java.util.List;
 
 /**
- * REFACTORED: FHIR linting service that extends AbstractResourceLintingService.
- * <p>
- * This refactored version eliminates ~250 lines of duplicated code by inheriting
- * common linting operations from the abstract base class.
- * </p>
+ * FHIR linting service that extends AbstractResourceLintingService.
  *
  * @since 1.1.0
  */
@@ -27,8 +26,6 @@ public class FhirLintingService extends AbstractResourceLintingService {
         super(logger);
         this.fhirResourceLinter = new FhirResourceLinter(logger);
     }
-
-    // IMPLEMENTATION OF ABSTRACT METHODS
 
     @Override
     protected String getResourceTypeName() {
@@ -42,10 +39,11 @@ public class FhirLintingService extends AbstractResourceLintingService {
 
     @Override
     protected AbstractLintItem createMissingReferenceLintItem(String pluginName, String missingRef) {
-        return new PluginDefinitionFhirFileReferencedButNotFoundLintItem(
-                pluginName,
+        return new PluginLintItem(
                 LinterSeverity.ERROR,
+                LintingType.PLUGIN_DEFINITION_FHIR_RESOURCE_NOT_FOUND,
                 new File(missingRef),
+                pluginName,
                 "Referenced FHIR file not found"
         );
     }
@@ -56,12 +54,13 @@ public class FhirLintingService extends AbstractResourceLintingService {
             String reference,
             ResourceResolutionResult result) {
 
-        return new PluginDefinitionFhirFileReferencedFoundOutsideExpectedRootLintItem(
-                pluginName,
+        return new PluginLintItem(
+                LinterSeverity.WARN,
+                LintingType.PLUGIN_DEFINITION_FHIR_FILE_OUTSIDE_ROOT,
                 result.file().orElseThrow(),
-                reference,
-                result.expectedRoot(),
-                result.actualLocation()
+                pluginName,
+                String.format("FHIR file '%s' found outside expected root '%s' at '%s'",
+                        reference, result.expectedRoot(), result.actualLocation())
         );
     }
 
@@ -72,33 +71,23 @@ public class FhirLintingService extends AbstractResourceLintingService {
             LintingOutput output) {
 
         String fhirReference = extractFhirReference(output.LintItems());
-        return new FhirElementLintItemSuccess(
-                resourceFile,
-                fhirReference,
-                "Referenced FHIR file found and is readable."
-        );
+        return FhirElementLintItem.success(resourceFile, fhirReference,
+                "Referenced FHIR file found and is readable.");
     }
 
     @Override
     protected AbstractLintItem createPluginSuccessItem(String pluginName, File resourceFile) {
-        return new PluginDefinitionLintItemSuccess(
-                resourceFile,
-                pluginName,
+        return PluginLintItem.success(resourceFile, pluginName,
                 String.format("FHIR file '%s' successfully parsed and linted for plugin '%s'",
-                        resourceFile.getName(), pluginName)
-        );
+                        resourceFile.getName(), pluginName));
     }
 
     @Override
     protected boolean isUnparsableItem(AbstractLintItem item) {
-        return item instanceof PluginDefinitionUnparsableFhirResourceLintItem;
+        return item instanceof PluginLintItem pi &&
+               pi.getType() == LintingType.PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE;
     }
 
-    // FHIR-SPECIFIC HELPER METHODS
-
-    /**
-     * Extracts FHIR reference from lint items.
-     */
     private String extractFhirReference(List<AbstractLintItem> items) {
         return items.stream()
                 .filter(item -> item instanceof FhirElementLintItem)

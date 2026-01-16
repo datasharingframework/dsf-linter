@@ -1,9 +1,8 @@
 package dev.dsf.linter.bpmn;
 
 import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
-import dev.dsf.linter.output.item.BpmnFieldInjectionMessageValueEmptyLintItem;
-import dev.dsf.linter.output.item.BpmnFieldInjectionNotStringLiteralLintItem;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.EndEvent;
@@ -150,10 +149,10 @@ public class BpmnFieldInjectionLinterTest {
                 serviceTask, issues, bpmnFile, "testProcessExpressions", projectRoot
         );
 
-        // We expect exactly 1 issue => BpmnFieldInjectionNotStringLiteralLintItem
+        // We expect exactly 1 issue => type BPMN_FIELD_INJECTION_NOT_STRING_LITERAL
         assertEquals(1, issues.size(), "Expected exactly one lint issue for an expression-based field");
-        assertInstanceOf(BpmnFieldInjectionNotStringLiteralLintItem.class, issues.get(0),
-                "Expected the issue to be an instance of BpmnFieldInjectionNotStringLiteralLintItem");
+        assertEquals(LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL, issues.get(0).getType(),
+                "Expected the issue to be of type BPMN_FIELD_INJECTION_NOT_STRING_LITERAL");
     }
 
     @Test
@@ -195,8 +194,8 @@ public class BpmnFieldInjectionLinterTest {
         List<BpmnElementLintItem> nonSuccess = nonSuccess(issues);
         assertEquals(1, nonSuccess.size(), "Expected exactly one non-success issue for empty messageName");
         assertTrue(
-                nonSuccess.stream().anyMatch(i -> i instanceof BpmnFieldInjectionMessageValueEmptyLintItem),
-                "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyLintItem"
+                nonSuccess.stream().anyMatch(i -> i.getType() == LintingType.BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY),
+                "Expected the issue to be of type BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY"
         );
     }
 
@@ -267,7 +266,7 @@ public class BpmnFieldInjectionLinterTest {
 
         assertEquals(1, issues.size(),
                 "Expected one issue due to empty messageName in nested MessageEventDefinition");
-        assertInstanceOf(BpmnFieldInjectionMessageValueEmptyLintItem.class, issues.get(0),
-                "Expected the issue to be an instance of BpmnFieldInjectionMessageValueEmptyLintItem");
+        assertEquals(LintingType.BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY, issues.get(0).getType(),
+                "Expected the issue to be of type BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY");
     }
 }

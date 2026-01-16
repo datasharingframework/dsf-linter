@@ -1,6 +1,8 @@
 package dev.dsf.linter.fhir;
 
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.FhirElementLintItem;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -35,7 +37,6 @@ import java.util.regex.Pattern;
  *   <li>Ensures {@code version} element contains the Maven placeholder {@code #{version}}</li>
  *   <li>Ensures {@code date} element contains the Maven placeholder {@code #{date}}</li>
  * </ul>
- * <p>These placeholders are resolved during the build/packaging phase by the BPE.</p>
  *
  * <h3>3. Item Structure Validation</h3>
  * <ul>
@@ -125,10 +126,12 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
         /* meta.profile  */
         String profile = val(doc, META_PRO_XP);
         if (blank(profile))
-            out.add(new FhirQuestionnaireMissingMetaProfileLintItem(file, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_META_PROFILE,
+                    file, ref, "Questionnaire is missing meta.profile."));
             // Modified to use regex matching
         else if (!PROFILE_URI_PATTERN.matcher(profile).matches())
-            out.add(new FhirQuestionnaireInvalidMetaProfileLintItem(file, ref, profile));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_INVALID_META_PROFILE,
+                    file, ref, "Questionnaire has invalid meta.profile: " + profile));
         else
             out.add(ok(file, ref, "meta.profile present and valid"));
 
@@ -145,14 +148,16 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
             }
         }
         if (!tagOk)
-            out.add(new FhirQuestionnaireMissingReadAccessTagLintItem(file, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_READ_ACCESS_TAG,
+                    file, ref, "Questionnaire is missing valid read-access tag."));
         else
             out.add(ok(file, ref, "read‑access tag present"));
 
         /* status must be 'unknown'  */
         String status = val(doc, Q_XP + "/*[local-name()='status']/@value");
         if (!"unknown".equals(status))
-            out.add(new FhirQuestionnaireInvalidStatusLintItem(file, ref, status));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_INVALID_STATUS,
+                    file, ref, "Questionnaire status must be 'unknown' (found '" + status + "')."));
         else
             out.add(ok(file, ref, "status = unknown"));
     }
@@ -166,13 +171,15 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     {
         String version = val(doc, Q_XP + "/*[local-name()='version']/@value");
         if (version == null || !version.equals("#{version}"))
-            out.add(new FhirQuestionnaireVersionNoPlaceholderLintItem(file, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
+                    file, ref, "Questionnaire version must be '#{version}'."));
         else
             out.add(ok(file, ref, "version placeholder present"));
 
         String date = val(doc, Q_XP + "/*[local-name()='date']/@value");
         if (date == null || !date.equals("#{date}"))
-            out.add(new FhirQuestionnaireDateNoPlaceholderLintItem(file, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
+                    file, ref, "Questionnaire date must be '#{date}'."));
         else
             out.add(ok(file, ref, "date placeholder present"));
     }
@@ -185,33 +192,12 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
      * lints the {@code item} elements of a FHIR {@code Questionnaire} resource.
      *
      * <p>This method enforces the structural and semantic rules defined by the
-     * DSF questionnaire profile. It performs the following checks on each item:</p>
-     *
-     * <ul>
-     *   <li><b>Presence of required attributes:</b> Each item must declare {@code linkId}, {@code type}, and should have {@code text}.
-     *       If any of these are missing or empty, an error is reported.</li>
-     *   <li><b>Uniqueness of {@code linkId}:</b> All {@code linkId} values must be unique across the questionnaire.</li>
-     *   <li><b>Pattern check for {@code linkId}:</b> A warning is issued if a {@code linkId} does not match the preferred pattern
-     *       {@code [a-z0-9-]+}.</li>
-     *   <li><b>Mandatory items:</b> The two required items {@code business-key} and {@code user-task-id} must:
-     *     <ul>
-     *       <li>Exist in the resource</li>
-     *       <li>Be of type {@code string}</li>
-     *       <li>Be marked with {@code required="true"}</li>
-     *     </ul>
-     *     Missing or malformed mandatory items result in errors.
-     *   </li>
-     *   <li><b>Success reporting:</b> Each correctly formed item is acknowledged with a success message.</li>
-     * </ul>
-     *
-     * <p>If no {@code item} elements are present at all, a single error is reported and linting stops.</p>
+     * DSF questionnaire profile.</p>
      *
      * @param doc  the parsed DOM {@link Document} representing the Questionnaire XML
      * @param file the file the resource was loaded from (used in issue reporting)
      * @param ref  a canonical reference to the resource (e.g., {@code url} or file name)
      * @param out  the list of lint items to which results (errors, warnings, successes) will be appended
-     *
-     * @see #lintMandatoryItem(File, String, List, String, String, String)
      */
     private void lintItems(Document doc, File file, String ref,
                            List<FhirElementLintItem> out)
@@ -219,7 +205,8 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     {
         NodeList items = xp(doc, ITEM_XP);
         if (items == null || items.getLength() == 0) {
-            out.add(new FhirQuestionnaireMissingItemLintItem(file, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_ITEM,
+                    file, ref, "Questionnaire must contain at least one item."));
             return;
         }
         Set<String> linkIds = new HashSet<>();
@@ -233,26 +220,31 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
 
             /* completeness per item  */
             if (blank(linkId)) {
-                out.add(new FhirQuestionnaireItemMissingAttributesLinkIdLintItem(file, ref));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_ITEM_MISSING_ATTRIBUTES_LINK_ID,
+                        file, ref, "Questionnaire item is missing linkId."));
                 continue;
             }
 
             if(blank(type)) {
-                out.add(new FhirQuestionnaireItemMissingAttributesTypeLintItem(file, ref));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_ITEM_MISSING_ATTRIBUTES_TYPE,
+                        file, ref, "Questionnaire item is missing type."));
                 continue;
             }
 
             if (blank(text)) {
-                out.add(new FhirQuestionnaireItemMissingAttributesTextLintItem(file, ref));
+                out.add(new FhirElementLintItem(LinterSeverity.INFO, LintingType.QUESTIONNAIRE_ITEM_MISSING_ATTRIBUTES_TEXT,
+                        file, ref, "Questionnaire item '" + linkId + "' is missing text."));
             }
 
             /* duplicate linkIds  */
             if (!linkIds.add(linkId))
-                out.add(new FhirQuestionnaireDuplicateLinkIdLintItem(file, ref, linkId));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DUPLICATE_LINK_ID,
+                        file, ref, "Questionnaire has duplicate linkId: " + linkId));
 
             /* warn on unusual pattern  */
             if (!linkId.matches("^[a-z0-9]+(?:-[a-z0-9]+)*$"))
-                out.add(new FhirQuestionnaireUnusualLinkIdLintItem(file, ref, linkId));
+                out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.QUESTIONNAIRE_UNUSUAL_LINK_ID,
+                        file, ref, "Questionnaire linkId '" + linkId + "' does not match recommended pattern [a-z0-9]+(-[a-z0-9]+)*."));
 
             /* mandatory items  */
             if (LINKID_USERTASK.equals(linkId)) {
@@ -268,9 +260,11 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
                                    String linkId, String type, String required)
     {
         if (!"string".equals(type))
-            out.add(new FhirQuestionnaireMandatoryItemInvalidTypeLintItem(file, ref, linkId, type));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MANDATORY_ITEM_INVALID_TYPE,
+                    file, ref, "Mandatory item '" + linkId + "' must be of type 'string' (found '" + type + "')."));
         else if (!"true".equals(required))
-            out.add(new FhirQuestionnaireMandatoryItemNotRequiredLintItem(file, ref, linkId));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MANDATORY_ITEM_NOT_REQUIRED,
+                    file, ref, "Mandatory item '" + linkId + "' must have required='true'."));
         else
             out.add(ok(file, ref, "mandatory item '" + linkId + "' valid"));
     }
@@ -281,10 +275,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
 
     /**
      * Computes a reference string for the FHIR resource.
-     * <p>
-     * If the {@code url} element is present in the {@code Questionnaire} root element, its value is returned.
-     * Otherwise, the file name is used as a fallback reference.
-     * </p>
      *
      * @param doc  the XML {@link Document} representing the FHIR resource
      * @param file the file from which the resource was loaded
@@ -297,16 +287,10 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     }
 
     /**
-     * Extracts the value of a FHIR primitive element (e.g., {@code linkId}, {@code type}, {@code text}, {@code required}).
-     * <p>
-     * First, this method tries to retrieve the value via a child element like
-     * {@code <linkId value="..."/>}. If that fails (e.g., in legacy representations),
-     * it falls back to reading an attribute directly from the current node
-     * (e.g., {@code <item linkId="..."/>}).
-     * </p>
+     * Extracts the value of a FHIR primitive element.
      *
      * @param item the XML {@link Node} representing an {@code item} element
-     * @param name the name of the primitive field to extract (e.g., {@code linkId}, {@code type})
+     * @param name the name of the primitive field to extract
      * @return the string value of the primitive field, or {@code null} if not found
      */
     private String primitive(Node item, String name) {

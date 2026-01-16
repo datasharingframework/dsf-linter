@@ -1,7 +1,9 @@
 package dev.dsf.linter.fhir;
 
 import dev.dsf.linter.DsfLinter;
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.FhirElementLintItem;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -27,7 +29,6 @@ import java.util.*;
  *   <li>System: {@code http://dsf.dev/fhir/CodeSystem/read-access-tag}</li>
  *   <li>Code: {@code ALL}</li>
  * </ul>
- * <p>This tag controls the visibility and accessibility of the CodeSystem resource within the DSF infrastructure.</p>
  *
  * <h4>2. Mandatory Element Validation</h4>
  * <p>Verifies the presence of the following required elements:</p>
@@ -39,13 +40,9 @@ import java.util.*;
  *   <li>{@code content} - Content mode</li>
  *   <li>{@code caseSensitive} - Case sensitivity indicator</li>
  * </ul>
- * <p>Note: Only the presence of these elements is validated, not their specific values or formats.</p>
  *
  * <h4>3. Status Validation</h4>
- * <p>Confirms that {@code status} is set to {@code unknown}. The DSF Business Process Engine (BPE)
- * will replace this placeholder value with the appropriate publication status during deployment.
- * Using {@code unknown} as a placeholder ensures that the actual status is set by the deployment
- * process rather than being hardcoded in the resource definition.</p>
+ * <p>Confirms that {@code status} is set to {@code unknown}.</p>
  *
  * <h4>4. Placeholder Validation</h4>
  * <p>Ensures that version and date fields are set to their respective DSF template placeholders:</p>
@@ -53,41 +50,19 @@ import java.util.*;
  *   <li>{@code version} must be exactly {@code #{version}}</li>
  *   <li>{@code date} must be exactly {@code #{date}}</li>
  * </ul>
- * <p>These placeholders are dynamically replaced by the BPE at deployment time with actual
- * versioning information and timestamps, enabling consistent version management across
- * the DSF infrastructure.</p>
  *
  * <h4>5. Concept Validation</h4>
  * <p>Validates the concept entries within the CodeSystem:</p>
  * <ul>
  *   <li>At least one {@code concept} element must be present</li>
- *   <li>Each concept must have a {@code code} element (the actual code value)</li>
- *   <li>Each concept must have a {@code display} element (human-readable representation)</li>
+ *   <li>Each concept must have a {@code code} element</li>
+ *   <li>Each concept must have a {@code display} element</li>
  *   <li>All concept codes must be unique within the CodeSystem</li>
  * </ul>
- * <p>Duplicate codes are detected and reported as errors since they would create ambiguity
- * in code lookups and validation.</p>
- *
- * <h3>Implementation Details</h3>
- * <p>This linter extends {@link AbstractFhirInstanceLinter} and uses XPath expressions to navigate
- * and validate the XML structure of CodeSystem resources. It produces {@link FhirElementLintItem}
- * instances for each validation check, reporting both issues and successful validations. The linter
- * is designed to run as part of a pre-deployment validation pipeline, catching structural and
- * content issues before resources are deployed to production environments.</p>
- *
- * <h3>Usage Example</h3>
- * <p>This linter is typically invoked through the {@link DsfLinter} framework, which automatically
- * detects CodeSystem resources and applies the appropriate validation rules. The linter can also
- * be used standalone for targeted validation of individual CodeSystem files.</p>
- *
- * <h3>Thread Safety</h3>
- * <p>This class is stateless and thread-safe. Multiple threads can safely use the same instance
- * to lint different documents concurrently.</p>
  *
  * @see DsfLinter
  * @see AbstractFhirInstanceLinter
  * @see FhirElementLintItem
- * @see <a href="https://www.hl7.org/fhir/codesystem.html">FHIR CodeSystem Resource</a>
  *
  * @since 1.0.0
  */
@@ -153,7 +128,8 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
                 +"/*[local-name()='code']/@value");
 
         if (!SYSTEM_READ_TAG.equals(tagSys) || !CODE_READ_TAG.equals(tagCode))
-            out.add(new FhirCodeSystemMissingReadAccessTagLintItem(f, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.MISSING_READ_ACCESS_TAG,
+                    f, ref, "CodeSystem is missing read-access tag (system='" + SYSTEM_READ_TAG + "', code='" + CODE_READ_TAG + "')."));
         else
             out.add(ok(f, ref, "meta.tag (read‑access‑tag=ALL) present"));
     }
@@ -163,7 +139,7 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
       */
     /**
      * Verifies that all required elements are present and have acceptable values.
-     * Also checks that {@code status = unknown} and {@code url} starts with DSF prefix.
+     * Also checks that {@code status = unknown}.
      */
     private void checkMandatoryElements(Document doc, File f, String ref, List<FhirElementLintItem> out)
     {
@@ -174,20 +150,11 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
         checkPresent(doc, f, ref, "content", CS_XP + "/*[local-name()='content']/@value", out);
         checkPresent(doc, f, ref, "caseSensitive", CS_XP + "/*[local-name()='caseSensitive']/@value", out);
 
-        // url must follow DSF namespace
-        /*
-        String url = val(doc, CS_XP + "/*[local-name()='url']/@value");
-        if (url != null && !url.startsWith("http://dsf.dev/fhir/CodeSystem/"))
-            out.add(new FhirCodeSystemInvalidUrlLintItem(f, ref,
-                    "url must start with 'http://dsf.dev/fhir/CodeSystem/'"));
-        else
-            out.add(ok(f, ref, "url namespace OK")); */   // this check is not required
-
         // status must be 'unknown' (BPE overrides later)
         String status = val(doc, CS_XP + "/*[local-name()='status']/@value");
         if (!"unknown".equals(status))
-            out.add(new FhirCodeSystemInvalidStatusLintItem(f, ref,
-                    "status must be 'unknown' (found '"+status+"')"));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_INVALID_STATUS,
+                    f, ref, "status must be 'unknown' (found '"+status+"')"));
         else
             out.add(ok(f, ref, "status = unknown"));
     }
@@ -206,7 +173,8 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
                               String name, String xp, List<FhirElementLintItem> out)
     {
         if (blank(val(doc, xp)))
-            out.add(new FhirCodeSystemMissingElementLintItem(f, ref, name));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_MISSING_ELEMENT,
+                    f, ref, "CodeSystem is missing element: " + name));
         else
             out.add(ok(f, ref, name + " present"));
     }
@@ -221,15 +189,15 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
     {
         String version = val(doc, CS_XP + "/*[local-name()='version']/@value");
         if (version != null && !version.equals("#{version}"))
-            out.add(new FhirCodeSystemVersionNoPlaceholderLintItem(f, ref,
-                    "<version> must contain '#{version}'"));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
+                    f, ref, "<version> must contain '#{version}'"));
         else
             out.add(ok(f, ref, "<version> placeholder OK"));
 
         String date = val(doc, CS_XP + "/*[local-name()='date']/@value");
         if (date != null && !date.equals("#{date}"))
-            out.add(new FhirCodeSystemDateNoPlaceholderLintItem(f, ref,
-                    "<date> must contain '#{date}'"));
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
+                    f, ref, "<date> must contain '#{date}'"));
         else
             out.add(ok(f, ref, "<date> placeholder OK"));
     }
@@ -246,7 +214,8 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
         NodeList concepts = xp(doc, CONCEPT_XP);
         if (concepts == null || concepts.getLength() == 0)
         {
-            out.add(new FhirCodeSystemMissingConceptLintItem(f, ref));
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_MISSING_CONCEPT,
+                    f, ref, "CodeSystem must contain at least one concept."));
             return;
         }
 
@@ -259,14 +228,17 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
             String display = val(c, "./*[local-name()='display']/@value");
 
             if (blank(code))
-                out.add(new FhirCodeSystemConceptMissingCodeLintItem(f, ref));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_CONCEPT_MISSING_CODE,
+                        f, ref, "CodeSystem concept is missing code."));
             else if (seenCodes.contains(code))
-                out.add(new FhirCodeSystemDuplicateCodeLintItem(f, ref, code));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_DUPLICATE_CODE,
+                        f, ref, "CodeSystem has duplicate code: " + code));
             else
                 seenCodes.add(code);
 
             if (blank(display))
-                out.add(new FhirCodeSystemConceptMissingDisplayLintItem(f, ref));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_CONCEPT_MISSING_DISPLAY,
+                        f, ref, "CodeSystem concept is missing display."));
         }
 
         if (seenCodes.size() == concepts.getLength())

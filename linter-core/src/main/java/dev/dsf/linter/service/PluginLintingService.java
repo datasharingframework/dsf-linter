@@ -1,12 +1,15 @@
 package dev.dsf.linter.service;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.AbstractLintItem;
-import dev.dsf.linter.output.item.PluginDefinitionMissingServiceLoaderRegistrationLintItem;
-import dev.dsf.linter.output.item.PluginDefinitionLintItemSuccess;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.nio.file.*;
@@ -21,7 +24,6 @@ import static dev.dsf.linter.constants.DsfApiConstants.V2_SERVICE_FILE;
 
 /**
  * Service for linting plugin-specific configurations.
- * Primarily checks for ServiceLoader registrations and collects all plugin-related items.
  */
 public class PluginLintingService {
 
@@ -31,16 +33,6 @@ public class PluginLintingService {
         this.logger = logger;
     }
 
-    /**
-     * lints plugin configuration, including ServiceLoader registration and collected plugin items.
-     *
-     * @param projectPath        The project root path
-     * @param pluginAdapter      The plugin being linted
-     * @param apiVersion         The API version of the plugin
-     * @param collectedPluginItems Plugin-level items collected from BPMN/FHIR linting
-     * @return Linter result containing all plugin lint items
-     * @throws MissingServiceRegistrationException if ServiceLoader registration is missing
-     */
     public LintingResult lintPlugin(Path projectPath,
                                     PluginAdapter pluginAdapter,
                                     ApiVersion apiVersion,
@@ -57,17 +49,15 @@ public class PluginLintingService {
                 ? projectPath.getFileName().toString()
                 : "project";
 
-        // Determine expected service file based on API version
-        String expectedServiceFile = determineExpectedServiceFile(pluginAdapter, apiVersion);
+        // Validate resource version
+        validateResourceVersion(pluginAdapter, projectName, items);
 
-        // Search for the service file
+        String expectedServiceFile = determineExpectedServiceFile(pluginAdapter, apiVersion);
         boolean found = findServiceFile(projectPath, expectedServiceFile);
 
         if (found) {
-            // Success: Service registration found
             items.add(createSuccessItem(projectName, apiVersion, pluginAdapter));
         } else {
-            // Error: Service registration missing
             items.add(createErrorItem(projectName, expectedServiceFile));
             throw new MissingServiceRegistrationException(
                     formatMissingRegistrationMessage(pluginAdapter, projectPath)
@@ -77,12 +67,56 @@ public class PluginLintingService {
         return new LintingResult(items);
     }
 
-
     /**
-     * Determines the expected service file name based on API version and plugin information.
+     * Validates the resource version of the plugin.
+     * <p>
+     * The resource version is derived from the plugin version using the pattern
+     * {@code (?<resourceVersion>\d+\.\d+)\.\d+\.\d+}. If the plugin version does not
+     * match this pattern, getResourceVersion() returns null and an error is reported.
+     * </p>
+     *
+     * @param pluginAdapter the plugin adapter to validate
+     * @param projectName   the project name for error reporting
+     * @param items         the list to add validation items to
      */
+    private void validateResourceVersion(PluginAdapter pluginAdapter, String projectName, List<AbstractLintItem> items) {
+        if (pluginAdapter == null) {
+            return;
+        }
+
+        try {
+            String resourceVersion = pluginAdapter.getResourceVersion();
+
+            if (resourceVersion == null) {
+                String description = String.format(
+                        "Plugin '%s': getResourceVersion() returned null. " +
+                        "The plugin version must match the pattern 'd.d.d.d' (e.g., '1.0.0.1') " +
+                        "to derive a valid resource version (e.g., '1.0').",
+                        pluginAdapter.getName()
+                );
+                items.add(new PluginLintItem(
+                        LinterSeverity.ERROR,
+                        LintingType.PLUGIN_DEFINITION_RESOURCE_VERSION_NULL,
+                        new File(projectName),
+                        pluginAdapter.getName(),
+                        description
+                ));
+            } else {
+                items.add(new PluginLintItem(
+                        LinterSeverity.SUCCESS,
+                        LintingType.SUCCESS,
+                        new File(projectName),
+                        pluginAdapter.getName(),
+                        String.format("Plugin '%s': Resource version '%s' is valid.",
+                                pluginAdapter.getName(), resourceVersion)
+                ));
+            }
+        } catch (Exception e) {
+            logger.debug("Could not validate resource version for plugin: " + e.getMessage());
+        }
+    }
+
     private String determineExpectedServiceFile(PluginAdapter pluginAdapter, ApiVersion apiVersion) {
-        // Priority 1: Use explicit API version if available
         if (apiVersion != null) {
             return switch (apiVersion) {
                 case V1 -> V1_SERVICE_FILE;
@@ -91,7 +125,6 @@ public class PluginLintingService {
             };
         }
 
-        // Priority 2: Infer from plugin class name
         if (pluginAdapter != null) {
             String className = pluginAdapter.sourceClass().getName();
             if (className.contains(".v1.")) {
@@ -100,31 +133,20 @@ public class PluginLintingService {
                 return V2_SERVICE_FILE;
             }
         }
-        // Unable to determine specific version
         return null;
     }
 
-    /**
-     * Searches for the service file in the project.
-     */
     private boolean findServiceFile(Path projectPath, String expectedServiceFile) {
-        // Try standard locations first
         if (checkStandardLocations(projectPath, expectedServiceFile)) {
             return true;
         }
-
-        // Fallback to recursive search
         return performRecursiveSearch(projectPath, expectedServiceFile);
     }
 
-    /**
-     * Checks standard META-INF/services locations.
-     */
     private boolean checkStandardLocations(Path projectPath, String expectedServiceFile) {
         List<Path> standardPaths = buildSearchPaths(projectPath);
 
         if (expectedServiceFile != null) {
-            // Look for specific service file
             for (Path servicesDir : standardPaths) {
                 if (Files.exists(servicesDir.resolve(expectedServiceFile))) {
                     logger.debug("Found service file under project root: " + projectPath.toAbsolutePath());
@@ -132,7 +154,6 @@ public class PluginLintingService {
                 }
             }
         } else {
-            // Look for any ProcessPluginDefinition service file
             for (Path servicesDir : standardPaths) {
                 if (containsProcessPluginDefinitionFile(servicesDir)) {
                     logger.debug("Found service file under project root: " + projectPath.toAbsolutePath());
@@ -144,20 +165,15 @@ public class PluginLintingService {
         return false;
     }
 
-    /**
-     * Builds list of standard paths to search for service files.
-     */
     private List<Path> buildSearchPaths(Path projectPath) {
         List<Path> paths = new ArrayList<>();
 
-        // Direct project paths
         paths.add(projectPath.resolve("META-INF/services"));
         paths.add(projectPath.resolve("src/main/resources/META-INF/services"));
         paths.add(projectPath.resolve("target/classes/META-INF/services"));
         paths.add(projectPath.resolve("build/classes/java/main/META-INF/services"));
         paths.add(projectPath.resolve("build/resources/main/META-INF/services"));
 
-        // Check subdirectories (for multi-module projects)
         try (var stream = Files.list(projectPath)) {
             List<Path> submodulePaths = stream
                     .filter(Files::isDirectory)
@@ -172,9 +188,6 @@ public class PluginLintingService {
         return paths;
     }
 
-    /**
-     * Builds service paths for a specific module.
-     */
     private List<Path> buildModuleServicePaths(Path modulePath) {
         return List.of(
                 modulePath.resolve("src/main/resources/META-INF/services"),
@@ -184,9 +197,6 @@ public class PluginLintingService {
         );
     }
 
-    /**
-     * Checks if a directory contains any ProcessPluginDefinition service file.
-     */
     private boolean containsProcessPluginDefinitionFile(Path servicesDir) {
         if (!Files.exists(servicesDir) || !Files.isDirectory(servicesDir)) {
             return false;
@@ -195,7 +205,7 @@ public class PluginLintingService {
         Set<String> knownServiceFiles = Set.of(
                 V1_SERVICE_FILE,
                 V2_SERVICE_FILE,
-                "dev.dsf.ProcessPluginDefinition" // Legacy fallback
+                "dev.dsf.ProcessPluginDefinition"
         );
 
         try (var stream = Files.list(servicesDir)) {
@@ -209,9 +219,6 @@ public class PluginLintingService {
         }
     }
 
-    /**
-     * Performs recursive search for service files as last resort.
-     */
     private boolean performRecursiveSearch(Path root, String expectedServiceFile) {
         try {
             ServiceFileVisitor visitor = new ServiceFileVisitor(expectedServiceFile);
@@ -223,9 +230,6 @@ public class PluginLintingService {
         }
     }
 
-    /**
-     * File visitor for finding service files.
-     */
     private static class ServiceFileVisitor extends SimpleFileVisitor<Path> {
         private final String targetFile;
         private boolean found = false;
@@ -235,7 +239,7 @@ public class PluginLintingService {
         }
 
         @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+        public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
             if (isServiceFile(file)) {
                 found = true;
                 return FileVisitResult.TERMINATE;
@@ -244,7 +248,7 @@ public class PluginLintingService {
         }
 
         @Override
-        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+        public @NotNull FileVisitResult preVisitDirectory(@NotNull Path dir, @NotNull BasicFileAttributes attrs) {
             return isIgnoredDirectory(dir)
                     ? FileVisitResult.SKIP_SUBTREE
                     : FileVisitResult.CONTINUE;
@@ -287,9 +291,6 @@ public class PluginLintingService {
         }
     }
 
-    /**
-     * Checks if a directory should be ignored during traversal.
-     */
     private static boolean isIgnoredDirectory(Path dir) {
         Path dirName = dir.getFileName();
         if (dirName == null) return false;
@@ -302,9 +303,6 @@ public class PluginLintingService {
                 || name.equals(".gradle");
     }
 
-    /**
-     * Creates success lint item.
-     */
     private AbstractLintItem createSuccessItem(String projectName, ApiVersion apiVersion, PluginAdapter adapter) {
         StringBuilder message = new StringBuilder("ServiceLoader registration found");
 
@@ -316,16 +314,9 @@ public class PluginLintingService {
             message.append(" for ").append(adapter.sourceClass().getSimpleName());
         }
 
-        return new PluginDefinitionLintItemSuccess(
-                new File(projectName),
-                "META-INF/services",
-                message.toString()
-        );
+        return PluginLintItem.success(new File(projectName), "META-INF/services", message.toString());
     }
 
-    /**
-     * Creates error lint item.
-     */
     private AbstractLintItem createErrorItem(String projectName, String expectedFile) {
         String message = "ServiceLoader registration not found";
 
@@ -333,16 +324,15 @@ public class PluginLintingService {
             message += " (expected: " + expectedFile + ")";
         }
 
-        return new PluginDefinitionMissingServiceLoaderRegistrationLintItem(
+        return new PluginLintItem(
+                LinterSeverity.ERROR,
+                LintingType.PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION,
                 new File(projectName),
                 "META-INF/services",
                 message
         );
     }
 
-    /**
-     * Formats the exception message for missing registration.
-     */
     private String formatMissingRegistrationMessage(PluginAdapter adapter, Path projectPath) {
         String pluginInfo = adapter != null
                 ? adapter.sourceClass().getName()

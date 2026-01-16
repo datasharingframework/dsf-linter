@@ -1,7 +1,8 @@
 package dev.dsf.linter.fhir;
 
-import dev.dsf.linter.DsfLinter;
-import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.FhirElementLintItem;
 import dev.dsf.linter.util.linting.LintingUtils;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.resource.FhirResourceParser;
@@ -88,14 +89,15 @@ import java.util.*;
  *
  * <h2>Integration and Usage</h2>
  * <p>This linter extends {@link AbstractFhirInstanceLinter} and is automatically registered with the
- * DSF linting framework. It is invoked by {@link DsfLinter} when processing FHIR resource directories.</p>
+ * DSF linting framework. It is invoked when processing FHIR resource directories.</p>
  *
  * <p><strong>Thread Safety:</strong> This class is stateless and thread-safe. Multiple threads may
  * safely invoke {@link #lint(Document, File)} concurrently on the same instance.</p>
  *
  * <h2>Project Root Discovery</h2>
  * <p>The linter requires access to the project root directory to resolve cross-references to
- * {@code ActivityDefinition} and {@code StructureDefinition} files. Discovery is performed in the following order:</p>
+ * {@code ActivityDefinition} and {@code StructureDefinition} files. Discovery is performed via
+ * {@link LintingUtils#getProjectRoot(java.nio.file.Path)} in the following order:</p>
  * <ol>
  *   <li><strong>Explicit configuration:</strong> System property {@code dsf.projectRoot} or environment
  *       variable {@code DSF_PROJECT_ROOT}</li>
@@ -106,18 +108,46 @@ import java.util.*;
  * </ol>
  *
  * <h2>Lint Result Reporting</h2>
- * <p>All validation outcomes are reported as instances of {@link FhirElementLintItem}. Specific error types include:</p>
+ * <p>All validation outcomes are reported as instances of {@link FhirElementLintItem} with different
+ * {@link LintingType} values. The following error types may be reported:</p>
  * <ul>
- *   <li>{@link FhirTaskMissingProfileLintItem} – missing {@code meta.profile}</li>
- *   <li>{@link FhirTaskMissingInstantiatesCanonicalLintItem} – missing {@code instantiatesCanonical}</li>
- *   <li>{@link FhirTaskStatusNotDraftLintItem} – {@code status} is not {@code "draft"}</li>
- *   <li>{@link FhirTaskRequiredInputWithCodeMessageNameLintItem} – missing {@code message-name} input</li>
- *   <li>{@link FhirTaskInputDuplicateSliceLintItem} – duplicate {@code system#code} in {@code Task.input}</li>
- *   <li>{@link FhirTaskInputInstanceCountBelowMinLintItem} / {@link FhirTaskInputInstanceCountExceedsMaxLintItem} – cardinality violations</li>
- *   <li>{@link FhirTaskUnknownCodeLintItem} – unknown terminology code</li>
- *   <li>...and many others (see package {@code dev.dsf.linter.output.item})</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_PROFILE} – missing {@code meta.profile}</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_INSTANTIATES_CANONICAL} – missing {@code instantiatesCanonical}</li>
+ *   <li>{@link LintingType#FHIR_TASK_INSTANTIATES_CANONICAL_PLACEHOLDER} – {@code instantiatesCanonical} placeholder issue</li>
+ *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_INSTANTIATES_CANONICAL} – referenced ActivityDefinition not found</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_STATUS} – missing {@code status} element</li>
+ *   <li>{@link LintingType#FHIR_TASK_STATUS_NOT_DRAFT} – {@code status} is not {@code "draft"}</li>
+ *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_STATUS} – unknown {@code status} value</li>
+ *   <li>{@link LintingType#FHIR_TASK_VALUE_IS_NOT_SET_AS_ORDER} – {@code intent} is not {@code "order"}</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_REQUESTER} – missing {@code requester} element</li>
+ *   <li>{@link LintingType#FHIR_TASK_INVALID_REQUESTER} – invalid {@code requester.identifier.system}</li>
+ *   <li>{@link LintingType#FHIR_TASK_REQUESTER_ID_NOT_EXIST} – missing {@code requester.identifier.value}</li>
+ *   <li>{@link LintingType#FHIR_TASK_REQUESTER_ID_NO_PLACEHOLDER} – requester ID missing placeholder</li>
+ *   <li>{@link LintingType#FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER} – requester organization placeholder issue</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_RECIPIENT} – missing {@code restriction.recipient} element</li>
+ *   <li>{@link LintingType#FHIR_TASK_INVALID_RECIPIENT} – invalid {@code restriction.recipient.identifier.system}</li>
+ *   <li>{@link LintingType#FHIR_TASK_RECIPIENT_ID_NOT_EXIST} – missing {@code restriction.recipient.identifier.value}</li>
+ *   <li>{@link LintingType#FHIR_TASK_RECIPIENT_ID_NO_PLACEHOLDER} – recipient ID missing placeholder</li>
+ *   <li>{@link LintingType#FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER} – recipient organization placeholder issue</li>
+ *   <li>{@link LintingType#FHIR_TASK_DATE_NO_PLACEHOLDER} – {@code authoredOn} missing {@code #{date}} placeholder</li>
+ *   <li>{@link LintingType#FHIR_TASK_MISSING_INPUT} – no {@code Task.input} elements present</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_REQUIRED_CODING_SYSTEM_AND_CODING_CODE} – input missing system or code</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_MISSING_VALUE} – input missing {@code value[x]}</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_DUPLICATE_SLICE} – duplicate {@code system#code} in {@code Task.input}</li>
+ *   <li>{@link LintingType#FHIR_TASK_REQUIRED_INPUT_WITH_CODE_MESSAGE_NAME} – missing mandatory {@code message-name} input</li>
+ *   <li>{@link LintingType#FHIR_TASK_STATUS_REQUIRED_INPUT_BUSINESS_KEY} – {@code business-key} required but missing</li>
+ *   <li>{@link LintingType#FHIR_TASK_BUSINESS_KEY_EXISTS} – {@code business-key} present when status is {@code "draft"}</li>
+ *   <li>{@link LintingType#FHIR_TASK_BUSINESS_KEY_CHECK_IS_SKIPPED} – business-key validation skipped (informational)</li>
+ *   <li>{@link LintingType#FHIR_TASK_CORRELATION_EXISTS} – {@code correlation-key} present but not allowed</li>
+ *   <li>{@link LintingType#FHIR_TASK_CORRELATION_MISSING_BUT_REQUIRED} – {@code correlation-key} required but missing</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_INSTANCE_COUNT_BELOW_MIN} – too few {@code Task.input} elements</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX} – too many {@code Task.input} elements</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN} – slice occurrence below minimum</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX} – slice occurrence exceeds maximum</li>
+ *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_CODE} – unknown terminology code</li>
+ *   <li>{@link LintingType#FHIR_TASK_COULD_NOT_LOAD_PROFILE} – StructureDefinition could not be loaded (warning)</li>
  * </ul>
- * <p>Success outcomes are reported via {@link FhirElementLintItemSuccess} for completeness and traceability.</p>
+ * <p>Successful validations are reported with {@link LinterSeverity#INFO} for completeness and traceability.</p>
  *
  * <h2>Example Output</h2>
  * <pre>
@@ -128,355 +158,265 @@ import java.util.*;
  * ✗ Task[example-start-process]: business-key must not be present when status is 'draft'
  * </pre>
  *
- * @see DsfLinter
  * @see AbstractFhirInstanceLinter
  * @see FhirResourceLocator
  * @see FhirResourceParser
  * @see FhirAuthorizationCache
+ * @see FhirElementLintItem
+ * @see LintingType
+ * @see LinterSeverity
+ * @see LintingUtils#getProjectRoot(java.nio.file.Path)
  * @see <a href="https://hl7.org/fhir/profiling.html#slice-cardinality">FHIR Slicing and Cardinality Rules</a>
  * @see <a href="https://dsf.dev/intro/info/process-plugin/starting-and-naming-processes/">DSF Process Plugin Documentation</a>
  *
  * @author DSF Development Team
  * @since 1.0
  */
-public final class FhirTaskLinter extends AbstractFhirInstanceLinter
-{
-    // XPath constants
-    private static final String TASK_XP           = "/*[local-name()='Task']";
-    private static final String INPUT_XP          = TASK_XP + "/*[local-name()='input']";
-    private static final String CODING_SYS_XP     = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
-    private static final String CODING_CODE_XP    = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
-
-    private static final String SYSTEM_BPMN_MSG   = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
-    private static final String SYSTEM_ORG_ID     = "http://dsf.dev/sid/organization-identifier";
-
-    private static final Set<String> STATUSES_NEED_BIZKEY =
-            Set.of("in-progress", "completed", "failed");
-
-
+public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
+    private static final String TASK_XP = "/*[local-name()='Task']";
+    private static final String INPUT_XP = TASK_XP + "/*[local-name()='input']";
+    private static final String CODING_SYS_XP = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
+    private static final String CODING_CODE_XP = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
+    private static final String SYSTEM_BPMN_MSG = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
+    private static final String SYSTEM_ORG_ID = "http://dsf.dev/sid/organization-identifier";
+    private static final String TASK_IDENTIFIER_SID = "http://dsf.dev/sid/task-identifier";
+    private static final Set<String> STATUSES_NEED_BIZKEY = Set.of("in-progress", "completed", "failed");
 
     /**
-     * Determines whether this linter supports the given document.
+     * Pattern for validating Task Identifier format.
+     * <p>
+     * According to DSF NamingSystem definition, the identifier value must be in the form:
+     * {@code {process-url}/{process-version}/{task-example-name}}
+     * <p>
+     * Example: {@code http://test.org/bpe/Process/someProcessName/1.0/someExampleName}
+     * <p>
+     * The pattern accepts both actual version numbers ({@code /\d+\.\d+/}) and placeholders
+     * ({@code /#{version}/}) for development-time validation.
      *
-     * @param d the DOM document to lint
-     * @return true if it is a FHIR Task resource, false otherwise
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
      */
+    private static final String TASK_IDENTIFIER_PATTERN_STRING =
+            "^https?://[^/]+/bpe/Process/[a-zA-Z0-9-]+/(?:\\d+\\.\\d+|#\\{version\\})/.+$";
+    private static final java.util.regex.Pattern TASK_IDENTIFIER_PATTERN =
+            java.util.regex.Pattern.compile(TASK_IDENTIFIER_PATTERN_STRING);
+
     @Override
-    public boolean canLint(Document d)
-    {
+    public boolean canLint(Document d) {
         return "Task".equals(d.getDocumentElement().getLocalName());
     }
 
-    /**
-     * Performs linting of a FHIR Task resource.
-     *
-     * @param doc the DOM document representing the Task
-     * @param resFile the file associated with the resource
-     * @return a list of linting issues or confirmations
-     */
     @Override
-    public List<FhirElementLintItem> lint(Document doc, File resFile)
-    {
-        final String ref   = computeReference(doc, resFile);
+    public List<FhirElementLintItem> lint(Document doc, File resFile) {
+        final String ref = computeReference(doc, resFile);
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
         checkPlaceholders(doc, resFile, ref, issues);
-
+        lintTaskIdentifier(doc, resFile, ref, issues);
         lintInputs(doc, resFile, ref, issues);
-
         lintTerminology(doc, resFile, ref, issues);
-
         lintRequesterAuthorization(doc, resFile, ref, issues);
         lintRecipientAuthorization(doc, resFile, ref, issues);
 
         return issues;
     }
 
-    /**
-     * lints core metadata and basic elements of the Task.
-     */
-    private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
-        //  meta.profile
+    private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         NodeList prof = xp(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
         if (prof == null || prof.getLength() == 0)
-            out.add(new FhirTaskMissingProfileLintItem(f, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_PROFILE, f, ref));
         else
             out.add(ok(f, ref, "meta.profile present."));
 
-        //  instantiatesCanonical
         String instCanon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
         if (blank(instCanon))
-            out.add(new FhirTaskMissingInstantiatesCanonicalLintItem(f, ref));
-        else
-        {
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_INSTANTIATES_CANONICAL, f, ref));
+        else {
             out.add(ok(f, ref, "instantiatesCanonical found."));
 
-            // Canonical URL with version suffix: http(s)://.../ActivityDefinition/...|#{version}
             int pipe = instCanon.lastIndexOf('|');
             String versionPart = pipe >= 0 ? instCanon.substring(pipe + 1) : "";
 
-            // Check for placeholders - warn if NO placeholders found
             if ("#{version}".equals(versionPart) && instCanon.endsWith("#{version}")) {
                 out.add(ok(f, ref, "instantiatesCanonical ends with '|#{version}' as expected."));
             } else {
-                out.add(new FhirTaskInstantiatesCanonicalPlaceholderLintItem(f, ref,
+                out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_INSTANTIATES_CANONICAL_PLACEHOLDER, f, ref,
                         "instantiatesCanonical must end with '|#{version}', got: '" + instCanon + "'"));
             }
 
-            // Existence-Check
             File root = determineProjectRoot(f);
             FhirResourceLocator locator = FhirResourceLocator.create(root);
             boolean exists = locator.activityDefinitionExistsForInstantiatesCanonical(instCanon, root);
             if (!exists)
-                out.add(new FhirTaskUnknownInstantiatesCanonicalLintItem(
-                        f, ref,
-                        "No ActivityDefinition '" + instCanon + "' under '" +
-                                f.getName() + "'."));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_UNKNOWN_INSTANTIATES_CANONICAL, f, ref,
+                        "No ActivityDefinition '" + instCanon + "' under '" + f.getName() + "'."));
             else
                 out.add(ok(f, ref, "ActivityDefinition exists."));
         }
 
-        //  status
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
         if (blank(status))
-            out.add(new FhirTaskMissingStatusLintItem(f, ref));
-        else
-        if (!"draft".equals(status))
-            out.add(new FhirTaskStatusNotDraftLintItem(f, ref,
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_STATUS, f, ref));
+        else if (!"draft".equals(status))
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_STATUS_NOT_DRAFT, f, ref,
                     "status must be 'draft' (found '" + status + "')"));
         else
             out.add(ok(f, ref, "status = 'draft'"));
 
-
-        //  intent ('order')
         String intent = val(doc, TASK_XP + "/*[local-name()='intent']/@value");
         if (!"order".equals(intent))
-            out.add(new FhirTaskValueIsNotSetAsOrderLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_VALUE_IS_NOT_SET_AS_ORDER, f, ref,
                     "intent must be 'order' (found '" + intent + "')"));
         else
             out.add(ok(f, ref, "intent = order"));
 
-        //  requester.identifier.system
-        String reqSys = val(doc, TASK_XP +
-                "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='system']/@value");
-        if(blank(reqSys))
-            out.add(new FhirTaskMissingRequesterLintItem(f, ref));
-
+        String reqSys = val(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='system']/@value");
+        if (blank(reqSys))
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_REQUESTER, f, ref));
         else if (!SYSTEM_ORG_ID.equals(reqSys))
-            out.add(new FhirTaskInvalidRequesterLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INVALID_REQUESTER, f, ref,
                     "requester.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
             out.add(ok(f, ref, "requester.identifier.system OK"));
 
-        //  restriction.recipient.identifier.system
-        String recSys = val(doc, TASK_XP +
-                "/*[local-name()='restriction']/*[local-name()='recipient']" +
-                "/*[local-name()='identifier']/*[local-name()='system']/@value");
-        if(blank(recSys))
-            out.add(new FhirTaskMissingRecipientLintItem(f, ref));
-
+        String recSys = val(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='system']/@value");
+        if (blank(recSys))
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_RECIPIENT, f, ref));
         else if (!SYSTEM_ORG_ID.equals(recSys))
-            out.add(new FhirTaskInvalidRecipientLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INVALID_RECIPIENT, f, ref,
                     "restriction.recipient.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
             out.add(ok(f, ref, "restriction.recipient.identifier.system OK"));
     }
 
-    /**
-     * lints presence of required development placeholders such as #{date} and #{organization}.
-     */
-    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
+    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
         if (authoredOn != null && !authoredOn.contains("#{date}"))
-            out.add(new FhirTaskDateNoPlaceholderLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER, f, ref,
                     "<authoredOn> must contain '#{date}'."));
         else
             out.add(ok(f, ref, "<authoredOn> placeholder OK."));
 
-        String reqIdVal = val(doc,
-                TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']" +
-                        "/*[local-name()='value']/@value");
+        String reqIdVal = val(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value");
         if (reqIdVal == null || !reqIdVal.equals("#{organization}"))
-            out.add(new FhirTaskRequesterOrganizationNoPlaceholderLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER, f, ref,
                     "requester.identifier.value must contain '#{organization}'."));
         else
             out.add(ok(f, ref, "requester.identifier.value placeholder OK."));
 
-        String recIdVal = val(doc,
-                TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']" +
-                        "/*[local-name()='identifier']/*[local-name()='value']/@value");
+        String recIdVal = val(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value");
         if (recIdVal == null || !recIdVal.equals("#{organization}"))
-            out.add(new FhirTaskRecipientOrganizationNoPlaceholderLintItem(f, ref,
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER, f, ref,
                     "restriction.recipient.identifier.value must contain '#{organization}'."));
         else
             out.add(ok(f, ref, "restriction.recipient.identifier.value placeholder OK."));
     }
 
     /**
-     * lints the <code>Task.input</code> elements of a FHIR {@code Task} resource.
-     * This method performs structural, semantic, and rule-based linting for all {@code Task.input} elements
-     * based on the provided {@code StructureDefinition} and known business constraints.
+     * Validates Task identifier with system 'http://dsf.dev/sid/task-identifier'.
      *
-     * <p>Linter includes the following aspects:</p>
+     * <p>
+     * According to DSF NamingSystem definition, the identifier value must be in the form:
+     * {@code {process-url}/{process-version}/{task-example-name}}
+     * e.g., {@code http://test.org/bpe/Process/someProcessName/1.0/someExampleName}
+     * </p>
      *
-     * <ul>
-     *   <li><strong>Presence Check:</strong>
-     *     <ul>
-     *       <li>Fails if the {@code Task.input} list is empty or missing entirely.</li>
-     *     </ul>
-     *   </li>
+     * <p>
+     * Additionally validates that the identifier system is correctly set to
+     * {@code http://dsf.dev/sid/task-identifier}.
+     * </p>
      *
-     *   <li><strong>Structural linting:</strong>
-     *     <ul>
-     *       <li>Each {@code Task.input} must contain a {@code coding.system} and {@code coding.code}.</li>
-     *       <li>If missing or blank, an error is reported.</li>
-     *       <li>Presence of a {@code value[x]} element (e.g., {@code valueString}, {@code valueReference}) is required.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>Duplicate Detection:</strong>
-     *     <ul>
-     *       <li>Checks for duplicate {@code Task.input} entries using the combination {@code system#code}.</li>
-     *       <li>Reports an error if the same combination appears more than once.</li>
-     *       <li>Emits an INFO result if no duplicates are found.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>BPMN Slice Checks:</strong> (for {@code system = http://dsf.dev/fhir/CodeSystem/bpmn-message})
-     *     <ul>
-     *       <li>{@code message-name} – required and must be present.</li>
-     *       <li>{@code business-key} – required or forbidden depending on {@code Task.status}.</li>
-     *       <li>{@code correlation-key} – permitted or prohibited based on slice cardinality.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>Status-based Business Rules:</strong>
-     *     <ul>
-     *       <li>If {@code status} ∈ {"in-progress", "completed", "failed"}, {@code business-key} is required.</li>
-     *       <li>If {@code status} = "draft", {@code business-key} must be absent.</li>
-     *       <li>If {@code status} is valid but not in any rule set, a skip notice is emitted.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>Status linting:</strong>
-     *     <ul>
-     *       <li>Ensures the {@code Task.status} value is among the known valid codes from the HL7 Task ValueSet.</li>
-     *       <li>Unknown values result in an error; valid ones emit a confirmation.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>Correlation Input linting:</strong>
-     *     <ul>
-     *       <li>If present, {@code correlation-key} is only allowed if cardinality permits.</li>
-     *       <li>If absent but required (min > 0), an error is reported.</li>
-     *     </ul>
-     *   </li>
-     *
-     *   <li><strong>Cardinality Checks:</strong>
-     *     <ul>
-     *       <li>Loads base and slice-specific {@code min}/{@code max} values from the {@code StructureDefinition}.</li>
-     *       <li>Checks total {@code Task.input} count against base cardinality.</li>
-     *       <li>Checks individual slice occurrence counts against their defined cardinality.</li>
-     *       <li>If profile cannot be loaded, these checks are skipped with a warning.</li>
-     *     </ul>
-     *   </li>
-     * </ul>
-     *
-     * <p>All lint outcomes are reported as {@link FhirElementLintItem} instances and
-     * appended to the provided {@code out} list.</p>
-     *
-     * @param doc  the XML DOM of the {@code Task} resource
-     * @param f    the source file for the Task resource (used for context and reporting)
-     * @param ref  a logical or canonical identifier (typically {@code instantiatesCanonical})
-     * @param out  a mutable list that will be populated with linting results
-     *
-     * @see FhirTaskMissingInputLintItem
-     * @see FhirTaskInputRequiredCodingSystemAndCodingCodeLintItem
-     * @see FhirTaskInputMissingValueLintItem
-     * @see FhirTaskInputDuplicateSliceLintItem
-     * @see FhirTaskRequiredInputWithCodeMessageNameLintItem
-     * @see FhirTaskStatusRequiredInputBusinessKeyLintItem
-     * @see FhirTaskBusinessKeyExistsLintItem
-     * @see FhirTaskBusinessKeyCheckIsSkippedLintItem
-     * @see FhirTaskUnknownStatusLintItem
-     * @see FhirTaskCorrelationExistsLintItem
-     * @see FhirTaskCorrelationMissingButRequiredLintItem
-     * @see FhirTaskInputInstanceCountBelowMinLintItem
-     * @see FhirTaskInputInstanceCountExceedsMaxLintItem
-     * @see FhirTaskInputSliceCountBelowSliceMinLintItem
-     * @see FhirTaskInputSliceCountExceedsSliceMaxLintItem
-     * @see FhirTaskCouldNotLoadProfileLintItem
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
      */
-    private void lintInputs(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
-        // Load cardinality definitions from StructureDefinition
+    private void lintTaskIdentifier(Document doc, File f, String ref, List<FhirElementLintItem> out) {
+        NodeList identifiers = xp(doc, TASK_XP + "/*[local-name()='identifier']");
+        if (identifiers == null || identifiers.getLength() == 0) {
+            return; // No identifiers present, nothing to validate
+        }
+
+        for (int i = 0; i < identifiers.getLength(); i++) {
+            Node identifier = identifiers.item(i);
+            String system = val(identifier, "./*[local-name()='system']/@value");
+            String value = val(identifier, "./*[local-name()='value']/@value");
+
+            // Check if system is missing or empty
+            if (blank(system)) {
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_MISSING_SYSTEM, f, ref,
+                        "Task identifier is missing system element. Expected system: '" + TASK_IDENTIFIER_SID + "'"));
+                continue;
+            }
+
+            // Check if system matches the expected DSF task identifier SID
+            if (TASK_IDENTIFIER_SID.equals(system)) {
+                out.add(ok(f, ref, "Task identifier system is correct: " + system));
+
+                // Validate the identifier value format
+                if (blank(value)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_FORMAT, f, ref,
+                            "Task identifier with system '" + TASK_IDENTIFIER_SID + "' has empty value."));
+                } else if (!TASK_IDENTIFIER_PATTERN.matcher(value).matches()) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_FORMAT, f, ref,
+                            String.format("Task identifier value '%s' does not match required format: " +
+                                    "{process-url}/{process-version}/{task-example-name} " +
+                                    "(e.g., http://test.org/bpe/Process/someProcessName/1.0/someExampleName)", value)));
+                } else {
+                    out.add(ok(f, ref, "Task identifier format is valid: " + value));
+                }
+            } else {
+                // System is set but does not match expected DSF task identifier SID
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_SYSTEM, f, ref,
+                        String.format("Task identifier has invalid system '%s'. Expected: '%s'", system, TASK_IDENTIFIER_SID)));
+            }
+        }
+    }
+
+    private void lintInputs(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
         Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(f), profileUrl);
 
-        if (cards == null)
-        {
-            out.add(new FhirTaskCouldNotLoadProfileLintItem(
-                    f, ref, "StructureDefinition for profile '" + profileUrl + "' not found → instance-level cardinality check skipped."));
+        if (cards == null) {
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_COULD_NOT_LOAD_PROFILE, f, ref,
+                    "StructureDefinition for profile '" + profileUrl + "' not found → cardinality check skipped."));
         }
 
         NodeList ins = xp(doc, INPUT_XP);
-        if (ins == null || ins.getLength() == 0)
-        {
-            out.add(new FhirTaskMissingInputLintItem(f, ref));
+        if (ins == null || ins.getLength() == 0) {
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_INPUT, f, ref));
             return;
         }
 
-        boolean messageName = false, businessKey = false;
-        boolean correlation = false;
-
+        boolean messageName = false, businessKey = false, correlation = false;
         Map<String, Integer> duplicates = new HashMap<>();
         Map<String, Integer> sliceCounter = new HashMap<>();
         int inputCount = 0;
 
-        for (int i = 0; i < ins.getLength(); i++)
-        {
+        for (int i = 0; i < ins.getLength(); i++) {
             Node in = ins.item(i);
             String sys = val(in, CODING_SYS_XP);
             String code = val(in, CODING_CODE_XP);
             String v = extractValueX(in);
             inputCount++;
 
-            // Duplicate counter
             if (!blank(sys) && !blank(code))
                 duplicates.merge(sys + "#" + code, 1, Integer::sum);
-
-            // Slice counter (by code)
             if (!blank(code))
                 sliceCounter.merge(code, 1, Integer::sum);
 
-            // Missing coding
-            if (blank(sys) || blank(code))
-            {
-                out.add(new FhirTaskInputRequiredCodingSystemAndCodingCodeLintItem(f, ref,
+            if (blank(sys) || blank(code)) {
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_REQUIRED_CODING_SYSTEM_AND_CODING_CODE, f, ref,
                         "Task.input without system/code"));
                 continue;
             }
-            else
-            {
-                out.add(ok(f, ref, "Task.input has required system and code: " + sys + "#" + code));
-            }
+            out.add(ok(f, ref, "Task.input has required system and code: " + sys + "#" + code));
 
-            // Value check
             if (blank(v))
-                out.add(new FhirTaskInputMissingValueLintItem(f, ref,
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_MISSING_VALUE, f, ref,
                         "Task.input(" + code + ") missing value[x]"));
             else
-                out.add(ok(f, ref,
-                        "input '" + code + "' value='" + v + "'"));
+                out.add(ok(f, ref, "input '" + code + "' value='" + v + "'"));
 
-            // Slice detection
-            if (SYSTEM_BPMN_MSG.equals(sys))
-            {
-                switch (code)
-                {
+            if (SYSTEM_BPMN_MSG.equals(sys)) {
+                switch (code) {
                     case "message-name" -> messageName = true;
                     case "business-key" -> businessKey = true;
                     case "correlation-key" -> correlation = true;
@@ -484,395 +424,178 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter
             }
         }
 
-        // Duplicates
         duplicates.forEach((k, v) -> {
             if (v > 1)
-                out.add(new FhirTaskInputDuplicateSliceLintItem(f, ref,
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_DUPLICATE_SLICE, f, ref,
                         "Duplicate slice '" + k + "' (" + v + "×)"));
         });
-
-        // Add success case for no duplicates found
         if (duplicates.values().stream().allMatch(count -> count == 1))
-        {
             out.add(ok(f, ref, "No duplicate Task.input slices detected"));
-        }
 
-        // Required presence
         if (messageName)
             out.add(ok(f, ref, "mandatory slice 'message-name' present"));
         else
-            out.add(new FhirTaskRequiredInputWithCodeMessageNameLintItem(f, ref));
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_REQUIRED_INPUT_WITH_CODE_MESSAGE_NAME, f, ref));
 
-        // Status-dependent rule
         String status = val(doc, TASK_XP + "/*[local-name()='status']/@value");
         boolean statusIsDraft = "draft".equals(status);
 
-        // Check if status is known
-        if (FhirAuthorizationCache.isUnknown(FhirAuthorizationCache.CS_TASK_STATUS, status)) {
-            out.add(new FhirTaskUnknownStatusLintItem(f, ref, status));
-        } else {
+        if (FhirAuthorizationCache.isUnknown(FhirAuthorizationCache.CS_TASK_STATUS, status))
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_UNKNOWN_STATUS, f, ref, "Unknown status: " + status));
+        else
             out.add(ok(f, ref, "Task status '" + status + "' is valid"));
-        }
 
         if (STATUSES_NEED_BIZKEY.contains(status)) {
             if (!businessKey)
-                out.add(new FhirTaskStatusRequiredInputBusinessKeyLintItem(
-                        f, ref, "status='" + status + "' needs business-key"));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_STATUS_REQUIRED_INPUT_BUSINESS_KEY, f, ref,
+                        "status='" + status + "' needs business-key"));
             else
-                out.add(ok(f, ref, "status='" + status + "' → business-key present as required"));
-        }
-        else if (statusIsDraft) {
-            if (businessKey) {
-                out.add(new FhirTaskBusinessKeyExistsLintItem(
-                        f, ref, "businessKey must not be present when status is 'draft'"));
-            } else {
+                out.add(ok(f, ref, "status='" + status + "' → business-key present"));
+        } else if (statusIsDraft) {
+            if (businessKey)
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_BUSINESS_KEY_EXISTS, f, ref,
+                        "businessKey must not be present when status is 'draft'"));
+            else
                 out.add(ok(f, ref, "status=draft → business-key correctly absent"));
-            }
-        }
-        else {
-            // Status is known but doesn't require specific business key rules
-            out.add(new FhirTaskBusinessKeyCheckIsSkippedLintItem(
-                    f, ref, "Business key linting skipped for status '" + status + "'"));
+        } else {
+            out.add(new FhirElementLintItem(LinterSeverity.INFO, LintingType.FHIR_TASK_BUSINESS_KEY_CHECK_IS_SKIPPED, f, ref,
+                    "Business key linting skipped for status '" + status + "'"));
         }
 
         boolean corrAllowed = isCorrelationAllowed(cards);
-
         if (correlation) {
             if (corrAllowed)
-                out.add(ok(f, ref,
-                        "correlation input present and permitted by StructureDefinition"));
+                out.add(ok(f, ref, "correlation input present and permitted"));
             else
-                out.add(new FhirTaskCorrelationExistsLintItem(
-                        f, ref, "correlation input is not allowed by StructureDefinition"));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_CORRELATION_EXISTS, f, ref,
+                        "correlation input not allowed by StructureDefinition"));
         } else {
-            // missing ↔ only an error when the slice min > 0
             SliceCard corrCard = (cards != null) ? cards.get("correlation-key") : null;
             if (corrCard != null && corrCard.min() > 0)
-                out.add(new FhirTaskCorrelationMissingButRequiredLintItem(
-                        f, ref, "correlation input missing but slice min-cardinality is "
-                        + corrCard.min()));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_CORRELATION_MISSING_BUT_REQUIRED, f, ref,
+                        "correlation input missing but slice min=" + corrCard.min()));
             else
                 out.add(ok(f, ref, "correlation input absent as expected"));
         }
 
-        // Cardinality check
-        if (cards != null)
-        {
+        if (cards != null) {
             SliceCard baseCard = cards.get("__BASE__");
             if (inputCount < baseCard.min())
-                out.add(new FhirTaskInputInstanceCountBelowMinLintItem(f, ref, inputCount, baseCard.min()));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_INSTANCE_COUNT_BELOW_MIN, f, ref,
+                        "Task.input count " + inputCount + " below min " + baseCard.min()));
             else if (inputCount > baseCard.max())
-                out.add(new FhirTaskInputInstanceCountExceedsMaxLintItem(f, ref, inputCount, baseCard.max()));
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX, f, ref,
+                        "Task.input count " + inputCount + " exceeds max " + baseCard.max()));
             else
-                out.add(ok(f, ref, "Task.input count " + inputCount +
-                        " within " + baseCard.min() + "‥" + (baseCard.max() == Integer.MAX_VALUE ? "*" : baseCard.max())));
+                out.add(ok(f, ref, "Task.input count " + inputCount + " OK"));
 
-            // Per-slice cardinality
             cards.forEach((code, card) -> {
                 if ("__BASE__".equals(code)) return;
                 int cnt = sliceCounter.getOrDefault(code, 0);
                 if (cnt < card.min())
-                    out.add(new FhirTaskInputSliceCountBelowSliceMinLintItem(f, ref, code, cnt, card.min()));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN, f, ref,
+                            "slice '" + code + "' count " + cnt + " below min " + card.min()));
                 else if (cnt > card.max())
-                    out.add(new FhirTaskInputSliceCountExceedsSliceMaxLintItem(f, ref, code, cnt, card.max()));
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX, f, ref,
+                            "slice '" + code + "' count " + cnt + " exceeds max " + card.max()));
                 else
                     out.add(ok(f, ref, "slice '" + code + "' count " + cnt + " OK"));
             });
         }
     }
 
-    /*
-      3) Terminology
-       */
-    /**
-     * lints all coding elements against known DSF CodeSystems.
-     */
-    private void lintTerminology(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
+    private void lintTerminology(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         NodeList codings = xp(doc, "//coding");
         if (codings == null) return;
-
-        for (int i = 0; i < codings.getLength(); i++)
-        {
+        for (int i = 0; i < codings.getLength(); i++) {
             Node c = codings.item(i);
             String sys = val(c, "./*[local-name()='system']/@value");
             String code = val(c, "./*[local-name()='code']/@value");
-
             if (FhirAuthorizationCache.isUnknown(sys, code))
-                out.add(new FhirTaskUnknownCodeLintItem(f, ref,
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_UNKNOWN_CODE, f, ref,
                         "Unknown code '" + code + "' in '" + sys + "'"));
         }
     }
 
-    /*
-      Helper methods
-      */
-
-    /**
-     * Extracts a reference identifier from instantiatesCanonical or identifier.value.
-     */
-    private String computeReference(Document doc, File file)
-    {
+    private String computeReference(Document doc, File file) {
         String canon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
-        if (!blank(canon))
-            return canon.split("\\|")[0];
-
-        String idVal = val(doc,
-                TASK_XP + "/*[local-name()='identifier']/*[local-name()='value']/@value");
+        if (!blank(canon)) return canon.split("\\|")[0];
+        String idVal = val(doc, TASK_XP + "/*[local-name()='identifier']/*[local-name()='value']/@value");
         return !blank(idVal) ? idVal : file.getName();
     }
 
-    /**
-     * Attempts to determine the root directory of the project that contains the given FHIR resource file.
-     *
-     * <p>This method supports multiple layout detection strategies to support local builds,
-     * IDE projects, and CI pipelines:</p>
-     *
-     * <ol>
-     *   <li><strong>Explicit configuration</strong>: Checks for system property {@code dsf.projectRoot}
-     *       or environment variable {@code DSF_PROJECT_ROOT}. If either is set and points to a valid
-     *       directory, that path is returned.</li>
-     *
-     *   <li><strong>Implicit discovery – Maven/Gradle</strong>: Walks up the directory tree and returns
-     *       the first parent directory that contains a {@code src/} subdirectory. This layout is typical
-     *       for local development environments and IDEs.</li>
-     *
-     *   <li><strong>Implicit discovery – CI or exploded JAR</strong>: If no {@code src/} folder is found,
-     *       returns the first parent directory that contains a {@code fhir/} folder. This layout is used
-     *       when the plugin JAR is exploded into a flat directory structure in CI environments.</li>
-     * </ol>
-     *
-     * <p>If no valid root can be determined, {@code null} is returned.</p>
-     *
-     * @param res the resource file currently being linted (e.g., a Task XML file)
-     * @return the project root directory, or {@code null} if no suitable folder is found
-     */
-    private File determineProjectRoot(File res)
-    {
+    private File determineProjectRoot(File res) {
         return LintingUtils.getProjectRoot(res.toPath());
     }
 
-    /*
-      Requester/Recipient vs ActivityDefinition check
-      */
-
-    /**
-     * lints that the {@code Task.requester.identifier.value} exists and contains the
-     * required {@code #{organization}} placeholder for development contexts.
-     *
-     * <p>This method performs a two-step linting process for the {@code requester.identifier.value} field:</p>
-     * <ul>
-     *   <li><strong>Existence check:</strong> Fails if the value is missing or blank, using
-     *       {@link FhirTaskRequesterIdNotExistLintItem}.</li>
-     *   <li><strong>Placeholder check:</strong> If the value does not contain the required
-     *       {@code #{organization}} placeholder, a
-     *       {@link FhirTaskRequesterIdNoPlaceholderLintItem}
-     *       is added. If the placeholder is present, a success confirmation is reported.</li>
-     * </ul>
-     *
-     * <p>Note: This method lints placeholder presence for development contexts but does not
-     * perform actual authorization checks against the {@code ActivityDefinition}. The method
-     * returns early if the {@code instantiatesCanonical} is missing or if the corresponding
-     * {@code ActivityDefinition} file cannot be found.</p>
-     *
-     * @param taskDoc   the XML DOM representation of the Task resource
-     * @param taskFile  the file from which the Task was loaded (used for context and reporting)
-     * @param ref       a canonical reference to the Task (typically extracted from {@code instantiatesCanonical})
-     * @param out       the list of lint items to which results are appended
-     *
-     * @see FhirTaskRequesterIdNotExistLintItem
-     * @see FhirTaskRequesterIdNoPlaceholderLintItem
-     */
-    private void lintRequesterAuthorization(Document taskDoc,
-                                            File taskFile,
-                                            String ref,
-                                            List<FhirElementLintItem> out)
-    {
+    private void lintRequesterAuthorization(Document taskDoc, File taskFile, String ref, List<FhirElementLintItem> out) {
         if (instCanonDetermine(taskDoc, taskFile)) return;
-
-        String requesterId = val(taskDoc,
-                TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']"
-                        + "/*[local-name()='value']/@value");
-
-        // Allow the dev placeholder
+        String requesterId = val(taskDoc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value");
         if (requesterId == null || requesterId.isBlank())
-        {
-            out.add(new FhirTaskRequesterIdNotExistLintItem(
-                    taskFile, ref));
-        } else {
-            if (!"#{organization}".equals(requesterId))
-            {
-                out.add(new FhirTaskRequesterIdNoPlaceholderLintItem(
-                        taskFile, ref
-                ));
-            }
-            else
-            {
-                out.add(ok(taskFile, ref, "Task.requester.identifier.value contains the '#{organization}' placeholder."));
-            }
-        }
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_REQUESTER_ID_NOT_EXIST, taskFile, ref));
+        else if (!"#{organization}".equals(requesterId))
+            out.add(FhirElementLintItem.of(LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ID_NO_PLACEHOLDER, taskFile, ref));
+        else
+            out.add(ok(taskFile, ref, "Task.requester.identifier.value contains '#{organization}' placeholder."));
     }
 
-    /**
-     * lints that the {@code Task.restriction.recipient.identifier.value} exists and contains the
-     * required {@code #{organization}} placeholder for development contexts.
-     *
-     * <p>This method performs a two-step linting process for the {@code recipient.identifier.value} field:</p>
-     * <ul>
-     *   <li><strong>Existence check:</strong> Fails if the value is missing or blank, using
-     *       {@link FhirTaskRecipientIdNotExistLintItem}.</li>
-     *   <li><strong>Placeholder check:</strong> If the value does not contain the required
-     *       {@code #{organization}} placeholder, a
-     *       {@link FhirTaskRecipientIdNoPlaceholderLintItem}
-     *       is added. If the placeholder is present, a success confirmation is reported.</li>
-     * </ul>
-     *
-     * <p>Note: This method lints placeholder presence for development contexts but does not
-     * perform actual authorization checks against the {@code ActivityDefinition}. The method
-     * returns early if the {@code instantiatesCanonical} is missing or if the corresponding
-     * {@code ActivityDefinition} file cannot be found.</p>
-     *
-     * @param taskDoc   the XML DOM representation of the Task resource
-     * @param taskFile  the file from which the Task was loaded (used for context and reporting)
-     * @param ref       a canonical reference to the Task (typically extracted from {@code instantiatesCanonical})
-     * @param out       the list of lint items to which results are appended
-     *
-     * @see FhirTaskRecipientIdNotExistLintItem
-     * @see FhirTaskRecipientIdNoPlaceholderLintItem
-     */
-    private void lintRecipientAuthorization(Document taskDoc,
-                                            File taskFile,
-                                            String ref,
-                                            List<FhirElementLintItem> out)
-    {
+    private void lintRecipientAuthorization(Document taskDoc, File taskFile, String ref, List<FhirElementLintItem> out) {
         if (instCanonDetermine(taskDoc, taskFile)) return;
-
-        String recipientId = val(taskDoc,
-                TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']"
-                        + "/*[local-name()='identifier']/*[local-name()='value']/@value");
-
-        // Allow the dev placeholder
+        String recipientId = val(taskDoc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value");
         if (recipientId == null || recipientId.isBlank())
-        {
-            out.add(new FhirTaskRecipientIdNotExistLintItem(taskFile, ref));
-        }
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_RECIPIENT_ID_NOT_EXIST, taskFile, ref));
+        else if (!"#{organization}".equals(recipientId))
+            out.add(FhirElementLintItem.of(LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ID_NO_PLACEHOLDER, taskFile, ref));
         else
-        {
-            if (!"#{organization}".equals(recipientId))
-            {
-                out.add(new FhirTaskRecipientIdNoPlaceholderLintItem(taskFile, ref));
-            }
-            else
-            {
-                out.add(ok(taskFile, ref,
-                        "Task.restriction.recipient.identifier.value contains the '#{organization}' placeholder."));
-            }
-        }
+            out.add(ok(taskFile, ref, "Task.restriction.recipient.identifier.value contains '#{organization}' placeholder."));
     }
 
     private boolean instCanonDetermine(Document taskDoc, File taskFile) {
-        String instCanon = val(taskDoc,
-                TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
-        if (blank(instCanon))
-            return true;
-
+        String instCanon = val(taskDoc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
+        if (blank(instCanon)) return true;
         File projectRoot = determineProjectRoot(taskFile);
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(
-                instCanon, projectRoot);
-
-        // The missing ActivityDefinition error is already reported, no need to double-report
+        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(instCanon, projectRoot);
         return actFile == null;
     }
 
-
-    /* utils inside FhirTaskLinter ----------------------------------------- */
     private record SliceCard(int min, int max) {}
 
-    /**
-     * Loads the cardinality settings from the StructureDefinition for a given Task profile.
-     * Tries parsing as XML first; if that fails, falls back to converting JSON to XML.
-     *
-     * @param projectRoot the root folder of the FHIR definitions
-     * @param profileUrl  the canonical URL of the Task profile
-     * @return a map of slice names to their cardinality, or null if no SD file is found or an error occurs
-     */
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
         File sdFile = locator.findStructureDefinitionFile(profileUrl, projectRoot);
-        if (sdFile == null) {
-            return null;
-        }
-
+        if (sdFile == null) return null;
         try {
-            // parseXml, or if that fails parseJsonToXml
             Document sd;
-            try {
-                sd = FhirResourceParser.parseXml(sdFile.toPath());
-            } catch (Exception e) {
-                sd = FhirResourceParser.parseJsonToXml(sdFile.toPath());
-            }
+            try { sd = FhirResourceParser.parseXml(sdFile.toPath()); }
+            catch (Exception e) { sd = FhirResourceParser.parseJsonToXml(sdFile.toPath()); }
 
             Map<String, SliceCard> map = new HashMap<>();
-
-            // base element ----------------------------------------------------
-            String minBase = AbstractFhirInstanceLinter.extractSingleNodeValue(
-                    sd,
-                    "//*[local-name()='element' and @id='Task.input']/*[local-name()='min']/@value"
-            );
-            String maxBase = AbstractFhirInstanceLinter.extractSingleNodeValue(
-                    sd,
-                    "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value"
-            );
+            String minBase = AbstractFhirInstanceLinter.extractSingleNodeValue(sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='min']/@value");
+            String maxBase = AbstractFhirInstanceLinter.extractSingleNodeValue(sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value");
             int baseMin = (minBase != null) ? Integer.parseInt(minBase) : 0;
-            int baseMax = (maxBase == null || "*".equals(maxBase))
-                    ? Integer.MAX_VALUE
-                    : Integer.parseInt(maxBase);
+            int baseMax = (maxBase == null || "*".equals(maxBase)) ? Integer.MAX_VALUE : Integer.parseInt(maxBase);
             map.put("__BASE__", new SliceCard(baseMin, baseMax));
 
-            // direct slice roots ---------------------------------------------
             NodeList slices = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile(
-                            "//*[local-name()='element' and starts-with(@id,'Task.input:') " +
-                                    "and not(contains(@id,'.'))]"
-                    )
+                    .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') and not(contains(@id,'.'))]")
                     .evaluate(sd, XPathConstants.NODESET);
-
             for (int i = 0; i < slices.getLength(); i++) {
                 Node n = slices.item(i);
-                String sliceName = n.getAttributes()
-                        .getNamedItem("id")
-                        .getNodeValue()
-                        .substring("Task.input:".length());
-
-                String mi = AbstractFhirInstanceLinter.extractSingleNodeValue(
-                        n,
-                        "./*[local-name()='min']/@value"
-                );
-                String ma = AbstractFhirInstanceLinter.extractSingleNodeValue(
-                        n,
-                        "./*[local-name()='max']/@value"
-                );
+                String sliceName = n.getAttributes().getNamedItem("id").getNodeValue().substring("Task.input:".length());
+                String mi = AbstractFhirInstanceLinter.extractSingleNodeValue(n, "./*[local-name()='min']/@value");
+                String ma = AbstractFhirInstanceLinter.extractSingleNodeValue(n, "./*[local-name()='max']/@value");
                 int sMin = (mi != null) ? Integer.parseInt(mi) : 0;
                 int sMax = (ma == null || "*".equals(ma)) ? baseMax : Integer.parseInt(ma);
-
                 map.put(sliceName, new SliceCard(sMin, sMax));
             }
-
             return map;
-        } catch (Exception e) {
-            // fallback: profile could not be loaded or parsed
-            return null;
-        }
+        } catch (Exception e) { return null; }
     }
 
-    // helper to decide if correlation slice is allowed
     private boolean isCorrelationAllowed(Map<String, SliceCard> cards) {
-        if (cards == null)                // profile could not be loaded
-            return false;                 // fall back to old “forbidden” behaviour
-        SliceCard c = cards.get("correlation-key");   // slice code == correlation-key
-        return c != null && c.max() != 0;             // defined and max > 0 ⇒ allowed
+        if (cards == null) return false;
+        SliceCard c = cards.get("correlation-key");
+        return c != null && c.max() != 0;
     }
-
-
 }
