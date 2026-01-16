@@ -6,12 +6,24 @@
 
     <groupId>dev.dsf.utils.linter</groupId>
     <artifactId>dsf-linter</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
     <modules>
         <module>linter-core</module>
         <module>linter-cli</module>
     </modules>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <organization>
+        <name>Heilbronn University of Applied Sciences</name>
+    </organization>
 
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
