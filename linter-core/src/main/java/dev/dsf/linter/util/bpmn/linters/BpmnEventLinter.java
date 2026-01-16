@@ -91,7 +91,7 @@ public final class BpmnEventLinter {
                 "http://camunda.org/schema/1.0/bpmn",
                 "errorCodeVariable");
         if (isEmpty(errorCodeVariable)) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY,
                     elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(
