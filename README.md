@@ -206,7 +206,7 @@ mvn test
 ```bash
 # Start with debugger
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 \
-  -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
+  -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
   --path plugin.jar --html --verbose
 
 # Attach debugger to localhost:5005
@@ -283,7 +283,7 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 
 # Correct - Build first, then lint JAR
 cd /path/to/project && mvn clean package
-java -jar linter-cli/target/linter-cli-1.0-SNAPSHOT.jar \
+java -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
   --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
