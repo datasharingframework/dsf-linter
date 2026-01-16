@@ -115,7 +115,7 @@ public final class BpmnEndEventLinter {
         // 2. AsyncAfter check for SubProcess end events
         if (endEvent.getParentElement() instanceof SubProcess) {
             if (!endEvent.isCamundaAsyncAfter()) {
-                issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE,
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE,
                         elementId, bpmnFile, processId));
             } else {
                 issues.add(BpmnElementLintItem.success(

@@ -84,11 +84,11 @@ public final class BpmnIntermediateThrowEventLinter {
 
         if (msgDef.getMessage() != null) {
             String messageName = msgDef.getMessage().getName();
-            issues.add(new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
                     elementId, bpmnFile, processId,
                     "Message Intermediate Throw Event has a message with name: " + messageName));
         } else {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE,
                     elementId, bpmnFile, processId));
         }
 

@@ -95,6 +95,14 @@ public enum LintingType {
     BPMN_EXECUTION_LISTENER_CLASS_NOT_FOUND("Execution listener class not found."),
     BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener does not implement required interface."),
 
+    // ==================== BPMN PROCESS ====================
+    BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
+    BPMN_PROCESS_ID_EMPTY("Process ID is empty."),
+    BPMN_FILE_NO_PROCESS("BPMN file contains no process definition."),
+    BPMN_FILE_MULTIPLE_PROCESSES("BPMN file contains multiple process definitions, expected exactly one."),
+    BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING("Process historyTimeToLive is not set. DSF uses default 'P30D'. Best practice: set explicitly."),
+    BPMN_PROCESS_NOT_EXECUTABLE("Process is not executable. Set isExecutable='true' for the process to be deployable."),
+
     // ==================== BPMN GENERAL ====================
     BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
     BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL("PractitionerRole has no value or is null."),
@@ -113,6 +121,7 @@ public enum LintingType {
     MISSING_READ_ACCESS_TAG("Missing read access tag."),
 
     // ==================== FHIR ACTIVITY DEFINITION ====================
+    ACTIVITY_DEFINITION_INVALID_URL_PATTERN("ActivityDefinition URL does not match required pattern. Expected: http[s]://domain/bpe/Process/processName"),
     ACTIVITY_DEFINITION_ENTRY_INVALID_REQUESTER("ActivityDefinition entry has invalid requester."),
     ACTIVITY_DEFINITION_ENTRY_INVALID_RECIPIENT("ActivityDefinition entry has invalid recipient."),
     ACTIVITY_DEFINITION_ENTRY_MISSING_REQUESTER("ActivityDefinition entry is missing requester."),
@@ -135,6 +144,9 @@ public enum LintingType {
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_ABOVE_BASE_MIN("StructureDefinition slice min sum above base min."),
 
     // ==================== FHIR TASK ====================
+    FHIR_TASK_IDENTIFIER_INVALID_FORMAT("Task identifier with system 'http://dsf.dev/sid/task-identifier' has invalid format. Expected: {process-url}/{process-version}/{task-example-name}"),
+    FHIR_TASK_IDENTIFIER_INVALID_SYSTEM("Task identifier has invalid system. Expected: 'http://dsf.dev/sid/task-identifier'."),
+    FHIR_TASK_IDENTIFIER_MISSING_SYSTEM("Task identifier is missing system element."),
     FHIR_TASK_MISSING_INSTANTIATES_CANONICAL("Task is missing instantiatesCanonical."),
     FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER("Task requester organization does not use placeholder."),
     FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER("Task recipient organization does not use placeholder."),
@@ -226,7 +238,8 @@ public enum LintingType {
     PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION("Plugin definition is missing ServiceLoader registration."),
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
-    PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed.");
+    PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
+    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid.");
 
     private final String defaultMessage;
 

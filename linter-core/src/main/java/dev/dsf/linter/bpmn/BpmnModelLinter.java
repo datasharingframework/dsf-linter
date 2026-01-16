@@ -3,13 +3,11 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.*;
-import org.camunda.bpm.model.bpmn.instance.Process;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Main linter class for validating Camunda BPMN models against business logic and FHIR-related constraints.
@@ -26,6 +24,7 @@ import java.util.Objects;
  * This class delegates validation responsibilities to specialized linter components:
  * </p>
  * <ul>
+ *   <li>{@link BpmnProcessLinter} - Validates Process-level attributes (ID pattern, count, executable, historyTimeToLive)</li>
  *   <li>{@link BpmnTaskLinter} - Validates Service Tasks, User Tasks, Send Tasks, and Receive Tasks</li>
  *   <li>{@link BpmnEventLinter} - Validates Start Events, End Events, Intermediate Events, and Boundary Events</li>
  *   <li>{@link BpmnGatewayAndFlowLinter} - Validates Exclusive Gateways, Inclusive Gateways, Event-Based Gateways, and Sequence Flows</li>
@@ -36,6 +35,18 @@ import java.util.Objects;
  * <p>
  * The linter performs the following categories of checks:
  * </p>
+ *
+ * <h3>Process Validation (DSF-Specific)</h3>
+ * <p>
+ * Process-level validations are delegated to {@link BpmnProcessLinter} and include:
+ * </p>
+ * <ul>
+ *   <li><strong>Process ID Pattern</strong>: Validates that the process ID matches the DSF pattern
+ *       {@code domain_processname}</li>
+ *   <li><strong>Process Count</strong>: Validates that each BPMN file contains exactly one process definition</li>
+ *   <li><strong>History Time To Live</strong>: Warns if {@code camunda:historyTimeToLive} is not set</li>
+ *   <li><strong>Process Executable</strong>: Validates that the process has {@code isExecutable="true"}</li>
+ * </ul>
  *
  * <h3>Task Validation</h3>
  * <ul>
@@ -56,8 +67,7 @@ import java.util.Objects;
  *   <li><strong>Signal Events</strong>: Validates signal definitions and references</li>
  *   <li><strong>Conditional Events</strong>: Validates condition expressions</li>
  *   <li><strong>Error Boundary Events</strong>: Validates error references, error codes, error names,
- *       and {@code errorCodeVariable} assignments. Issues warnings for missing names and errors for
- *       missing critical error configuration</li>
+ *       and {@code errorCodeVariable} assignments</li>
  * </ul>
  *
  * <h3>Gateway and Flow Validation</h3>
@@ -66,29 +76,13 @@ import java.util.Objects;
  *       and conditions when multiple paths exist</li>
  *   <li><strong>Inclusive Gateways</strong>: Validates similar requirements as exclusive gateways</li>
  *   <li><strong>Event-Based Gateways</strong>: Validates proper configuration and outgoing flow setup</li>
- *   <li><strong>Sequence Flows</strong>: Validates naming and conditional expressions, particularly for
- *       non-default flows from splitting gateways</li>
+ *   <li><strong>Sequence Flows</strong>: Validates naming and conditional expressions</li>
  * </ul>
  *
  * <h3>SubProcess Validation</h3>
  * <ul>
  *   <li><strong>Multi-Instance SubProcesses</strong>: Validates that multi-instance subprocesses are
  *       configured with {@code asyncBefore} set to true for proper asynchronous execution</li>
- * </ul>
- *
- * <h3>FHIR-Specific Validation</h3>
- * <p>
- * For BPMN elements utilizing Camunda field injections (e.g., {@code <camunda:field>}), the following
- * FHIR-related validations are performed:
- * </p>
- * <ul>
- *   <li><strong>profile</strong>: Validates non-empty value, checks for version placeholders,
- *       and verifies existence in FHIR StructureDefinition resources</li>
- *   <li><strong>messageName</strong>: Validates non-empty value and performs cross-validation with
- *       the associated {@code profile} reference when applicable</li>
- *   <li><strong>instantiatesCanonical</strong>: Validates non-empty value, warns if version placeholder
- *       is missing, verifies existence in FHIR ActivityDefinition resources, and cross-validates with
- *       message name references</li>
  * </ul>
  *
  * <h2>Usage Example</h2>
@@ -113,14 +107,7 @@ import java.util.Objects;
  * if the same instance is used across multiple threads.
  * </p>
  *
- * <h2>References</h2>
- * <ul>
- *   <li><a href="https://www.omg.org/spec/BPMN/2.0">BPMN 2.0 Specification</a></li>
- *   <li><a href="https://docs.camunda.org/manual/latest/user-guide/process-engine/extension-elements/">Camunda Extension Elements</a></li>
- *   <li><a href="https://hl7.org/fhir/structuredefinition.html">FHIR StructureDefinition</a></li>
- *   <li><a href="https://hl7.org/fhir/activitydefinition.html">FHIR ActivityDefinition</a></li>
- * </ul>
- *
+ * @see BpmnProcessLinter
  * @see BpmnTaskLinter
  * @see BpmnEventLinter
  * @see BpmnGatewayAndFlowLinter
@@ -153,18 +140,14 @@ public record BpmnModelLinter(File projectRoot) {
      * Performs comprehensive validation of a BPMN model instance against business logic and FHIR-related constraints.
      *
      * <p>
-     * This method serves as the main entry point for model validation. It iterates through all flow elements
-     * in the provided BPMN model and delegates type-specific validation to specialized sub-linters. The method
-     * collects all validation issues and returns them as a list of {@link BpmnElementLintItem} objects, where
-     * each item represents a specific violation with details about its location, severity, and description.
+     * This method serves as the main entry point for model validation. It delegates process-level validation
+     * to {@link BpmnProcessLinter} and iterates through all flow elements in the provided BPMN model,
+     * dispatching type-specific validation to specialized sub-linters.
      * </p>
      *
      * <h3>Validation Process</h3>
-     * <p>
-     * The method performs the following steps:
-     * </p>
      * <ol>
-     *   <li>Extracts the process ID from the BPMN model for reference in lint items</li>
+     *   <li>Validates process-level attributes via {@link BpmnProcessLinter}</li>
      *   <li>Initializes specialized sub-linters for different element categories</li>
      *   <li>Iterates through all {@link FlowElement}s in the model</li>
      *   <li>Dispatches each element to the appropriate sub-linter based on its type</li>
@@ -172,9 +155,6 @@ public record BpmnModelLinter(File projectRoot) {
      * </ol>
      *
      * <h3>Validated Element Types</h3>
-     * <p>
-     * The following BPMN element types are validated:
-     * </p>
      * <ul>
      *   <li><strong>Tasks</strong>: {@link ServiceTask}, {@link UserTask}, {@link SendTask}, {@link ReceiveTask}</li>
      *   <li><strong>Events</strong>: {@link StartEvent}, {@link EndEvent}, {@link IntermediateThrowEvent},
@@ -184,143 +164,94 @@ public record BpmnModelLinter(File projectRoot) {
      *   <li><strong>Subprocesses</strong>: {@link SubProcess}</li>
      * </ul>
      *
-     * <h3>Validation Categories</h3>
-     * <p>
-     * Each element type is validated for:
-     * </p>
-     * <ul>
-     *   <li><strong>Naming</strong>: Ensures elements have non-empty, meaningful names</li>
-     *   <li><strong>Implementation</strong>: Verifies that implementation classes exist and implement required interfaces</li>
-     *   <li><strong>Configuration</strong>: Checks that required attributes and properties are properly configured</li>
-     *   <li><strong>FHIR Resources</strong>: Validates references to FHIR StructureDefinitions, ActivityDefinitions,
-     *       and Questionnaires</li>
-     *   <li><strong>Field Injections</strong>: Validates Camunda field injection values for message-related elements</li>
-     *   <li><strong>Expressions</strong>: Validates conditional expressions, timer expressions, and other dynamic content</li>
-     * </ul>
-     *
-     * <h3>Issue Severity Levels</h3>
-     * <p>
-     * Validation issues are categorized by severity:
-     * </p>
-     * <ul>
-     *   <li><strong>ERROR</strong>: Critical issues that will likely cause runtime failures or incorrect behavior</li>
-     *   <li><strong>WARNING</strong>: Non-critical issues that may indicate poor practices or potential problems</li>
-     *   <li><strong>INFO</strong>: Informational messages about the model structure or recommendations</li>
-     * </ul>
-     *
      * @param model    the BPMN model instance to validate; must not be {@code null}
      * @param bpmnFile the source BPMN file being validated; used for issue location reporting in lint items.
      *                 Must not be {@code null}
      * @return an immutable list of {@link BpmnElementLintItem} objects representing all validation issues found.
      * Returns an empty list if no issues are detected. Never returns {@code null}
+     * @see BpmnProcessLinter
      * @see BpmnTaskLinter
      * @see BpmnEventLinter
      * @see BpmnGatewayAndFlowLinter
      * @see BpmnSubProcessLinter
-     * @see BpmnElementLintItem
      */
-    public List<BpmnElementLintItem> lintModel(
-            BpmnModelInstance model,
-            File bpmnFile) {
-
+    public List<BpmnElementLintItem> lintModel(BpmnModelInstance model, File bpmnFile) {
         List<BpmnElementLintItem> issues = new ArrayList<>();
         Collection<FlowElement> flowElements = model.getModelElementsByType(FlowElement.class);
 
-        // The processId is now extracted internally, simplifying the method call.
-        String processId = extractProcessId(model);
-
-        // Initialize sub-linters with the project root
+        // Initialize sub-linters
+        BpmnProcessLinter processLinter = new BpmnProcessLinter(projectRoot);
         BpmnTaskLinter taskLinter = new BpmnTaskLinter(projectRoot);
         BpmnEventLinter eventLinter = new BpmnEventLinter(projectRoot);
         BpmnGatewayAndFlowLinter gatewayAndFlowLinter = new BpmnGatewayAndFlowLinter(projectRoot);
         BpmnSubProcessLinter subProcessLinter = new BpmnSubProcessLinter(projectRoot);
 
+        // Validate process-level attributes and extract process ID
+        String processId = processLinter.lintProcesses(model, bpmnFile, issues);
+
+        // Validate flow elements
         for (FlowElement element : flowElements) {
-            // --- SERVICE TASK ---
-            if (element instanceof ServiceTask serviceTask) {
-                taskLinter.lintServiceTask(serviceTask, issues, bpmnFile, processId);
-            }
-            // --- START EVENT ---
-            else if (element instanceof StartEvent startEvent) {
-                eventLinter.lintStartEvent(startEvent, issues, bpmnFile, processId);
-            }
-            // --- INTERMEDIATE THROW EVENT ---
-            else if (element instanceof IntermediateThrowEvent throwEvent) {
-                eventLinter.lintIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
-            }
-            // --- END EVENT ---
-            else if (element instanceof EndEvent endEvent) {
-                eventLinter.lintEndEvent(endEvent, issues, bpmnFile, processId);
-            }
-            // --- INTERMEDIATE CATCH EVENT ---
-            else if (element instanceof IntermediateCatchEvent catchEvent) {
-                eventLinter.lintIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
-            }
-            // --- BOUNDARY EVENT ---
-            else if (element instanceof BoundaryEvent boundaryEvent) {
-                eventLinter.lintBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
-            }
-            // --- EXCLUSIVE GATEWAY ---
-            else if (element instanceof ExclusiveGateway exclusiveGateway) {
-                gatewayAndFlowLinter.lintExclusiveGateway(exclusiveGateway, issues, bpmnFile, processId);
-            }
-            // --- INCLUSIVE GATEWAY ---
-            else if (element instanceof InclusiveGateway inclusiveGateway) {
-                gatewayAndFlowLinter.lintInclusiveGateway(inclusiveGateway, issues, bpmnFile, processId);
-            }
-            // --- SEQUENCE FLOW ---
-            else if (element instanceof SequenceFlow sequenceFlow) {
-                gatewayAndFlowLinter.lintSequenceFlow(sequenceFlow, issues, bpmnFile, processId);
-            }
-            // --- USER TASK ---
-            else if (element instanceof UserTask userTask) {
-                taskLinter.lintUserTask(userTask, issues, bpmnFile, processId);
-            }
-            // --- SEND TASK ---
-            else if (element instanceof SendTask sendTask) {
-                taskLinter.lintSendTask(sendTask, issues, bpmnFile, processId);
-            }
-            // --- RECEIVE TASK ---
-            else if (element instanceof ReceiveTask receiveTask) {
-                taskLinter.lintReceiveTask(receiveTask, issues, bpmnFile, processId);
-            }
-            // --- SUB PROCESS ---
-            else if (element instanceof SubProcess subProcess) {
-                subProcessLinter.lintSubProcess(subProcess, issues, bpmnFile, processId);
-            }
-            // --- EVENT-BASED GATEWAY ---
-            else if (element instanceof EventBasedGateway gateway) {
-                gatewayAndFlowLinter.lintEventBasedGateway(gateway, issues, bpmnFile, processId);
-            }
+            lintFlowElement(element, issues, bpmnFile, processId,
+                    taskLinter, eventLinter, gatewayAndFlowLinter, subProcessLinter);
         }
+
         return issues;
     }
 
     /**
-     * Extracts the process ID from the first process definition found in the BPMN model.
+     * Dispatches a flow element to the appropriate sub-linter based on its type.
      *
-     * <p>
-     * This method searches the BPMN model for {@link Process} elements and returns the ID of the first
-     * process found. The process ID is used throughout the linting process for issue identification and
-     * reporting. If the model contains multiple process definitions, only the first one is considered.
-     * </p>
-     *
-     * <p>
-     * This is a utility method that simplifies process identification and ensures consistent process
-     * ID extraction across all validation operations.
-     * </p>
-     *
-     * @param model the BPMN model instance to extract the process ID from; must not be {@code null}
-     * @return the process ID as a {@link String}, or an empty string if no process is found or if
-     * the process ID is {@code null}. Never returns {@code null}
+     * @param element             the flow element to validate
+     * @param issues              the list to add validation issues to
+     * @param bpmnFile            the source BPMN file
+     * @param processId           the process ID for reference
+     * @param taskLinter          the task linter instance
+     * @param eventLinter         the event linter instance
+     * @param gatewayAndFlowLinter the gateway and flow linter instance
+     * @param subProcessLinter    the subprocess linter instance
      */
-    private String extractProcessId(BpmnModelInstance model) {
-        return model.getModelElementsByType(Process.class)
-                .stream()
-                .map(Process::getId)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse("");
+    private void lintFlowElement(
+            FlowElement element,
+            List<BpmnElementLintItem> issues,
+            File bpmnFile,
+            String processId,
+            BpmnTaskLinter taskLinter,
+            BpmnEventLinter eventLinter,
+            BpmnGatewayAndFlowLinter gatewayAndFlowLinter,
+            BpmnSubProcessLinter subProcessLinter) {
+
+        switch (element) {
+            case ServiceTask serviceTask ->
+                taskLinter.lintServiceTask(serviceTask, issues, bpmnFile, processId);
+            case StartEvent startEvent ->
+                eventLinter.lintStartEvent(startEvent, issues, bpmnFile, processId);
+            case IntermediateThrowEvent throwEvent ->
+                eventLinter.lintIntermediateThrowEvent(throwEvent, issues, bpmnFile, processId);
+            case EndEvent endEvent ->
+                eventLinter.lintEndEvent(endEvent, issues, bpmnFile, processId);
+            case IntermediateCatchEvent catchEvent ->
+                eventLinter.lintIntermediateCatchEvent(catchEvent, issues, bpmnFile, processId);
+            case BoundaryEvent boundaryEvent ->
+                eventLinter.lintBoundaryEvent(boundaryEvent, issues, bpmnFile, processId);
+            case ExclusiveGateway exclusiveGateway ->
+                gatewayAndFlowLinter.lintExclusiveGateway(exclusiveGateway, issues, bpmnFile, processId);
+            case InclusiveGateway inclusiveGateway ->
+                gatewayAndFlowLinter.lintInclusiveGateway(inclusiveGateway, issues, bpmnFile, processId);
+            case SequenceFlow sequenceFlow ->
+                gatewayAndFlowLinter.lintSequenceFlow(sequenceFlow, issues, bpmnFile, processId);
+            case UserTask userTask ->
+                taskLinter.lintUserTask(userTask, issues, bpmnFile, processId);
+            case SendTask sendTask ->
+                taskLinter.lintSendTask(sendTask, issues, bpmnFile, processId);
+            case ReceiveTask receiveTask ->
+                taskLinter.lintReceiveTask(receiveTask, issues, bpmnFile, processId);
+            case SubProcess subProcess ->
+                subProcessLinter.lintSubProcess(subProcess, issues, bpmnFile, processId);
+            case EventBasedGateway gateway ->
+                gatewayAndFlowLinter.lintEventBasedGateway(gateway, issues, bpmnFile, processId);
+            default -> {
+                // Element type not specifically handled
+            }
+        }
     }
 }
-

@@ -13,6 +13,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Linter for FHIR {@code ActivityDefinition} resources.
@@ -89,6 +90,24 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
 
     private static final String EXPECTED_PROFILE = "http://dsf.dev/fhir/StructureDefinition/activity-definition";
 
+    /**
+     * Pattern for validating ActivityDefinition URL format.
+     * <p>
+     * According to DSF Framework, the URL must follow the pattern:
+     * {@code http[s]://domain/bpe/Process/processName}
+     * <p>
+     * Example: {@code http://dsf.dev/bpe/Process/test}
+     * <p>
+     * Pattern definition:
+     * {@code ^http[s]{0,1}://(?<domain>(?:(?:[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\\.)+(?:[a-zA-Z0-9]{1,63}))/bpe/Process/(?<processName>[a-zA-Z0-9-]+)$}
+     *
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
+     */
+    private static final String ACTIVITY_DEFINITION_URL_PATTERN_STRING =
+            "^http[s]{0,1}://(?<domain>(?:(?:[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\\.)+(?:[a-zA-Z0-9]{1,63}))"
+                    + "/bpe/Process/(?<processName>[a-zA-Z0-9-]+)$";
+    private static final Pattern ACTIVITY_DEFINITION_URL_PATTERN =
+            Pattern.compile(ACTIVITY_DEFINITION_URL_PATTERN_STRING);
 
     @Override
     public boolean canLint(Document document)
@@ -107,7 +126,22 @@ public final class FhirActivityDefinitionLinter extends AbstractFhirInstanceLint
             issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.INVALID_FHIR_URL,
                     resourceFile, null, "ActivityDefinition is missing <url> or it is empty."));
         else
+        {
             issues.add(ok(resourceFile, resourceUrl, "Found <url>: '" + resourceUrl + "'."));
+
+            /* (1a) URL Pattern Validation */
+            if (!ACTIVITY_DEFINITION_URL_PATTERN.matcher(resourceUrl).matches())
+            {
+                issues.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.ACTIVITY_DEFINITION_INVALID_URL_PATTERN,
+                        resourceFile, resourceUrl, "ActivityDefinition URL does not match required pattern. " +
+                        "Expected format: http[s]://domain/bpe/Process/processName (e.g., http://dsf.dev/bpe/Process/test). " +
+                        "Found: '" + resourceUrl + "'"));
+            }
+            else
+            {
+                issues.add(ok(resourceFile, resourceUrl, "ActivityDefinition URL pattern is valid."));
+            }
+        }
 
         /* (2) <status> must be "unknown"  */
         final String statusVal = val(doc, STATUS_XP);

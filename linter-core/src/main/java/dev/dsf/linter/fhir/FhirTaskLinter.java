@@ -179,7 +179,26 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
     private static final String CODING_CODE_XP = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
     private static final String SYSTEM_BPMN_MSG = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
     private static final String SYSTEM_ORG_ID = "http://dsf.dev/sid/organization-identifier";
+    private static final String TASK_IDENTIFIER_SID = "http://dsf.dev/sid/task-identifier";
     private static final Set<String> STATUSES_NEED_BIZKEY = Set.of("in-progress", "completed", "failed");
+
+    /**
+     * Pattern for validating Task Identifier format.
+     * <p>
+     * According to DSF NamingSystem definition, the identifier value must be in the form:
+     * {@code {process-url}/{process-version}/{task-example-name}}
+     * <p>
+     * Example: {@code http://test.org/bpe/Process/someProcessName/1.0/someExampleName}
+     * <p>
+     * The pattern accepts both actual version numbers ({@code /\d+\.\d+/}) and placeholders
+     * ({@code /#{version}/}) for development-time validation.
+     *
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
+     */
+    private static final String TASK_IDENTIFIER_PATTERN_STRING =
+            "^https?://[^/]+/bpe/Process/[a-zA-Z0-9-]+/(?:\\d+\\.\\d+|#\\{version\\})/.+$";
+    private static final java.util.regex.Pattern TASK_IDENTIFIER_PATTERN =
+            java.util.regex.Pattern.compile(TASK_IDENTIFIER_PATTERN_STRING);
 
     @Override
     public boolean canLint(Document d) {
@@ -193,6 +212,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
 
         checkMetaAndBasic(doc, resFile, ref, issues);
         checkPlaceholders(doc, resFile, ref, issues);
+        lintTaskIdentifier(doc, resFile, ref, issues);
         lintInputs(doc, resFile, ref, issues);
         lintTerminology(doc, resFile, ref, issues);
         lintRequesterAuthorization(doc, resFile, ref, issues);
@@ -290,6 +310,64 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                     "restriction.recipient.identifier.value must contain '#{organization}'."));
         else
             out.add(ok(f, ref, "restriction.recipient.identifier.value placeholder OK."));
+    }
+
+    /**
+     * Validates Task identifier with system 'http://dsf.dev/sid/task-identifier'.
+     *
+     * <p>
+     * According to DSF NamingSystem definition, the identifier value must be in the form:
+     * {@code {process-url}/{process-version}/{task-example-name}}
+     * e.g., {@code http://test.org/bpe/Process/someProcessName/1.0/someExampleName}
+     * </p>
+     *
+     * <p>
+     * Additionally validates that the identifier system is correctly set to
+     * {@code http://dsf.dev/sid/task-identifier}.
+     * </p>
+     *
+     * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
+     */
+    private void lintTaskIdentifier(Document doc, File f, String ref, List<FhirElementLintItem> out) {
+        NodeList identifiers = xp(doc, TASK_XP + "/*[local-name()='identifier']");
+        if (identifiers == null || identifiers.getLength() == 0) {
+            return; // No identifiers present, nothing to validate
+        }
+
+        for (int i = 0; i < identifiers.getLength(); i++) {
+            Node identifier = identifiers.item(i);
+            String system = val(identifier, "./*[local-name()='system']/@value");
+            String value = val(identifier, "./*[local-name()='value']/@value");
+
+            // Check if system is missing or empty
+            if (blank(system)) {
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_MISSING_SYSTEM, f, ref,
+                        "Task identifier is missing system element. Expected system: '" + TASK_IDENTIFIER_SID + "'"));
+                continue;
+            }
+
+            // Check if system matches the expected DSF task identifier SID
+            if (TASK_IDENTIFIER_SID.equals(system)) {
+                out.add(ok(f, ref, "Task identifier system is correct: " + system));
+
+                // Validate the identifier value format
+                if (blank(value)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_FORMAT, f, ref,
+                            "Task identifier with system '" + TASK_IDENTIFIER_SID + "' has empty value."));
+                } else if (!TASK_IDENTIFIER_PATTERN.matcher(value).matches()) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_FORMAT, f, ref,
+                            String.format("Task identifier value '%s' does not match required format: " +
+                                    "{process-url}/{process-version}/{task-example-name} " +
+                                    "(e.g., http://test.org/bpe/Process/someProcessName/1.0/someExampleName)", value)));
+                } else {
+                    out.add(ok(f, ref, "Task identifier format is valid: " + value));
+                }
+            } else {
+                // System is set but does not match expected DSF task identifier SID
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_IDENTIFIER_INVALID_SYSTEM, f, ref,
+                        String.format("Task identifier has invalid system '%s'. Expected: '%s'", system, TASK_IDENTIFIER_SID)));
+            }
+        }
     }
 
     private void lintInputs(Document doc, File f, String ref, List<FhirElementLintItem> out) {
