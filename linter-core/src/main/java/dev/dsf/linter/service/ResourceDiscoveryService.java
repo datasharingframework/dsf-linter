@@ -148,7 +148,8 @@ public class ResourceDiscoveryService {
                     No ProcessPluginDefinition implementations found
                     Possible causes:
                       - The project is not set up correctly as a DSF Process Plugin project
-                      - The JAR file does not contain META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition
+                      - The JAR file does not contain META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)
+                        or META-INF/services/dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)
                       - Build the Maven project first: mvn clean package
                       - Then lint the resulting JAR file from target/ directory
                       If it still doesn't work, please report the issue on GitHub.""");
