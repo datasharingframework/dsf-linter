@@ -11,11 +11,11 @@ For more information, see the [DSF Linter Tool documentation](https://dsf.dev/pr
 mvn clean package
 
 # Run on local JAR file
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path your-plugin.jar --html
 
 # Run on remote JAR file
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 
 # View report at: /tmp/dsf-linter-report-<name>/dsf-linter-report/index.html
@@ -55,11 +55,11 @@ Expected structure in the JAR file:
 
 ```bash
 # Local JAR file
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path C:\path\to\plugin.jar --html
 
 # Remote JAR file
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 ```
 
@@ -67,11 +67,11 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 
 ```bash
 # Multiple reports with custom path
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --json --report-path ./reports
 
 # Verbose output (colors enabled by default, use --no-color to disable)
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --verbose
 
 # Lint Maven project
@@ -79,7 +79,7 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 cd /path/to/project && mvn clean package
 
 # Step 2: Lint resulting JAR
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
@@ -87,16 +87,16 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 
 ```bash
 # GitHub Actions / GitLab CI
-FORCE_COLOR=1 java -jar linter-cli/target/linter-cli-0.1.0.jar \
+FORCE_COLOR=1 java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --json --verbose
 
 # Jenkins (fail on errors)
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html
 # Exit code: 0 = success, 1 = errors
 
 # Don't fail build (gradual adoption)
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --no-fail
 ```
 
@@ -165,7 +165,7 @@ dsf-linter/
 ## Development
 
 **Requirements:**
-- Java 17+
+- Java 17+ (Java 25+ required for API Version 2 validation)
 - Maven 3.6+
 
 **IDE Setup:**
@@ -191,7 +191,7 @@ vim linter-core/src/main/java/dev/dsf/linter/service/BpmnLintingService.java
 mvn clean package -DskipTests
 
 # 3. Test
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path test-plugin.jar --html --verbose
 
 # 4. Check report
@@ -206,7 +206,7 @@ mvn test
 ```bash
 # Start with debugger
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 \
-  -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
+  -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --verbose
 
 # Attach debugger to localhost:5005
@@ -278,12 +278,12 @@ The linter accepts only JAR files as input:
 
 ```bash
 # Wrong - Maven project directly
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path /path/to/project --html
 
 # Correct - Build first, then lint JAR
 cd /path/to/project && mvn clean package
-java -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
@@ -292,11 +292,11 @@ java -jar linter-cli/target/linter-cli-0.1.0-BETA.jar \
 Verify the path:
 ```bash
 # Windows
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path "C:\Users\Username\project\target\plugin.jar" --html
 
 # Linux/Mac
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path /home/username/project/target/plugin.jar --html
 ```
 
@@ -307,7 +307,7 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 ls ~/.m2/settings.xml
 
 # Use verbose mode
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --verbose
 ```
 
@@ -315,11 +315,11 @@ java -jar linter-cli/target/linter-cli-0.1.0.jar \
 
 ```bash
 # --html flag must be set
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html  # ← Required
 
 # Use absolute path
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path plugin.jar --html --report-path $(pwd)/reports
 ```
 
@@ -331,7 +331,7 @@ Check the URL and network connection:
 curl -L -o test.jar https://example.com/plugin.jar
 
 # Then use the local file
-java -jar linter-cli/target/linter-cli-0.1.0.jar \
+java -jar linter-cli/target/linter-cli-0.1.1.jar \
   --path test.jar --html
 ```
 
