@@ -6,19 +6,33 @@ For more information, see the [DSF Linter Tool documentation](https://dsf.dev/pr
 
 ## Quick Start
 
-```bash
-# Build
-mvn clean package
+### Option A: Download pre-built JAR (recommended)
 
+Download the latest `linter-cli-<version>.jar` from the [Releases page](https://github.com/datasharingframework/dsf-linter/releases) and run it directly — **no build step required**.
+
+```bash
 # Run on local JAR file
-java -jar linter-cli/target/linter-cli-0.1.1.jar \
-  --path your-plugin.jar --html
+java -jar linter-cli-0.1.1.jar --path your-plugin.jar --html
 
 # Run on remote JAR file
-java -jar linter-cli/target/linter-cli-0.1.1.jar \
+java -jar linter-cli-0.1.1.jar \
   --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 
 # View report at: /tmp/dsf-linter-report-<name>/dsf-linter-report/index.html
+```
+
+### Option B: Build from source
+
+Only necessary if you want to modify or develop the linter itself (requires Java 17+ and Maven 3.6+).
+
+```bash
+# Clone and build inside the dsf-linter project root
+git clone https://github.com/datasharingframework/dsf-linter.git
+cd dsf-linter
+mvn clean package
+
+# Then run the freshly built JAR
+java -jar linter-cli/target/linter-cli-0.1.1.jar --path your-plugin.jar --html
 ```
 
 ## Build
