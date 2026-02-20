@@ -317,7 +317,7 @@ public class BpmnFieldInjectionLinter {
                 issues.add(new BpmnElementLintItem(
                         LinterSeverity.ERROR, LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL,
                         elementId, bpmnFile, processId,
-                        "Field injection '" + fieldName + "' is provided as expression, expected string literal"));
+                        "Field injection '" + fieldName + "' is provided as expression, expected string literal")); //todo in api v2 is allowed
                 continue;
             }
 
