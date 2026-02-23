@@ -174,6 +174,9 @@
                                     <include>dev.dsf:dsf-bpe-process-api-v2</include>
                                     <include>org.camunda.bpm:camunda-engine</include>
                                     <include>ca.uhn.hapi.fhir:hapi-fhir-base</include>
+                                    <include>org.springframework:spring-beans</include>
+                                    <include>org.springframework:spring-core</include>
+                                    <include>org.springframework:spring-jcl</include>
                                 </includes>
                             </artifactSet>
                         </configuration>

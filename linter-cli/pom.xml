@@ -22,7 +22,7 @@
         <dependency>
             <groupId>dev.dsf.utils.linter</groupId>
             <artifactId>linter-core</artifactId>
-            <version>0.1.0</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
