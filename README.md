@@ -23,7 +23,7 @@ java -jar linter-cli-0.1.2.jar \
 
 ### Option B: Build from source
 
-Only necessary if you want to modify or develop the linter itself (requires Java 17+ and Maven 3.6+).
+Only necessary if you want to modify or develop the linter itself.
 
 ```bash
 # Clone and build inside the dsf-linter project root
@@ -179,12 +179,12 @@ dsf-linter/
 ## Development
 
 **Requirements:**
-- Java 17+ (Java 25+ required for API Version 2 validation)
+- Java 25+
 - Maven 3.6+
 
 **IDE Setup:**
 - Import as Maven project
-- Set JDK to 17+
+- Set JDK to 25+
 
 ### Testing
 
