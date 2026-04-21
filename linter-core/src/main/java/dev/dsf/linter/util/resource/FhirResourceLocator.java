@@ -39,6 +39,7 @@ public final class FhirResourceLocator {
     private static final String ACTIVITY_DEFINITION_DIR = "fhir/ActivityDefinition";
     private static final String STRUCTURE_DEFINITION_DIR = "fhir/StructureDefinition";
     private static final String QUESTIONNAIRE_DIR = "fhir/Questionnaire";
+    private static final String VALUE_SET_DIR = "fhir/ValueSet";
 
     private final ResourceProvider<FhirResourceEntry> provider;
     private final FhirResourceExtractor extractor;
@@ -198,6 +199,24 @@ public final class FhirResourceLocator {
     }
 
     /**
+     * Checks if a ValueSet exists for the given canonical URL.
+     * <p>
+     * Automatically removes version suffixes from the URL before searching.
+     * </p>
+     *
+     * @param url the canonical URL of the ValueSet to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
+     * @return true if a ValueSet with the specified URL exists
+     */
+    public boolean valueSetExists(String url, File projectRoot) {
+        String base = ResourcePathNormalizer.removeVersionSuffix(url);
+        return searchInDirectories(
+                entry -> checkValueSetForUrl(entry, base),
+                VALUE_SET_DIR
+        );
+    }
+
+    /**
      * Checks if any ActivityDefinition has the specified message name.
      *
      * @param message the message name to search for
@@ -318,6 +337,17 @@ public final class FhirResourceLocator {
                 doc -> {
                     try {
                         return extractor.questionnaireContainsUrl(doc, url);
+                    } catch (XPathExpressionException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private boolean checkValueSetForUrl(FhirResourceEntry entry, String url) {
+        return checkFhirResource(entry, "ValueSet",
+                doc -> {
+                    try {
+                        return extractor.valueSetContainsUrl(doc, url);
                     } catch (XPathExpressionException e) {
                         throw new RuntimeException(e);
                     }
