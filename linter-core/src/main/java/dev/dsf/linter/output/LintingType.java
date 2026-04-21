@@ -142,6 +142,11 @@ public enum LintingType {
     STRUCTURE_DEFINITION_SLICE_MAX_TOO_HIGH("StructureDefinition slice max exceeds base max."),
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_EXCEEDS_MAX("StructureDefinition slice min sum exceeds max."),
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_ABOVE_BASE_MIN("StructureDefinition slice min sum above base min."),
+    STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED("StructureDefinition binding.valueSet (strength=required) references unknown ValueSet."),
+    STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED_NON_REQUIRED("StructureDefinition binding.valueSet references unknown ValueSet."),
+    STRUCTURE_DEFINITION_FIXED_URI_CODESYSTEM_NOT_FOUND("StructureDefinition fixedUri not found in project; fixedCode validation is skipped."),
+    STRUCTURE_DEFINITION_FIXED_CODE_NOT_IN_CODESYSTEM("StructureDefinition fixedCode is not a known code in the referenced CodeSystem."),
+
 
     // ==================== FHIR TASK ====================
     FHIR_TASK_IDENTIFIER_INVALID_FORMAT("Task identifier with system 'http://dsf.dev/sid/task-identifier' has invalid format. Expected: {process-url}/{process-version}/{task-example-name}"),
@@ -182,6 +187,9 @@ public enum LintingType {
     FHIR_TASK_REQUESTER_ID_NO_PLACEHOLDER("Task requester ID missing placeholder."),
     FHIR_TASK_RECIPIENT_ID_NOT_EXIST("Task recipient ID does not exist."),
     FHIR_TASK_RECIPIENT_ID_NO_PLACEHOLDER("Task recipient ID missing placeholder."),
+    FHIR_TASK_INPUT_FIXED_URI_MISMATCH("Task input coding.system does not match fixedUri from StructureDefinition."),
+    FHIR_TASK_INPUT_FIXED_CODE_MISMATCH("Task input coding.code does not match fixedCode from StructureDefinition."),
+    FHIR_TASK_INPUT_PAIR_NOT_ALLOWED_BY_SD("Task input (system, code) pair is not defined by any fixedUri/fixedCode constraint in the StructureDefinition."),
 
     // ==================== FHIR VALUE SET ====================
     FHIR_VALUE_SET_MISSING_URL("ValueSet is missing URL."),
