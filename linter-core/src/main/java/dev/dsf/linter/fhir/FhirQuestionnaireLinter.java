@@ -174,7 +174,7 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
                 file, ref, "Questionnaire version must be '#{version}'.", "version placeholder present", out);
 
         checkPlaceholder(doc, Q_XP + "/*[local-name()='date']/@value", "#{date}",
-                true, false, LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
+                true, false, LinterSeverity.WARN, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
                 file, ref, "Questionnaire date must be '#{date}'.", "date placeholder present", out);
     }
 
