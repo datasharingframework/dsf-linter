@@ -239,7 +239,12 @@ public enum LintingType {
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
     PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
-    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid.");
+    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid."),
+
+    // ==================== PLUGIN DEFINITION - SPRING CONFIGURATIONS ====================
+    PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING(
+            "A BPMN-referenced delegate or listener class is not provided as a @Bean "
+                    + "in any @Configuration class returned by getSpringConfigurations().");
 
     private final String defaultMessage;
 
