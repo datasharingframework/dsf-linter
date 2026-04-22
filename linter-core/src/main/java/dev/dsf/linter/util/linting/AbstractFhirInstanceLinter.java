@@ -1,5 +1,7 @@
 package dev.dsf.linter.util.linting;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.FhirElementLintItem;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -177,6 +179,47 @@ public abstract class AbstractFhirInstanceLinter
     {
         String ref = val(document, referenceXPath);
         return !blank(ref) ? ref : file.getName();
+    }
+
+    /**
+     * Applies a reusable placeholder validation rule.
+     *
+     * @param document XML document to inspect
+     * @param valueXPath XPath expression resolving the value to validate
+     * @param expectedPlaceholder expected placeholder token
+     * @param requirePresence if true, missing values are reported as issue
+     * @param containsMatch if true, value must contain placeholder; otherwise exact match is required
+     * @param severity lint severity used on validation failure
+     * @param lintingType linting type used on validation failure
+     * @param file source file used for reporting
+     * @param ref resource reference used for reporting
+     * @param errorMessage message used on validation failure
+     * @param successMessage message used on validation success
+     * @param out target list for lint items
+     */
+    protected void checkPlaceholder(Document document,
+                                    String valueXPath,
+                                    String expectedPlaceholder,
+                                    boolean requirePresence,
+                                    boolean containsMatch,
+                                    LinterSeverity severity,
+                                    LintingType lintingType,
+                                    File file,
+                                    String ref,
+                                    String errorMessage,
+                                    String successMessage,
+                                    List<FhirElementLintItem> out)
+    {
+        String value = val(document, valueXPath);
+        boolean missing = (value == null);
+        boolean matches = !missing && (containsMatch
+                ? value.contains(expectedPlaceholder)
+                : expectedPlaceholder.equals(value));
+
+        if ((requirePresence && missing) || (!missing && !matches))
+            out.add(new FhirElementLintItem(severity, lintingType, file, ref, errorMessage));
+        else
+            out.add(ok(file, ref, successMessage));
     }
 
     /**

@@ -187,19 +187,13 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
      */
     private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out)
     {
-        String version = val(doc, CS_XP + "/*[local-name()='version']/@value");
-        if (version != null && !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
-                    f, ref, "<version> must contain '#{version}'"));
-        else
-            out.add(ok(f, ref, "<version> placeholder OK"));
+        checkPlaceholder(doc, CS_XP + "/*[local-name()='version']/@value", "#{version}",
+                false, false, LinterSeverity.ERROR, LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
+                f, ref, "<version> must contain '#{version}'", "<version> placeholder OK", out);
 
-        String date = val(doc, CS_XP + "/*[local-name()='date']/@value");
-        if (date != null && !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
-                    f, ref, "<date> must contain '#{date}'"));
-        else
-            out.add(ok(f, ref, "<date> placeholder OK"));
+        checkPlaceholder(doc, CS_XP + "/*[local-name()='date']/@value", "#{date}",
+                false, false, LinterSeverity.WARN, LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
+                f, ref, "<date> must contain '#{date}'", "<date> placeholder OK", out);
     }
 
     /*

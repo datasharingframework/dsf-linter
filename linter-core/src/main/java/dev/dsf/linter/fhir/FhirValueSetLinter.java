@@ -354,21 +354,13 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
                                    String ref,
                                    List<FhirElementLintItem> out)
     {
-        // version → #{version}
-        String version = val(doc, VS_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
-                    res, ref, "<version> must contain '#{version}'."));
-        else
-            out.add(ok(res, ref, "version placeholder OK." ));
+        checkPlaceholder(doc, VS_XP + "/*[local-name()='version']/@value", "#{version}",
+                true, false, LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
+                res, ref, "<version> must contain '#{version}'.", "version placeholder OK.", out);
 
-        // date → #{date}
-        String date = val(doc, VS_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
-                    res, ref, "<date> must contain '#{date}'."));
-        else
-            out.add(ok(res, ref, "date placeholder OK."));
+        checkPlaceholder(doc, VS_XP + "/*[local-name()='date']/@value", "#{date}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
+                res, ref, "<date> must contain '#{date}'.", "date placeholder OK.", out);
     }
 
     /*  3) Compose/include  */

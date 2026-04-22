@@ -216,19 +216,15 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
                                    String ref,
                                    List<FhirElementLintItem> out)
     {
-        /* version */
         String version = val(doc, SD_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER, file, ref, "Version does not use placeholder: " + version));
-        else
-            out.add(ok(file, ref, "version placeholder present"));
+        checkPlaceholder(doc, SD_XP + "/*[local-name()='version']/@value", "#{version}",
+                true, false, LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER,
+                file, ref, "Version does not use placeholder: " + version, "version placeholder present", out);
 
-        /* date */
         String date = val(doc, SD_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER, file, ref, "Date does not use placeholder: " + date));
-        else
-            out.add(ok(file, ref, "date placeholder present"));
+        checkPlaceholder(doc, SD_XP + "/*[local-name()='date']/@value", "#{date}",
+                true, false, LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER,
+                file, ref, "Date does not use placeholder: " + date, "date placeholder present", out);
     }
 
     /*  CHECK 3: DIFF / SNAPSHOT / IDs  */

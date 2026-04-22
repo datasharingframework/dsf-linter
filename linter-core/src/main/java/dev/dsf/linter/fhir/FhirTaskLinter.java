@@ -290,26 +290,17 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
     }
 
     private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
-        if (authoredOn != null && !authoredOn.contains("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER, f, ref,
-                    "<authoredOn> must contain '#{date}'."));
-        else
-            out.add(ok(f, ref, "<authoredOn> placeholder OK."));
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='authoredOn']/@value", "#{date}",
+                false, true, LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER,
+                f, ref, "<authoredOn> must contain '#{date}'.", "<authoredOn> placeholder OK.", out);
 
-        String reqIdVal = val(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value");
-        if (reqIdVal == null || !reqIdVal.equals("#{organization}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER, f, ref,
-                    "requester.identifier.value must contain '#{organization}'."));
-        else
-            out.add(ok(f, ref, "requester.identifier.value placeholder OK."));
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
+                f, ref, "requester.identifier.value must contain '#{organization}'.", "requester.identifier.value placeholder OK.", out);
 
-        String recIdVal = val(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value");
-        if (recIdVal == null || !recIdVal.equals("#{organization}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER, f, ref,
-                    "restriction.recipient.identifier.value must contain '#{organization}'."));
-        else
-            out.add(ok(f, ref, "restriction.recipient.identifier.value placeholder OK."));
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER,
+                f, ref, "restriction.recipient.identifier.value must contain '#{organization}'.", "restriction.recipient.identifier.value placeholder OK.", out);
     }
 
     /**

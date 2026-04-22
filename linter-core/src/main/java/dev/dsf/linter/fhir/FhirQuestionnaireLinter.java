@@ -169,19 +169,13 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     private void checkPlaceholders(Document doc, File file, String ref,
                                    List<FhirElementLintItem> out)
     {
-        String version = val(doc, Q_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
-                    file, ref, "Questionnaire version must be '#{version}'."));
-        else
-            out.add(ok(file, ref, "version placeholder present"));
+        checkPlaceholder(doc, Q_XP + "/*[local-name()='version']/@value", "#{version}",
+                true, false, LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
+                file, ref, "Questionnaire version must be '#{version}'.", "version placeholder present", out);
 
-        String date = val(doc, Q_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
-                    file, ref, "Questionnaire date must be '#{date}'."));
-        else
-            out.add(ok(file, ref, "date placeholder present"));
+        checkPlaceholder(doc, Q_XP + "/*[local-name()='date']/@value", "#{date}",
+                true, false, LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
+                file, ref, "Questionnaire date must be '#{date}'.", "date placeholder present", out);
     }
 
     /*
