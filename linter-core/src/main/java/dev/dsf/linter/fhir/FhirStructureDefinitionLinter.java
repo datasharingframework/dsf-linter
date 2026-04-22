@@ -126,7 +126,7 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref   = determineRef(doc, resFile);
+        final String ref   = resolveReference(doc, resFile, SD_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         /* 1 – meta / basic */
@@ -439,20 +439,6 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
         }
     }
             /*  HELPERS  */
-    /**
-     * Resolves the canonical reference for issue reporting from the StructureDefinition.
-     * If the {@code url} element is present, it is used as reference; otherwise,
-     * the file name is returned.
-     *
-     * @param doc   the StructureDefinition document
-     * @param file  the original resource file
-     * @return a human-readable reference string
-     */
-    private String determineRef(Document doc, File file)
-    {
-        String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
-        return blank(url) ? file.getName() : url;
-    }
 
     /**
      * Parses the given string as an unsigned integer.

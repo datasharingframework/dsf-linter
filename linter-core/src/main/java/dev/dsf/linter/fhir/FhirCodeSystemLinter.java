@@ -98,7 +98,7 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref = computeReference(doc, resFile);
+        final String ref = resolveReference(doc, resFile, CS_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMeta(doc, resFile, ref, issues);
@@ -245,19 +245,4 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
             out.add(ok(f, ref, "all concept codes unique ("+seenCodes.size()+")"));
     }
 
-    /*
-      Helper: use url (or filename) as reference for result messages
-      */
-    /**
-     * Computes a reference string used in linter messages, preferring {@code url} over file name.
-     *
-     * @param doc  the parsed XML document
-     * @param file the file the resource was loaded from
-     * @return a user-friendly reference (canonical URL or filename)
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, CS_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 }

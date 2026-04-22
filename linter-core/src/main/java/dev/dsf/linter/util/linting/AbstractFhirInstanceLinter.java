@@ -164,6 +164,22 @@ public abstract class AbstractFhirInstanceLinter
     }
 
     /**
+     * Builds a stable resource reference used in lint messages.
+     * Prefers the value at the provided XPath (typically a canonical URL),
+     * and falls back to the source file name when missing.
+     *
+     * @param document the FHIR XML document
+     * @param file the file from which the resource was loaded
+     * @param referenceXPath absolute XPath to the preferred reference value
+     * @return canonical reference or file name as fallback
+     */
+    protected String resolveReference(Document document, File file, String referenceXPath)
+    {
+        String ref = val(document, referenceXPath);
+        return !blank(ref) ? ref : file.getName();
+    }
+
+    /**
      * Convenience wrapper for {@link #evaluateXPath(Node, String)}.
      *
      * @param ctx the context node

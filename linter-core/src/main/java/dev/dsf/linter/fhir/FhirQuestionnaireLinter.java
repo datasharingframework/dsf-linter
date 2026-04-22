@@ -106,7 +106,7 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resourceFile)
     {
-        final String ref = computeReference(doc, resourceFile);
+        final String ref = resolveReference(doc, resourceFile, Q_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasics(doc, resourceFile, ref, issues);
@@ -272,19 +272,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     /*
      4) helper methods
     */
-
-    /**
-     * Computes a reference string for the FHIR resource.
-     *
-     * @param doc  the XML {@link Document} representing the FHIR resource
-     * @param file the file from which the resource was loaded
-     * @return the canonical {@code url} value if present, otherwise the file name
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, Q_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 
     /**
      * Extracts the value of a FHIR primitive element.

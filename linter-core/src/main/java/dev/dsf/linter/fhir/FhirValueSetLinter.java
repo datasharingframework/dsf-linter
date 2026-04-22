@@ -182,7 +182,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref = computeReference(doc, resFile);
+        final String ref = resolveReference(doc, resFile, VS_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
@@ -511,22 +511,4 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         }
     }
 
-    /*  helpers  */
-
-    /**
-     * Determines a human‑readable reference for logging/issue reporting. Prefers the
-     * <code>url</code> element of the ValueSet; falls back to the file name.
-     *
-     * <p>This method extracts the ValueSet's canonical URL for use in linter
-     * messages. If no URL is present, it uses the filename as a fallback identifier.</p>
-     *
-     * @param doc the ValueSet XML document, must not be null
-     * @param file the file reference, must not be null
-     * @return the ValueSet url or the file name if url is not present, never null
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 }
