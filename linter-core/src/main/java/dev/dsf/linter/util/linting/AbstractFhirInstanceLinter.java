@@ -10,6 +10,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.xpath.*;
 import java.io.File;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Abstract base class for all FHIR resource linters used in the DSF linting framework.
@@ -220,6 +221,43 @@ public abstract class AbstractFhirInstanceLinter
             out.add(new FhirElementLintItem(severity, lintingType, file, ref, errorMessage));
         else
             out.add(ok(file, ref, successMessage));
+    }
+
+
+    /**
+     * Checks that an XPath-resolved value is non-blank and reports a typed default issue.
+     */
+    protected void checkRequiredValue(Document document,
+                                      String valueXPath,
+                                      File file,
+                                      String ref,
+                                      LintingType missingType,
+                                      String successMessage,
+                                      List<FhirElementLintItem> out)
+    {
+        String value = val(document, valueXPath);
+        if (blank(value))
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, missingType, file, ref));
+        else
+            out.add(ok(file, ref, successMessage));
+    }
+
+    /**
+     * Checks that a code in a tag list matches required system and allowed code set.
+     */
+    protected boolean hasAllowedTag(NodeList tags, String requiredSystem, Set<String> allowedCodes)
+    {
+        if (tags == null) return false;
+
+        for (int i = 0; i < tags.getLength(); i++)
+        {
+            String sys = val(tags.item(i), "./*[local-name()='system']/@value");
+            String code = val(tags.item(i), "./*[local-name()='code']/@value");
+            if (requiredSystem.equals(sys) && allowedCodes.contains(code))
+                return true;
+        }
+
+        return false;
     }
 
     /**

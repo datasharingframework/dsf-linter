@@ -187,11 +187,8 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             out.add(ok(file, ref, "meta.tag read‑access‑tag OK (" + tags.getLength() + " tag(s))"));
 
         /* url */
-        String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
-        if (blank(url))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_URL_MISSING, file, ref));
-        else
-            out.add(ok(file, ref, "url looks good"));
+        checkRequiredValue(doc, SD_XP + "/*[local-name()='url']/@value",
+                file, ref, LintingType.STRUCTURE_DEFINITION_URL_MISSING, "url looks good", out);
 
         /* status */
         String status = val(doc, SD_XP + "/*[local-name()='status']/@value");

@@ -136,17 +136,8 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
             out.add(ok(file, ref, "meta.profile present and valid"));
 
         /* meta.tag (read‑access ALL)  */
-        boolean tagOk = false;
         NodeList tags = xp(doc, META_TAG_XP);
-        if (tags != null) {
-            for (int i = 0; i < tags.getLength(); i++) {
-                String sys  = val(tags.item(i), "./*[local-name()='system']/@value");
-                String code = val(tags.item(i), "./*[local-name()='code']/@value");
-                if (READ_TAG_SYS.equals(sys) && VALID_READ_ACCESS_CODES.contains(code)){
-                    tagOk = true; break;
-                }
-            }
-        }
+        boolean tagOk = hasAllowedTag(tags, READ_TAG_SYS, VALID_READ_ACCESS_CODES);
         if (!tagOk)
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_READ_ACCESS_TAG,
                     file, ref, "Questionnaire is missing valid read-access tag."));

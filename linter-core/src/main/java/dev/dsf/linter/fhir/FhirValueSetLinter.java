@@ -150,6 +150,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
 
     /** Shared XPath factory instance for creating XPath expressions. */
     private static final XPathFactory XPATH_FACTORY = XPathFactory.newInstance();
+    private static final Set<String> VALID_READ_ACCESS_CODES = Set.of("ALL", "LOCAL");
 
     /* --- API  */
 
@@ -220,19 +221,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         try {
             NodeList tagElements = (NodeList) XPATH_FACTORY.newXPath()
                 .evaluate(META_TAGS_XP, doc, XPathConstants.NODESET);
-            boolean hasAllOrLocal = false;
-            for (int i = 0; i < tagElements.getLength(); i++)
-            {
-                Node tag = tagElements.item(i);
-                String sys  = val(tag, "./*[local-name()='system']/@value");
-                String code = val(tag, "./*[local-name()='code']/@value");
-                if (TAG_SYSTEM_READ_ACCESS.equals(sys)
-                    && ("ALL".equals(code) || "LOCAL".equals(code)))
-                {
-                    hasAllOrLocal = true;
-                    break;
-                }
-            }
+            boolean hasAllOrLocal = hasAllowedTag(tagElements, TAG_SYSTEM_READ_ACCESS, VALID_READ_ACCESS_CODES);
             if (!hasAllOrLocal)
                 out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL,
                     res, ref, "meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
@@ -247,40 +236,20 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         // lint organization role codes
         lintOrganizationRoleCodes(doc, res, ref, out);
 
-        // url
         String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
         if (blank(url))
             out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_URL, res, ref));
         else
             out.add(ok(res, ref, "url = '" + url + "'"));
 
-        // name
-        String name = val(doc, VS_XP + "/*[local-name()='name']/@value");
-        if (blank(name))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_NAME, res, ref));
-        else
-            out.add(ok(res, ref, "name OK"));
-
-        // title
-        String title = val(doc, VS_XP + "/*[local-name()='title']/@value");
-        if (blank(title))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_TITLE, res, ref));
-        else
-            out.add(ok(res, ref, "title OK"));
-
-        // publisher
-        String publisher = val(doc, VS_XP + "/*[local-name()='publisher']/@value");
-        if (blank(publisher))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_PUBLISHER, res, ref));
-        else
-            out.add(ok(res, ref, "publisher OK"));
-
-        // description
-        String desc = val(doc, VS_XP + "/*[local-name()='description']/@value");
-        if (blank(desc))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_DESCRIPTION, res, ref));
-        else
-            out.add(ok(res, ref, "description OK"));
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='name']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_NAME, "name OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='title']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_TITLE, "title OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='publisher']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_PUBLISHER, "publisher OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='description']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_DESCRIPTION, "description OK", out);
     }
 
     /**

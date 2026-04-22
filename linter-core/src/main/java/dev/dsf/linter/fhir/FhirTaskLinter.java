@@ -222,11 +222,8 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
     }
 
     private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        NodeList prof = xp(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
-        if (prof == null || prof.getLength() == 0)
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_PROFILE, f, ref));
-        else
-            out.add(ok(f, ref, "meta.profile present."));
+        checkRequiredValue(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value",
+                f, ref, LintingType.FHIR_TASK_MISSING_PROFILE, "meta.profile present.", out);
 
         String instCanon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
         if (blank(instCanon))
