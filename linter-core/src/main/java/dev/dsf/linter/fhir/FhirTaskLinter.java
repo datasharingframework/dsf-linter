@@ -211,7 +211,15 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='authoredOn']/@value", "#{date}",
+                false, true, LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER,
+                resFile, ref, "<authoredOn> must contain '#{date}'.", "<authoredOn> placeholder OK.", issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
+                resFile, ref, "requester.identifier.value must contain '#{organization}'.", "requester.identifier.value placeholder OK.", issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER,
+                resFile, ref, "restriction.recipient.identifier.value must contain '#{organization}'.", "restriction.recipient.identifier.value placeholder OK.", issues);
         lintTaskIdentifier(doc, resFile, ref, issues);
         lintInputs(doc, resFile, ref, issues);
         lintTerminology(doc, resFile, ref, issues);
@@ -284,20 +292,6 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                     "restriction.recipient.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
             out.add(ok(f, ref, "restriction.recipient.identifier.system OK"));
-    }
-
-    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        checkPlaceholder(doc, TASK_XP + "/*[local-name()='authoredOn']/@value", "#{date}",
-                false, true, LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER,
-                f, ref, "<authoredOn> must contain '#{date}'.", "<authoredOn> placeholder OK.", out);
-
-        checkPlaceholder(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
-                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
-                f, ref, "requester.identifier.value must contain '#{organization}'.", "requester.identifier.value placeholder OK.", out);
-
-        checkPlaceholder(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
-                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER,
-                f, ref, "restriction.recipient.identifier.value must contain '#{organization}'.", "restriction.recipient.identifier.value placeholder OK.", out);
     }
 
     /**

@@ -261,6 +261,32 @@ public abstract class AbstractFhirInstanceLinter
     }
 
     /**
+     * Applies standard DSF placeholder checks for version/date fields.
+     * Rule set: version mismatch => ERROR, date mismatch => WARN.
+     */
+    protected void checkVersionDatePlaceholders(Document document,
+                                                String versionXPath,
+                                                String dateXPath,
+                                                File file,
+                                                String ref,
+                                                LintingType versionLintType,
+                                                LintingType dateLintType,
+                                                String versionErrorMessage,
+                                                String dateErrorMessage,
+                                                String versionSuccessMessage,
+                                                String dateSuccessMessage,
+                                                List<FhirElementLintItem> out)
+    {
+        checkPlaceholder(document, versionXPath, "#{version}",
+                true, false, LinterSeverity.ERROR, versionLintType,
+                file, ref, versionErrorMessage, versionSuccessMessage, out);
+
+        checkPlaceholder(document, dateXPath, "#{date}",
+                true, false, LinterSeverity.WARN, dateLintType,
+                file, ref, dateErrorMessage, dateSuccessMessage, out);
+    }
+
+    /**
      * Convenience wrapper for {@link #evaluateXPath(Node, String)}.
      *
      * @param ctx the context node

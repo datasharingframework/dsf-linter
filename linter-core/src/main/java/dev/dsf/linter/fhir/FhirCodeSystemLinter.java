@@ -103,7 +103,19 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
 
         checkMeta(doc, resFile, ref, issues);
         checkMandatoryElements(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                CS_XP + "/*[local-name()='version']/@value",
+                CS_XP + "/*[local-name()='date']/@value",
+                resFile,
+                ref,
+                LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
+                LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
+                "<version> must contain '#{version}'",
+                "<date> must contain '#{date}'",
+                "<version> placeholder OK",
+                "<date> placeholder OK",
+                issues);
         checkConcepts(doc, resFile, ref, issues);
 
         return issues;
@@ -177,23 +189,6 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
                     f, ref, "CodeSystem is missing element: " + name));
         else
             out.add(ok(f, ref, name + " present"));
-    }
-
-    /*
-      3) Placeholder checks (#{version}, #{date})
-      */
-    /**
-     * lints that version and date fields contain their respective DSF placeholders.
-     */
-    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
-        checkPlaceholder(doc, CS_XP + "/*[local-name()='version']/@value", "#{version}",
-                false, false, LinterSeverity.ERROR, LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
-                f, ref, "<version> must contain '#{version}'", "<version> placeholder OK", out);
-
-        checkPlaceholder(doc, CS_XP + "/*[local-name()='date']/@value", "#{date}",
-                false, false, LinterSeverity.WARN, LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
-                f, ref, "<date> must contain '#{date}'", "<date> placeholder OK", out);
     }
 
     /*

@@ -187,7 +187,19 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                VS_XP + "/*[local-name()='version']/@value",
+                VS_XP + "/*[local-name()='date']/@value",
+                resFile,
+                ref,
+                LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
+                LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
+                "<version> must contain '#{version}'.",
+                "<date> must contain '#{date}'.",
+                "version placeholder OK.",
+                "date placeholder OK.",
+                issues);
         lintComposeIncludes(doc, resFile, ref, issues);
 
         return issues;
@@ -297,39 +309,6 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE,
                 res, ref, "Failed to evaluate parent-organization-role linting: " + e.getMessage()));
         }
-    }
-
-    /*  2) Placeholder checks  */
-
-    /**
-     * Checks for required placeholders in version and date fields.
-     *
-     * <p>lints that:</p>
-     * <ul>
-     *   <li>The version element contains exactly '#{version}'</li>
-     *   <li>The date element contains exactly '#{date}'</li>
-     * </ul>
-     *
-     * <p>These placeholders are required by the DSF template system and will be
-     * replaced with actual values during deployment.</p>
-     *
-     * @param doc the ValueSet XML document to lint, must not be null
-     * @param res the file reference for error reporting, must not be null
-     * @param ref a human-readable reference for reporting, must not be null
-     * @param out the list to which linting results are added, must not be null
-     */
-    private void checkPlaceholders(Document doc,
-                                   File res,
-                                   String ref,
-                                   List<FhirElementLintItem> out)
-    {
-        checkPlaceholder(doc, VS_XP + "/*[local-name()='version']/@value", "#{version}",
-                true, false, LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
-                res, ref, "<version> must contain '#{version}'.", "version placeholder OK.", out);
-
-        checkPlaceholder(doc, VS_XP + "/*[local-name()='date']/@value", "#{date}",
-                true, false, LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
-                res, ref, "<date> must contain '#{date}'.", "date placeholder OK.", out);
     }
 
     /*  3) Compose/include  */

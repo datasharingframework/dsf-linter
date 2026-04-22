@@ -110,7 +110,19 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasics(doc, resourceFile, ref, issues);
-        checkPlaceholders(doc, resourceFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                Q_XP + "/*[local-name()='version']/@value",
+                Q_XP + "/*[local-name()='date']/@value",
+                resourceFile,
+                ref,
+                LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
+                LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
+                "Questionnaire version must be '#{version}'.",
+                "Questionnaire date must be '#{date}'.",
+                "version placeholder present",
+                "date placeholder present",
+                issues);
         lintItems(doc, resourceFile, ref, issues);
 
         return issues;
@@ -151,22 +163,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
                     file, ref, "Questionnaire status must be 'unknown' (found '" + status + "')."));
         else
             out.add(ok(file, ref, "status = unknown"));
-    }
-
-    /*
-     2) placeholder linting
-    */
-
-    private void checkPlaceholders(Document doc, File file, String ref,
-                                   List<FhirElementLintItem> out)
-    {
-        checkPlaceholder(doc, Q_XP + "/*[local-name()='version']/@value", "#{version}",
-                true, false, LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
-                file, ref, "Questionnaire version must be '#{version}'.", "version placeholder present", out);
-
-        checkPlaceholder(doc, Q_XP + "/*[local-name()='date']/@value", "#{date}",
-                true, false, LinterSeverity.WARN, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
-                file, ref, "Questionnaire date must be '#{date}'.", "date placeholder present", out);
     }
 
     /*

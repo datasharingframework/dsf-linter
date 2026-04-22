@@ -133,7 +133,19 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
         checkMetaAndBasics(doc, resFile, ref, issues);
 
         /* 2 – placeholders */
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                SD_XP + "/*[local-name()='version']/@value",
+                SD_XP + "/*[local-name()='date']/@value",
+                resFile,
+                ref,
+                LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER,
+                LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER,
+                "Version does not use placeholder: " + val(doc, SD_XP + "/*[local-name()='version']/@value"),
+                "Date does not use placeholder: " + val(doc, SD_XP + "/*[local-name()='date']/@value"),
+                "version placeholder present",
+                "date placeholder present",
+                issues);
 
         /* 3 – differential / snapshot / element IDs */
         checkDifferentialSection(doc, resFile, ref, issues);
@@ -196,32 +208,6 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_INVALID_STATUS, file, ref, "Invalid status: " + status));
         else
             out.add(ok(file, ref, "status = unknown"));
-    }
-
-    /*  CHECK 2: PLACEHOLDERS  */
-    /**
-     * lints that the StructureDefinition's {@code version} and {@code date} elements
-     * contain DSF template placeholders {@code #{version}} and {@code #{date}} respectively.
-     *
-     * @param doc   the StructureDefinition XML document
-     * @param file  the original file (used for error messages)
-     * @param ref   a human-readable reference derived from the file or resource URL
-     * @param out   the list where linting results are added
-     */
-    private void checkPlaceholders(Document doc,
-                                   File file,
-                                   String ref,
-                                   List<FhirElementLintItem> out)
-    {
-        String version = val(doc, SD_XP + "/*[local-name()='version']/@value");
-        checkPlaceholder(doc, SD_XP + "/*[local-name()='version']/@value", "#{version}",
-                true, false, LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER,
-                file, ref, "Version does not use placeholder: " + version, "version placeholder present", out);
-
-        String date = val(doc, SD_XP + "/*[local-name()='date']/@value");
-        checkPlaceholder(doc, SD_XP + "/*[local-name()='date']/@value", "#{date}",
-                true, false, LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER,
-                file, ref, "Date does not use placeholder: " + date, "date placeholder present", out);
     }
 
     /*  CHECK 3: DIFF / SNAPSHOT / IDs  */
