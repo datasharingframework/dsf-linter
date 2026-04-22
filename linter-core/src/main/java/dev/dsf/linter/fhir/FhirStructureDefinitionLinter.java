@@ -574,7 +574,7 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             String sliceRoot  = extractSliceRoot(parentPath);
 
             if (!FhirAuthorizationCache.containsSystem(fixedUri)) {
-                out.add(new FhirElementLintItem(LinterSeverity.INFO,
+                out.add(new FhirElementLintItem(LinterSeverity.WARN,
                         LintingType.STRUCTURE_DEFINITION_FIXED_URI_CODESYSTEM_NOT_FOUND,
                         file, ref,
                         "Slice '" + sliceRoot + "' (" + parentPath + "): fixedUri='" + fixedUri
