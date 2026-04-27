@@ -6,6 +6,9 @@ import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Scope;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -131,6 +134,78 @@ class SpringConfigurationLinterTest {
     }
 
 
+    // ==================== @Scope tests ====================
+
+    @Test
+    void beanWithoutScope_noMutableFields_yieldsWarn() throws IOException {
+        // ConfigNoScope provides a @Bean with no @Scope; the bean class has only
+        // final fields → WARN about missing scope, but no ERROR for mutable fields.
+        File bpmn = writeBpmn(tempProjectRoot, ConfigNoScope.ImmutableBean.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigNoScope.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.WARN
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_MISSING),
+                "Expected WARN for missing @Scope");
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_MUTABLE_SINGLETON),
+                "No ERROR expected when bean class has no mutable fields");
+    }
+
+    @Test
+    void beanWithoutScope_mutableField_yieldsWarnAndError() throws IOException {
+        // ConfigNoScopeMutable provides a @Bean with no @Scope; the bean class has a
+        // mutable field → WARN for missing scope AND ERROR for mutable singleton.
+        File bpmn = writeBpmn(tempProjectRoot, ConfigNoScopeMutable.MutableBean.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigNoScopeMutable.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.WARN
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_MISSING),
+                "Expected WARN for missing @Scope");
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.ERROR
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_MUTABLE_SINGLETON),
+                "Expected ERROR for mutable fields on effective-singleton bean");
+    }
+
+    @Test
+    void beanWithExplicitSingleton_mutableField_yieldsWarnAndError() throws IOException {
+        // ConfigExplicitSingleton uses @Scope("singleton") explicitly; the bean class
+        // has a mutable field → WARN for explicit singleton AND ERROR for mutable fields.
+        File bpmn = writeBpmn(tempProjectRoot, ConfigExplicitSingleton.MutableBean.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigExplicitSingleton.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.WARN
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_SINGLETON_EXPLICIT),
+                "Expected WARN for explicit singleton scope");
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.ERROR
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_MUTABLE_SINGLETON),
+                "Expected ERROR for mutable fields on explicit-singleton bean");
+    }
+
+    @Test
+    void beanWithPrototypeScope_yieldsSuccess_evenWithMutableFields() throws IOException {
+        // ConfigPrototype uses @Scope("prototype"); the bean class has a mutable field
+        // but prototype scope is safe → SUCCESS, no ERROR for mutable fields.
+        File bpmn = writeBpmn(tempProjectRoot, ConfigPrototype.AnyBean.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigPrototype.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.SUCCESS
+                        && i.getType() == LintingType.SPRING_BEAN_SCOPE_PROTOTYPE),
+                "Expected SUCCESS for prototype-scoped bean");
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_MUTABLE_SINGLETON),
+                "No ERROR expected for prototype-scoped bean regardless of mutable fields");
+    }
+
     // ==================== Helpers ====================
 
     private static PluginAdapter stubAdapter(List<Class<?>> springConfigs) {
@@ -191,9 +266,63 @@ class SpringConfigurationLinterTest {
         static final class BeanClass {
         }
 
-        @org.springframework.context.annotation.Bean
+        @Bean
         public BeanClass beanClass() {
             return new BeanClass();
+        }
+    }
+
+    /** Config with a @Bean and no @Scope; bean class has only final fields (immutable). */
+    static final class ConfigNoScope {
+        @SuppressWarnings("unused")
+        static final class ImmutableBean {
+            private final int x = 0;
+        }
+
+        @Bean
+        public ImmutableBean bean() {
+            return new ImmutableBean();
+        }
+    }
+
+    /** Config with a @Bean and no @Scope; bean class has a mutable instance field. */
+    static final class ConfigNoScopeMutable {
+        @SuppressWarnings("unused")
+        static final class MutableBean {
+            private int counter; // mutable – not static, not final
+        }
+
+        @Bean
+        public MutableBean bean() {
+            return new MutableBean();
+        }
+    }
+
+    /** Config with an explicit @Scope("singleton"); bean class has a mutable field. */
+    static final class ConfigExplicitSingleton {
+        @SuppressWarnings("unused")
+        static final class MutableBean {
+            private String state; // mutable
+        }
+
+        @Bean
+        @Scope("singleton")
+        public MutableBean bean() {
+            return new MutableBean();
+        }
+    }
+
+    /** Config with @Scope("prototype"); bean class has a mutable field (safe for prototype). */
+    static final class ConfigPrototype {
+        @SuppressWarnings("unused")
+        static final class AnyBean {
+            private int x; // mutable, but prototype-scoped → no ERROR
+        }
+
+        @Bean
+        @Scope("prototype")
+        public AnyBean bean() {
+            return new AnyBean();
         }
     }
 }
