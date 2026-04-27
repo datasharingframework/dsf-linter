@@ -211,7 +211,15 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='authoredOn']/@value", "#{date}",
+                false, true, LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER,
+                resFile, ref, "<authoredOn> must contain '#{date}'.", "<authoredOn> placeholder OK.", issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER,
+                resFile, ref, "requester.identifier.value must contain '#{organization}'.", "requester.identifier.value placeholder OK.", issues);
+        checkPlaceholder(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value", "#{organization}",
+                true, false, LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER,
+                resFile, ref, "restriction.recipient.identifier.value must contain '#{organization}'.", "restriction.recipient.identifier.value placeholder OK.", issues);
         lintTaskIdentifier(doc, resFile, ref, issues);
         lintInputs(doc, resFile, ref, issues);
         lintTerminology(doc, resFile, ref, issues);
@@ -222,11 +230,8 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
     }
 
     private void checkMetaAndBasic(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        NodeList prof = xp(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
-        if (prof == null || prof.getLength() == 0)
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_TASK_MISSING_PROFILE, f, ref));
-        else
-            out.add(ok(f, ref, "meta.profile present."));
+        checkRequiredValue(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value",
+                f, ref, LintingType.FHIR_TASK_MISSING_PROFILE, "meta.profile present.", out);
 
         String instCanon = val(doc, TASK_XP + "/*[local-name()='instantiatesCanonical']/@value");
         if (blank(instCanon))

@@ -4,13 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dsf.linter.util.converter.JsonXmlConverter;
 import org.junit.jupiter.api.Test;
-import org.w3c.dom.Document;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.StringReader;
-
-import org.xml.sax.InputSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,11 +57,6 @@ public class FhirExtensionUrlTest
 
         System.out.println("Generated XML:");
         System.out.println(xmlResult);
-
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(true);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.parse(new InputSource(new StringReader(xmlResult)));
 
         assertTrue(xmlResult.contains("extension"), "Should contain extension element");
 
