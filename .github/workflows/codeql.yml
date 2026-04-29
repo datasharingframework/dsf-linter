@@ -1,0 +1,54 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    - cron: '11 15 * * 0' # Sundays, 15:11
+
+permissions: {}
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
+    name: 'codeql: ${{ matrix.language }}'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        if: ${{ matrix.language == 'java-kotlin' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 25
+          cache: 'maven'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended, security-and-quality
+
+      - name: Build with Maven
+        if: ${{ matrix.language == 'java-kotlin' }}
+        run: mvn package --batch-mode --fail-at-end -DskipTests
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
