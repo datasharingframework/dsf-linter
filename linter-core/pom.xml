@@ -9,7 +9,7 @@
 
     <!-- Parent coordinates if needed -->
     <parent>
-        <groupId>dev.dsf.utils.linter</groupId>
+        <groupId>dev.dsf.linter</groupId>
         <artifactId>dsf-linter</artifactId>
         <version>0.1.2</version>
     </parent>
@@ -17,12 +17,6 @@
     <artifactId>linter-core</artifactId>
 
     <properties>
-        <!-- Java 25 compilation -->
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <!-- Byte Buddy version (check for a version that at least somewhat supports Java 21) -->
         <bytebuddy.version>1.15.8</bytebuddy.version>
     </properties>
 
@@ -156,11 +150,38 @@
 
     <build>
         <plugins>
+            <!-- Attach sources JAR (required by Maven Central) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Attach Javadoc JAR (required by Maven Central) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Maven Shade Plugin: Creates executable JAR with all dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -189,9 +210,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M9</version>
                 <configuration>
-                    <!-- If Byte Buddy complains about Java 17 not supported, set this property: -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
