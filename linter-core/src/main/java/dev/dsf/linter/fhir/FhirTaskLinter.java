@@ -291,7 +291,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
 
     private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
-        if (authoredOn != null && !authoredOn.contains("#{date}"))
+        if (authoredOn == null || !authoredOn.contains("#{date}"))
             out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER, f, ref,
                     "<authoredOn> must contain '#{date}'."));
         else
