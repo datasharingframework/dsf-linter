@@ -144,7 +144,10 @@ import java.util.*;
  *   <li>{@link LintingType#FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX} – too many {@code Task.input} elements</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN} – slice occurrence below minimum</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX} – slice occurrence exceeds maximum</li>
- *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_CODE} – unknown terminology code</li>
+ *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_CODE} – unknown terminology code (non-input codings)</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN} – {@code Task.input.type.coding.system} not a known CodeSystem URI</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET} – {@code Task.input.type.coding.system} not allowed by the expected ValueSet binding context</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM} – {@code Task.input.type.coding.code} unknown in the specified CodeSystem</li>
  *   <li>{@link LintingType#FHIR_TASK_COULD_NOT_LOAD_PROFILE} – StructureDefinition could not be loaded (warning)</li>
  * </ul>
  * <p>Successful validations are reported with {@link LinterSeverity#INFO} for completeness and traceability.</p>
@@ -177,7 +180,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
     private static final String INPUT_XP = TASK_XP + "/*[local-name()='input']";
     private static final String CODING_SYS_XP = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
     private static final String CODING_CODE_XP = "./*[local-name()='type']/*[local-name()='coding']/*[local-name()='code']/@value";
-    private static final String SYSTEM_BPMN_MSG = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
+    private static final String SYSTEM_BPMN_MSG = FhirAuthorizationCache.CS_BPMN_MESSAGE;
     private static final String SYSTEM_ORG_ID = "http://dsf.dev/sid/organization-identifier";
     private static final String TASK_IDENTIFIER_SID = "http://dsf.dev/sid/task-identifier";
     private static final Set<String> STATUSES_NEED_BIZKEY = Set.of("in-progress", "completed", "failed");
@@ -213,8 +216,14 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         checkMetaAndBasic(doc, resFile, ref, issues);
         checkPlaceholders(doc, resFile, ref, issues);
         lintTaskIdentifier(doc, resFile, ref, issues);
-        lintInputs(doc, resFile, ref, issues);
+
+        // Load slice metadata once and reuse for structural + terminology checks
+        String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
+        Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(resFile), profileUrl);
+
+        lintInputs(doc, resFile, ref, issues, cards);
         lintTerminology(doc, resFile, ref, issues);
+        lintInputTypeCodingTerminology(doc, resFile, ref, issues, cards);
         lintRequesterAuthorization(doc, resFile, ref, issues);
         lintRecipientAuthorization(doc, resFile, ref, issues);
 
@@ -370,11 +379,9 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         }
     }
 
-    private void lintInputs(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
-        Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(f), profileUrl);
-
+    private void lintInputs(Document doc, File f, String ref, List<FhirElementLintItem> out, Map<String, SliceCard> cards) {
         if (cards == null) {
+            String profileUrl = val(doc, TASK_XP + "/*[local-name()='meta']/*[local-name()='profile']/@value");
             out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_COULD_NOT_LOAD_PROFILE, f, ref,
                     "StructureDefinition for profile '" + profileUrl + "' not found → cardinality check skipped."));
         }
@@ -504,17 +511,187 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         }
     }
 
+    /**
+     * Generic terminology check for all {@code coding} nodes in the Task document
+     * <em>except</em> {@code Task.input.type.coding} entries, which are validated
+     * separately with granular error types in {@link #lintInputTypeCodingTerminology}.
+     */
     private void lintTerminology(Document doc, File f, String ref, List<FhirElementLintItem> out) {
         NodeList codings = xp(doc, "//coding");
         if (codings == null) return;
         for (int i = 0; i < codings.getLength(); i++) {
             Node c = codings.item(i);
+            // Skip Task.input.type.coding — handled by lintInputTypeCodingTerminology
+            Node parent = c.getParentNode();
+            if (parent != null && "type".equals(parent.getLocalName())) {
+                Node grandParent = parent.getParentNode();
+                if (grandParent != null && "input".equals(grandParent.getLocalName()))
+                    continue;
+            }
             String sys = val(c, "./*[local-name()='system']/@value");
             String code = val(c, "./*[local-name()='code']/@value");
             if (FhirAuthorizationCache.isUnknown(sys, code))
                 out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_TASK_UNKNOWN_CODE, f, ref,
                         "Unknown code '" + code + "' in '" + sys + "'"));
         }
+    }
+
+    /**
+     * Granular terminology validation specifically for {@code Task.input.type.coding} entries.
+     *
+     * <p>Three distinct checks are performed per input. Later checks depend on earlier ones:</p>
+     * <ol>
+     *   <li><strong>System known</strong> – {@code coding.system} must be registered in
+     *       {@link FhirAuthorizationCache} (i.e., correspond to a loaded CodeSystem resource).
+     *       If unknown, {@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN} is emitted
+     *       and further checks for that input are skipped.</li>
+     *   <li><strong>System in expected ValueSet context</strong> – driven by the profile's
+     *       StructureDefinition:
+     *       <ul>
+     *         <li>If the matching slice declares a {@code fixedUri} at
+     *             {@code Task.input:sliceName.type.coding.system}, the input's system must
+     *             equal it literally.</li>
+     *         <li>Else, if the slice declares a {@code binding.valueSet} and that ValueSet is
+     *             loaded, the input's system must appear in that ValueSet's
+     *             {@code compose.include.system}.</li>
+     *         <li>Else, if the binding context cannot be resolved, validation fails explicitly
+     *             (no permissive fallback to unrelated ValueSets).</li>
+     *       </ul>
+     *       On mismatch, {@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET} is emitted.</li>
+     *   <li><strong>Code valid for system</strong> – {@code coding.code} must be a known code
+     *       under the given {@code coding.system}. <em>Only executed if Check 2 passed.</em>
+     *       If not, {@link LintingType#FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM} is emitted.</li>
+     * </ol>
+     *
+     * <p>Inputs that already failed structural validation (missing system or code) in
+     * {@link #lintInputs} are skipped here to avoid duplicate reporting.</p>
+     *
+     * @param cards per-slice cardinality and binding metadata from the StructureDefinition
+     *              (may be {@code null} if the profile could not be loaded)
+     */
+    private void lintInputTypeCodingTerminology(Document doc, File f, String ref,
+                                                List<FhirElementLintItem> out,
+                                                Map<String, SliceCard> cards) {
+        NodeList inputs = xp(doc, INPUT_XP);
+        if (inputs == null || inputs.getLength() == 0) return;
+
+        for (int i = 0; i < inputs.getLength(); i++) {
+            Node in = inputs.item(i);
+            String sys  = val(in, CODING_SYS_XP);
+            String code = val(in, CODING_CODE_XP);
+
+            // Structural errors (missing system/code) are already reported by lintInputs
+            if (blank(sys) || blank(code)) continue;
+
+            // Check 1: coding.system must be a known CodeSystem
+            if (!FhirAuthorizationCache.containsSystem(sys)) {
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                        LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN, f, ref,
+                        "Task.input.type.coding.system '" + sys + "' was not found on the classpath or the project directory."));
+                continue; // checks 2 and 3 require the system to be known
+            }
+
+            // Check 2: coding.system must match the expected ValueSet context for this slice
+            SliceCard slice = findSliceByCode(cards, code);
+            if (!isSystemAllowedByBinding(slice, sys, out, f, ref)) {
+                // Check 3 is only executed when Check 2 passed.
+                continue;
+            }
+
+            // Check 3: coding.code must be a valid code in the given system
+            if (FhirAuthorizationCache.isUnknown(sys, code)) {
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                        LintingType.FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM, f, ref,
+                        "Task.input.type.coding.code '" + code + "' is unknown in CodeSystem '" + sys + "'."));
+                continue;
+            }
+
+            out.add(ok(f, ref, "Task.input.type.coding: system='" + sys + "' code='" + code + "' OK."));
+        }
+    }
+
+    /**
+     * Locates the slice metadata that matches the given input code.
+     *
+     * <p>Match strategy (first hit wins):</p>
+     * <ol>
+     *   <li>Slice whose {@code fixedCode} at
+     *       {@code Task.input:sliceName.type.coding.code} equals {@code inputCode}.</li>
+     *   <li>Slice whose map key (slice name) equals {@code inputCode} - DSF convention
+     *       where slice names mirror the code value (e.g., {@code message-name}).</li>
+     * </ol>
+     *
+     * @param cards map of slice metadata loaded from the StructureDefinition, may be {@code null}
+     * @param inputCode value of {@code Task.input.type.coding.code} for the current input
+     * @return the matching {@link SliceCard}, or {@code null} if no slice matches
+     */
+    private SliceCard findSliceByCode(Map<String, SliceCard> cards, String inputCode) {
+        if (cards == null || inputCode == null) return null;
+        for (Map.Entry<String, SliceCard> e : cards.entrySet()) {
+            if ("__BASE__".equals(e.getKey())) continue;
+            SliceCard c = e.getValue();
+            if (inputCode.equals(c.fixedCode())) return c;
+        }
+        SliceCard byName = cards.get(inputCode);
+        return (byName != null && !"__BASE__".equals(inputCode)) ? byName : null;
+    }
+
+    /**
+     * Binding-driven evaluation of Check 2.
+     *
+     * <p>The decision order reflects how tightly the profile constrains the system:</p>
+     * <ol>
+     *   <li><strong>fixedUri</strong> on {@code .type.coding.system} - strict literal comparison.</li>
+     *   <li><strong>binding.valueSet</strong> resolvable in the cache - input system must be
+     *       listed in the ValueSet's {@code compose.include.system}.</li>
+     *   <li><strong>binding.valueSet</strong> declared but not loaded - explicit validation
+     *       failure because the expected context cannot be resolved.</li>
+     *   <li>No binding info available - explicit validation failure because no expected
+     *       ValueSet context is available.</li>
+     * </ol>
+     *
+     * <p>On mismatch, a {@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET}
+     * error is appended to {@code out} and {@code false} is returned.</p>
+     *
+     * @return {@code true} if the system is accepted by the resolved binding context,
+     *         {@code false} otherwise
+     */
+    private boolean isSystemAllowedByBinding(SliceCard slice, String sys,
+                                             List<FhirElementLintItem> out, File f, String ref) {
+        // 1. Strict fixedUri match on Task.input:slice.type.coding.system
+        if (slice != null && slice.fixedSystem() != null && !slice.fixedSystem().isBlank()) {
+            if (sys.equals(slice.fixedSystem())) return true;
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                    LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET, f, ref,
+                    "Task.input.type.coding.system '" + sys +
+                    "' does not match the slice's fixedUri '" + slice.fixedSystem() + "'."));
+            return false;
+        }
+
+        // 2. binding.valueSet declared on the slice
+        if (slice != null && slice.bindingValueSet() != null && !slice.bindingValueSet().isBlank()) {
+            String vsUrl = slice.bindingValueSet();
+            if (FhirAuthorizationCache.isValueSetLoaded(vsUrl)) {
+                if (FhirAuthorizationCache.getSystemsInValueSet(vsUrl).contains(sys)) return true;
+                out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                        LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET, f, ref,
+                        "Task.input.type.coding.system '" + sys +
+                        "' is not referenced by the bound ValueSet '" + vsUrl + "'."));
+                return false;
+            }
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                    LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET, f, ref,
+                    "Task.input.type.coding.system '" + sys +
+                    "' cannot be validated against binding ValueSet '" + vsUrl +
+                    "' because that ValueSet is not loaded."));
+            return false;
+        }
+
+        out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET, f, ref,
+                "Task.input.type.coding.system '" + sys +
+                "' has no resolvable expected ValueSet context (missing fixedUri and binding.valueSet)."));
+        return false;
     }
 
     private String computeReference(Document doc, File file) {
@@ -559,7 +736,26 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         return actFile == null;
     }
 
-    private record SliceCard(int min, int max) {}
+    /**
+     * Cardinality and binding metadata for a {@code Task.input} slice extracted from the
+     * profile's StructureDefinition.
+     *
+     * @param min minimum occurrences of the slice ({@code element.min})
+     * @param max maximum occurrences of the slice ({@code element.max}; {@code *} maps to {@link Integer#MAX_VALUE})
+     * @param fixedSystem value of {@code fixedUri} at
+     *                    {@code Task.input:sliceName.type.coding.system}, if present
+     * @param fixedCode value of {@code fixedCode} at
+     *                  {@code Task.input:sliceName.type.coding.code}, if present
+     * @param bindingValueSet canonical URL of the ValueSet bound to the slice's
+     *                        {@code Task.input:sliceName.type[.coding]}, if declared
+     */
+    private record SliceCard(int min, int max,
+                             String fixedSystem, String fixedCode,
+                             String bindingValueSet) {
+        static SliceCard cardinalityOnly(int min, int max) {
+            return new SliceCard(min, max, null, null, null);
+        }
+    }
 
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
@@ -575,7 +771,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
             String maxBase = AbstractFhirInstanceLinter.extractSingleNodeValue(sd, "//*[local-name()='element' and @id='Task.input']/*[local-name()='max']/@value");
             int baseMin = (minBase != null) ? Integer.parseInt(minBase) : 0;
             int baseMax = (maxBase == null || "*".equals(maxBase)) ? Integer.MAX_VALUE : Integer.parseInt(maxBase);
-            map.put("__BASE__", new SliceCard(baseMin, baseMax));
+            map.put("__BASE__", SliceCard.cardinalityOnly(baseMin, baseMax));
 
             NodeList slices = (NodeList) XPathFactory.newInstance().newXPath()
                     .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') and not(contains(@id,'.'))]")
@@ -587,7 +783,31 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                 String ma = AbstractFhirInstanceLinter.extractSingleNodeValue(n, "./*[local-name()='max']/@value");
                 int sMin = (mi != null) ? Integer.parseInt(mi) : 0;
                 int sMax = (ma == null || "*".equals(ma)) ? baseMax : Integer.parseInt(ma);
-                map.put(sliceName, new SliceCard(sMin, sMax));
+
+                String codingId = "Task.input:" + sliceName + ".type.coding";
+                String typeId = "Task.input:" + sliceName + ".type";
+                String codingSystemId = codingId + ".system";
+                String codingCodeId = codingId + ".code";
+
+                // fixed constraints on .type.coding.system / .type.coding.code
+                String fixedSystem = AbstractFhirInstanceLinter.extractSingleNodeValue(sd,
+                        "//*[local-name()='element' and @id='" + codingSystemId + "']" +
+                        "/*[local-name()='fixedUri']/@value");
+                String fixedCode = AbstractFhirInstanceLinter.extractSingleNodeValue(sd,
+                        "//*[local-name()='element' and @id='" + codingCodeId + "']" +
+                        "/*[local-name()='fixedCode']/@value");
+
+                // binding.valueSet: prefer .type, fall back to .type.coding
+                String binding = AbstractFhirInstanceLinter.extractSingleNodeValue(sd,
+                        "//*[local-name()='element' and @id='" + typeId + "']" +
+                        "/*[local-name()='binding']/*[local-name()='valueSet']/@value");
+                if (binding == null || binding.isBlank()) {
+                    binding = AbstractFhirInstanceLinter.extractSingleNodeValue(sd,
+                            "//*[local-name()='element' and @id='" + codingId + "']" +
+                            "/*[local-name()='binding']/*[local-name()='valueSet']/@value");
+                }
+
+                map.put(sliceName, new SliceCard(sMin, sMax, fixedSystem, fixedCode, binding));
             }
             return map;
         } catch (Exception e) { return null; }

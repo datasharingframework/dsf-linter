@@ -88,6 +88,12 @@ public final class FhirAuthorizationCache
 
 
     /**
+     * DSF core CodeSystem URI for BPMN message slices ({@code message-name}, {@code business-key},
+     * {@code correlation-key}).
+     */
+    public static final String CS_BPMN_MESSAGE = "http://dsf.dev/fhir/CodeSystem/bpmn-message";
+
+    /**
      * FHIR Task URI for Task status values.
      */
     public static final String CS_TASK_STATUS = "http://hl7.org/fhir/task-status";
@@ -95,6 +101,25 @@ public final class FhirAuthorizationCache
     private static Logger logger;
 
     private static final Map<String, Set<String>> CODES_BY_SYSTEM = new ConcurrentHashMap<>();
+
+    /**
+     * Set of CodeSystem URIs that are referenced by at least one known ValueSet's
+     * {@code compose.include.system} entry. Populated during
+     * {@link #seedFromProjectAndClasspath(File)}.
+     */
+    private static final Set<String> SYSTEMS_IN_VALUE_SETS = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Index of known ValueSets keyed by their canonical {@code url}.
+     * Each entry maps to the set of {@code compose.include.system} URIs
+     * declared by that ValueSet. Populated during
+     * {@link #seedFromProjectAndClasspath(File)}.
+     *
+     * <p>Used for <strong>binding-driven</strong> terminology checks, e.g.,
+     * verifying that a {@code Task.input.type.coding.system} is allowed by the
+     * specific ValueSet referenced in a profile's {@code binding.valueSet}.</p>
+     */
+    private static final Map<String, Set<String>> SYSTEMS_PER_VALUE_SET = new ConcurrentHashMap<>();
 
     static
     {
@@ -121,6 +146,10 @@ public final class FhirAuthorizationCache
                 "draft", "requested", "received", "accepted", "rejected", "ready",
                 "cancelled", "in-progress", "on-hold", "failed", "completed", "entered-in-error"));
 
+        register(CS_BPMN_MESSAGE, Set.of("message-name", "business-key", "correlation-key"));
+
+        // The bpmn-message CodeSystem is always included in DSF's well-known ValueSets
+        SYSTEMS_IN_VALUE_SETS.add(CS_BPMN_MESSAGE);
     }
 
     private FhirAuthorizationCache() { /* Utility class – no instantiation */ }
@@ -285,12 +314,14 @@ public final class FhirAuthorizationCache
     public static void seedFromProjectAndClasspath(File projectRoot)
     {
         Objects.requireNonNull(projectRoot, "projectRoot");
+
+        // ---- CodeSystem seeding ----
         Set<File> allCodeSystemFiles = new LinkedHashSet<>(findCodeSystemsOnDisk(projectRoot));
 
         // 2) Classpath scan: fhir/CodeSystem/*.xml and *.json from dependency JARs or directories
         try {
             ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
-            allCodeSystemFiles.addAll(findCodeSystemsOnClasspath(cl));
+            allCodeSystemFiles.addAll(findResourcesOnClasspath(cl, "fhir/CodeSystem"));
         } catch (Exception e) {
             logger.debug("[CodeSystem-Cache] Failed to scan classpath: " + e.getMessage());
             // keep going; disk results might still be sufficient
@@ -301,36 +332,65 @@ public final class FhirAuthorizationCache
             loadCodeSystemFile(cs);
         }
 
+        // ---- ValueSet seeding (compose.include.system → SYSTEMS_IN_VALUE_SETS) ----
+        Set<File> allValueSetFiles = new LinkedHashSet<>(findValueSetsOnDisk(projectRoot));
+        try {
+            ClassLoader cl = getOrCreateProjectClassLoader(projectRoot);
+            allValueSetFiles.addAll(findResourcesOnClasspath(cl, "fhir/ValueSet"));
+        } catch (Exception e) {
+            logger.debug("[ValueSet-Cache] Failed to scan classpath: " + e.getMessage());
+        }
+        for (File vs : allValueSetFiles) {
+            loadValueSetFile(vs);
+        }
+
         dumpStatistics();
     }
 
     // ---- Helper methods ----
 
     /**
-     * Returns CodeSystem files under typical project locations (no changes to your current logic).
+     * Returns CodeSystem files under typical project locations.
      */
-    private static Collection<File> findCodeSystemsOnDisk(File projectRoot)
-    {
-        List<String> candidates = List.of(
+    private static Collection<File> findCodeSystemsOnDisk(File projectRoot) {
+        return findFhirResourcesOnDisk(projectRoot, List.of(
                 "src/main/resources/fhir/CodeSystem",
                 "target/classes/fhir/CodeSystem",
-                "fhir/CodeSystem" // exploded plugin root case
-        );
+                "fhir/CodeSystem"));
+    }
+
+    /**
+     * Returns ValueSet files under typical project locations.
+     */
+    private static Collection<File> findValueSetsOnDisk(File projectRoot) {
+        return findFhirResourcesOnDisk(projectRoot, List.of(
+                "src/main/resources/fhir/ValueSet",
+                "target/classes/fhir/ValueSet",
+                "fhir/ValueSet"));
+    }
+
+    /**
+     * Generic disk scanner: lists {@code .xml} and {@code .json} files under the given
+     * relative subdirectories of {@code projectRoot}.
+     */
+    private static Collection<File> findFhirResourcesOnDisk(File projectRoot, List<String> candidates) {
         List<File> out = new ArrayList<>();
         for (String dir : candidates) {
             File d = new File(projectRoot, dir);
-            File[] xmls = d.isDirectory() ? d.listFiles(f -> f.isFile() && (f.getName().endsWith(".xml") || f.getName().endsWith(".json"))) : null;
-            if (xmls != null) out.addAll(Arrays.asList(xmls));
+            File[] files = d.isDirectory()
+                    ? d.listFiles(f -> f.isFile() && (f.getName().endsWith(".xml") || f.getName().endsWith(".json")))
+                    : null;
+            if (files != null) out.addAll(Arrays.asList(files));
         }
         return out;
     }
 
     /**
-     * Finds CodeSystem XMLs and JSONs on the classpath under "fhir/CodeSystem" (both directories and JARs).
+     * Finds FHIR resource files on the classpath under {@code basePath}
+     * (both directories and JARs), materializing JAR entries to temp files.
      */
-    private static Collection<File> findCodeSystemsOnClasspath(ClassLoader cl) throws IOException
+    private static Collection<File> findResourcesOnClasspath(ClassLoader cl, String basePath) throws IOException
     {
-        final String basePath = "fhir/CodeSystem";
         List<File> out = new ArrayList<>();
 
         // A) enumerate basePath URLs (dirs or inside JARs)
@@ -342,8 +402,9 @@ public final class FhirAuthorizationCache
             if ("file".equals(protocol)) {
                 // Directory on classpath -> list *.xml and *.json
                 File dir = new File(url.getPath());
-                File[] files = dir.isDirectory() ? dir.listFiles(f -> f.isFile() &&
-                        (f.getName().endsWith(".xml") || f.getName().endsWith(".json"))) : null;
+                File[] files = dir.isDirectory()
+                        ? dir.listFiles(f -> f.isFile() && (f.getName().endsWith(".xml") || f.getName().endsWith(".json")))
+                        : null;
                 if (files != null) out.addAll(Arrays.asList(files));
             } else if ("jar".equals(protocol)) {
                 // JAR -> iterate entries
@@ -356,7 +417,7 @@ public final class FhirAuthorizationCache
                                     && (e.getName().endsWith(".xml") || e.getName().endsWith(".json"))) {
                                 // materialize to temp file
                                 String fileName = Paths.get(e.getName()).getFileName().toString();
-                                Path tmp = Files.createTempFile("cs-", "-" + fileName);
+                                Path tmp = Files.createTempFile("fhir-", "-" + fileName);
                                 try (InputStream in = jar.getInputStream(e)) {
                                     Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
                                 }
@@ -366,14 +427,81 @@ public final class FhirAuthorizationCache
                         }
                     }
                 } catch (IOException ioe) {
-                    logger.debug("[CodeSystem-Cache] Failed to read JAR: " + ioe.getMessage());
-                    // ignore this JAR and keep going
+                    logger.debug("[FHIR-Cache] Failed to read JAR (" + basePath + "): " + ioe.getMessage());
                 }
             }
         }
 
         // B) defensive de-dup
         return out.stream().distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * Parses a ValueSet file (XML or JSON) and registers each
+     * {@code compose.include.system} URI into {@link #SYSTEMS_IN_VALUE_SETS}.
+     */
+    private static void loadValueSetFile(File f) {
+        String name = f.getName().toLowerCase();
+        if (name.endsWith(".xml")) loadValueSetXml(f.toPath());
+        else if (name.endsWith(".json")) loadValueSetJson(f.toPath());
+    }
+
+    private static void loadValueSetXml(Path xml) {
+        try (FileInputStream fis = new FileInputStream(xml.toFile())) {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);
+            Document doc = dbf.newDocumentBuilder().parse(fis);
+            if (!"ValueSet".equals(doc.getDocumentElement().getLocalName())) return;
+
+            String vsUrl = (String) XPathFactory.newInstance().newXPath()
+                    .compile("/*[local-name()='ValueSet']/*[local-name()='url']/@value")
+                    .evaluate(doc, XPathConstants.STRING);
+
+            NodeList systems = (NodeList) XPathFactory.newInstance().newXPath()
+                    .compile("/*[local-name()='ValueSet']/*[local-name()='compose']" +
+                             "/*[local-name()='include']/*[local-name()='system']/@value")
+                    .evaluate(doc, XPathConstants.NODESET);
+            if (systems == null) return;
+            for (int i = 0; i < systems.getLength(); i++) {
+                String sys = systems.item(i).getTextContent();
+                registerValueSetSystem(sys);
+                indexValueSetSystem(vsUrl, sys);
+                logger.debug("[Cache-DEBUG] ValueSet " + xml.getFileName() + " (" + vsUrl + ") includes system: " + sys);
+            }
+        } catch (Exception ignore) { /* invalid or non-parsable file */ }
+    }
+
+    private static void loadValueSetJson(Path json) {
+        try (InputStream in = Files.newInputStream(json)) {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(in);
+            if (root == null || !"ValueSet".equals(root.path("resourceType").asText())) return;
+            String vsUrl = root.path("url").asText(null);
+            com.fasterxml.jackson.databind.JsonNode includes = root.path("compose").path("include");
+            if (includes.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode inc : includes) {
+                    String sys = inc.path("system").asText(null);
+                    if (sys != null && !sys.isBlank()) {
+                        registerValueSetSystem(sys);
+                        indexValueSetSystem(vsUrl, sys);
+                        logger.debug("[Cache-DEBUG] ValueSet " + json.getFileName() + " (" + vsUrl + ") includes system: " + sys);
+                    }
+                }
+            }
+        } catch (Exception ignore) { /* invalid or non-parsable file */ }
+    }
+
+    /**
+     * Indexes a single {@code compose.include.system} URI under the given ValueSet canonical URL.
+     *
+     * @param vsUrl canonical URL of the ValueSet (may be {@code null} or blank; in that case the entry is skipped)
+     * @param system CodeSystem URI referenced in {@code compose.include.system}
+     */
+    private static void indexValueSetSystem(String vsUrl, String system) {
+        if (vsUrl == null || vsUrl.isBlank() || system == null || system.isBlank()) return;
+        SYSTEMS_PER_VALUE_SET
+                .computeIfAbsent(vsUrl, k -> ConcurrentHashMap.newKeySet())
+                .add(system);
     }
 
     /**
@@ -387,6 +515,61 @@ public final class FhirAuthorizationCache
         } else if (name.endsWith(".json")) {
             loadJsonFile(f.toPath());
         }
+    }
+
+    // ---- ValueSet system tracking ----
+
+    /**
+     * Registers a CodeSystem URI as being referenced by a known ValueSet.
+     * Called during ValueSet scanning in {@link #seedFromProjectAndClasspath(File)}.
+     *
+     * @param system the CodeSystem URI referenced in a ValueSet's {@code compose.include.system}
+     */
+    public static void registerValueSetSystem(String system) {
+        if (system != null && !system.isBlank())
+            SYSTEMS_IN_VALUE_SETS.add(system);
+    }
+
+    /**
+     * Returns {@code true} if the given CodeSystem URI is referenced by at least one
+     * known ValueSet's {@code compose.include.system}.
+     *
+     * @param system the CodeSystem URI to check
+     * @return {@code true} if the system is included in at least one known ValueSet
+     */
+    public static boolean isSystemInAnyValueSet(String system) {
+        return system != null && SYSTEMS_IN_VALUE_SETS.contains(system);
+    }
+
+    /**
+     * Returns {@code true} if a ValueSet with the given canonical URL has been loaded.
+     * Version suffixes (everything after {@code |}) are stripped before comparison.
+     *
+     * @param valueSetUrl canonical URL of the ValueSet, optionally versioned ({@code url|version})
+     * @return {@code true} if the ValueSet is known to the cache
+     */
+    public static boolean isValueSetLoaded(String valueSetUrl) {
+        if (valueSetUrl == null || valueSetUrl.isBlank()) return false;
+        return SYSTEMS_PER_VALUE_SET.containsKey(stripVersion(valueSetUrl));
+    }
+
+    /**
+     * Returns the set of CodeSystem URIs referenced by the given ValueSet's
+     * {@code compose.include.system} entries. Version suffixes on {@code valueSetUrl}
+     * are stripped before lookup.
+     *
+     * @param valueSetUrl canonical URL of the ValueSet, optionally versioned ({@code url|version})
+     * @return an immutable view of the referenced system URIs; empty if the ValueSet is not loaded
+     */
+    public static Set<String> getSystemsInValueSet(String valueSetUrl) {
+        if (valueSetUrl == null || valueSetUrl.isBlank()) return Collections.emptySet();
+        Set<String> s = SYSTEMS_PER_VALUE_SET.get(stripVersion(valueSetUrl));
+        return s == null ? Collections.emptySet() : Collections.unmodifiableSet(s);
+    }
+
+    private static String stripVersion(String canonical) {
+        int pipe = canonical.indexOf('|');
+        return pipe >= 0 ? canonical.substring(0, pipe) : canonical;
     }
 
     /** True if we have any codes cached for this CodeSystem URL. */
