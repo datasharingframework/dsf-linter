@@ -246,7 +246,17 @@ public enum LintingType {
     // ==================== PLUGIN DEFINITION - SPRING CONFIGURATIONS ====================
     PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING(
             "A BPMN-referenced delegate or listener class is not provided as a @Bean "
-                    + "in any @Configuration class returned by getSpringConfigurations().");
+                    + "in any @Configuration class returned by getSpringConfigurations()."),
+
+    // ==================== SPRING BEAN SCOPE ====================
+    SPRING_BEAN_SCOPE_MISSING(
+            "BPMN-referenced bean has no @Scope annotation (defaults to singleton)."),
+    SPRING_BEAN_SCOPE_SINGLETON_EXPLICIT(
+            "BPMN-referenced bean is explicitly configured as singleton."),
+    SPRING_BEAN_SCOPE_PROTOTYPE(
+            "BPMN-referenced bean is correctly configured as prototype."),
+    SPRING_BEAN_SCOPE_MUTABLE_SINGLETON(
+            "BPMN-referenced singleton bean has mutable (non-static, non-final) instance fields.");
 
     private final String defaultMessage;
 
