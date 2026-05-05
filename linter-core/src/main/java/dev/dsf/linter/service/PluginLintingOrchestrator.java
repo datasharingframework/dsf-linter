@@ -109,6 +109,19 @@ public class PluginLintingOrchestrator {
                 context.projectPath()
         );
 
+        // Step 4.6: Validate Spring configuration registration
+        // (cross-references getSpringConfigurations() with BPMN delegate/listener classes)
+        List<AbstractLintItem> springConfigItems = SpringConfigurationLinter.lint(
+                plugin.adapter(),
+                plugin.bpmnFiles(),
+                context.projectDir(),
+                logger
+        );
+        if (!springConfigItems.isEmpty()) {
+            metadataItems = new ArrayList<>(metadataItems);
+            metadataItems.addAll(springConfigItems);
+        }
+
         // Step 5: Get leftover items for this plugin
         List<AbstractLintItem> leftoverItems = leftoverDetector.getItemsForPlugin(
                 leftoverAnalysis,

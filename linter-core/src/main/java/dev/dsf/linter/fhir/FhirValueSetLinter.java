@@ -150,6 +150,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
 
     /** Shared XPath factory instance for creating XPath expressions. */
     private static final XPathFactory XPATH_FACTORY = XPathFactory.newInstance();
+    private static final Set<String> VALID_READ_ACCESS_CODES = Set.of("ALL", "LOCAL");
 
     /* --- API  */
 
@@ -182,11 +183,23 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref = computeReference(doc, resFile);
+        final String ref = resolveReference(doc, resFile, VS_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasic(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                VS_XP + "/*[local-name()='version']/@value",
+                VS_XP + "/*[local-name()='date']/@value",
+                resFile,
+                ref,
+                LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
+                LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
+                "<version> must contain '#{version}'.",
+                "<date> must contain '#{date}'.",
+                "version placeholder OK.",
+                "date placeholder OK.",
+                issues);
         lintComposeIncludes(doc, resFile, ref, issues);
 
         return issues;
@@ -220,19 +233,7 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         try {
             NodeList tagElements = (NodeList) XPATH_FACTORY.newXPath()
                 .evaluate(META_TAGS_XP, doc, XPathConstants.NODESET);
-            boolean hasAllOrLocal = false;
-            for (int i = 0; i < tagElements.getLength(); i++)
-            {
-                Node tag = tagElements.item(i);
-                String sys  = val(tag, "./*[local-name()='system']/@value");
-                String code = val(tag, "./*[local-name()='code']/@value");
-                if (TAG_SYSTEM_READ_ACCESS.equals(sys)
-                    && ("ALL".equals(code) || "LOCAL".equals(code)))
-                {
-                    hasAllOrLocal = true;
-                    break;
-                }
-            }
+            boolean hasAllOrLocal = hasAllowedTag(tagElements, TAG_SYSTEM_READ_ACCESS, VALID_READ_ACCESS_CODES);
             if (!hasAllOrLocal)
                 out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_READ_ACCESS_TAG_ALL_OR_LOCAL,
                     res, ref, "meta.tag must contain at least one read-access-tag with code 'ALL' or 'LOCAL'"));
@@ -247,40 +248,20 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         // lint organization role codes
         lintOrganizationRoleCodes(doc, res, ref, out);
 
-        // url
         String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
         if (blank(url))
             out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_URL, res, ref));
         else
             out.add(ok(res, ref, "url = '" + url + "'"));
 
-        // name
-        String name = val(doc, VS_XP + "/*[local-name()='name']/@value");
-        if (blank(name))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_NAME, res, ref));
-        else
-            out.add(ok(res, ref, "name OK"));
-
-        // title
-        String title = val(doc, VS_XP + "/*[local-name()='title']/@value");
-        if (blank(title))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_TITLE, res, ref));
-        else
-            out.add(ok(res, ref, "title OK"));
-
-        // publisher
-        String publisher = val(doc, VS_XP + "/*[local-name()='publisher']/@value");
-        if (blank(publisher))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_PUBLISHER, res, ref));
-        else
-            out.add(ok(res, ref, "publisher OK"));
-
-        // description
-        String desc = val(doc, VS_XP + "/*[local-name()='description']/@value");
-        if (blank(desc))
-            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_MISSING_DESCRIPTION, res, ref));
-        else
-            out.add(ok(res, ref, "description OK"));
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='name']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_NAME, "name OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='title']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_TITLE, "title OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='publisher']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_PUBLISHER, "publisher OK", out);
+        checkRequiredValue(doc, VS_XP + "/*[local-name()='description']/@value", res, ref,
+                LintingType.FHIR_VALUE_SET_MISSING_DESCRIPTION, "description OK", out);
     }
 
     /**
@@ -328,47 +309,6 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_ORGANIZATION_ROLE_MISSING_VALID_CODE_VALUE,
                 res, ref, "Failed to evaluate parent-organization-role linting: " + e.getMessage()));
         }
-    }
-
-    /*  2) Placeholder checks  */
-
-    /**
-     * Checks for required placeholders in version and date fields.
-     *
-     * <p>lints that:</p>
-     * <ul>
-     *   <li>The version element contains exactly '#{version}'</li>
-     *   <li>The date element contains exactly '#{date}'</li>
-     * </ul>
-     *
-     * <p>These placeholders are required by the DSF template system and will be
-     * replaced with actual values during deployment.</p>
-     *
-     * @param doc the ValueSet XML document to lint, must not be null
-     * @param res the file reference for error reporting, must not be null
-     * @param ref a human-readable reference for reporting, must not be null
-     * @param out the list to which linting results are added, must not be null
-     */
-    private void checkPlaceholders(Document doc,
-                                   File res,
-                                   String ref,
-                                   List<FhirElementLintItem> out)
-    {
-        // version → #{version}
-        String version = val(doc, VS_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.FHIR_VALUE_SET_VERSION_NO_PLACEHOLDER,
-                    res, ref, "<version> must contain '#{version}'."));
-        else
-            out.add(ok(res, ref, "version placeholder OK." ));
-
-        // date → #{date}
-        String date = val(doc, VS_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_VALUE_SET_DATE_NO_PLACEHOLDER,
-                    res, ref, "<date> must contain '#{date}'."));
-        else
-            out.add(ok(res, ref, "date placeholder OK."));
     }
 
     /*  3) Compose/include  */
@@ -511,22 +451,4 @@ public final class FhirValueSetLinter extends AbstractFhirInstanceLinter
         }
     }
 
-    /*  helpers  */
-
-    /**
-     * Determines a human‑readable reference for logging/issue reporting. Prefers the
-     * <code>url</code> element of the ValueSet; falls back to the file name.
-     *
-     * <p>This method extracts the ValueSet's canonical URL for use in linter
-     * messages. If no URL is present, it uses the filename as a fallback identifier.</p>
-     *
-     * @param doc the ValueSet XML document, must not be null
-     * @param file the file reference, must not be null
-     * @return the ValueSet url or the file name if url is not present, never null
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, VS_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 }

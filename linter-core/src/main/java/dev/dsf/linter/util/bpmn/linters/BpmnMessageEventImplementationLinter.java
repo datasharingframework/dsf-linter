@@ -67,6 +67,9 @@ public final class BpmnMessageEventImplementationLinter {
                         new BpmnElementLintItem(LinterSeverity.ERROR, LintingType.BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING,
                                 elementId, bpmnFile, processId, "Implementation class '" + implClass
                                         + "' does not implement " + expectedInterface + "."));
+               //Handling of default or unknown API versions is intentionally omitted.
+                // This point is unreachable because the API version is validated at an earlier entry point;
+                // if unknown, an exception is thrown, and the linter skips validation to move on to the next plugin.
             }
             return;
         }
