@@ -587,7 +587,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
             if (!FhirAuthorizationCache.containsSystem(sys)) {
                 out.add(new FhirElementLintItem(LinterSeverity.ERROR,
                         LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN, f, ref,
-                        "Task.input.type.coding.system '" + sys + "' is not a known CodeSystem URI."));
+                        "Task.input.type.coding.system '" + sys + "' was not found on the classpath or the project directory."));
                 continue; // checks 2 and 3 require the system to be known
             }
 

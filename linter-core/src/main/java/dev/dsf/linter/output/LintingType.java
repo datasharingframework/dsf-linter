@@ -178,7 +178,7 @@ public enum LintingType {
     FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN("Task input slice count below slice minimum."),
     FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX("Task input slice count exceeds slice maximum."),
     FHIR_TASK_UNKNOWN_CODE("Task has unknown code (outside Task.input.type.coding)."),
-    FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN("Task.input.type.coding.system is not a known CodeSystem URI."),
+    FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN("Task.input.type.coding.system was not found on the classpath or the project directory."),
     FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET("Task.input.type.coding.system is not allowed by the expected ValueSet binding context."),
     FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM("Task.input.type.coding.code is unknown in the specified CodeSystem."),
     FHIR_TASK_REQUESTER_ID_NOT_EXIST("Task requester ID does not exist."),
