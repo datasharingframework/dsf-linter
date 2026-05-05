@@ -2,6 +2,7 @@ package dev.dsf.linter.service;
 
 import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.exception.ResourceLinterException;
+import dev.dsf.linter.exclusion.ExclusionFilter;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
@@ -32,6 +33,7 @@ public class PluginLintingOrchestrator {
     private final LeftoverResourceDetector leftoverDetector;
     private final LintingReportGenerator reportGenerator;
     private final Path reportBasePath;
+    private final ExclusionFilter exclusionFilter;
 
     /**
      * Context information for validating a plugin in a multi-plugin environment.
@@ -50,6 +52,7 @@ public class PluginLintingOrchestrator {
             LeftoverResourceDetector leftoverDetector,
             LintingReportGenerator reportGenerator,
             Path reportBasePath,
+            ExclusionFilter exclusionFilter,
             Logger logger) {
         this.bpmnLinter = bpmnLinter;
         this.fhirLinter = fhirLinter;
@@ -57,6 +60,7 @@ public class PluginLintingOrchestrator {
         this.leftoverDetector = leftoverDetector;
         this.reportGenerator = reportGenerator;
         this.reportBasePath = reportBasePath;
+        this.exclusionFilter = exclusionFilter;
     }
 
     /**
@@ -233,6 +237,9 @@ public class PluginLintingOrchestrator {
 
     /**
      * Builds the final PluginLinter result for a single plugin.
+     * If an {@link ExclusionFilter} is configured, excluded items are removed from the
+     * output that flows into reports, and their error count is stored separately so the
+     * caller can decide whether they should still affect the exit status.
      */
     private DsfLinter.PluginLinter buildPluginLintResult(
             String pluginName,
@@ -242,20 +249,32 @@ public class PluginLintingOrchestrator {
             List<AbstractLintItem> metadataItems,
             List<AbstractLintItem> leftoverItems) throws IOException {
 
-        List<AbstractLintItem> finalLintingItems = new ArrayList<>();
-        finalLintingItems.addAll(itemsCollection.nonPluginItems);
-        finalLintingItems.addAll(pluginResult.getItems());
+        List<AbstractLintItem> allItems = new ArrayList<>();
+        allItems.addAll(itemsCollection.nonPluginItems);
+        allItems.addAll(pluginResult.getItems());
 
         // Add metadata Lint Items to final result
         if (metadataItems != null && !metadataItems.isEmpty()) {
-            finalLintingItems.addAll(metadataItems);
+            allItems.addAll(metadataItems);
         }
-
         if (leftoverItems != null && !leftoverItems.isEmpty()) {
-            finalLintingItems.addAll(leftoverItems);
+            allItems.addAll(leftoverItems);
         }
 
-        LintingOutput finalOutput = new LintingOutput(finalLintingItems);
+        List<AbstractLintItem> reportItems;
+        int excludedErrorCount = 0;
+
+        if (exclusionFilter != null) {
+            List<AbstractLintItem> excluded = exclusionFilter.getExcluded(allItems);
+            reportItems = exclusionFilter.filter(allItems);
+            excludedErrorCount = (int) excluded.stream()
+                    .filter(i -> i.getSeverity() == LinterSeverity.ERROR)
+                    .count();
+        } else {
+            reportItems = allItems;
+        }
+
+        LintingOutput finalOutput = new LintingOutput(reportItems);
 
         Path pluginReportPath = reportBasePath.resolve(pluginName);
         Files.createDirectories(pluginReportPath);
@@ -265,6 +284,7 @@ public class PluginLintingOrchestrator {
                 plugin.adapter().sourceClass().getName(),
                 plugin.apiVersion(),
                 finalOutput,
+                excludedErrorCount,
                 pluginReportPath
         );
     }
