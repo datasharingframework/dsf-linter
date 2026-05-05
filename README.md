@@ -122,6 +122,7 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 | `--html` | Generate HTML report |
 | `--json` | Generate JSON report |
 | `--report-path <dir>` | Custom report directory |
+| `--exclusions <file>` | Path to a JSON exclusion config (see [Excluding Issues](#excluding-issues)) |
 | `--verbose` | Verbose logging |
 | `--no-color` | Disable colored output (default: enabled) |
 | `--no-fail` | Exit 0 even on errors |
@@ -135,6 +136,83 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 | `TERM=dumb` | Disables colored output |
 | `WT_SESSION`, `ANSICON` | Windows color detection |
 
+## Excluding Issues
+
+Users often encounter known, intentional, or external findings that clutter reports and make triage harder. The exclusion system lets you suppress specific lint items from HTML and JSON reports without modifying the plugin source.
+
+### Configuration file
+
+Create a file named **`dsf-linter-exclusions.json`** in the project root (auto-discovered) or point to it explicitly with `--exclusions`:
+
+```json
+{
+  "affectsExitStatus": false,
+  "rules": [
+    { "type": "BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING" },
+    { "severity": "WARN", "file": "update-allow-list.bpmn" },
+    { "messageContains": "optional field" }
+  ]
+}
+```
+
+### Rule fields
+
+Each rule is an **AND** combination of its non-null fields. Multiple rules are **OR**-combined — an item is excluded when *any* rule matches.
+
+| Field | Match type | Example |
+|---|---|---|
+| `type` | Exact (case-insensitive) match against the `LintingType` enum name | `"BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING"` |
+| `severity` | Exact (case-insensitive) match against the severity level | `"WARN"`, `"ERROR"`, `"INFO"` |
+| `file` | Case-insensitive substring match against the file name | `"update-allow-list"` |
+| `messageContains` | Case-insensitive substring match against the issue description | `"optional field"` |
+
+Every rule must specify at least one field — a rule with no criteria is rejected on load.
+
+### Exit-status control
+
+| `affectsExitStatus` | Behaviour |
+|---|---|
+| `false` *(default)* | Excluded items are fully suppressed — they do **not** appear in reports and do **not** count towards the exit code |
+| `true` | Excluded items are hidden from reports, but their error count **still** contributes to the exit code (non-zero exit on errors) |
+
+### Usage examples
+
+```bash
+
+# Explicit exclusion file
+java -jar linter-cli-0.1.2.jar \
+  --path plugin.jar --html \
+  --exclusions /path/to/my-exclusions.json
+
+# Exclude only from reports, but still fail on excluded errors
+```
+
+Exclusion file with `affectsExitStatus: true`:
+```json
+{
+  "affectsExitStatus": true,
+  "rules": [
+    { "type": "BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING" }
+  ]
+}
+```
+
+### Available `LintingType` values
+
+All available type names are defined in `LintingType.java`. A few common examples:
+
+| Type | Description |
+|---|---|
+| `BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING` | `historyTimeToLive` not set on process |
+| `BPMN_PROCESS_NOT_EXECUTABLE` | Process `isExecutable` not set to `true` |
+| `STRUCTURE_DEFINITION_SNAPSHOT_PRESENT` | StructureDefinition should not contain a snapshot |
+| `FHIR_TASK_STATUS_NOT_DRAFT` | Task status is not `draft` |
+| `PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION` | Plugin missing ServiceLoader registration |
+
+See `linter-core/src/main/java/dev/dsf/linter/output/LintingType.java` for the full list.
+
+---
+
 ## Project Structure
 
 ```
@@ -143,6 +221,7 @@ dsf-linter/
 │   ├── src/main/java/dev/dsf/linter/
 │   │   ├── analysis/                         # Resource analysis
 │   │   ├── bpmn/                             # BPMN parsing & validation
+│   │   ├── exclusion/                        # Exclusion rules & filtering
 │   │   ├── fhir/                             # FHIR parsing & validation
 │   │   ├── service/                          # Linting services (BPMN, FHIR, Plugin)
 │   │   ├── output/                           # Lint item definitions
@@ -189,10 +268,11 @@ dsf-linter/
 ### Testing
 
 ```bash
-mvn test                          # All tests
-mvn test -Dtest=BpmnLoadingTest   # Specific test
-mvn test -X                       # Verbose
-mvn clean package -DskipTests     # Build without tests
+mvn test                                # All tests
+mvn test -Dtest=BpmnLoadingTest         # Specific test
+mvn test -Dtest=ExclusionFilterTest     # Exclusion filter tests
+mvn test -X                             # Verbose
+mvn clean package -DskipTests           # Build without tests
 ```
 
 ### Development Workflow
@@ -237,6 +317,8 @@ java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 \
 | `FhirLintingService` | FHIR validation |
 | `PluginLintingService` | Plugin validation |
 | `LintingReportGenerator` | Report generation |
+| `ExclusionFilter` | Suppresses lint items matched by exclusion rules |
+| `ExclusionConfigLoader` | Loads `dsf-linter-exclusions.json` |
 
 ## Report Output
 
