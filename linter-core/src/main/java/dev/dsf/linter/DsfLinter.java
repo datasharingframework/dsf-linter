@@ -3,6 +3,8 @@ package dev.dsf.linter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
 import dev.dsf.linter.exception.ResourceLinterException;
+import dev.dsf.linter.exclusion.ExclusionConfig;
+import dev.dsf.linter.exclusion.ExclusionFilter;
 import dev.dsf.linter.logger.Console;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.report.LintingReportGenerator;
@@ -51,12 +53,13 @@ public class DsfLinter {
     /**
      * Configuration for the DSF Linter.
      *
-     * @param projectPath the path to the project root directory
-     * @param reportPath the path where linting reports should be generated
+     * @param projectPath      the path to the project root directory
+     * @param reportPath       the path where linting reports should be generated
      * @param generateHtmlReport whether to generate an HTML report
      * @param generateJsonReport whether to generate a JSON report
-     * @param failOnErrors whether the linter should fail (exit code 1) when errors are found
-     * @param logger the logger instance for output
+     * @param failOnErrors     whether the linter should fail (exit code 1) when errors are found
+     * @param exclusionConfig  optional exclusion configuration; {@code null} means no exclusions
+     * @param logger           the logger instance for output
      */
     public record Config(
             Path projectPath,
@@ -64,24 +67,35 @@ public class DsfLinter {
             boolean generateHtmlReport,
             boolean generateJsonReport,
             boolean failOnErrors,
+            ExclusionConfig exclusionConfig,
             Logger logger
     ) {
+        /**
+         * Backward-compatible constructor without exclusion config.
+         */
+        public Config(Path projectPath, Path reportPath, boolean generateHtmlReport,
+                      boolean generateJsonReport, boolean failOnErrors, Logger logger) {
+            this(projectPath, reportPath, generateHtmlReport, generateJsonReport,
+                    failOnErrors, null, logger);
+        }
     }
 
     /**
      * Linting result for a single plugin.
      *
-     * @param pluginName the name of the plugin
-     * @param pluginClass the fully qualified class name of the plugin
-     * @param apiVersion the DSF API version used by the plugin
-     * @param output the detailed linting output (errors, warnings, etc.)
-     * @param reportPath the path to the generated report for this plugin
+     * @param pluginName        the name of the plugin
+     * @param pluginClass       the fully qualified class name of the plugin
+     * @param apiVersion        the DSF API version used by the plugin
+     * @param output            the linting output after exclusions have been applied (used for reports)
+     * @param excludedErrorCount the number of ERROR-severity items that were excluded by exclusion rules
+     * @param reportPath        the path to the generated report for this plugin
      */
     public record PluginLinter(
             String pluginName,
             String pluginClass,
             ApiVersion apiVersion,
             LintingOutput output,
+            int excludedErrorCount,
             Path reportPath
     ) {
     }
@@ -128,12 +142,6 @@ public class DsfLinter {
             return leftoverAnalysis != null ? leftoverAnalysis.getTotalLeftoverCount() : 0;
         }
 
-        /**
-         * Get total error count across all plugins and project-level leftovers.
-         */
-        public int getTotalErrors() {
-            return getPluginErrors() + getLeftoverCount();
-        }
     }
 
     private final Config config;
@@ -165,6 +173,9 @@ public class DsfLinter {
         this.config = config;
         this.logger = config.logger();
         Console.init(logger);
+        ExclusionFilter exclusionFilter = config.exclusionConfig() != null
+                ? new ExclusionFilter(config.exclusionConfig())
+                : null;
         this.setupHandler = new ProjectSetupHandler(logger);
         this.discoveryService = new ResourceDiscoveryService(logger);
         BpmnLintingService bpmnLinter = new BpmnLintingService(logger);
@@ -179,6 +190,7 @@ public class DsfLinter {
                 leftoverDetector,
                 reportGenerator,
                 config.reportPath(),
+                exclusionFilter,
                 logger
         );
     }
@@ -211,11 +223,7 @@ public class DsfLinter {
             // Phase 1: Project Setup
             reportGenerator.printPhaseHeader("Phase 1: Project Setup");
             ProjectSetupHandler.ProjectContext context;
-            try {
-                context = setupHandler.setupLintingEnvironment(config.projectPath());
-            } catch (IOException e) {
-                throw e;
-            }
+            context = setupHandler.setupLintingEnvironment(config.projectPath());
 
             // Execute all linting phases with temporary context classloader
             return ClassLoaderUtils.withTemporaryContextClassLoader(context.projectClassLoader(), () -> {
@@ -253,11 +261,20 @@ public class DsfLinter {
                     long executionTime = System.currentTimeMillis() - startTime;
                     reportGenerator.printSummary(pluginLinting, discovery, leftoverResults, executionTime, config);
 
-                    // Determine final success status
+                    // Determine final success status.
+                    // v.output().getErrorCount() reflects only included (non-excluded) items.
+                    // When affectsExitStatus=true, add back the count of excluded errors.
+                    boolean addExcludedToCount = config.exclusionConfig() != null
+                            && config.exclusionConfig().isAffectsExitStatus();
+
                     int totalPluginErrors = pluginLinting.values().stream()
-                            .mapToInt(v -> v.output().getErrorCount())
+                            .mapToInt(v -> {
+                                int reported = v.output().getErrorCount();
+                                int excluded = addExcludedToCount ? v.excludedErrorCount() : 0;
+                                return reported + excluded;
+                            })
                             .sum();
-                    
+
                     // Consider failed plugins as errors (partial success means non-zero exit code)
                     boolean hasFailedPlugins = discovery.hasFailedPlugins();
                     boolean success = !config.failOnErrors() || (totalPluginErrors == 0 && !hasFailedPlugins);
