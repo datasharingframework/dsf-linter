@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>dev.dsf.utils.linter</groupId>
+        <groupId>dev.dsf.linter</groupId>
         <artifactId>dsf-linter</artifactId>
         <version>0.1.2</version>
     </parent>
@@ -13,14 +13,13 @@
     <artifactId>linter-cli</artifactId>
 
     <properties>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- linter-cli is an executable fat-JAR, not a library – skip Central publication -->
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>dev.dsf.utils.linter</groupId>
+            <groupId>dev.dsf.linter</groupId>
             <artifactId>linter-core</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -48,7 +47,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

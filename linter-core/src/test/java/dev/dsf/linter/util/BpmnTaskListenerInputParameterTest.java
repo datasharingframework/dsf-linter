@@ -66,15 +66,6 @@ class BpmnTaskListenerInputParameterTest {
         issues = new ArrayList<>();
     }
 
-    /**
-     * Helper method to assert that a lint item has a specific LintingType.
-     */
-    private void assertLintType(LintingType expectedType, BpmnElementLintItem item) {
-        assertNotNull(item, "Item should not be null");
-        assertEquals(expectedType, item.getType(), 
-                "Item should have type " + expectedType);
-    }
-
     private BpmnModelInstance createModelFromXml(String bpmnXml) {
         return Bpmn.readModelFromStream(
                 new java.io.ByteArrayInputStream(bpmnXml.getBytes(StandardCharsets.UTF_8)));

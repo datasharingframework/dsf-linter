@@ -32,6 +32,7 @@ public class PluginLintingOrchestrator {
     private final LeftoverResourceDetector leftoverDetector;
     private final LintingReportGenerator reportGenerator;
     private final Path reportBasePath;
+    private final Logger logger;
 
     /**
      * Context information for validating a plugin in a multi-plugin environment.
@@ -57,6 +58,7 @@ public class PluginLintingOrchestrator {
         this.leftoverDetector = leftoverDetector;
         this.reportGenerator = reportGenerator;
         this.reportBasePath = reportBasePath;
+        this.logger = logger;
     }
 
     /**
@@ -104,6 +106,19 @@ public class PluginLintingOrchestrator {
                 plugin.adapter(),
                 context.projectPath()
         );
+
+        // Step 4.6: Validate Spring configuration registration
+        // (cross-references getSpringConfigurations() with BPMN delegate/listener classes)
+        List<AbstractLintItem> springConfigItems = SpringConfigurationLinter.lint(
+                plugin.adapter(),
+                plugin.bpmnFiles(),
+                context.projectDir(),
+                logger
+        );
+        if (!springConfigItems.isEmpty()) {
+            metadataItems = new ArrayList<>(metadataItems);
+            metadataItems.addAll(springConfigItems);
+        }
 
         // Step 5: Get leftover items for this plugin
         List<AbstractLintItem> leftoverItems = leftoverDetector.getItemsForPlugin(

@@ -102,6 +102,8 @@ public enum LintingType {
     BPMN_FILE_MULTIPLE_PROCESSES("BPMN file contains multiple process definitions, expected exactly one."),
     BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING("Process historyTimeToLive is not set. DSF uses default 'P30D'. Best practice: set explicitly."),
     BPMN_PROCESS_NOT_EXECUTABLE("Process is not executable. Set isExecutable='true' for the process to be deployable."),
+    BPMN_PROCESS_VERSION_TAG_MISSING_OR_EMPTY("Process camunda:versionTag is missing, empty, or set to null."),
+    BPMN_PROCESS_VERSION_TAG_NO_PLACEHOLDER("Process camunda:versionTag does not use '#{version}' placeholder."),
 
     // ==================== BPMN GENERAL ====================
     BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
@@ -182,7 +184,10 @@ public enum LintingType {
     FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX("Task input instance count exceeds maximum."),
     FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN("Task input slice count below slice minimum."),
     FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX("Task input slice count exceeds slice maximum."),
-    FHIR_TASK_UNKNOWN_CODE("Task has unknown code."),
+    FHIR_TASK_UNKNOWN_CODE("Task has unknown code (outside Task.input.type.coding)."),
+    FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN("Task.input.type.coding.system was not found on the classpath or the project directory."),
+    FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET("Task.input.type.coding.system is not allowed by the expected ValueSet binding context."),
+    FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM("Task.input.type.coding.code is unknown in the specified CodeSystem."),
     FHIR_TASK_REQUESTER_ID_NOT_EXIST("Task requester ID does not exist."),
     FHIR_TASK_REQUESTER_ID_NO_PLACEHOLDER("Task requester ID missing placeholder."),
     FHIR_TASK_RECIPIENT_ID_NOT_EXIST("Task recipient ID does not exist."),
@@ -247,7 +252,22 @@ public enum LintingType {
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
     PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
-    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid.");
+    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid."),
+
+    // ==================== PLUGIN DEFINITION - SPRING CONFIGURATIONS ====================
+    PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING(
+            "A BPMN-referenced delegate or listener class is not provided as a @Bean "
+                    + "in any @Configuration class returned by getSpringConfigurations()."),
+
+    // ==================== SPRING BEAN SCOPE ====================
+    SPRING_BEAN_SCOPE_MISSING(
+            "BPMN-referenced bean has no @Scope annotation (defaults to singleton)."),
+    SPRING_BEAN_SCOPE_SINGLETON_EXPLICIT(
+            "BPMN-referenced bean is explicitly configured as singleton."),
+    SPRING_BEAN_SCOPE_PROTOTYPE(
+            "BPMN-referenced bean is correctly configured as prototype."),
+    SPRING_BEAN_SCOPE_MUTABLE_SINGLETON(
+            "BPMN-referenced singleton bean has mutable (non-static, non-final) instance fields.");
 
     private final String defaultMessage;
 
