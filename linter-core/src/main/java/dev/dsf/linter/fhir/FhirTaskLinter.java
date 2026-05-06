@@ -820,7 +820,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         if (blank(instCanon)) return true;
         File projectRoot = determineProjectRoot(taskFile);
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(instCanon, projectRoot);
+        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(instCanon);
         return actFile == null;
     }
 
@@ -847,7 +847,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
 
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-        File sdFile = locator.findStructureDefinitionFile(profileUrl, projectRoot);
+        File sdFile = locator.findStructureDefinitionFile(profileUrl);
         if (sdFile == null) return null;
         try {
             Document sd;

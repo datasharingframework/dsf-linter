@@ -465,7 +465,7 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             if (blank(strength) || blank(valueSetUrl)) continue;
 
             String elemId = val(elem, "./@id");
-            boolean found = locator.valueSetExists(valueSetUrl, projectRoot);
+            boolean found = locator.valueSetExists(valueSetUrl);
 
             if (!found) {
                 if ("required".equals(strength)) {
