@@ -585,8 +585,6 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
             if (blank(actualSys) || blank(actualCode)) continue;
             if (allowedPairs.contains(actualSys + "#" + actualCode)) continue;
 
-            boolean handled = false;
-
             Set<String> expectedSystems = expectedSystemsByCode.get(actualCode);
             if (expectedSystems != null && !expectedSystems.contains(actualSys)) {
                 String key = "uri|" + actualSys + "|" + actualCode;
@@ -596,26 +594,24 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                             "Task.input with code='" + actualCode + "': system='" + actualSys
                                     + "' does not match expected fixedUri(s)=" + expectedSystems + "."));
                 }
-                handled = true;
+                continue;
             }
 
-            if (!handled) {
-                Set<String> expectedCodes = expectedCodesBySystem.get(actualSys);
-                if (expectedCodes != null && !expectedCodes.contains(actualCode)) {
-                    String key = "code|" + actualSys + "|" + actualCode;
-                    if (reported.add(key)) {
-                        out.add(new FhirElementLintItem(LinterSeverity.ERROR,
-                                LintingType.FHIR_TASK_INPUT_FIXED_CODE_MISMATCH, f, ref,
-                                "Task.input with system='" + actualSys + "': code='" + actualCode
-                                        + "' does not match expected fixedCode(s)=" + expectedCodes + "."));
-                    }
-                    handled = true;
+            Set<String> expectedCodes = expectedCodesBySystem.get(actualSys);
+            if (expectedCodes != null && !expectedCodes.contains(actualCode)) {
+                String key = "code|" + actualSys + "|" + actualCode;
+                if (reported.add(key)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                            LintingType.FHIR_TASK_INPUT_FIXED_CODE_MISMATCH, f, ref,
+                            "Task.input with system='" + actualSys + "': code='" + actualCode
+                                    + "' does not match expected fixedCode(s)=" + expectedCodes + "."));
                 }
+                continue;
             }
 
             // pair is completely unrecognized by the SD's fixedUri/fixedCode constraints.
             // Exclude bpmn-message inputs as those are validated separately in lintInputs().
-            if (!handled && !SYSTEM_BPMN_MSG.equals(actualSys)) {
+            if (!SYSTEM_BPMN_MSG.equals(actualSys)) {
                 String key = "unallowed|" + actualSys + "|" + actualCode;
                 if (reported.add(key)) {
                     out.add(new FhirElementLintItem(LinterSeverity.ERROR,
