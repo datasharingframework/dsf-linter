@@ -144,10 +144,13 @@ import java.util.*;
  *   <li>{@link LintingType#FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX} – too many {@code Task.input} elements</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN} – slice occurrence below minimum</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX} – slice occurrence exceeds maximum</li>
- *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_CODE} – unknown terminology code (non-input codings)</li>
+     *   <li>{@link LintingType#FHIR_TASK_UNKNOWN_CODE} – unknown terminology code (non-input codings)</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN} – {@code Task.input.type.coding.system} not a known CodeSystem URI</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET} – {@code Task.input.type.coding.system} not allowed by the expected ValueSet binding context</li>
  *   <li>{@link LintingType#FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM} – {@code Task.input.type.coding.code} unknown in the specified CodeSystem</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_FIXED_URI_MISMATCH} – {@code Task.input.type.coding.system} does not match the {@code fixedUri} declared in the StructureDefinition slice</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_FIXED_CODE_MISMATCH} – {@code Task.input.type.coding.code} does not match the {@code fixedCode} declared in the StructureDefinition slice</li>
+ *   <li>{@link LintingType#FHIR_TASK_INPUT_PAIR_NOT_ALLOWED_BY_SD} – {@code (system, code)} pair not defined by any {@code fixedUri}/{@code fixedCode} constraint in the StructureDefinition</li>
  *   <li>{@link LintingType#FHIR_TASK_COULD_NOT_LOAD_PROFILE} – StructureDefinition could not be loaded (warning)</li>
  * </ul>
  * <p>Successful validations are reported with {@link LinterSeverity#INFO} for completeness and traceability.</p>
@@ -230,6 +233,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         Map<String, SliceCard> cards = loadInputCardinality(determineProjectRoot(resFile), profileUrl);
 
         lintInputs(doc, resFile, ref, issues, cards);
+        lintFixedConstraints(doc, resFile, ref, issues, cards);
         lintTerminology(doc, resFile, ref, issues);
         lintInputTypeCodingTerminology(doc, resFile, ref, issues, cards);
         lintRequesterAuthorization(doc, resFile, ref, issues);
@@ -301,29 +305,6 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                     "restriction.recipient.identifier.system must be '" + SYSTEM_ORG_ID + "'"));
         else
             out.add(ok(f, ref, "restriction.recipient.identifier.system OK"));
-    }
-
-    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out) {
-        String authoredOn = val(doc, TASK_XP + "/*[local-name()='authoredOn']/@value");
-        if (authoredOn == null || !authoredOn.contains("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_DATE_NO_PLACEHOLDER, f, ref,
-                    "<authoredOn> must contain '#{date}'."));
-        else
-            out.add(ok(f, ref, "<authoredOn> placeholder OK."));
-
-        String reqIdVal = val(doc, TASK_XP + "/*[local-name()='requester']/*[local-name()='identifier']/*[local-name()='value']/@value");
-        if (reqIdVal == null || !reqIdVal.equals("#{organization}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_REQUESTER_ORGANIZATION_NO_PLACEHOLDER, f, ref,
-                    "requester.identifier.value must contain '#{organization}'."));
-        else
-            out.add(ok(f, ref, "requester.identifier.value placeholder OK."));
-
-        String recIdVal = val(doc, TASK_XP + "/*[local-name()='restriction']/*[local-name()='recipient']/*[local-name()='identifier']/*[local-name()='value']/@value");
-        if (recIdVal == null || !recIdVal.equals("#{organization}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.FHIR_TASK_RECIPIENT_ORGANIZATION_NO_PLACEHOLDER, f, ref,
-                    "restriction.recipient.identifier.value must contain '#{organization}'."));
-        else
-            out.add(ok(f, ref, "restriction.recipient.identifier.value placeholder OK."));
     }
 
     /**
@@ -646,7 +627,10 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
      *
      * <p>The decision order reflects how tightly the profile constrains the system:</p>
      * <ol>
-     *   <li><strong>fixedUri</strong> on {@code .type.coding.system} - strict literal comparison.</li>
+     *   <li><strong>fixedUri</strong> on {@code .type.coding.system} – strict literal comparison.
+     *       A mismatch is silently deferred to {@link #lintFixedConstraints}, which reports it
+     *       with the more specific {@link LintingType#FHIR_TASK_INPUT_FIXED_URI_MISMATCH} error
+     *       type. No duplicate error is emitted here.</li>
      *   <li><strong>binding.valueSet</strong> resolvable in the cache - input system must be
      *       listed in the ValueSet's {@code compose.include.system}.</li>
      *   <li><strong>binding.valueSet</strong> declared but not loaded - explicit validation
@@ -655,7 +639,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
      *       ValueSet context is available.</li>
      * </ol>
      *
-     * <p>On mismatch, a {@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET}
+     * <p>On mismatch in cases 2–4, a {@link LintingType#FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET}
      * error is appended to {@code out} and {@code false} is returned.</p>
      *
      * @return {@code true} if the system is accepted by the resolved binding context,
@@ -663,14 +647,11 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
      */
     private boolean isSystemAllowedByBinding(SliceCard slice, String sys,
                                              List<FhirElementLintItem> out, File f, String ref) {
-        // 1. Strict fixedUri match on Task.input:slice.type.coding.system
+        // 1. Strict fixedUri match on Task.input:slice.type.coding.system.
+        // A mismatch is already reported by lintFixedConstraints() as FHIR_TASK_INPUT_FIXED_URI_MISMATCH.
+        // Emitting a second error here would duplicate the report, so we return false silently.
         if (slice != null && slice.fixedSystem() != null && !slice.fixedSystem().isBlank()) {
-            if (sys.equals(slice.fixedSystem())) return true;
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR,
-                    LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET, f, ref,
-                    "Task.input.type.coding.system '" + sys +
-                    "' does not match the slice's fixedUri '" + slice.fixedSystem() + "'."));
-            return false;
+            return sys.equals(slice.fixedSystem());
         }
 
         // 2. binding.valueSet declared on the slice
@@ -697,6 +678,108 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
                 "Task.input.type.coding.system '" + sys +
                 "' has no resolvable expected ValueSet context (missing fixedUri and binding.valueSet)."));
         return false;
+    }
+
+    /**
+     * Validates {@code Task.input} coding entries against {@code fixedUri}/{@code fixedCode}
+     * constraints declared in the Task profile's StructureDefinition.
+     *
+     * <h3>Validation direction</h3>
+     * <p>The check is intentionally <b>Task → StructureDefinition</b>:</p>
+     * <ol>
+     *   <li>Read all actual {@code (system, code)} pairs from {@code Task.input}.</li>
+     *   <li>Verify each pair against allowed pairs from the referenced StructureDefinition.</li>
+     * </ol>
+     *
+     * <h3>What is checked</h3>
+     * <ol>
+     *   <li>If an actual Task input code exists in SD constraints but with a different system
+     *       → {@link LintingType#FHIR_TASK_INPUT_FIXED_URI_MISMATCH}</li>
+     *   <li>If an actual Task input system exists in SD constraints but with a different code
+     *       → {@link LintingType#FHIR_TASK_INPUT_FIXED_CODE_MISMATCH}</li>
+     *   <li>If an actual Task input {@code (system, code)} pair is not defined by any SD
+     *       fixedUri/fixedCode constraint (excluding BPMN message inputs)
+     *       → {@link LintingType#FHIR_TASK_INPUT_PAIR_NOT_ALLOWED_BY_SD}</li>
+     * </ol>
+     *
+     * @param doc   the Task DOM document
+     * @param f     the Task resource file
+     * @param ref   a human-readable reference (e.g. instantiatesCanonical)
+     * @param out   the list where linting results are appended
+     * @param cards per-slice cardinality and constraint metadata; if {@code null} or empty,
+     *              no fixedUri/fixedCode constraints are available and the check is skipped
+     */
+    private void lintFixedConstraints(Document doc, File f, String ref,
+                                      List<FhirElementLintItem> out,
+                                      Map<String, SliceCard> cards) {
+        if (cards == null || cards.isEmpty()) return;
+        NodeList ins = xp(doc, INPUT_XP);
+        if (ins == null || ins.getLength() == 0) return;
+        Map<String, Set<String>> expectedSystemsByCode = new HashMap<>();
+        Map<String, Set<String>> expectedCodesBySystem = new HashMap<>();
+        Set<String> allowedPairs = new HashSet<>();
+        for (Map.Entry<String, SliceCard> entry : cards.entrySet()) {
+            if ("__BASE__".equals(entry.getKey())) continue;
+            SliceCard card = entry.getValue();
+            if (card.fixedSystem() == null || card.fixedCode() == null) continue;
+            expectedSystemsByCode.computeIfAbsent(card.fixedCode(), k -> new HashSet<>()).add(card.fixedSystem());
+            expectedCodesBySystem.computeIfAbsent(card.fixedSystem(), k -> new HashSet<>()).add(card.fixedCode());
+            allowedPairs.add(card.fixedSystem() + "#" + card.fixedCode());
+        }
+        if (allowedPairs.isEmpty()) return;
+
+        List<String[]> actualPairs = new ArrayList<>();
+        for (int i = 0; i < ins.getLength(); i++) {
+            Node in = ins.item(i);
+            String sys  = val(in, CODING_SYS_XP);
+            String code = val(in, CODING_CODE_XP);
+            if (!blank(sys) || !blank(code))
+                actualPairs.add(new String[]{sys, code});
+        }
+
+        Set<String> reported = new HashSet<>();
+        for (String[] actual : actualPairs) {
+            String actualSys = actual[0];
+            String actualCode = actual[1];
+            if (blank(actualSys) || blank(actualCode)) continue;
+            if (allowedPairs.contains(actualSys + "#" + actualCode)) continue;
+
+            Set<String> expectedSystems = expectedSystemsByCode.get(actualCode);
+            if (expectedSystems != null && !expectedSystems.contains(actualSys)) {
+                String key = "uri|" + actualSys + "|" + actualCode;
+                if (reported.add(key)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                            LintingType.FHIR_TASK_INPUT_FIXED_URI_MISMATCH, f, ref,
+                            "Task.input with code='" + actualCode + "': system='" + actualSys
+                                    + "' does not match expected fixedUri(s)=" + expectedSystems + "."));
+                }
+                continue;
+            }
+
+            Set<String> expectedCodes = expectedCodesBySystem.get(actualSys);
+            if (expectedCodes != null && !expectedCodes.contains(actualCode)) {
+                String key = "code|" + actualSys + "|" + actualCode;
+                if (reported.add(key)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                            LintingType.FHIR_TASK_INPUT_FIXED_CODE_MISMATCH, f, ref,
+                            "Task.input with system='" + actualSys + "': code='" + actualCode
+                                    + "' does not match expected fixedCode(s)=" + expectedCodes + "."));
+                }
+                continue;
+            }
+
+            // pair is completely unrecognized by the SD's fixedUri/fixedCode constraints.
+            // Exclude bpmn-message inputs as those are validated separately in lintInputs().
+            if (!SYSTEM_BPMN_MSG.equals(actualSys)) {
+                String key = "unallowed|" + actualSys + "|" + actualCode;
+                if (reported.add(key)) {
+                    out.add(new FhirElementLintItem(LinterSeverity.ERROR,
+                            LintingType.FHIR_TASK_INPUT_PAIR_NOT_ALLOWED_BY_SD, f, ref,
+                            "Task.input pair (system='" + actualSys + "', code='" + actualCode
+                                    + "') is not defined by any fixedUri/fixedCode constraint in the StructureDefinition."));
+                }
+            }
+        }
     }
 
     private String computeReference(Document doc, File file) {
@@ -737,7 +820,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
         if (blank(instCanon)) return true;
         File projectRoot = determineProjectRoot(taskFile);
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(instCanon, projectRoot);
+        File actFile = locator.findActivityDefinitionForInstantiatesCanonical(instCanon);
         return actFile == null;
     }
 
@@ -764,7 +847,7 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
 
     private Map<String, SliceCard> loadInputCardinality(File projectRoot, String profileUrl) {
         FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-        File sdFile = locator.findStructureDefinitionFile(profileUrl, projectRoot);
+        File sdFile = locator.findStructureDefinitionFile(profileUrl);
         if (sdFile == null) return null;
         try {
             Document sd;

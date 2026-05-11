@@ -382,7 +382,7 @@ public record BpmnTaskLinter(File projectRoot) {
                 issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "User Task formKey is valid: '" + formKey + "'"));
 
-                if (!locator.questionnaireExists(formKey, projectRoot)) {
+                if (!locator.questionnaireExists(formKey)) {
                     issues.add(new BpmnElementLintItem(
                             LinterSeverity.ERROR, LintingType.BPMN_USER_TASK_QUESTIONNAIRE_NOT_FOUND,
                             elementId, bpmnFile, processId,
