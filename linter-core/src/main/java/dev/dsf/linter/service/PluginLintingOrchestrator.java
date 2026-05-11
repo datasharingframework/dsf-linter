@@ -34,6 +34,7 @@ public class PluginLintingOrchestrator {
     private final LintingReportGenerator reportGenerator;
     private final Path reportBasePath;
     private final ExclusionFilter exclusionFilter;
+    private final Logger logger;
 
     /**
      * Context information for validating a plugin in a multi-plugin environment.
@@ -61,6 +62,7 @@ public class PluginLintingOrchestrator {
         this.reportGenerator = reportGenerator;
         this.reportBasePath = reportBasePath;
         this.exclusionFilter = exclusionFilter;
+        this.logger = logger;
     }
 
     /**
