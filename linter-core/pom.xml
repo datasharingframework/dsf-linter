@@ -144,7 +144,18 @@
             <scope>runtime</scope>
         </dependency>
 
-
+        <!-- JAXB API and Runtime (needed for FHIR parsing in Java 11+) -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>4.0.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>4.0.8</version>
+            <scope>runtime</scope>
+        </dependency>
 
     </dependencies>
 
