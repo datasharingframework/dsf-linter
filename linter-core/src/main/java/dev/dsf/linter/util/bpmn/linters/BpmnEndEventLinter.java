@@ -103,7 +103,7 @@ public final class BpmnEndEventLinter {
         // 1. Name check for non-SubProcess end events
         if (!(endEvent.getParentElement() instanceof SubProcess)) {
             if (isEmpty(endEvent.getName())) {
-                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS,
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_NAME_IS_EMPTY,
                         elementId, bpmnFile, processId));
             } else {
                 issues.add(BpmnElementLintItem.success(
