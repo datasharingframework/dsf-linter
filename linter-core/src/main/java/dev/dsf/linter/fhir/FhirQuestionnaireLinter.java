@@ -126,11 +126,11 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
         /* meta.profile  */
         String profile = val(doc, META_PRO_XP);
         if (blank(profile))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_META_PROFILE,
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.QUESTIONNAIRE_MISSING_META_PROFILE,
                     file, ref, "Questionnaire is missing meta.profile."));
             // Modified to use regex matching
         else if (!PROFILE_URI_PATTERN.matcher(profile).matches())
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_INVALID_META_PROFILE,
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.QUESTIONNAIRE_INVALID_META_PROFILE,
                     file, ref, "Questionnaire has invalid meta.profile: " + profile));
         else
             out.add(ok(file, ref, "meta.profile present and valid"));
