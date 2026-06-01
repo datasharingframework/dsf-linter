@@ -27,6 +27,9 @@ import java.util.stream.Stream;
  */
 public class HtmlReportGenerator {
 
+    /** Relative path from {@code <reportDir>/<plugin>/lints.html} to the master report. */
+    private static final String MASTER_REPORT_HREF = "../report.html";
+
     private final Logger logger;
     private final TemplateEngine templateEngine;
 
@@ -121,6 +124,7 @@ public class HtmlReportGenerator {
         context.setVariable("pluginName", pluginName);
         context.setVariable("pluginClass", lints.pluginClass());
         context.setVariable("apiVersion", apiVersion.toString());
+        context.setVariable("masterReportHref", MASTER_REPORT_HREF);
     }
 
     /**
