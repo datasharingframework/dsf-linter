@@ -647,6 +647,11 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
      */
     private boolean isSystemAllowedByBinding(SliceCard slice, String sys,
                                              List<FhirElementLintItem> out, File f, String ref) {
+        // BPMN message inputs are validated in lintInputs(); base-profile constraints are not in derived SD slices.
+        if (SYSTEM_BPMN_MSG.equals(sys) && slice != null) {
+            return true;
+        }
+
         // 1. Strict fixedUri match on Task.input:slice.type.coding.system.
         // A mismatch is already reported by lintFixedConstraints() as FHIR_TASK_INPUT_FIXED_URI_MISMATCH.
         // Emitting a second error here would duplicate the report, so we return false silently.
@@ -861,8 +866,10 @@ public final class FhirTaskLinter extends AbstractFhirInstanceLinter {
             int baseMax = (maxBase == null || "*".equals(maxBase)) ? Integer.MAX_VALUE : Integer.parseInt(maxBase);
             map.put("__BASE__", SliceCard.cardinalityOnly(baseMin, baseMax));
 
+            // Slice root elements use ids like Task.input:message-name; nested elements add dots after the slice name
+            // (e.g. Task.input:message-name.value[x]). Do not use not(contains(@id,'.')) — that excludes all Task.input:* ids.
             NodeList slices = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') and not(contains(@id,'.'))]")
+                    .compile("//*[local-name()='element' and starts-with(@id,'Task.input:') and not(contains(substring-after(@id,'Task.input:'), '.'))]")
                     .evaluate(sd, XPathConstants.NODESET);
             for (int i = 0; i < slices.getLength(); i++) {
                 Node n = slices.item(i);
