@@ -106,11 +106,23 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resourceFile)
     {
-        final String ref = computeReference(doc, resourceFile);
+        final String ref = resolveReference(doc, resourceFile, Q_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMetaAndBasics(doc, resourceFile, ref, issues);
-        checkPlaceholders(doc, resourceFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                Q_XP + "/*[local-name()='version']/@value",
+                Q_XP + "/*[local-name()='date']/@value",
+                resourceFile,
+                ref,
+                LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
+                LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
+                "Questionnaire version must be '#{version}'.",
+                "Questionnaire date must be '#{date}'.",
+                "version placeholder present",
+                "date placeholder present",
+                issues);
         lintItems(doc, resourceFile, ref, issues);
 
         return issues;
@@ -136,17 +148,8 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
             out.add(ok(file, ref, "meta.profile present and valid"));
 
         /* meta.tag (read‑access ALL)  */
-        boolean tagOk = false;
         NodeList tags = xp(doc, META_TAG_XP);
-        if (tags != null) {
-            for (int i = 0; i < tags.getLength(); i++) {
-                String sys  = val(tags.item(i), "./*[local-name()='system']/@value");
-                String code = val(tags.item(i), "./*[local-name()='code']/@value");
-                if (READ_TAG_SYS.equals(sys) && VALID_READ_ACCESS_CODES.contains(code)){
-                    tagOk = true; break;
-                }
-            }
-        }
+        boolean tagOk = hasAllowedTag(tags, READ_TAG_SYS, VALID_READ_ACCESS_CODES);
         if (!tagOk)
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_MISSING_READ_ACCESS_TAG,
                     file, ref, "Questionnaire is missing valid read-access tag."));
@@ -160,28 +163,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
                     file, ref, "Questionnaire status must be 'unknown' (found '" + status + "')."));
         else
             out.add(ok(file, ref, "status = unknown"));
-    }
-
-    /*
-     2) placeholder linting
-    */
-
-    private void checkPlaceholders(Document doc, File file, String ref,
-                                   List<FhirElementLintItem> out)
-    {
-        String version = val(doc, Q_XP + "/*[local-name()='version']/@value");
-        if (version == null || !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_VERSION_NO_PLACEHOLDER,
-                    file, ref, "Questionnaire version must be '#{version}'."));
-        else
-            out.add(ok(file, ref, "version placeholder present"));
-
-        String date = val(doc, Q_XP + "/*[local-name()='date']/@value");
-        if (date == null || !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.QUESTIONNAIRE_DATE_NO_PLACEHOLDER,
-                    file, ref, "Questionnaire date must be '#{date}'."));
-        else
-            out.add(ok(file, ref, "date placeholder present"));
     }
 
     /*
@@ -272,19 +253,6 @@ public final class FhirQuestionnaireLinter extends AbstractFhirInstanceLinter
     /*
      4) helper methods
     */
-
-    /**
-     * Computes a reference string for the FHIR resource.
-     *
-     * @param doc  the XML {@link Document} representing the FHIR resource
-     * @param file the file from which the resource was loaded
-     * @return the canonical {@code url} value if present, otherwise the file name
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, Q_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 
     /**
      * Extracts the value of a FHIR primitive element.
