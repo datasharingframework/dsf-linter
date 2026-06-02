@@ -34,7 +34,6 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateP
 public class ResourceResolutionService {
 
     private final ConcurrentCache<String, File> materializedCache;
-    private final ConcurrentCache<String, File> resourceRootCache;
 
     /**
      * Creates a new resolution service with unified caching.
@@ -56,7 +55,6 @@ public class ResourceResolutionService {
             }
         });
 
-        this.resourceRootCache = new ConcurrentCache<>();
     }
 
     /**
