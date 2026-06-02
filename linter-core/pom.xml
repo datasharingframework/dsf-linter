@@ -107,6 +107,15 @@
             <version>2.18.2</version>
         </dependency>
 
+        <!-- Jakarta JAXB API 3.x+ (jakarta.xml.bind.*); required when Thymeleaf/Jackson
+        auto-registers jackson-module-jakarta-xmlbind (Java 11+ has no JAXB in the JDK).
+        Camunda's transitive jakarta.xml.bind-api 2.3.3 only exposes javax.xml.bind.*. -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
