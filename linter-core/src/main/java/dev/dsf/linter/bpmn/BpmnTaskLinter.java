@@ -197,7 +197,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(task.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
                     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
@@ -419,7 +419,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName())) {
             issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
-                    LintingType.BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY, elementId, bpmnFile, processId));
+                    LintingType.BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             String msgName = receiveTask.getMessage().getName();
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,

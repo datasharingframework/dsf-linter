@@ -37,11 +37,16 @@ public enum LintingType {
     BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING("Send task implementation class does not implement required interface."),
     BPMN_SEND_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Send task implementation class does not extend AbstractTaskMessageSend."),
 
+    // ==================== BPMN RECEIVE TASK ====================
+    BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY("Receive task message name is empty."),
+
     // ==================== BPMN FLOW ====================
     BPMN_MESSAGE_START_EVENT_NOT_FOUND("Message start event not found."),
     BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY("Message start event message name is empty."),
     BPMN_FLOATING_ELEMENT("BPMN element is outside of message start event triggered flow."),
     BPMN_FLOW_ELEMENT("BPMN flow element issue."),
+
+    //todo
 
     // ==================== BPMN EVENTS ====================
     BPMN_EVENT_NAME_EMPTY("Event name is empty."),
