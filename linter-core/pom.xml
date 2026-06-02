@@ -9,7 +9,7 @@
 
     <!-- Parent coordinates if needed -->
     <parent>
-        <groupId>dev.dsf.linter</groupId>
+        <groupId>dev.dsf.utils.linter</groupId>
         <artifactId>dsf-linter</artifactId>
         <version>0.1.2</version>
     </parent>
@@ -17,6 +17,12 @@
     <artifactId>linter-core</artifactId>
 
     <properties>
+        <!-- Java 25 compilation -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Byte Buddy version (check for a version that at least somewhat supports Java 21) -->
         <bytebuddy.version>1.15.8</bytebuddy.version>
     </properties>
 
@@ -144,28 +150,48 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- JAXB API and Runtime (needed for FHIR parsing in Java 11+) -->
-        <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
-            <version>4.0.5</version>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <version>4.0.8</version>
-            <scope>runtime</scope>
-        </dependency>
+
 
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Maven Shade Plugin: Creates executable JAR with all dependencies -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <artifactSet>
+                                <includes>
+                                    <include>dev.dsf:dsf-bpe-process-api-v1</include>
+                                    <include>dev.dsf:dsf-bpe-process-api-v2</include>
+                                    <include>org.camunda.bpm:camunda-engine</include>
+                                    <include>ca.uhn.hapi.fhir:hapi-fhir-base</include>
+                                    <include>org.springframework:spring-beans</include>
+                                    <include>org.springframework:spring-core</include>
+                                    <include>org.springframework:spring-jcl</include>
+                                </includes>
+                            </artifactSet>
+                        </configuration>
+
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Maven Surefire plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M9</version>
                 <configuration>
+                    <!-- If Byte Buddy complains about Java 17 not supported, set this property: -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
