@@ -244,10 +244,13 @@ class TestDsfLinter
             <?xml version="1.0" encoding="UTF-8"?>
             <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" targetNamespace="Examples">
               <process id="TestProcess" isExecutable="true">
-                <startEvent id="StartEvent_1" name="Start" />
+                <startEvent id="StartEvent_1" name="Start">
+                  <messageEventDefinition messageRef="Message_start" />
+                </startEvent>
                 <endEvent id="EndEvent_1" name="End" />
                 <sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="EndEvent_1" />
               </process>
+              <message id="Message_start" name="startMessage" />
             </definitions>
             """;
         Path bpmnFile = directory.resolve(filename);

@@ -54,7 +54,7 @@ public class BpmnTaskLinterTest {
      * Cleanup method to delete the temporary directory after all tests.
      */
     @AfterAll
-    public static void cleanup() throws IOException {
+    public static void cleanup() {
         if (tempProjectRoot != null && Files.exists(tempProjectRoot)) {
             // Recursively delete temporary directory
             deleteDirectory(tempProjectRoot.toFile());
@@ -167,6 +167,21 @@ public class BpmnTaskLinterTest {
         linter.lintReceiveTask(receiveTask, issues, mockBpmnFile, "ProcessId");
 
         // Assert
-        assertFalse(issues.isEmpty(), "Empty message name should yield a lint issue.");
+        assertTrue(issues.stream().anyMatch(i -> i.getType() == LintingType.BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY),
+                "Empty message name should yield BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY.");
+    }
+
+    @Test
+    public void testLintReceiveTask_NullMessage() {
+        ReceiveTask receiveTask = mock(ReceiveTask.class);
+        when(receiveTask.getId()).thenReturn("receiveTaskId");
+        when(receiveTask.getName()).thenReturn("My Receive Task");
+        when(receiveTask.getMessage()).thenReturn(null);
+
+        List<BpmnElementLintItem> issues = new ArrayList<>();
+        linter.lintReceiveTask(receiveTask, issues, mockBpmnFile, "ProcessId");
+
+        assertTrue(issues.stream().anyMatch(i -> i.getType() == LintingType.BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY),
+                "Null message should yield BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY.");
     }
 }
