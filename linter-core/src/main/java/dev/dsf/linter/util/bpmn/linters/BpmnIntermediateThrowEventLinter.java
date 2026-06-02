@@ -53,7 +53,7 @@ public final class BpmnIntermediateThrowEventLinter {
 
         // 1. Check event name
         if (isEmpty(throwEvent.getName())) {
-            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         } else {
             issues.add(BpmnElementLintItem.success(

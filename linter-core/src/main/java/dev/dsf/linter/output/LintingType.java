@@ -34,22 +34,24 @@ public enum LintingType {
     BPMN_MESSAGE_SEND_TASK_IMPLEMENTATION_CLASS_NOT_FOUND("Message send task implementation class not found."),
 
     // ==================== BPMN SEND TASK ====================
+    BPMN_SEND_TASK_NAME_EMPTY("Send task name is empty."),
     BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING("Send task implementation class does not implement required interface."),
     BPMN_SEND_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Send task implementation class does not extend AbstractTaskMessageSend."),
 
     // ==================== BPMN RECEIVE TASK ====================
+    BPMN_RECEIVE_TASK_NAME_EMPTY("Receive task name is empty."),
     BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY("Receive task message name is empty."),
 
     // ==================== BPMN FLOW ====================
     BPMN_MESSAGE_START_EVENT_NOT_FOUND("Message start event not found."),
+    BPMN_MESSAGE_START_EVENT_NAME_EMPTY("Message start event name is empty."),
     BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY("Message start event message name is empty."),
     BPMN_FLOATING_ELEMENT("BPMN element is outside of message start event triggered flow."),
     BPMN_FLOW_ELEMENT("BPMN flow element issue."),
 
-    //todo
-
     // ==================== BPMN EVENTS ====================
-    BPMN_EVENT_NAME_EMPTY("Event name is empty."),
+    BPMN_MESSAGE_END_EVENT_NAME_EMPTY("Message end event name is empty."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_NAME_EMPTY("Message intermediate throw event name is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_EMPTY("Error boundary event error code is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY("Error boundary event error code variable is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_NAME_EMPTY("Error boundary event error name is empty."),

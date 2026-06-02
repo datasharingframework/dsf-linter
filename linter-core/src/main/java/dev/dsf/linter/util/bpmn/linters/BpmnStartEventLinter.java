@@ -48,7 +48,7 @@ public final class BpmnStartEventLinter {
         // 1. Check event name
         if (isEmpty(startEvent.getName())) {
             issues.add(new BpmnElementLintItem(
-                    LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
+                    LinterSeverity.WARN, LintingType.BPMN_MESSAGE_START_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId,
                     "'" + elementId + "' has no name."));
         } else {
