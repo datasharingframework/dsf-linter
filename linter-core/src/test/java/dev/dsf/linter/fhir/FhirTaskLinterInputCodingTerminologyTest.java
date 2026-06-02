@@ -14,9 +14,11 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.io.StringReader;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import org.junit.jupiter.api.io.TempDir;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,11 +29,12 @@ import org.xml.sax.InputSource;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class FhirTaskLinterInputCodingTerminologyTest
 {
-    private static final Path BASE_TASK = Path.of(
-            "src/test/resources/fhir/examples/pingPongProcess/Task/dsf-task-start-ping.json");
+    private static final Path PING_PONG_ROOT = Path.of("src/test/resources/fhir/examples/pingPongProcess");
+    private static final Path BASE_TASK = PING_PONG_ROOT.resolve("Task/dsf-task-start-ping.json");
     private static final File BASE_TASK_FILE = BASE_TASK.toFile();
     private static final String SECOND_INPUT_CODING_SYSTEM_XPATH =
             "/*[local-name()='Task']/*[local-name()='input'][2]/*[local-name()='type']/*[local-name()='coding']/*[local-name()='system']/@value";
@@ -56,7 +59,39 @@ class FhirTaskLinterInputCodingTerminologyTest
     {
         linter = new FhirTaskLinter();
         FhirAuthorizationCache.setLogger(new SilentLogger());
-        FhirAuthorizationCache.seedFromProjectAndClasspath(Path.of(".").toAbsolutePath().normalize().toFile());
+        seedPingPongTerminology();
+    }
+
+    @Test
+    void shouldPassAllThreeInputCodingChecksForValidPingPongTask(@TempDir Path tempDir) throws Exception
+    {
+        copyPingPongFhirResourcesIntoMavenLayout(tempDir);
+        String prevRoot = System.getProperty("dsf.projectRoot");
+        try {
+            File projectRoot = tempDir.toFile();
+            System.setProperty("dsf.projectRoot", projectRoot.getAbsolutePath());
+            FhirAuthorizationCache.seedFromProjectAndClasspath(projectRoot);
+
+            Document doc = FhirResourceParser.parseFhirFile(BASE_TASK);
+            List<FhirElementLintItem> items = linter.lint(doc, BASE_TASK_FILE);
+
+            assertFalse(containsType(items, LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN));
+            assertFalse(containsType(items, LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET));
+            assertFalse(containsType(items, LintingType.FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM));
+
+            long okCount = items.stream()
+                    .filter(i -> i.getType() == LintingType.SUCCESS)
+                    .filter(i -> i.getDescription() != null && i.getDescription().contains("Task.input.type.coding"))
+                    .count();
+            assertEquals(2, okCount, "Expected SUCCESS for both valid Task.input.type.coding entries");
+        } finally {
+            if (prevRoot == null) {
+                System.clearProperty("dsf.projectRoot");
+            } else {
+                System.setProperty("dsf.projectRoot", prevRoot);
+            }
+            seedPingPongTerminology();
+        }
     }
 
     @Test
@@ -81,6 +116,27 @@ class FhirTaskLinterInputCodingTerminologyTest
 
         assertTrue(containsType(items, LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET),
                 "Expected FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET");
+    }
+
+    @Test
+    void shouldLoadTaskInputSlicesFromStructureDefinition(@TempDir Path tempDir) throws Exception
+    {
+        Path sdDir = tempDir.resolve("fhir/StructureDefinition");
+        Files.createDirectories(sdDir);
+        Files.copy(
+                PING_PONG_ROOT.resolve("StructureDefinition/dsf-task-start-ping.json"),
+                sdDir.resolve("dsf-task-start-ping.json"));
+
+        Method loadCards = FhirTaskLinter.class.getDeclaredMethod(
+                "loadInputCardinality", File.class, String.class);
+        loadCards.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cards = (Map<String, Object>) loadCards.invoke(linter, tempDir.toFile(),
+                "http://dsf.dev/fhir/StructureDefinition/task-start-ping|#{version}");
+
+        assertTrue(cards != null && cards.size() > 1, "Expected slice cards beyond __BASE__");
+        assertTrue(cards.containsKey("message-name"));
+        assertTrue(cards.containsKey("target-endpoints"));
     }
 
     @Test
@@ -111,6 +167,29 @@ class FhirTaskLinterInputCodingTerminologyTest
                 "System is known in the cache");
         assertFalse(containsType(out, LintingType.FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET),
                 "Binding context passes via fixed system in synthetic slice metadata");
+    }
+
+    private static void seedPingPongTerminology()
+    {
+        FhirAuthorizationCache.seedFromProjectAndClasspath(Path.of(".").toAbsolutePath().normalize().toFile());
+    }
+
+    private static void copyPingPongFhirResourcesIntoMavenLayout(Path tempDir) throws Exception
+    {
+        copyResourceDir(tempDir, "fhir/CodeSystem", PING_PONG_ROOT.resolve("CodeSystem"));
+        copyResourceDir(tempDir, "fhir/ValueSet", PING_PONG_ROOT.resolve("ValueSet"));
+        copyResourceDir(tempDir, "fhir/StructureDefinition", PING_PONG_ROOT.resolve("StructureDefinition"));
+    }
+
+    private static void copyResourceDir(Path projectRoot, String relativeDir, Path sourceDir) throws Exception
+    {
+        Path targetDir = projectRoot.resolve(relativeDir);
+        Files.createDirectories(targetDir);
+        try (var stream = Files.list(sourceDir)) {
+            for (Path source : stream.filter(p -> p.toString().endsWith(".json")).toList()) {
+                Files.copy(source, targetDir.resolve(source.getFileName().toString()));
+            }
+        }
     }
 
     private static boolean containsType(List<FhirElementLintItem> items, LintingType type)
