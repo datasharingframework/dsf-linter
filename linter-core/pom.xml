@@ -144,13 +144,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- JAXB API and Runtime (needed for FHIR parsing in Java 11+) -->
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
             <version>4.0.5</version>
             <scope>runtime</scope>
         </dependency>
-
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
@@ -158,68 +158,10 @@
             <scope>runtime</scope>
         </dependency>
 
-
-
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Attach sources JAR (required by Maven Central) -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- Attach Javadoc JAR (required by Maven Central) -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- Maven Shade Plugin: Creates executable JAR with all dependencies -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <artifactSet>
-                                <includes>
-                                    <include>dev.dsf:dsf-bpe-process-api-v1</include>
-                                    <include>dev.dsf:dsf-bpe-process-api-v2</include>
-                                    <include>org.camunda.bpm:camunda-engine</include>
-                                    <include>ca.uhn.hapi.fhir:hapi-fhir-base</include>
-                                    <include>org.springframework:spring-beans</include>
-                                    <include>org.springframework:spring-core</include>
-                                    <include>org.springframework:spring-jcl</include>
-                                </includes>
-                            </artifactSet>
-                        </configuration>
-
-                    </execution>
-                </executions>
-            </plugin>
-
             <!-- Maven Surefire plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
