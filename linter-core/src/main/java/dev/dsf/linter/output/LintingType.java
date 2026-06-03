@@ -58,7 +58,7 @@ public enum LintingType {
     BPMN_ERROR_BOUNDARY_EVENT_NAME_EMPTY("Error boundary event name is empty."),
     BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE_REFERENCE("Message intermediate throw event has message reference."),
     BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("Start event is not part of subprocess and has no name."),
-    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS("End event is not part of subprocess."),
+    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("End event has no name and is not part of subprocess."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_NAME_EMPTY("Message intermediate catch event name is empty."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_MESSAGE_NAME_EMPTY("Message intermediate catch event message name is empty."),
     BPMN_MESSAGE_BOUNDARY_EVENT_NAME_EMPTY("Message boundary event name is empty."),
