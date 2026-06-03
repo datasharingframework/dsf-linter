@@ -88,6 +88,10 @@ public enum LintingType {
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE("User task listener task output code references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE("User task listener task output system references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER("User task listener task output version does not use placeholder."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY(
+            "User task listener input parameter 'practitionerRole' is defined but has no value."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY(
+            "User task listener input parameter 'practitioners' is defined but has no value."),
 
     // ==================== BPMN FIELD INJECTION ====================
     BPMN_FIELD_INJECTION_NOT_STRING_LITERAL("Field injection value is not a string literal."),
@@ -114,8 +118,6 @@ public enum LintingType {
     BPMN_PROCESS_NOT_EXECUTABLE("Process is not executable. Set isExecutable='true' for the process to be deployable."),
 
     // ==================== BPMN GENERAL ====================
-    BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
-    BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL("PractitionerRole has no value or is null."),
     BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE("No ActivityDefinition found for message."),
     BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE("No StructureDefinition found for message."),
 

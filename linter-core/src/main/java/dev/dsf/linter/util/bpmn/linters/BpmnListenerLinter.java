@@ -69,10 +69,10 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * </p>
  * <ul>
  *   <li><strong>practitionerRole</strong>: Validates that the practitionerRole input parameter has a non-empty value.
- *       Reports {@link LintingType#BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL} with {@link LinterSeverity#ERROR}
+ *       Reports {@link LintingType#BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY} with {@link LinterSeverity#ERROR}
  *       if extends {@code DefaultUserTaskListener}, {@link LinterSeverity#WARN} otherwise</li>
  *   <li><strong>practitioners</strong>: Validates that the practitioners input parameter has a non-empty value.
- *       Reports {@link LintingType#BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL} with {@link LinterSeverity#ERROR}
+ *       Reports {@link LintingType#BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY} with {@link LinterSeverity#ERROR}
  *       if extends {@code DefaultUserTaskListener}, {@link LinterSeverity#WARN} otherwise</li>
  * </ul>
  *
@@ -336,8 +336,8 @@ public final class BpmnListenerLinter {
 
         if (value == null || value.trim().isEmpty()) {
             LintingType type = "practitionerRole".equals(paramName)
-                    ? LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
-                    : LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL;
+                    ? LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY
+                    : LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY;
             issues.add(BpmnElementLintItem.of(severity, type, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
