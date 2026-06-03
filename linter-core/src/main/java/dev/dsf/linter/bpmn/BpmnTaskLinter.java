@@ -356,7 +356,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(userTask.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
                     LintingType.BPMN_USER_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
