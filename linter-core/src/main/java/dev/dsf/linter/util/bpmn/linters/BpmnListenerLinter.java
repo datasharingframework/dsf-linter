@@ -40,7 +40,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  *       if class is not found</li>
  *   <li><strong>Interface Implementation</strong>: Validates that execution listener classes implement
  *       the correct interface based on the API version ({@code ExecutionListener} interface for both V1 and V2 API).
- *       Reports {@link LintingType#BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE} with
+ *       Reports {@link LintingType#BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE} with
  *       {@link LinterSeverity#ERROR} if interface is not implemented</li>
  * </ul>
  *
@@ -164,7 +164,7 @@ public final class BpmnListenerLinter {
             if (doesNotImplementCorrectInterface(implClass, projectRoot, apiVersion, BpmnElementType.EXECUTION_LISTENER)) {
                 String expectedInterface = getExpectedInterfaceDescription(apiVersion, BpmnElementType.EXECUTION_LISTENER);
                 issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
-                        LintingType.BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE,
+                        LintingType.BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE,
                         elementId, bpmnFile, processId,
                         "Execution listener '" + implClass + "' does not implement " + expectedInterface + "."));
             } else {

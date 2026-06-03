@@ -103,7 +103,7 @@ public enum LintingType {
 
     // ==================== BPMN EXECUTION LISTENER ====================
     BPMN_EXECUTION_LISTENER_CLASS_NOT_FOUND("Execution listener class not found."),
-    BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener does not implement required interface."),
+    BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener class does not implement required interface."),
 
     // ==================== BPMN PROCESS ====================
     BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
