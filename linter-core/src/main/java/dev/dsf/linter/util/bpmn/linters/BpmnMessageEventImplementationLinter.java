@@ -75,6 +75,9 @@ public final class BpmnMessageEventImplementationLinter {
         } else if (apiVersion == ApiVersion.V2) {
             lintV2MessageEventImplementation(implClass, elementId, elementType, issues, bpmnFile, processId, projectRoot);
         }
+        //Handling of default or unknown API versions is intentionally omitted.
+        // This point is unreachable because the API version is validated at an earlier entry point;
+        // if unknown, an exception is thrown, and the linter skips validation to move on to the next plugin.
     }
 
     /**

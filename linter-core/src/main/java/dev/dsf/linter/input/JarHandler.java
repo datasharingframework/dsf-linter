@@ -200,7 +200,7 @@ public class JarHandler {
      * @throws IOException if download fails or connection times out
      */
     private Path downloadJar(String urlString) throws IOException {
-        URL url = new URL(urlString);
+        URL url = java.net.URI.create(urlString).toURL();
         String jarName = extractJarNameFromUrl(urlString);
 
         Path tempJar = Files.createTempFile("dsf-linter-jar-", "-" + jarName);

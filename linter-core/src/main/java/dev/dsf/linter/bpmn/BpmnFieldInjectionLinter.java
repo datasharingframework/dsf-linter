@@ -338,7 +338,7 @@ public class BpmnFieldInjectionLinter {
                 case "profile" -> {
                     checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
                     profileVal = literal;
-                    if (!isEmpty(literal) && locator.structureDefinitionExists(literal, projectRoot)) {
+                    if (!isEmpty(literal) && locator.structureDefinitionExists(literal)) {
                         structureFoundForProfile = true;
                         issues.add(BpmnElementLintItem.success(
                                 elementId,
@@ -400,7 +400,7 @@ public class BpmnFieldInjectionLinter {
                                            String instantiatesVal,
                                            String messageNameVal) {
         var locator = FhirResourceLocator.create(projectRoot);
-        File structureFile = locator.findStructureDefinitionFile(profileVal, projectRoot);
+        File structureFile = locator.findStructureDefinitionFile(profileVal);
         if (structureFile == null) return; // Warn already added earlier.
 
         try {
@@ -505,7 +505,7 @@ public class BpmnFieldInjectionLinter {
                     "Profile field contains a version placeholder: '" + literalValue + "'"));
         }
 
-        if (!locator.structureDefinitionExists(literalValue, projectRoot)) {
+        if (!locator.structureDefinitionExists(literalValue)) {
             issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
                     LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
                     elementId, bpmnFile, processId,
