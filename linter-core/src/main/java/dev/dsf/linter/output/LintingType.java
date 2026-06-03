@@ -69,6 +69,9 @@ public enum LintingType {
     BPMN_SIGNAL_END_EVENT_SIGNAL_EMPTY("Signal end event signal is empty."),
     BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE("End event inside subprocess should have asyncAfter=true."),
     BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("End event implementation class does not implement required interface."),
+    BPMN_INTERMEDIATE_THROW_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("Intermediate throw event implementation class does not implement required interface."),
+    BPMN_MESSAGE_END_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message end event implementation class does not extend AbstractTaskMessageSend."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message intermediate throw event implementation class does not extend AbstractTaskMessageSend."),
 
     // ==================== BPMN GATEWAYS ====================
     BPMN_EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY("Exclusive gateway has multiple outgoing flows but name is empty."),
