@@ -2,7 +2,7 @@ name: DSF Linter Publish with Maven
 
 on:
   pull_request:
-    types: closed
+    types: [closed]
     branches: [ "main" ]
 
 jobs:
@@ -41,8 +41,8 @@ jobs:
             <servers>
               <server>
                 <id>central</id>
-                <username>${{ secrets.OSSRH_USERNAME }}</username>
-                <password>${{ secrets.OSSRH_TOKEN }}</password>
+                <username>${{ secrets.MAVEN_CENTRAL_USERNAME  }}</username>
+                <password>${{ secrets.MAVEN_CENTRAL_TOKEN }}</password>
               </server>
             </servers>
           </settings>
