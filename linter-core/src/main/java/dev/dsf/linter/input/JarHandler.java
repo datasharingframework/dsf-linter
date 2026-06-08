@@ -3,6 +3,7 @@ package dev.dsf.linter.input;
 import dev.dsf.linter.logger.Logger;
 
 import java.io.*;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.*;
@@ -146,9 +147,21 @@ public class JarHandler {
             // Cleanup on failure
             deleteDirectoryRecursively(extractDir);
             throw e;
+        } finally {
+            // For remote JARs the downloaded temp file is no longer needed after extraction
+            if (isRemote) {
+                try {
+                    Files.deleteIfExists(jarFile);
+                } catch (IOException _deleteEx) {
+                    logger.warn("Could not delete temporary download file: " + jarFile + ": " + _deleteEx.getMessage());
+                }
+            }
         }
 
-        return new JarProcessingResult(extractDir, jarName, true);
+        // Remote JARs are kept on disk so subsequent runs can be inspected and the
+        // directory is reused (overwritten) on the next invocation with the same URL.
+        // Local JAR extraction directories are temporary and cleaned up after linting.
+        return new JarProcessingResult(extractDir, jarName, !isRemote);
     }
 
     /**
