@@ -34,24 +34,31 @@ public enum LintingType {
     BPMN_MESSAGE_SEND_TASK_IMPLEMENTATION_CLASS_NOT_FOUND("Message send task implementation class not found."),
 
     // ==================== BPMN SEND TASK ====================
+    BPMN_SEND_TASK_NAME_EMPTY("Send task name is empty."),
     BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING("Send task implementation class does not implement required interface."),
     BPMN_SEND_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Send task implementation class does not extend AbstractTaskMessageSend."),
 
+    // ==================== BPMN RECEIVE TASK ====================
+    BPMN_RECEIVE_TASK_NAME_EMPTY("Receive task name is empty."),
+    BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY("Receive task message name is empty."),
+
     // ==================== BPMN FLOW ====================
     BPMN_MESSAGE_START_EVENT_NOT_FOUND("Message start event not found."),
+    BPMN_MESSAGE_START_EVENT_NAME_EMPTY("Message start event name is empty."),
     BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY("Message start event message name is empty."),
     BPMN_FLOATING_ELEMENT("BPMN element is outside of message start event triggered flow."),
     BPMN_FLOW_ELEMENT("BPMN flow element issue."),
 
     // ==================== BPMN EVENTS ====================
-    BPMN_EVENT_NAME_EMPTY("Event name is empty."),
+    BPMN_MESSAGE_END_EVENT_NAME_EMPTY("Message end event name is empty."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_NAME_EMPTY("Message intermediate throw event name is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_EMPTY("Error boundary event error code is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY("Error boundary event error code variable is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_NAME_EMPTY("Error boundary event error name is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_NAME_EMPTY("Error boundary event name is empty."),
-    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE("Message intermediate throw event has message."),
-    BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS("Start event is not part of subprocess."),
-    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_NAME_IS_EMPTY("End event is not part of subprocess and name is empty."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE_REFERENCE("Message intermediate throw event has message reference."),
+    BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("Start event is not part of subprocess and has no name."),
+    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("End event has no name and is not part of subprocess."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_NAME_EMPTY("Message intermediate catch event name is empty."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_MESSAGE_NAME_EMPTY("Message intermediate catch event message name is empty."),
     BPMN_MESSAGE_BOUNDARY_EVENT_NAME_EMPTY("Message boundary event name is empty."),
@@ -62,6 +69,9 @@ public enum LintingType {
     BPMN_SIGNAL_END_EVENT_SIGNAL_EMPTY("Signal end event signal is empty."),
     BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE("End event inside subprocess should have asyncAfter=true."),
     BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("End event implementation class does not implement required interface."),
+    BPMN_INTERMEDIATE_THROW_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("Intermediate throw event implementation class does not implement required interface."),
+    BPMN_MESSAGE_END_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message end event implementation class does not extend AbstractTaskMessageSend."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message intermediate throw event implementation class does not extend AbstractTaskMessageSend."),
 
     // ==================== BPMN GATEWAYS ====================
     BPMN_EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY("Exclusive gateway has multiple outgoing flows but name is empty."),
@@ -78,6 +88,10 @@ public enum LintingType {
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE("User task listener task output code references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE("User task listener task output system references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER("User task listener task output version does not use placeholder."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY(
+            "User task listener input parameter 'practitionerRole' is defined but has no value."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY(
+            "User task listener input parameter 'practitioners' is defined but has no value."),
 
     // ==================== BPMN FIELD INJECTION ====================
     BPMN_FIELD_INJECTION_NOT_STRING_LITERAL("Field injection value is not a string literal."),
@@ -93,7 +107,7 @@ public enum LintingType {
 
     // ==================== BPMN EXECUTION LISTENER ====================
     BPMN_EXECUTION_LISTENER_CLASS_NOT_FOUND("Execution listener class not found."),
-    BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener does not implement required interface."),
+    BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener class does not implement required interface."),
 
     // ==================== BPMN PROCESS ====================
     BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
@@ -106,8 +120,6 @@ public enum LintingType {
     BPMN_PROCESS_VERSION_TAG_NO_PLACEHOLDER("Process camunda:versionTag does not use '#{version}' placeholder."),
 
     // ==================== BPMN GENERAL ====================
-    BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
-    BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL("PractitionerRole has no value or is null."),
     BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE("No ActivityDefinition found for message."),
     BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE("No StructureDefinition found for message."),
 

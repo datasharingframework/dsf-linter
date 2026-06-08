@@ -33,7 +33,6 @@ import static org.mockito.ArgumentMatchers.*;
  * Test class for validating input parameters (practitionerRole and practitioners)
  * and taskOutput field injections (taskOutputSystem, taskOutputCode, taskOutputVersion)
  * in task listeners that extend DefaultUserTaskListener (API v2).
- *
  * Tests various scenarios including:
  * - Task listener with practitionerRole having empty/null value
  * - Task listener with practitioners having empty/null value
@@ -73,7 +72,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report ERROR when practitionerRole input parameter has empty value for DefaultUserTaskListener (API v2)")
-    public void testPractitionerRoleWithEmptyValueForDefaultUserTaskListener() throws Exception {
+    public void testPractitionerRoleWithEmptyValueForDefaultUserTaskListener() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -113,14 +112,14 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY),
                     "Should report ERROR for empty practitionerRole when extending DefaultUserTaskListener");
         }
     }
 
     @Test
     @DisplayName("Should report WARN when practitionerRole input parameter has empty value for non-DefaultUserTaskListener (API v2)")
-    public void testPractitionerRoleWithEmptyValueForNonDefaultUserTaskListener() throws Exception {
+    public void testPractitionerRoleWithEmptyValueForNonDefaultUserTaskListener() {
         // Given
         String className = "com.example.OtherListener";
         String bpmnXml = String.format("""
@@ -161,14 +160,14 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
                     .toList();
-            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL),
+            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY),
                     "Should report WARN for empty practitionerRole when NOT extending DefaultUserTaskListener");
         }
     }
 
     @Test
     @DisplayName("Should report ERROR when practitioners input parameter has empty value for DefaultUserTaskListener (API v2)")
-    public void testPractitionersWithEmptyValueForDefaultUserTaskListener() throws Exception {
+    public void testPractitionersWithEmptyValueForDefaultUserTaskListener() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -208,14 +207,14 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY),
                     "Should report ERROR for empty practitioners when extending DefaultUserTaskListener");
         }
     }
 
     @Test
     @DisplayName("Should report WARN when practitioners input parameter has empty value for non-DefaultUserTaskListener (API v2)")
-    public void testPractitionersWithEmptyValueForNonDefaultUserTaskListener() throws Exception {
+    public void testPractitionersWithEmptyValueForNonDefaultUserTaskListener() {
         // Given
         String className = "com.example.OtherListener";
         String bpmnXml = String.format("""
@@ -256,14 +255,14 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
                     .toList();
-            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
+            assertTrue(warnings.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY),
                     "Should report WARN for empty practitioners when NOT extending DefaultUserTaskListener");
         }
     }
 
     @Test
     @DisplayName("Should report success when practitionerRole has valid string value for DefaultUserTaskListener (API v2)")
-    public void testPractitionerRoleWithValidStringValueForDefaultUserTaskListener() throws Exception {
+    public void testPractitionerRoleWithValidStringValueForDefaultUserTaskListener() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -313,7 +312,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report success when practitionerRole has valid string value for non-DefaultUserTaskListener (API v2)")
-    public void testPractitionerRoleWithValidStringValueForNonDefaultUserTaskListener() throws Exception {
+    public void testPractitionerRoleWithValidStringValueForNonDefaultUserTaskListener() {
         // Given
         String className = "com.example.OtherListener";
         String bpmnXml = String.format("""
@@ -364,7 +363,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report success when practitioners has valid list value for DefaultUserTaskListener (API v2)")
-    public void testPractitionersWithValidListValueForDefaultUserTaskListener() throws Exception {
+    public void testPractitionersWithValidListValueForDefaultUserTaskListener() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -416,7 +415,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report success when practitioners has valid list value for non-DefaultUserTaskListener (API v2)")
-    public void testPractitionersWithValidListValueForNonDefaultUserTaskListener() throws Exception {
+    public void testPractitionersWithValidListValueForNonDefaultUserTaskListener() {
         // Given
         String className = "com.example.OtherListener";
         String bpmnXml = String.format("""
@@ -469,7 +468,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should not validate input parameters for API v1")
-    public void testNoValidationForApiV1() throws Exception {
+    public void testNoValidationForApiV1() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -508,8 +507,8 @@ class BpmnTaskListenerInputParameterTest {
             // Then - should not have any warnings for input parameters
             List<BpmnElementLintItem> warnings = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.WARN)
-                    .filter(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
-                            || item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL)
+                    .filter(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY)
                     .toList();
             assertTrue(warnings.isEmpty(),
                     "Should not validate input parameters for API v1");
@@ -519,7 +518,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should validate both practitionerRole and practitioners when both are present")
-    public void testBothParametersValidation() throws Exception {
+    public void testBothParametersValidation() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -562,7 +561,7 @@ class BpmnTaskListenerInputParameterTest {
             List<BpmnElementLintItem> errors = issues.stream()
                     .filter(item -> item.getSeverity() == LinterSeverity.ERROR)
                     .toList();
-            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL),
+            assertTrue(errors.stream().anyMatch(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY),
                     "Should report ERROR for empty practitioners when extending DefaultUserTaskListener");
             
             List<BpmnElementLintItem> successItems = issues.stream()
@@ -576,7 +575,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should skip validation when input parameter is not present")
-    public void testSkipValidationWhenParameterNotPresent() throws Exception {
+    public void testSkipValidationWhenParameterNotPresent() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -611,8 +610,8 @@ class BpmnTaskListenerInputParameterTest {
 
             // Then - should not have any errors or warnings for input parameters when they are not present
             List<BpmnElementLintItem> inputParamIssues = issues.stream()
-                    .filter(item -> item.getType() == LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
-                            || item.getType() == LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL)
+                    .filter(item -> item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY
+                            || item.getType() == LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY)
                     .toList();
             assertTrue(inputParamIssues.isEmpty(),
                     "Should not validate when input parameters are not present");
@@ -623,7 +622,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report ERROR when only taskOutputSystem is set (incomplete fields)")
-    public void testTaskOutputIncompleteOnlySystem() throws Exception {
+    public void testTaskOutputIncompleteOnlySystem() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -672,7 +671,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report ERROR when only taskOutputCode is set (incomplete fields)")
-    public void testTaskOutputIncompleteOnlyCode() throws Exception {
+    public void testTaskOutputIncompleteOnlyCode() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -721,7 +720,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report ERROR when taskOutputSystem references unknown CodeSystem")
-    public void testTaskOutputSystemUnknownCodeSystem() throws Exception {
+    public void testTaskOutputSystemUnknownCodeSystem() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String systemUrl = "http://dsf.dev/fhir/CodeSystem/unknown";
@@ -781,7 +780,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report ERROR when taskOutputCode is unknown in CodeSystem")
-    public void testTaskOutputCodeUnknownInCodeSystem() throws Exception {
+    public void testTaskOutputCodeUnknownInCodeSystem() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String systemUrl = "http://dsf.dev/fhir/CodeSystem/test";
@@ -842,7 +841,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report WARN when taskOutputVersion has no placeholder")
-    public void testTaskOutputVersionNoPlaceholder() throws Exception {
+    public void testTaskOutputVersionNoPlaceholder() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String systemUrl = "http://dsf.dev/fhir/CodeSystem/test";
@@ -903,7 +902,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should report SUCCESS when all taskOutput fields are valid")
-    public void testTaskOutputAllFieldsValid() throws Exception {
+    public void testTaskOutputAllFieldsValid() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String systemUrl = "http://dsf.dev/fhir/CodeSystem/test";
@@ -968,7 +967,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should skip taskOutput validation when no fields are set")
-    public void testTaskOutputSkipWhenNoFieldsSet() throws Exception {
+    public void testTaskOutputSkipWhenNoFieldsSet() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""
@@ -1015,7 +1014,7 @@ class BpmnTaskListenerInputParameterTest {
 
     @Test
     @DisplayName("Should not validate taskOutput fields for API v1")
-    public void testTaskOutputNoValidationForApiV1() throws Exception {
+    public void testTaskOutputNoValidationForApiV1() {
         // Given
         String className = "com.example.DefaultUserTaskListenerImpl";
         String bpmnXml = String.format("""

@@ -3,8 +3,10 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
+import dev.dsf.linter.util.bpmn.BpmnModelUtils;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
+import org.camunda.bpm.model.bpmn.instance.StartEvent;
 
 import java.io.File;
 import java.util.Collection;
@@ -56,6 +58,12 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li><strong>Executable Flag</strong>: Validates that the process has {@code isExecutable="true"},
  *       which is required for the process to be deployable and executable by the process engine.</li>
+ * </ul>
+ *
+ * <h3>Message Start Event Validation</h3>
+ * <ul>
+ *   <li><strong>Message Start Requirement</strong>: Validates that the process has at least one message
+ *       start event as a direct child of the process element. Start events inside subprocesses are not counted.</li>
  * </ul>
  *
  * <h2>Usage Example</h2>
@@ -134,6 +142,7 @@ public record BpmnProcessLinter(File projectRoot) {
      *   <li>Process ID pattern</li>
      *   <li>History time to live attribute</li>
      *   <li>Executable flag</li>
+     *   <li>Message start event on process level (not in subprocesses)</li>
      *   <li>Version tag placeholder ({@code camunda:versionTag="#{version}"})</li>
      * </ul>
      * </p>
@@ -153,6 +162,7 @@ public record BpmnProcessLinter(File projectRoot) {
         for (Process process : processes) {
             validateHistoryTimeToLive(process, bpmnFile, issues);
             validateProcessExecutable(process, bpmnFile, issues);
+            validateMessageStartEvent(process, bpmnFile, issues);
             validateVersionTag(process, bpmnFile, issues);
         }
 
@@ -358,6 +368,42 @@ public record BpmnProcessLinter(File projectRoot) {
                     bpmnFile,
                     processId,
                     String.format("Process '%s': isExecutable is set to 'true'.", processId)
+            ));
+        }
+    }
+
+    /**
+     * Validates that the process has at least one message start event as a direct child.
+     *
+     * <p>
+     * DSF processes are started via incoming messages. Start events inside subprocesses are not counted.
+     * </p>
+     *
+     * @param process  the BPMN process to validate
+     * @param bpmnFile the BPMN file for error reporting
+     * @param issues   the list to add validation issues to
+     */
+    void validateMessageStartEvent(Process process, File bpmnFile, List<BpmnElementLintItem> issues) {
+        String processId = process.getId() != null ? process.getId() : "";
+
+        boolean hasMessageStart = process.getChildElementsByType(StartEvent.class).stream()
+                .anyMatch(BpmnModelUtils::isMessageStartEvent);
+
+        if (!hasMessageStart) {
+            issues.add(BpmnElementLintItem.of(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_MESSAGE_START_EVENT_NOT_FOUND,
+                    processId,
+                    bpmnFile,
+                    processId));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': has at least one message start event on process level.", processId)
             ));
         }
     }
