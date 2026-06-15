@@ -277,7 +277,7 @@ public final class FhirAuthorizationCache
 
     /**
      * Seeds the CodeSystem cache from both the project directory (disk) and the project classpath
-     * (dependencies & plugin JAR). Keeps parsing logic centralized by materializing classpath resources
+     * (dependencies &amp; plugin JAR). Keeps parsing logic centralized by materializing classpath resources
      * to temporary files.
      *
      * @param projectRoot the root of the project used to determine base traversal path and classpath setup

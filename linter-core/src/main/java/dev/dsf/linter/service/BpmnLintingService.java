@@ -21,7 +21,7 @@ import java.io.File;
  * this class provides BPMN-specific implementations of the abstract methods.
  * </p>
  *
- * <h3>Responsibilities:</h3>
+ * <h2>Responsibilities:</h2>
  * <ul>
  *   <li>Linting individual BPMN files for syntax, structure, and business rule violations</li>
  *   <li>Validating BPMN file references in plugin definitions</li>
@@ -29,7 +29,7 @@ import java.io.File;
  *   <li>Creating appropriate lint items for different error scenarios</li>
  * </ul>
  *
- * <h3>Linting Process:</h3>
+ * <h2>Linting Process:</h2>
  * <p>
  * The service performs the following checks for each BPMN file:
  * </p>
@@ -41,7 +41,7 @@ import java.io.File;
  *   <li><strong>Dependency Tracking:</strong> Identifies BPMN files found in dependency JARs</li>
  * </ol>
  *
- * <h3>Lint Item Types:</h3>
+ * <h2>Lint Item Types:</h2>
  * <p>
  * This service creates instances of {@link PluginLintItem} and {@link BpmnElementLintItem}
  * with different {@link LintingType} values to report validation results:
@@ -63,7 +63,7 @@ import java.io.File;
  * detailed BPMN element-level issues through {@link BpmnElementLintItem} instances.
  * </p>
  *
- * <h3>Usage Example:</h3>
+ * <h2>Usage Example:</h2>
  * <pre>{@code
  * Logger logger = new ConsoleLogger();
  * BpmnLintingService service = new BpmnLintingService(logger);
@@ -87,7 +87,7 @@ import java.io.File;
  * );
  * }</pre>
  *
- * <h3>Integration:</h3>
+ * <h2>Integration:</h2>
  * <p>
  * This service is typically used by the plugin linting orchestrator to validate
  * BPMN resources for each discovered DSF process plugin. The actual BPMN content validation
@@ -95,7 +95,7 @@ import java.io.File;
  * events, tasks, gateways, flows, and their relationships to FHIR resources.
  * </p>
  *
- * <h3>Thread Safety:</h3>
+ * <h2>Thread Safety:</h2>
  * <p>
  * This class is not thread-safe due to the internal {@link BpmnLinter} instance. Each thread
  * should use its own instance of {@code BpmnLintingService}.

@@ -14,7 +14,7 @@ import java.util.Optional;
  * processed by the linter.
  * </p>
  *
- * <h3>Resolution Strategy:</h3>
+ * <h2>Resolution Strategy:</h2>
  * <ol>
  *   <li>Detect input type (local or remote JAR)</li>
  *   <li>Process JAR file (download if remote, extract)</li>
@@ -22,7 +22,7 @@ import java.util.Optional;
  *   <li>Track whether cleanup is needed (for temporary resources)</li>
  * </ol>
  *
- * <h3>Supported Input Formats:</h3>
+ * <h2>Supported Input Formats:</h2>
  * <ul>
  *   <li><b>Local JAR:</b> C:\path\to\plugin.jar or /path/to/plugin.jar</li>
  *   <li><b>Remote JAR:</b> https://example.com/plugin.jar</li>
@@ -95,11 +95,11 @@ public class InputResolver {
      * Detects the input type based on path/URL characteristics.
      * <p>
      * Detection rules:
+     * </p>
      * <ol>
      *   <li>Validates that input ends with .jar</li>
      *   <li>Determines if JAR is local file or remote URL</li>
      * </ol>
-     * </p>
      *
      * @param input the input string to analyze
      * @return the detected InputType
@@ -219,12 +219,12 @@ public class InputResolver {
      * Extracts a safe name from the JAR file path for use in temporary directory names.
      * <p>
      * This method creates sanitized names suitable for file system use by:
+     * </p>
      * <ul>
      *   <li>Extracting the filename from the path/URL</li>
      *   <li>Removing the .jar extension</li>
      *   <li>Sanitizing special characters</li>
      * </ul>
-     * </p>
      *
      * @param inputPath the original JAR file path or URL
      * @param inputType the detected input type

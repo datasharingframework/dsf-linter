@@ -16,12 +16,12 @@ import static dev.dsf.linter.classloading.ClassInspector.logger;
  * Plugin discovery that supports any number of ProcessPluginDefinition implementations.
  * <p>
  * For extracted JAR structures, this discovery:
+ * </p>
  * <ol>
  *   <li>First tries ServiceLoader discovery (reads META-INF/services/)</li>
  *   <li>If nothing found and projectRoot is provided, scans the project root directly</li>
  *   <li>Deduplicates plugins by class name</li>
  * </ol>
- * </p>
  * <p>
  * Supports partial success: Valid plugins are processed even if some fail.
  * </p>
@@ -94,12 +94,12 @@ public final class EnhancedPluginDefinitionDiscovery {
      * Discovers ALL plugin definitions from extracted JAR structure.
      * <p>
      * Discovery strategy:
+     * </p>
      * <ol>
      *   <li>Try ServiceLoader (META-INF/services/)</li>
      *   <li>If nothing found and projectRoot provided, scan project root directly</li>
      *   <li>Deduplicate by class name</li>
      * </ol>
-     * </p>
      * <p>
      * Supports partial success: Valid plugins are processed even if some fail.
      * </p>

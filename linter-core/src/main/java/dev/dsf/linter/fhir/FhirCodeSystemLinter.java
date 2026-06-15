@@ -21,16 +21,16 @@ import java.util.*;
  * are properly structured and contain all required metadata before deployment to the
  * DSF Business Process Engine (BPE).</p>
  *
- * <h3>Validation Rules</h3>
+ * <h2>Validation Rules</h2>
  *
- * <h4>1. Meta Tag Validation</h4>
+ * <h3>1. Meta Tag Validation</h3>
  * <p>Ensures that {@code meta.tag} contains the required DSF read-access tag:</p>
  * <ul>
  *   <li>System: {@code http://dsf.dev/fhir/CodeSystem/read-access-tag}</li>
  *   <li>Code: {@code ALL}</li>
  * </ul>
  *
- * <h4>2. Mandatory Element Validation</h4>
+ * <h3>2. Mandatory Element Validation</h3>
  * <p>Verifies the presence of the following required elements:</p>
  * <ul>
  *   <li>{@code url} - Canonical URL of the CodeSystem</li>
@@ -41,17 +41,17 @@ import java.util.*;
  *   <li>{@code caseSensitive} - Case sensitivity indicator</li>
  * </ul>
  *
- * <h4>3. Status Validation</h4>
+ * <h3>3. Status Validation</h3>
  * <p>Confirms that {@code status} is set to {@code unknown}.</p>
  *
- * <h4>4. Placeholder Validation</h4>
+ * <h3>4. Placeholder Validation</h3>
  * <p>Ensures that version and date fields are set to their respective DSF template placeholders:</p>
  * <ul>
  *   <li>{@code version} must be exactly {@code #{version}}</li>
  *   <li>{@code date} must be exactly {@code #{date}}</li>
  * </ul>
  *
- * <h4>5. Concept Validation</h4>
+ * <h3>5. Concept Validation</h3>
  * <p>Validates the concept entries within the CodeSystem:</p>
  * <ul>
  *   <li>At least one {@code concept} element must be present</li>

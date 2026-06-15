@@ -19,7 +19,7 @@ import java.util.stream.Stream;
  * the DSF linter. It handles both local and remote JAR files transparently.
  * </p>
  *
- * <h3>Key Features:</h3>
+ * <h2>Key Features:</h2>
  * <ul>
  *   <li>Download JAR files from HTTP/HTTPS URLs</li>
  *   <li>Extract JAR contents to temporary directory</li>
@@ -27,18 +27,18 @@ import java.util.stream.Stream;
  *   <li>Automatic cleanup of temporary resources</li>
  * </ul>
  *
- * <h3>JAR Structure Requirements:</h3>
+ * <h2>JAR Structure Requirements:</h2>
  * <p>
  * A valid DSF plugin JAR must contain:
+ * </p>
  * <ul>
  *   <li>META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition or v2 equivalent</li>
  *   <li>At least one .class file (compiled plugin implementation)</li>
  *   <li>Optional: BPMN files (typically in bpe/ directory)</li>
  *   <li>Optional: FHIR resources (typically in fhir/ directory)</li>
  * </ul>
- * </p>
  *
- * <h3>References:</h3>
+ * <h2>References:</h2>
  * <ul>
  *   <li><a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jarGuide.html">
  *       Oracle JAR File Specification</a></li>
@@ -238,13 +238,13 @@ public class JarHandler {
      * lints that a JAR file contains the required DSF plugin structure.
      * <p>
      * Checks performed:
+     * </p>
      * <ul>
      *   <li>JAR file is readable and valid</li>
      *   <li>Contains at least one .class file</li>
      *   <li>Contains META-INF/services directory</li>
      *   <li>Contains ProcessPluginDefinition service registration</li>
      * </ul>
-     * </p>
      *
      * @param jarFile the JAR file to lint
      * @throws IOException if JAR cannot be read

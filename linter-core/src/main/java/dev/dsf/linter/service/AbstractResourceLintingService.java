@@ -20,7 +20,7 @@ import java.util.Map;
  * by providing a generic implementation of common linting operations.
  * </p>
  *
- * <h3>Design Pattern:</h3>
+ * <h2>Design Pattern:</h2>
  * <p>Template Method Pattern - defines the skeleton of linting algorithms,
  * allowing subclasses to override specific steps without changing the algorithm structure.</p>
  *

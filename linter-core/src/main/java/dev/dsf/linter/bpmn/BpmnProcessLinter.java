@@ -100,11 +100,11 @@ public record BpmnProcessLinter(File projectRoot) {
      * </p>
      * <p>
      * Examples of valid IDs:
+     * </p>
      * <ul>
      *   <li>{@code testorg_myprocess}</li>
      *   <li>{@code dsf-dev_download-allowlist}</li>
      * </ul>
-     * </p>
      *
      * @see <a href="https://github.com/datasharingframework/dsf">DSF Framework</a>
      */
@@ -128,13 +128,13 @@ public record BpmnProcessLinter(File projectRoot) {
      *
      * <p>
      * This method validates:
+     * </p>
      * <ul>
      *   <li>Process count (must be exactly one)</li>
      *   <li>Process ID pattern</li>
      *   <li>History time to live attribute</li>
      *   <li>Executable flag</li>
      * </ul>
-     * </p>
      *
      * @param model    the BPMN model instance to validate; must not be {@code null}
      * @param bpmnFile the source BPMN file being validated; used for issue location reporting

@@ -23,9 +23,9 @@ import java.util.*;
  * by the Business Process Engine (BPE) server. It performs structural, semantic, and
  * terminology validation using XPath-based XML traversal and the DSF authorization cache.</p>
  *
- * <h3>Validation Scope</h3>
+ * <h2>Validation Scope</h2>
  *
- * <h4>1. Meta Tag Validation</h4>
+ * <h3>1. Meta Tag Validation</h3>
  * <ul>
  *   <li><strong>Read Access Tags:</strong> Verifies presence of at least one {@code meta.tag}
  *       element with system {@code http://dsf.dev/fhir/CodeSystem/read-access-tag} and
@@ -36,7 +36,7 @@ import java.util.*;
  *       reference valid codes from the DSF organization role CodeSystem (CS_ORG_ROLE).</li>
  * </ul>
  *
- * <h4>2. Mandatory Core Elements</h4>
+ * <h3>2. Mandatory Core Elements</h3>
  * <p>Ensures presence of all required FHIR ValueSet elements:</p>
  * <ul>
  *   <li>{@code url} – Canonical URL identifying the ValueSet</li>
@@ -46,7 +46,7 @@ import java.util.*;
  *   <li>{@code description} – Natural language description of the ValueSet's purpose</li>
  * </ul>
  *
- * <h4>3. Template Placeholder Enforcement</h4>
+ * <h3>3. Template Placeholder Enforcement</h3>
  * <p>Validates correct use of DSF template placeholders that are replaced during deployment:</p>
  * <ul>
  *   <li>{@code version} element must contain exactly {@code #{version}}</li>
@@ -55,7 +55,7 @@ import java.util.*;
  * </ul>
  * <p>These placeholders are required for the BPE server's template processing mechanism.</p>
  *
- * <h4>4. Compose/Include Structure Validation</h4>
+ * <h3>4. Compose/Include Structure Validation</h3>
  * <p>Validates the ValueSet's terminology composition:</p>
  * <ul>
  *   <li><strong>Structure:</strong> Ensures at least one {@code compose.include} element exists</li>
@@ -65,7 +65,7 @@ import java.util.*;
  *   <li><strong>Duplicate Detection:</strong> Identifies duplicate codes within the same include element</li>
  * </ul>
  *
- * <h4>5. Terminology Compliance Validation</h4>
+ * <h3>5. Terminology Compliance Validation</h3>
  * <p>Validates code/system combinations against the DSF authorization cache ({@link FhirAuthorizationCache}):</p>
  * <ul>
  *   <li>Checks whether referenced CodeSystem URLs are known to DSF</li>

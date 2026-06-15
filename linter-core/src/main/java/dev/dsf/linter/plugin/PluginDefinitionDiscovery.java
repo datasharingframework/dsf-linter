@@ -23,11 +23,11 @@ import static dev.dsf.linter.classloading.ProjectClassLoaderFactory.getOrCreateR
  * Supports both v1 and v2 plugin APIs using ServiceLoader and direct class scanning fallback.
  * <p>
  * Discovery strategy for extracted JARs:
+ * </p>
  * <ol>
  *   <li>Try ServiceLoader discovery using META-INF/services/</li>
  *   <li>If nothing found, scan the project root directory directly for plugin classes</li>
  * </ol>
- * </p>
  */
 public final class PluginDefinitionDiscovery {
 
@@ -183,11 +183,11 @@ public final class PluginDefinitionDiscovery {
      * Scans the project root for plugin definitions using a recursive project ClassLoader.
      * <p>
      * For extracted JAR structures, this method:
+     * </p>
      * <ol>
      *   <li>First tries ServiceLoader discovery (reads META-INF/services/)</li>
      *   <li>If nothing found, scans the project root directory directly</li>
      * </ol>
-     * </p>
      *
      * @param projectRoot the project root directory (extracted JAR root)
      * @param context discovery context to collect results and errors

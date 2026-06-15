@@ -10,13 +10,13 @@ import java.util.*;
  * Utility class providing resource discovery and resolution functionality for linting.
  * <p>
  * This class offers methods for:
+ * </p>
  * <ul>
  *   <li>Resolving resource files with strict validation against expected resource roots</li>
  *   <li>Searching in dependency JARs for resources not found locally</li>
  *   <li>Generating unique plugin names to avoid conflicts</li>
  *   <li>Sanitizing plugin names for use as directory names</li>
  * </ul>
- * </p>
  * <p>
  * The strict resolution mechanism helps identify misplaced resources and tracks
  * whether resources come from the project itself or from external dependencies.

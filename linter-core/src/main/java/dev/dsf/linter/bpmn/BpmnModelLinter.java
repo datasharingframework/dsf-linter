@@ -145,7 +145,7 @@ public record BpmnModelLinter(File projectRoot) {
      * dispatching type-specific validation to specialized sub-linters.
      * </p>
      *
-     * <h3>Validation Process</h3>
+     * <p><strong>Validation Process</strong></p>
      * <ol>
      *   <li>Validates process-level attributes via {@link BpmnProcessLinter}</li>
      *   <li>Initializes specialized sub-linters for different element categories</li>
@@ -154,7 +154,7 @@ public record BpmnModelLinter(File projectRoot) {
      *   <li>Collects all validation issues in a single list</li>
      * </ol>
      *
-     * <h3>Validated Element Types</h3>
+     * <p><strong>Validated Element Types</strong></p>
      * <ul>
      *   <li><strong>Tasks</strong>: {@link ServiceTask}, {@link UserTask}, {@link SendTask}, {@link ReceiveTask}</li>
      *   <li><strong>Events</strong>: {@link StartEvent}, {@link EndEvent}, {@link IntermediateThrowEvent},

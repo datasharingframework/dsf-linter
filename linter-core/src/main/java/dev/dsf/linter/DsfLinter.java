@@ -22,6 +22,7 @@ import java.util.*;
  * Core linter for DSF (Data Sharing Framework) process plugins.
  * <p>
  * This class orchestrates the complete linting process for DSF plugins, including:
+ * </p>
  * <ul>
  *   <li><b>Phase 1:</b> Project setup and Maven build execution</li>
  *   <li><b>Phase 2:</b> Resource discovery (plugins, BPMN processes, FHIR resources)</li>
@@ -29,10 +30,10 @@ import java.util.*;
  *   <li><b>Phase 4:</b> Report generation (HTML and/or JSON)</li>
  *   <li><b>Phase 5:</b> Summary and results</li>
  * </ul>
- * </p>
  * <p>
  * The linter supports both single-plugin and multi-plugin projects, automatically
  * detecting and validating all process plugins in the project. It validates:
+ * </p>
  * <ul>
  *   <li>BPMN process definitions and references</li>
  *   <li>FHIR resource definitions and references</li>
@@ -40,7 +41,6 @@ import java.util.*;
  *   <li>Resource consistency and completeness</li>
  *   <li>Unreferenced (leftover) resources</li>
  * </ul>
- * </p>
  *
  * @see Config
  * @see PluginLinter
@@ -147,8 +147,9 @@ public class DsfLinter {
     /**
      * Creates a new DSF Linter instance with the specified configuration.
      * <p>
-     * Initializes all required services for linting, including:
-     * <ul>
+ * Initializes all required services for linting, including:
+ * </p>
+ * <ul>
      *   <li>Project setup handler</li>
      *   <li>Resource discovery service</li>
      *   <li>BPMN linting service</li>
@@ -157,7 +158,6 @@ public class DsfLinter {
      *   <li>Leftover resource detector</li>
      *   <li>Report generator</li>
      * </ul>
-     * </p>
      *
      * @param config the linter configuration
      */
@@ -186,15 +186,15 @@ public class DsfLinter {
     /**
      * Main linting entry point.
      * <p>
-     * Executes the complete linting process through five phases:
-     * <ol>
+ * Executes the complete linting process through five phases:
+ * </p>
+ * <ol>
      *   <li>Project Setup - builds the project and prepares the environment</li>
      *   <li>Resource Discovery - discovers plugins and their resources</li>
      *   <li>Linting - validates BPMN, FHIR, and plugin configurations</li>
      *   <li>Report Generation - creates HTML and/or JSON reports</li>
      *   <li>Summary - displays results and execution time</li>
      * </ol>
-     * </p>
      * <p>
      * Handles any number of plugins uniformly (single or multiple plugins).
      * Uses a temporary context classloader to ensure proper resource isolation.
@@ -211,11 +211,7 @@ public class DsfLinter {
             // Phase 1: Project Setup
             reportGenerator.printPhaseHeader("Phase 1: Project Setup");
             ProjectSetupHandler.ProjectContext context;
-            try {
-                context = setupHandler.setupLintingEnvironment(config.projectPath());
-            } catch (IOException e) {
-                throw e;
-            }
+            context = setupHandler.setupLintingEnvironment(config.projectPath());
 
             // Execute all linting phases with temporary context classloader
             return ClassLoaderUtils.withTemporaryContextClassLoader(context.projectClassLoader(), () -> {
@@ -336,7 +332,6 @@ public class DsfLinter {
      *   <li>Loop coordination - iterates over plugins and calculates context</li>
      *   <li>Result aggregation - collects linting results from all plugins</li>
      * </ol>
-     * </p>
      *
      * @param context the project context containing classloader and directories
      * @param discovery the resource discovery result containing all plugins

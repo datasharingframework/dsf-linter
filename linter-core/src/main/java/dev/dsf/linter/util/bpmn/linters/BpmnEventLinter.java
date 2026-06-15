@@ -30,13 +30,13 @@ public final class BpmnEventLinter {
      * Lints a {@link BoundaryEvent} that contains an {@link ErrorEventDefinition}.
      * <p>
      * The linter is split based on whether an error reference is provided:
+     * </p>
      * <ul>
      *   <li>If the boundary event's name is empty, a warning is added; otherwise, a success item is recorded.</li>
      *   <li>If an error is provided, it checks that both the error name and error code are not empty:
      *       if either is empty, an error item is added; if provided, a success item is recorded for each.</li>
      *   <li>If the {@code errorCodeVariable} attribute is missing, a warning is added; otherwise, a success item is recorded.</li>
      * </ul>
-     * </p>
      *
      * @param boundaryEvent the {@link BoundaryEvent} to lint
      * @param issues        the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
@@ -105,6 +105,7 @@ public final class BpmnEventLinter {
      * Lints a {@link ConditionalEventDefinition} for an Intermediate Catch Event.
      * <p>
      * This method performs several checks:
+     * </p>
      * <ul>
      *   <li>Warns if the event name is empty; otherwise, records a success item.</li>
      *   <li>Errors if the conditional event variable name is empty; otherwise, records a success item.</li>
@@ -119,7 +120,6 @@ public final class BpmnEventLinter {
      *       otherwise, a success item is recorded.
      *   </li>
      * </ul>
-     * </p>
      *
      * @param catchEvent the Conditional Intermediate Catch Event to lint
      * @param issues     the list of {@link BpmnElementLintItem} to which linter issues or success items will be added

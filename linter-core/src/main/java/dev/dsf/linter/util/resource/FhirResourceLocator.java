@@ -16,12 +16,12 @@ import java.util.function.Predicate;
  * Locates and queries FHIR resources within a project structure.
  * <p>
  * This class provides methods to search for specific FHIR resources such as:
+ * </p>
  * <ul>
  *   <li>ActivityDefinitions by message name or canonical URL</li>
  *   <li>StructureDefinitions by profile value</li>
  *   <li>Questionnaires by form key/URL</li>
  * </ul>
- * </p>
  * <p>
  * The locator supports both file system and JAR-based resources through a
  * {@link ResourceProvider} abstraction. It automatically detects the appropriate

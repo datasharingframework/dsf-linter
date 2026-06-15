@@ -20,7 +20,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * DSF BPE API version (v1 or v2) AND implement the correct interface for
  * their specific BPMN element type.</p>
  *
- * <h3>Validation Hierarchy:</h3>
+ * <h2>Validation Hierarchy:</h2>
  * <ol>
  *   <li><b>Element-specific</b>: ServiceTask must implement ServiceTask interface</li>
  *   <li><b>Version-specific</b>: V1 uses JavaDelegate, V2 uses specific interfaces</li>

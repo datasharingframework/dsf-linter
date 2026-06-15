@@ -18,7 +18,7 @@ import java.util.List;
  * specific FHIR resource types such as {@code Questionnaire}, {@code Task}, {@code ValueSet}, etc.
  * </p>
  *
- * <h3>Responsibilities</h3>
+ * <h2>Responsibilities</h2>
  * <ul>
  *   <li>Defines an abstract API for checking whether a resource can be linted
  *       ({@link #canLint(Document)})</li>

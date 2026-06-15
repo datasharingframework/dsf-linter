@@ -159,7 +159,6 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
      *   <li>If the gateway has multiple outgoing sequence flows and its name is empty, a warning is added.</li>
      *   <li>If the gateway has multiple outgoing flows and a non-empty name, a success item is recorded.</li>
      * </ul>
-     * </p>
      *
      * @param gateway   the {@link InclusiveGateway} to be linted
      * @param issues    the list of {@link BpmnElementLintItem} to which any linter issues will be added
@@ -209,7 +208,6 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
      *     </ul>
      *   </li>
      * </ul>
-     * </p>
      *
      * @param flow      the {@link SequenceFlow} to be linted
      * @param issues    the list of {@link BpmnElementLintItem} where linter results will be added

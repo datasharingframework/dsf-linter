@@ -15,7 +15,7 @@ import java.io.File;
  * many individual subclasses.
  * </p>
  *
- * <h3>Usage Example:</h3>
+ * <h2>Usage Example:</h2>
  * <pre>
  * // Instead of: new FhirTaskMissingInputLintItem(resourceFile, fhirReference)
  * // Use:

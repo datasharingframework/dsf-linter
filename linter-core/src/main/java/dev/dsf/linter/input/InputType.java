@@ -7,7 +7,7 @@ package dev.dsf.linter.input;
  * linted by the DSF linter.
  * </p>
  *
- * <h3>Supported Input Types:</h3>
+ * <h2>Supported Input Types:</h2>
  * <ul>
  *   <li><b>LOCAL_JAR_FILE</b> - Compiled JAR file on local filesystem</li>
  *   <li><b>REMOTE_JAR_URL</b> - JAR file accessible via HTTP/HTTPS</li>

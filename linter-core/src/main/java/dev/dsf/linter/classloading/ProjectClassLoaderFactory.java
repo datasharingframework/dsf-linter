@@ -105,11 +105,11 @@ public class ProjectClassLoaderFactory {
      * Creates a {@link URLClassLoader} configured to load classes and resources from an extracted JAR directory.
      * <p>
      * For extracted JARs, this method:
+     * </p>
      * <ul>
      *   <li>Adds the project root directory (contains all extracted classes)</li>
      *   <li>Adds any JAR files in the root directory (for nested dependencies)</li>
      * </ul>
-     * </p>
      *
      * @param projectRoot the root directory of the extracted JAR project
      * @return a {@link URLClassLoader} that can load project classes and dependencies
@@ -134,11 +134,11 @@ public class ProjectClassLoaderFactory {
      * Creates a recursive {@link URLClassLoader} that scans the entire project hierarchy.
      * <p>
      * This scans for:
+     * </p>
      * <ul>
      *   <li>The project root directory</li>
      *   <li>All JAR files in the hierarchy</li>
      * </ul>
-     * </p>
      *
      * @param projectRoot the root directory of the project to traverse
      * @return a {@link URLClassLoader} that can load classes from the entire project hierarchy
