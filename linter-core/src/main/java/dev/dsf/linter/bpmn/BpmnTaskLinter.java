@@ -197,7 +197,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(task.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
                     LintingType.BPMN_SERVICE_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
@@ -282,8 +282,9 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(sendTask.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
-                    LintingType.BPMN_SEND_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_EVENT_NAME_EMPTY, elementId, bpmnFile, processId,
+                    "'" + elementId + "' has no name"));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "SendTask has a non-empty name: '" + sendTask.getName() + "'"));
@@ -356,7 +357,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         // 1. Validate task name
         if (isEmpty(userTask.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
+            issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
                     LintingType.BPMN_USER_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
@@ -381,7 +382,7 @@ public record BpmnTaskLinter(File projectRoot) {
                 issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                         "User Task formKey is valid: '" + formKey + "'"));
 
-                if (!locator.questionnaireExists(formKey)) {
+                if (!locator.questionnaireExists(formKey, projectRoot)) {
                     issues.add(new BpmnElementLintItem(
                             LinterSeverity.ERROR, LintingType.BPMN_USER_TASK_QUESTIONNAIRE_NOT_FOUND,
                             elementId, bpmnFile, processId,
@@ -408,8 +409,9 @@ public record BpmnTaskLinter(File projectRoot) {
         String elementId = receiveTask.getId();
 
         if (isEmpty(receiveTask.getName())) {
-            issues.add(BpmnElementLintItem.of(LinterSeverity.WARN,
-                    LintingType.BPMN_RECEIVE_TASK_NAME_EMPTY, elementId, bpmnFile, processId));
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
+                    LintingType.BPMN_EVENT_NAME_EMPTY, elementId, bpmnFile, processId,
+                    "'" + elementId + "' has no name."));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,
                     "ReceiveTask has a non-empty name: '" + receiveTask.getName() + "'"));
@@ -417,7 +419,7 @@ public record BpmnTaskLinter(File projectRoot) {
 
         if (receiveTask.getMessage() == null || isEmpty(receiveTask.getMessage().getName())) {
             issues.add(BpmnElementLintItem.of(LinterSeverity.ERROR,
-                    LintingType.BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY, elementId, bpmnFile, processId));
+                    LintingType.BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY, elementId, bpmnFile, processId));
         } else {
             String msgName = receiveTask.getMessage().getName();
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,

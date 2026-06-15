@@ -220,6 +220,13 @@ class ReportAutostartGoldenTest
             JsonNode node = mapper.readTree(json);
             String actualXml = JsonXmlConverter.convertJsonToXml(node);
 
+            // DEBUG: Print converted XML to console to aid troubleshooting
+
+            System.out.println("----- DEBUG: Converted XML from "
+                    + resourcePath + " -----");
+            System.out.println(actualXml);
+            System.out.println("----- END DEBUG -----");
+
             // 3) Compare XMLs while ignoring whitespace and child order differences
             Diff diff = DiffBuilder
                     .compare(Input.fromString(EXPECTED_XML))
@@ -239,7 +246,7 @@ class ReportAutostartGoldenTest
                     )
                     .build();
 
-            assertFalse(diff.hasDifferences(), () -> "XML differs from golden file:\n" + diff);
+            assertFalse(diff.hasDifferences(), () -> "XML differs from golden file:\n" + diff.toString());
         }
     }
 }

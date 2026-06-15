@@ -5,10 +5,13 @@ import org.camunda.bpm.model.bpmn.impl.BpmnModelInstanceImpl;
 import org.camunda.bpm.model.bpmn.impl.BpmnParser;
 import org.junit.jupiter.api.Test;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+
 public class BpmnLoadingTest {
 
     @Test
-    public void testBpmnLoading() {
+    public void testBpmnLoading() throws FileNotFoundException {
         BpmnParser parser = new BpmnParser();
         BpmnModelInstanceImpl model = parser.parseModelFromStream(
                 this.getClass().getClassLoader().getResourceAsStream("bpmn/ping.bpmn"));

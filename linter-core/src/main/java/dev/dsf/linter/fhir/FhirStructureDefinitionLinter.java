@@ -4,15 +4,10 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
 import dev.dsf.linter.util.resource.FhirAuthorizationCache;
-import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.linting.AbstractFhirInstanceLinter;
-import dev.dsf.linter.util.linting.LintingUtils;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.util.*;
 
@@ -131,39 +126,20 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref   = resolveReference(doc, resFile, SD_XP + "/*[local-name()='url']/@value");
+        final String ref   = determineRef(doc, resFile);
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         /* 1 – meta / basic */
         checkMetaAndBasics(doc, resFile, ref, issues);
 
         /* 2 – placeholders */
-        checkVersionDatePlaceholders(
-                doc,
-                SD_XP + "/*[local-name()='version']/@value",
-                SD_XP + "/*[local-name()='date']/@value",
-                resFile,
-                ref,
-                LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER,
-                LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER,
-                "Version does not use placeholder: " + val(doc, SD_XP + "/*[local-name()='version']/@value"),
-                "Date does not use placeholder: " + val(doc, SD_XP + "/*[local-name()='date']/@value"),
-                "version placeholder present",
-                "date placeholder present",
-                issues);
+        checkPlaceholders(doc, resFile, ref, issues);
 
         /* 3 – differential / snapshot / element IDs */
         checkDifferentialSection(doc, resFile, ref, issues);
 
         /* 4 - slice-count vs. min/max */
         checkSliceCardinality(doc, resFile, ref, issues);
-
-        /* 5 - binding.valueSet references */
-        checkBindingValueSets(doc, resFile, ref, issues);
-
-        /* 6 - fixedUri/fixedCode against project CodeSystems */
-        checkFixedCodings(doc, resFile, ref, issues);
-
         return issues;
     }
 
@@ -211,8 +187,11 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             out.add(ok(file, ref, "meta.tag read‑access‑tag OK (" + tags.getLength() + " tag(s))"));
 
         /* url */
-        checkRequiredValue(doc, SD_XP + "/*[local-name()='url']/@value",
-                file, ref, LintingType.STRUCTURE_DEFINITION_URL_MISSING, "url looks good", out);
+        String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
+        if (blank(url))
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_URL_MISSING, file, ref));
+        else
+            out.add(ok(file, ref, "url looks good"));
 
         /* status */
         String status = val(doc, SD_XP + "/*[local-name()='status']/@value");
@@ -220,6 +199,36 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_INVALID_STATUS, file, ref, "Invalid status: " + status));
         else
             out.add(ok(file, ref, "status = unknown"));
+    }
+
+    /*  CHECK 2: PLACEHOLDERS  */
+    /**
+     * lints that the StructureDefinition's {@code version} and {@code date} elements
+     * contain DSF template placeholders {@code #{version}} and {@code #{date}} respectively.
+     *
+     * @param doc   the StructureDefinition XML document
+     * @param file  the original file (used for error messages)
+     * @param ref   a human-readable reference derived from the file or resource URL
+     * @param out   the list where linting results are added
+     */
+    private void checkPlaceholders(Document doc,
+                                   File file,
+                                   String ref,
+                                   List<FhirElementLintItem> out)
+    {
+        /* version */
+        String version = val(doc, SD_XP + "/*[local-name()='version']/@value");
+        if (version == null || !version.equals("#{version}"))
+            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.STRUCTURE_DEFINITION_VERSION_NO_PLACEHOLDER, file, ref, "Version does not use placeholder: " + version));
+        else
+            out.add(ok(file, ref, "version placeholder present"));
+
+        /* date */
+        String date = val(doc, SD_XP + "/*[local-name()='date']/@value");
+        if (date == null || !date.equals("#{date}"))
+            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.STRUCTURE_DEFINITION_DATE_NO_PLACEHOLDER, file, ref, "Date does not use placeholder: " + date));
+        else
+            out.add(ok(file, ref, "date placeholder present"));
     }
 
     /*  CHECK 3: DIFF / SNAPSHOT / IDs  */
@@ -429,202 +438,21 @@ public final class FhirStructureDefinitionLinter extends AbstractFhirInstanceLin
             }
         }
     }
-
-    /*  CHECK 5: BINDING VALUE SET REFERENCES  */
-    /**
-     * Validates that every {@code binding.valueSet} canonical URL referenced in the differential
-     * can be resolved to a {@code ValueSet} resource within the project.
-     *
-     * <p>When a differential element declares a {@code binding} with a {@code strength} and a
-     * {@code valueSet} URL, the referenced ValueSet must exist in the project (but it could be a foreign URL). If it does not:
-     * <ul>
-     *   <li>An <b>WARN</b> is reported when {@code strength = "required"}</li>
-     *   <li>An <b>INFO</b> is reported for all other strengths ({@code extensible}, {@code preferred}, {@code example})</li>
-     * </ul>
-     *
-     * @param doc  the StructureDefinition DOM document
-     * @param file the original file (used for error messages)
-     * @param ref  a human-readable reference derived from the file or resource URL
-     * @param out  the list where linting results are appended
-     */
-    private void checkBindingValueSets(Document doc,
-                                       File file,
-                                       String ref,
-                                       List<FhirElementLintItem> out) {
-        NodeList elements = xp(doc, ELEMENTS_XP);
-        if (elements == null) return;
-
-        File projectRoot = LintingUtils.getProjectRoot(file.toPath());
-        FhirResourceLocator locator = FhirResourceLocator.create(projectRoot);
-
-        for (int i = 0; i < elements.getLength(); i++) {
-            Node elem = elements.item(i);
-            String strength  = val(elem, ".//*[local-name()='binding']/*[local-name()='strength']/@value");
-            String valueSetUrl = val(elem, ".//*[local-name()='binding']/*[local-name()='valueSet']/@value");
-
-            if (blank(strength) || blank(valueSetUrl)) continue;
-
-            String elemId = val(elem, "./@id");
-            boolean found = locator.valueSetExists(valueSetUrl);
-
-            if (!found) {
-                if ("required".equals(strength)) {
-                    out.add(new FhirElementLintItem(LinterSeverity.WARN,
-                            LintingType.STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED,
-                            file, ref,
-                            "Element '" + elemId + "': binding.valueSet '" + valueSetUrl
-                                    + "' (strength=required) could not be resolved to a known ValueSet. Are you sure?"));
-                } else {
-                    out.add(new FhirElementLintItem(LinterSeverity.INFO,
-                            LintingType.STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED_NON_REQUIRED,
-                            file, ref,
-                            "Element '" + elemId + "': binding.valueSet '" + valueSetUrl
-                                    + "' (strength=" + strength + ") could not be resolved to a known ValueSet."));
-                }
-            } else {
-                out.add(ok(file, ref,
-                        "element '" + elemId + "': binding.valueSet '" + valueSetUrl + "' resolved (OK)"));
-            }
-        }
-    }
-
-    /*  CHECK 6: fixedUri / fixedCode AGAINST PROJECT CODE SYSTEMS  */
-    /**
-     * Validates that every {@code fixedUri} declared on a {@code *.system} element within the
-     * differential resolves to a known CodeSystem in the project, and that the corresponding
-     * {@code fixedCode} (if present on the same slice's {@code *.code} element) is a code that
-     * actually exists in that CodeSystem.
-     *
-     * <p>Both checks are reported as {@link LinterSeverity#WARN} so that downstream consumers can
-     * distinguish them from hard structural errors.</p>
-     *
-     * @param doc  the StructureDefinition DOM document
-     * @param file the original file (used for error messages)
-     * @param ref  a human-readable reference derived from the file or resource URL
-     * @param out  the list where linting results are appended
-     */
-    private void checkFixedCodings(Document doc,
-                                   File file,
-                                   String ref,
-                                   List<FhirElementLintItem> out) {
-        // Key: direct parent path of the .system / .code element
-        // (e.g. "Task.output:data-set-status.type.coding" for both
-        //  "...type.coding.system" and "...type.coding.code")
-        // This avoids collisions when a slice has multiple .system paths
-        // (e.g. "type.coding.system" AND "value[x].system").
-        Map<String, String> systemByParentPath = new HashMap<>();
-        Map<String, String> codeByParentPath   = new HashMap<>();
-
-        try {
-            // Elements in the differential that carry fixedUri and whose @id contains ".system"
-            NodeList sysElems = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile(DIFF_ELEM_XP + "[./*[local-name()='fixedUri'] and contains(@id,'.system')]")
-                    .evaluate(doc, XPathConstants.NODESET);
-            for (int i = 0; i < sysElems.getLength(); i++) {
-                String id       = val(sysElems.item(i), "./@id");
-                String fixedUri = val(sysElems.item(i), "./*[local-name()='fixedUri']/@value");
-                if (id != null && fixedUri != null) {
-                    String parentPath = extractParentPath(id);
-                    if (parentPath != null) systemByParentPath.put(parentPath, fixedUri);
-                }
-            }
-
-            // Elements in the differential that carry fixedCode and whose @id contains ".code"
-            NodeList codeElems = (NodeList) XPathFactory.newInstance().newXPath()
-                    .compile(DIFF_ELEM_XP + "[./*[local-name()='fixedCode'] and contains(@id,'.code')]")
-                    .evaluate(doc, XPathConstants.NODESET);
-            for (int i = 0; i < codeElems.getLength(); i++) {
-                String id        = val(codeElems.item(i), "./@id");
-                String fixedCode = val(codeElems.item(i), "./*[local-name()='fixedCode']/@value");
-                if (id != null && fixedCode != null) {
-                    String parentPath = extractParentPath(id);
-                    if (parentPath != null) codeByParentPath.put(parentPath, fixedCode);
-                }
-            }
-        } catch (Exception e) {
-            return;
-        }
-
-        if (systemByParentPath.isEmpty()) return;
-
-        for (Map.Entry<String, String> entry : systemByParentPath.entrySet()) {
-            String parentPath = entry.getKey();
-            String fixedUri   = entry.getValue();
-            String sliceRoot  = extractSliceRoot(parentPath);
-
-            if (!FhirAuthorizationCache.containsSystem(fixedUri)) {
-                out.add(new FhirElementLintItem(LinterSeverity.WARN,
-                        LintingType.STRUCTURE_DEFINITION_FIXED_URI_CODESYSTEM_NOT_FOUND,
-                        file, ref,
-                        "Slice '" + sliceRoot + "' (" + parentPath + "): fixedUri='" + fixedUri
-                                + "' not found in project resources. fixedCode validation is skipped."));
-                continue;
-            }
-
-            String fixedCode = codeByParentPath.get(parentPath);
-            if (fixedCode != null) {
-                if (FhirAuthorizationCache.isUnknown(fixedUri, fixedCode)) {
-                    out.add(new FhirElementLintItem(LinterSeverity.ERROR,
-                            LintingType.STRUCTURE_DEFINITION_FIXED_CODE_NOT_IN_CODESYSTEM,
-                            file, ref,
-                            "Slice '" + sliceRoot + "' (" + parentPath + "): fixedCode='" + fixedCode
-                                    + "' is not a known code in CodeSystem '" + fixedUri + "'."));
-                } else {
-                    out.add(ok(file, ref, "Slice '" + sliceRoot + "' (" + parentPath + "): fixedUri/fixedCode pair valid (OK)"));
-                }
-            } else {
-                out.add(ok(file, ref, "Slice '" + sliceRoot + "' (" + parentPath + "): fixedUri='" + fixedUri + "' is a known CodeSystem (OK)"));
-            }
-        }
-    }
-
-    /**
-     * Returns the direct parent path of an element ID by removing the last path segment.
-     * <p>
-     * Used to pair a {@code fixedUri} on a {@code *.system} element with the matching
-     * {@code fixedCode} on the sibling {@code *.code} element that shares the same parent.
-     * <p>
-     * Examples:
-     * <ul>
-     *   <li>{@code "Task.input:target-endpoints.type.coding.system"} → {@code "Task.input:target-endpoints.type.coding"}</li>
-     *   <li>{@code "Task.output:data-set-status.value[x].system"} → {@code "Task.output:data-set-status.value[x]"}</li>
-     * </ul>
-     *
-     * @param elementId the full element ID string
-     * @return the parent path (everything before the last {@code '.'}), or {@code null} if not applicable
-     */
-    private static String extractParentPath(String elementId) {
-        if (elementId == null) return null;
-        int lastDot = elementId.lastIndexOf('.');
-        if (lastDot < 0) return null;
-        return elementId.substring(0, lastDot);
-    }
-
-    /**
-     * Extracts the slice root from a StructureDefinition element ID.
-     * <p>
-     * The slice root is the portion of the element ID up to (but not including) the first
-     * {@code '.'} character that appears after the slice discriminator {@code ':'}.
-     * <p>
-     * Examples:
-     * <ul>
-     *   <li>{@code "Task.input:target-endpoints.type.coding.system"} → {@code "Task.input:target-endpoints"}</li>
-     *   <li>{@code "Task.output:ping-status.value[x].system"} → {@code "Task.output:ping-status"}</li>
-     * </ul>
-     *
-     * @param elementId the full element ID string
-     * @return the slice root, or {@code null} if the ID has no slice discriminator
-     */
-    private static String extractSliceRoot(String elementId) {
-        if (elementId == null) return null;
-        int colon = elementId.indexOf(':');
-        if (colon < 0) return null;
-        int dot = elementId.indexOf('.', colon + 1);
-        if (dot < 0) return null;
-        return elementId.substring(0, dot);
-    }
-
             /*  HELPERS  */
+    /**
+     * Resolves the canonical reference for issue reporting from the StructureDefinition.
+     * If the {@code url} element is present, it is used as reference; otherwise,
+     * the file name is returned.
+     *
+     * @param doc   the StructureDefinition document
+     * @param file  the original resource file
+     * @return a human-readable reference string
+     */
+    private String determineRef(Document doc, File file)
+    {
+        String url = val(doc, SD_XP + "/*[local-name()='url']/@value");
+        return blank(url) ? file.getName() : url;
+    }
 
     /**
      * Parses the given string as an unsigned integer.
