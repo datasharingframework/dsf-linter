@@ -2,7 +2,6 @@ package dev.dsf.linter.service;
 
 import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.exception.ResourceLinterException;
-import dev.dsf.linter.exclusion.ExclusionFilter;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
@@ -33,8 +32,6 @@ public class PluginLintingOrchestrator {
     private final LeftoverResourceDetector leftoverDetector;
     private final LintingReportGenerator reportGenerator;
     private final Path reportBasePath;
-    private final ExclusionFilter exclusionFilter;
-    private final Logger logger;
 
     /**
      * Context information for validating a plugin in a multi-plugin environment.
@@ -53,7 +50,6 @@ public class PluginLintingOrchestrator {
             LeftoverResourceDetector leftoverDetector,
             LintingReportGenerator reportGenerator,
             Path reportBasePath,
-            ExclusionFilter exclusionFilter,
             Logger logger) {
         this.bpmnLinter = bpmnLinter;
         this.fhirLinter = fhirLinter;
@@ -61,8 +57,6 @@ public class PluginLintingOrchestrator {
         this.leftoverDetector = leftoverDetector;
         this.reportGenerator = reportGenerator;
         this.reportBasePath = reportBasePath;
-        this.exclusionFilter = exclusionFilter;
-        this.logger = logger;
     }
 
     /**
@@ -110,19 +104,6 @@ public class PluginLintingOrchestrator {
                 plugin.adapter(),
                 context.projectPath()
         );
-
-        // Step 4.6: Validate Spring configuration registration
-        // (cross-references getSpringConfigurations() with BPMN delegate/listener classes)
-        List<AbstractLintItem> springConfigItems = SpringConfigurationLinter.lint(
-                plugin.adapter(),
-                plugin.bpmnFiles(),
-                context.projectDir(),
-                logger
-        );
-        if (!springConfigItems.isEmpty()) {
-            metadataItems = new ArrayList<>(metadataItems);
-            metadataItems.addAll(springConfigItems);
-        }
 
         // Step 5: Get leftover items for this plugin
         List<AbstractLintItem> leftoverItems = leftoverDetector.getItemsForPlugin(
@@ -252,9 +233,6 @@ public class PluginLintingOrchestrator {
 
     /**
      * Builds the final PluginLinter result for a single plugin.
-     * If an {@link ExclusionFilter} is configured, excluded items are removed from the
-     * output that flows into reports, and their error count is stored separately so the
-     * caller can decide whether they should still affect the exit status.
      */
     private DsfLinter.PluginLinter buildPluginLintResult(
             String pluginName,
@@ -264,32 +242,20 @@ public class PluginLintingOrchestrator {
             List<AbstractLintItem> metadataItems,
             List<AbstractLintItem> leftoverItems) throws IOException {
 
-        List<AbstractLintItem> allItems = new ArrayList<>();
-        allItems.addAll(itemsCollection.nonPluginItems);
-        allItems.addAll(pluginResult.getItems());
+        List<AbstractLintItem> finalLintingItems = new ArrayList<>();
+        finalLintingItems.addAll(itemsCollection.nonPluginItems);
+        finalLintingItems.addAll(pluginResult.getItems());
 
         // Add metadata Lint Items to final result
         if (metadataItems != null && !metadataItems.isEmpty()) {
-            allItems.addAll(metadataItems);
+            finalLintingItems.addAll(metadataItems);
         }
+
         if (leftoverItems != null && !leftoverItems.isEmpty()) {
-            allItems.addAll(leftoverItems);
+            finalLintingItems.addAll(leftoverItems);
         }
 
-        List<AbstractLintItem> reportItems;
-        int excludedErrorCount = 0;
-
-        if (exclusionFilter != null) {
-            List<AbstractLintItem> excluded = exclusionFilter.getExcluded(allItems);
-            reportItems = exclusionFilter.filter(allItems);
-            excludedErrorCount = (int) excluded.stream()
-                    .filter(i -> i.getSeverity() == LinterSeverity.ERROR)
-                    .count();
-        } else {
-            reportItems = allItems;
-        }
-
-        LintingOutput finalOutput = new LintingOutput(reportItems);
+        LintingOutput finalOutput = new LintingOutput(finalLintingItems);
 
         Path pluginReportPath = reportBasePath.resolve(pluginName);
         Files.createDirectories(pluginReportPath);
@@ -299,7 +265,6 @@ public class PluginLintingOrchestrator {
                 plugin.adapter().sourceClass().getName(),
                 plugin.apiVersion(),
                 finalOutput,
-                excludedErrorCount,
                 pluginReportPath
         );
     }

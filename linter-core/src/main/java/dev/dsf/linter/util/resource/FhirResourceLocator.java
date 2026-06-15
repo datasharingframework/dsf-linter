@@ -39,7 +39,6 @@ public final class FhirResourceLocator {
     private static final String ACTIVITY_DEFINITION_DIR = "fhir/ActivityDefinition";
     private static final String STRUCTURE_DEFINITION_DIR = "fhir/StructureDefinition";
     private static final String QUESTIONNAIRE_DIR = "fhir/Questionnaire";
-    private static final String VALUE_SET_DIR = "fhir/ValueSet";
 
     private final ResourceProvider<FhirResourceEntry> provider;
     private final FhirResourceExtractor extractor;
@@ -94,9 +93,10 @@ public final class FhirResourceLocator {
      * Checks if an ActivityDefinition exists for the given message name.
      *
      * @param messageName the message name to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
      * @return true if an ActivityDefinition with the specified message name exists
      */
-    public boolean activityDefinitionExists(String messageName) {
+    public boolean activityDefinitionExists(String messageName, File projectRoot) {
         return searchInDirectories(
                 entry -> checkActivityDefinitionForMessage(entry, messageName),
                 ACTIVITY_DEFINITION_DIR
@@ -110,9 +110,10 @@ public final class FhirResourceLocator {
      * </p>
      *
      * @param profileValue the profile value/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
      * @return true if a StructureDefinition with the specified profile value exists
      */
-    public boolean structureDefinitionExists(String profileValue) {
+    public boolean structureDefinitionExists(String profileValue, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return searchInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
@@ -143,9 +144,10 @@ public final class FhirResourceLocator {
      * </p>
      *
      * @param profileValue the profile value/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
      * @return the File containing the StructureDefinition, or null if not found
      */
-    public File findStructureDefinitionFile(String profileValue) {
+    public File findStructureDefinitionFile(String profileValue, File projectRoot) {
         String base = ResourcePathNormalizer.removeVersionSuffix(profileValue);
         return findFileInDirectories(
                 entry -> checkStructureDefinitionForValue(entry, base),
@@ -161,9 +163,10 @@ public final class FhirResourceLocator {
      * </p>
      *
      * @param canonical the canonical URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
      * @return the File containing the ActivityDefinition, or null if not found
      */
-    public File findActivityDefinitionForInstantiatesCanonical(String canonical) {
+    public File findActivityDefinitionForInstantiatesCanonical(String canonical, File projectRoot) {
         String baseCanon = ResourcePathNormalizer.removeVersionSuffix(canonical);
         return findFileInDirectories(
                 entry -> checkActivityDefinitionForInstantiatesCanonical(entry, baseCanon),
@@ -179,9 +182,10 @@ public final class FhirResourceLocator {
      * </p>
      *
      * @param formKey the form key/URL to search for
+     * @param projectRoot the project root directory (currently unused, kept for API compatibility)
      * @return true if a Questionnaire with the specified form key exists, false if formKey is null or blank
      */
-    public boolean questionnaireExists(String formKey) {
+    public boolean questionnaireExists(String formKey, File projectRoot) {
         if (formKey == null || formKey.isBlank()) {
             return false;
         }
@@ -190,23 +194,6 @@ public final class FhirResourceLocator {
         return searchInDirectories(
                 entry -> checkQuestionnaireForUrl(entry, baseKey),
                 QUESTIONNAIRE_DIR
-        );
-    }
-
-    /**
-     * Checks if a ValueSet exists for the given canonical URL.
-     * <p>
-     * Automatically removes version suffixes from the URL before searching.
-     * </p>
-     *
-     * @param url the canonical URL of the ValueSet to search for
-     * @return true if a ValueSet with the specified URL exists
-     */
-    public boolean valueSetExists(String url) {
-        String base = ResourcePathNormalizer.removeVersionSuffix(url);
-        return searchInDirectories(
-                entry -> checkValueSetForUrl(entry, base),
-                VALUE_SET_DIR
         );
     }
 
@@ -331,17 +318,6 @@ public final class FhirResourceLocator {
                 doc -> {
                     try {
                         return extractor.questionnaireContainsUrl(doc, url);
-                    } catch (XPathExpressionException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-    }
-
-    private boolean checkValueSetForUrl(FhirResourceEntry entry, String url) {
-        return checkFhirResource(entry, "ValueSet",
-                doc -> {
-                    try {
-                        return extractor.valueSetContainsUrl(doc, url);
                     } catch (XPathExpressionException e) {
                         throw new RuntimeException(e);
                     }

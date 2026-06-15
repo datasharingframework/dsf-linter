@@ -53,7 +53,7 @@ public final class BpmnEndEventLinter {
 
         // 1. Check event name
         if (isEmpty(endEvent.getName())) {
-            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_MESSAGE_END_EVENT_NAME_EMPTY,
+            issues.add(new BpmnElementLintItem(LinterSeverity.WARN, LintingType.BPMN_EVENT_NAME_EMPTY,
                     elementId, bpmnFile, processId, "'" + elementId + "' has no name"));
         } else {
             issues.add(BpmnElementLintItem.success(
@@ -103,7 +103,7 @@ public final class BpmnEndEventLinter {
         // 1. Name check for non-SubProcess end events
         if (!(endEvent.getParentElement() instanceof SubProcess)) {
             if (isEmpty(endEvent.getName())) {
-                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME,
+                issues.add(BpmnElementLintItem.of(LinterSeverity.WARN, LintingType.BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS,
                         elementId, bpmnFile, processId));
             } else {
                 issues.add(BpmnElementLintItem.success(

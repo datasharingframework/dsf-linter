@@ -46,7 +46,7 @@ public final class BpmnMessageLinter {
         var locator = FhirResourceLocator.create(projectRoot);
 
         // Check for a matching ActivityDefinition.
-        if (locator.activityDefinitionExists(messageName)) {
+        if (locator.activityDefinitionExists(messageName, projectRoot)) {
             issues.add(BpmnElementLintItem.success(
                     elementId,
                     bpmnFile,
@@ -62,7 +62,7 @@ public final class BpmnMessageLinter {
         }
 
         // Check for a matching StructureDefinition.
-        if (locator.structureDefinitionExists(messageName)) {
+        if (locator.structureDefinitionExists(messageName, projectRoot)) {
             issues.add(BpmnElementLintItem.success(
                     elementId,
                     bpmnFile,
@@ -102,7 +102,7 @@ public final class BpmnMessageLinter {
             FhirResourceLocator locator,
             File projectRoot) {
 
-        boolean activityDefFound = locator.activityDefinitionExists(msgName);
+        boolean activityDefFound = locator.activityDefinitionExists(msgName, projectRoot);
 
         if (!activityDefFound) {
             issues.add(new BpmnElementLintItem(
@@ -115,7 +115,7 @@ public final class BpmnMessageLinter {
                     "ActivityDefinition found for messageName: '" + msgName + "'"));
 
         }
-        if (!locator.structureDefinitionExists(msgName)) {
+        if (!locator.structureDefinitionExists(msgName, projectRoot)) {
             issues.add(new BpmnElementLintItem(
                     LinterSeverity.ERROR, LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
                     elementId, bpmnFile, processId,
