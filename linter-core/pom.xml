@@ -17,7 +17,7 @@
     <artifactId>linter-core</artifactId>
 
     <properties>
-        <bytebuddy.version>1.18.9</bytebuddy.version>
+        <bytebuddy.version>1.18.10</bytebuddy.version>
     </properties>
 
     <dependencies>
@@ -107,7 +107,7 @@
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
-            <version>4.0.2</version>
+            <version>4.0.5</version>
         </dependency>
 
         <dependency>
