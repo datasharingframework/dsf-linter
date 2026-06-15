@@ -34,24 +34,31 @@ public enum LintingType {
     BPMN_MESSAGE_SEND_TASK_IMPLEMENTATION_CLASS_NOT_FOUND("Message send task implementation class not found."),
 
     // ==================== BPMN SEND TASK ====================
+    BPMN_SEND_TASK_NAME_EMPTY("Send task name is empty."),
     BPMN_SEND_TASK_NO_INTERFACE_CLASS_IMPLEMENTING("Send task implementation class does not implement required interface."),
     BPMN_SEND_TASK_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Send task implementation class does not extend AbstractTaskMessageSend."),
 
+    // ==================== BPMN RECEIVE TASK ====================
+    BPMN_RECEIVE_TASK_NAME_EMPTY("Receive task name is empty."),
+    BPMN_RECEIVE_TASK_MESSAGE_NAME_EMPTY("Receive task message name is empty."),
+
     // ==================== BPMN FLOW ====================
     BPMN_MESSAGE_START_EVENT_NOT_FOUND("Message start event not found."),
+    BPMN_MESSAGE_START_EVENT_NAME_EMPTY("Message start event name is empty."),
     BPMN_MESSAGE_START_EVENT_MESSAGE_NAME_EMPTY("Message start event message name is empty."),
     BPMN_FLOATING_ELEMENT("BPMN element is outside of message start event triggered flow."),
     BPMN_FLOW_ELEMENT("BPMN flow element issue."),
 
     // ==================== BPMN EVENTS ====================
-    BPMN_EVENT_NAME_EMPTY("Event name is empty."),
+    BPMN_MESSAGE_END_EVENT_NAME_EMPTY("Message end event name is empty."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_NAME_EMPTY("Message intermediate throw event name is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_EMPTY("Error boundary event error code is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_CODE_VARIABLE_EMPTY("Error boundary event error code variable is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_ERROR_NAME_EMPTY("Error boundary event error name is empty."),
     BPMN_ERROR_BOUNDARY_EVENT_NAME_EMPTY("Error boundary event name is empty."),
-    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE("Message intermediate throw event has message."),
-    BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS("Start event is not part of subprocess."),
-    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS("End event is not part of subprocess."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_HAS_MESSAGE_REFERENCE("Message intermediate throw event has message reference."),
+    BPMN_START_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("Start event is not part of subprocess and has no name."),
+    BPMN_END_EVENT_NOT_PART_OF_SUB_PROCESS_AND_HAS_NO_NAME("End event has no name and is not part of subprocess."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_NAME_EMPTY("Message intermediate catch event name is empty."),
     BPMN_MESSAGE_INTERMEDIATE_CATCH_EVENT_MESSAGE_NAME_EMPTY("Message intermediate catch event message name is empty."),
     BPMN_MESSAGE_BOUNDARY_EVENT_NAME_EMPTY("Message boundary event name is empty."),
@@ -62,6 +69,9 @@ public enum LintingType {
     BPMN_SIGNAL_END_EVENT_SIGNAL_EMPTY("Signal end event signal is empty."),
     BPMN_END_EVENT_INSIDE_SUB_PROCESS_SHOULD_HAVE_ASYNC_AFTER_TRUE("End event inside subprocess should have asyncAfter=true."),
     BPMN_END_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("End event implementation class does not implement required interface."),
+    BPMN_INTERMEDIATE_THROW_EVENT_NO_INTERFACE_CLASS_IMPLEMENTING("Intermediate throw event implementation class does not implement required interface."),
+    BPMN_MESSAGE_END_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message end event implementation class does not extend AbstractTaskMessageSend."),
+    BPMN_MESSAGE_INTERMEDIATE_THROW_EVENT_IMPLEMENTATION_CLASS_NOT_EXTENDING_ABSTRACT_TASK_MESSAGE_SEND("Message intermediate throw event implementation class does not extend AbstractTaskMessageSend."),
 
     // ==================== BPMN GATEWAYS ====================
     BPMN_EXCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY("Exclusive gateway has multiple outgoing flows but name is empty."),
@@ -78,6 +88,10 @@ public enum LintingType {
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_CODE_INVALID_FHIR_RESOURCE("User task listener task output code references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_SYSTEM_INVALID_FHIR_RESOURCE("User task listener task output system references invalid FHIR resource."),
     BPMN_USER_TASK_LISTENER_TASK_OUTPUT_VERSION_NO_PLACEHOLDER("User task listener task output version does not use placeholder."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY(
+            "User task listener input parameter 'practitionerRole' is defined but has no value."),
+    BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY(
+            "User task listener input parameter 'practitioners' is defined but has no value."),
 
     // ==================== BPMN FIELD INJECTION ====================
     BPMN_FIELD_INJECTION_NOT_STRING_LITERAL("Field injection value is not a string literal."),
@@ -93,7 +107,7 @@ public enum LintingType {
 
     // ==================== BPMN EXECUTION LISTENER ====================
     BPMN_EXECUTION_LISTENER_CLASS_NOT_FOUND("Execution listener class not found."),
-    BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener does not implement required interface."),
+    BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE("Execution listener class does not implement required interface."),
 
     // ==================== BPMN PROCESS ====================
     BPMN_PROCESS_ID_PATTERN_MISMATCH("Process ID does not match required pattern: domain_processname (e.g. testorg_myprocess)."),
@@ -102,10 +116,10 @@ public enum LintingType {
     BPMN_FILE_MULTIPLE_PROCESSES("BPMN file contains multiple process definitions, expected exactly one."),
     BPMN_PROCESS_HISTORY_TIME_TO_LIVE_MISSING("Process historyTimeToLive is not set. DSF uses default 'P30D'. Best practice: set explicitly."),
     BPMN_PROCESS_NOT_EXECUTABLE("Process is not executable. Set isExecutable='true' for the process to be deployable."),
+    BPMN_PROCESS_VERSION_TAG_MISSING_OR_EMPTY("Process camunda:versionTag is missing, empty, or set to null."),
+    BPMN_PROCESS_VERSION_TAG_NO_PLACEHOLDER("Process camunda:versionTag does not use '#{version}' placeholder."),
 
     // ==================== BPMN GENERAL ====================
-    BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL("Practitioners has no value or is null."),
-    BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL("PractitionerRole has no value or is null."),
     BPMN_NO_ACTIVITY_DEFINITION_FOUND_FOR_MESSAGE("No ActivityDefinition found for message."),
     BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE("No StructureDefinition found for message."),
 
@@ -142,6 +156,11 @@ public enum LintingType {
     STRUCTURE_DEFINITION_SLICE_MAX_TOO_HIGH("StructureDefinition slice max exceeds base max."),
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_EXCEEDS_MAX("StructureDefinition slice min sum exceeds max."),
     STRUCTURE_DEFINITION_SLICE_MIN_SUM_ABOVE_BASE_MIN("StructureDefinition slice min sum above base min."),
+    STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED("StructureDefinition binding.valueSet (strength=required) references unknown ValueSet."),
+    STRUCTURE_DEFINITION_BINDING_VALUESET_UNRESOLVED_NON_REQUIRED("StructureDefinition binding.valueSet references unknown ValueSet."),
+    STRUCTURE_DEFINITION_FIXED_URI_CODESYSTEM_NOT_FOUND("StructureDefinition fixedUri not found in project; fixedCode validation is skipped."),
+    STRUCTURE_DEFINITION_FIXED_CODE_NOT_IN_CODESYSTEM("StructureDefinition fixedCode is not a known code in the referenced CodeSystem."),
+
 
     // ==================== FHIR TASK ====================
     FHIR_TASK_IDENTIFIER_INVALID_FORMAT("Task identifier with system 'http://dsf.dev/sid/task-identifier' has invalid format. Expected: {process-url}/{process-version}/{task-example-name}"),
@@ -177,11 +196,17 @@ public enum LintingType {
     FHIR_TASK_INPUT_INSTANCE_COUNT_EXCEEDS_MAX("Task input instance count exceeds maximum."),
     FHIR_TASK_INPUT_SLICE_COUNT_BELOW_SLICE_MIN("Task input slice count below slice minimum."),
     FHIR_TASK_INPUT_SLICE_COUNT_EXCEEDS_SLICE_MAX("Task input slice count exceeds slice maximum."),
-    FHIR_TASK_UNKNOWN_CODE("Task has unknown code."),
+    FHIR_TASK_UNKNOWN_CODE("Task has unknown code (outside Task.input.type.coding)."),
+    FHIR_TASK_INPUT_CODING_SYSTEM_UNKNOWN("Task.input.type.coding.system was not found on the classpath or the project directory."),
+    FHIR_TASK_INPUT_CODING_SYSTEM_NOT_IN_VALUE_SET("Task.input.type.coding.system is not allowed by the expected ValueSet binding context."),
+    FHIR_TASK_INPUT_CODING_CODE_UNKNOWN_FOR_SYSTEM("Task.input.type.coding.code is unknown in the specified CodeSystem."),
     FHIR_TASK_REQUESTER_ID_NOT_EXIST("Task requester ID does not exist."),
     FHIR_TASK_REQUESTER_ID_NO_PLACEHOLDER("Task requester ID missing placeholder."),
     FHIR_TASK_RECIPIENT_ID_NOT_EXIST("Task recipient ID does not exist."),
     FHIR_TASK_RECIPIENT_ID_NO_PLACEHOLDER("Task recipient ID missing placeholder."),
+    FHIR_TASK_INPUT_FIXED_URI_MISMATCH("Task input coding.system does not match fixedUri from StructureDefinition."),
+    FHIR_TASK_INPUT_FIXED_CODE_MISMATCH("Task input coding.code does not match fixedCode from StructureDefinition."),
+    FHIR_TASK_INPUT_PAIR_NOT_ALLOWED_BY_SD("Task input (system, code) pair is not defined by any fixedUri/fixedCode constraint in the StructureDefinition."),
 
     // ==================== FHIR VALUE SET ====================
     FHIR_VALUE_SET_MISSING_URL("ValueSet is missing URL."),
@@ -239,7 +264,22 @@ public enum LintingType {
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
     PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
-    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid.");
+    PLUGIN_DEFINITION_RESOURCE_VERSION_NULL("Plugin definition getResourceVersion() returned null - version pattern invalid."),
+
+    // ==================== PLUGIN DEFINITION - SPRING CONFIGURATIONS ====================
+    PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING(
+            "A BPMN-referenced delegate or listener class is not provided as a @Bean "
+                    + "in any @Configuration class returned by getSpringConfigurations()."),
+
+    // ==================== SPRING BEAN SCOPE ====================
+    SPRING_BEAN_SCOPE_MISSING(
+            "BPMN-referenced bean has no @Scope annotation (defaults to singleton)."),
+    SPRING_BEAN_SCOPE_SINGLETON_EXPLICIT(
+            "BPMN-referenced bean is explicitly configured as singleton."),
+    SPRING_BEAN_SCOPE_PROTOTYPE(
+            "BPMN-referenced bean is correctly configured as prototype."),
+    SPRING_BEAN_SCOPE_MUTABLE_SINGLETON(
+            "BPMN-referenced singleton bean has mutable (non-static, non-final) instance fields.");
 
     private final String defaultMessage;
 

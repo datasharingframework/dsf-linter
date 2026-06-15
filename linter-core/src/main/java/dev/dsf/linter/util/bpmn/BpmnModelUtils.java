@@ -51,6 +51,18 @@ public final class BpmnModelUtils {
         return getCamundaClassFromMessageEvents(definitions);
     }
 
+
+    /**
+     * Returns whether the start event is triggered by a message (has a {@link MessageEventDefinition}).
+     *
+     * @param startEvent the BPMN start event to inspect
+     * @return {@code true} if the start event has a message event definition
+     */
+    public static boolean isMessageStartEvent(StartEvent startEvent) {
+        return !startEvent.getEventDefinitions().isEmpty()
+                && startEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition;
+    }
+
     /**
      * Scans a collection of event definitions to find the Camunda class from a MessageEventDefinition.
      *

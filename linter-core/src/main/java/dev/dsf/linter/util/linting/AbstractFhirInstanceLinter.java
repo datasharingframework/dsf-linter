@@ -1,5 +1,7 @@
 package dev.dsf.linter.util.linting;
 
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.FhirElementLintItem;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -8,6 +10,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.xpath.*;
 import java.io.File;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Abstract base class for all FHIR resource linters used in the DSF linting framework.
@@ -161,6 +164,126 @@ public abstract class AbstractFhirInstanceLinter
     protected String val(Node ctx, String xp)
     {
         return extractSingleNodeValue(ctx, xp);
+    }
+
+    /**
+     * Builds a stable resource reference used in lint messages.
+     * Prefers the value at the provided XPath (typically a canonical URL),
+     * and falls back to the source file name when missing.
+     *
+     * @param document the FHIR XML document
+     * @param file the file from which the resource was loaded
+     * @param referenceXPath absolute XPath to the preferred reference value
+     * @return canonical reference or file name as fallback
+     */
+    protected String resolveReference(Document document, File file, String referenceXPath)
+    {
+        String ref = val(document, referenceXPath);
+        return !blank(ref) ? ref : file.getName();
+    }
+
+    /**
+     * Applies a reusable placeholder validation rule.
+     *
+     * @param document XML document to inspect
+     * @param valueXPath XPath expression resolving the value to validate
+     * @param expectedPlaceholder expected placeholder token
+     * @param requirePresence if true, missing values are reported as issue
+     * @param containsMatch if true, value must contain placeholder; otherwise exact match is required
+     * @param severity lint severity used on validation failure
+     * @param lintingType linting type used on validation failure
+     * @param file source file used for reporting
+     * @param ref resource reference used for reporting
+     * @param errorMessage message used on validation failure
+     * @param successMessage message used on validation success
+     * @param out target list for lint items
+     */
+    protected void checkPlaceholder(Document document,
+                                    String valueXPath,
+                                    String expectedPlaceholder,
+                                    boolean requirePresence,
+                                    boolean containsMatch,
+                                    LinterSeverity severity,
+                                    LintingType lintingType,
+                                    File file,
+                                    String ref,
+                                    String errorMessage,
+                                    String successMessage,
+                                    List<FhirElementLintItem> out)
+    {
+        String value = val(document, valueXPath);
+        boolean missing = (value == null);
+        boolean matches = !missing && (containsMatch
+                ? value.contains(expectedPlaceholder)
+                : expectedPlaceholder.equals(value));
+
+        if ((requirePresence && missing) || (!missing && !matches))
+            out.add(new FhirElementLintItem(severity, lintingType, file, ref, errorMessage));
+        else
+            out.add(ok(file, ref, successMessage));
+    }
+
+
+    /**
+     * Checks that an XPath-resolved value is non-blank and reports a typed default issue.
+     */
+    protected void checkRequiredValue(Document document,
+                                      String valueXPath,
+                                      File file,
+                                      String ref,
+                                      LintingType missingType,
+                                      String successMessage,
+                                      List<FhirElementLintItem> out)
+    {
+        String value = val(document, valueXPath);
+        if (blank(value))
+            out.add(FhirElementLintItem.of(LinterSeverity.ERROR, missingType, file, ref));
+        else
+            out.add(ok(file, ref, successMessage));
+    }
+
+    /**
+     * Checks that a code in a tag list matches required system and allowed code set.
+     */
+    protected boolean hasAllowedTag(NodeList tags, String requiredSystem, Set<String> allowedCodes)
+    {
+        if (tags == null) return false;
+
+        for (int i = 0; i < tags.getLength(); i++)
+        {
+            String sys = val(tags.item(i), "./*[local-name()='system']/@value");
+            String code = val(tags.item(i), "./*[local-name()='code']/@value");
+            if (requiredSystem.equals(sys) && allowedCodes.contains(code))
+                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Applies standard DSF placeholder checks for version/date fields.
+     * Rule set: version mismatch => ERROR, date mismatch => WARN.
+     */
+    protected void checkVersionDatePlaceholders(Document document,
+                                                String versionXPath,
+                                                String dateXPath,
+                                                File file,
+                                                String ref,
+                                                LintingType versionLintType,
+                                                LintingType dateLintType,
+                                                String versionErrorMessage,
+                                                String dateErrorMessage,
+                                                String versionSuccessMessage,
+                                                String dateSuccessMessage,
+                                                List<FhirElementLintItem> out)
+    {
+        checkPlaceholder(document, versionXPath, "#{version}",
+                true, false, LinterSeverity.ERROR, versionLintType,
+                file, ref, versionErrorMessage, versionSuccessMessage, out);
+
+        checkPlaceholder(document, dateXPath, "#{date}",
+                true, false, LinterSeverity.WARN, dateLintType,
+                file, ref, dateErrorMessage, dateSuccessMessage, out);
     }
 
     /**

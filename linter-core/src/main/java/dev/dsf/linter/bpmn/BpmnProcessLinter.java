@@ -3,8 +3,10 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
+import dev.dsf.linter.util.bpmn.BpmnModelUtils;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.Process;
+import org.camunda.bpm.model.bpmn.instance.StartEvent;
 
 import java.io.File;
 import java.util.Collection;
@@ -56,6 +58,12 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li><strong>Executable Flag</strong>: Validates that the process has {@code isExecutable="true"},
  *       which is required for the process to be deployable and executable by the process engine.</li>
+ * </ul>
+ *
+ * <h3>Message Start Event Validation</h3>
+ * <ul>
+ *   <li><strong>Message Start Requirement</strong>: Validates that the process has at least one message
+ *       start event as a direct child of the process element. Start events inside subprocesses are not counted.</li>
  * </ul>
  *
  * <h2>Usage Example</h2>
@@ -110,6 +118,7 @@ public record BpmnProcessLinter(File projectRoot) {
      */
     private static final String PROCESS_ID_PATTERN_STRING = "^(?<domainNoDots>[a-zA-Z0-9-]+)_(?<processName>[a-zA-Z0-9-]+)$";
     private static final Pattern PROCESS_ID_PATTERN = Pattern.compile(PROCESS_ID_PATTERN_STRING);
+    private static final String CAMUNDA_BPMN_NAMESPACE = "http://camunda.org/schema/1.0/bpmn";
 
     /**
      * Constructs a new {@code BpmnProcessLinter} instance with the specified project root directory.
@@ -133,6 +142,8 @@ public record BpmnProcessLinter(File projectRoot) {
      *   <li>Process ID pattern</li>
      *   <li>History time to live attribute</li>
      *   <li>Executable flag</li>
+     *   <li>Message start event on process level (not in subprocesses)</li>
+     *   <li>Version tag placeholder ({@code camunda:versionTag="#{version}"})</li>
      * </ul>
      * </p>
      *
@@ -151,6 +162,8 @@ public record BpmnProcessLinter(File projectRoot) {
         for (Process process : processes) {
             validateHistoryTimeToLive(process, bpmnFile, issues);
             validateProcessExecutable(process, bpmnFile, issues);
+            validateMessageStartEvent(process, bpmnFile, issues);
+            validateVersionTag(process, bpmnFile, issues);
         }
 
         // Extract and validate process ID
@@ -355,6 +368,96 @@ public record BpmnProcessLinter(File projectRoot) {
                     bpmnFile,
                     processId,
                     String.format("Process '%s': isExecutable is set to 'true'.", processId)
+            ));
+        }
+    }
+
+    /**
+     * Validates that the process has at least one message start event as a direct child.
+     *
+     * <p>
+     * DSF processes are started via incoming messages. Start events inside subprocesses are not counted.
+     * </p>
+     *
+     * @param process  the BPMN process to validate
+     * @param bpmnFile the BPMN file for error reporting
+     * @param issues   the list to add validation issues to
+     */
+    void validateMessageStartEvent(Process process, File bpmnFile, List<BpmnElementLintItem> issues) {
+        String processId = process.getId() != null ? process.getId() : "";
+
+        boolean hasMessageStart = process.getChildElementsByType(StartEvent.class).stream()
+                .anyMatch(BpmnModelUtils::isMessageStartEvent);
+
+        if (!hasMessageStart) {
+            issues.add(BpmnElementLintItem.of(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_MESSAGE_START_EVENT_NOT_FOUND,
+                    processId,
+                    bpmnFile,
+                    processId));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': has at least one message start event on process level.", processId)
+            ));
+        }
+    }
+
+    /**
+     * Validates that camunda:versionTag exists and uses the DSF placeholder "#{version}".
+     *
+     * <p>
+     * Validation behavior:
+     * <ul>
+     *   <li>ERROR if missing, empty/blank, or set to literal "null"</li>
+     *   <li>WARN if present but does not contain "#{version}"</li>
+     * </ul>
+     * </p>
+     *
+     * @param process  the BPMN process to validate
+     * @param bpmnFile the BPMN file for error reporting
+     * @param issues   the list to add validation issues to
+     */
+    void validateVersionTag(Process process, File bpmnFile, List<BpmnElementLintItem> issues) {
+        String processId = process.getId() != null ? process.getId() : "";
+        String versionTag = process.getAttributeValueNs(CAMUNDA_BPMN_NAMESPACE, "versionTag");
+
+        if (versionTag == null || versionTag.isBlank() || "null".equalsIgnoreCase(versionTag.trim())) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.ERROR,
+                    LintingType.BPMN_PROCESS_VERSION_TAG_MISSING_OR_EMPTY,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': camunda:versionTag is missing, empty, or set to 'null'. " +
+                            "Expected camunda:versionTag='#{version}'.", processId)
+            ));
+            return;
+        }
+
+        if (!versionTag.contains("#{version}")) {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.WARN,
+                    LintingType.BPMN_PROCESS_VERSION_TAG_NO_PLACEHOLDER,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': camunda:versionTag='%s' does not use placeholder '#{version}'.",
+                            processId, versionTag)
+            ));
+        } else {
+            issues.add(new BpmnElementLintItem(
+                    LinterSeverity.SUCCESS,
+                    LintingType.SUCCESS,
+                    processId,
+                    bpmnFile,
+                    processId,
+                    String.format("Process '%s': camunda:versionTag uses '#{version}'.", processId)
             ));
         }
     }
