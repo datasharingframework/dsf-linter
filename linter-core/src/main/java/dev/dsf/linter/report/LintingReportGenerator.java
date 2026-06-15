@@ -82,7 +82,7 @@ public class LintingReportGenerator {
             // Generate HTML report if enabled
             if (config.generateHtmlReport()) {
                 Path htmlReportPath = pluginReportDir.resolve("lints.html");
-                htmlGenerator.generatePluginReport(pluginName, lint, htmlReportPath, config.projectPath());
+                htmlGenerator.generatePluginReport(pluginName, lint, htmlReportPath);
             }
 
             // Generate JSON report if enabled
@@ -109,6 +109,7 @@ public class LintingReportGenerator {
             Path masterHtmlPath = config.reportPath().resolve("report.html");
             htmlGenerator.generateMasterReport(
                     lints,
+                    discovery,
                     leftoverResults,
                     masterHtmlPath,
                     config

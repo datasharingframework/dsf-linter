@@ -4,6 +4,7 @@ import dev.dsf.linter.DsfLinter;
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.logger.Logger;
+import dev.dsf.linter.service.ResourceDiscoveryService;
 import dev.dsf.linter.util.api.ApiVersion;
 import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.linting.LintingOutput;
@@ -19,16 +20,12 @@ import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Generates HTML linter reports using Thymeleaf templates.
  * Responsible for creating both individual plugin reports and master summary reports.
  */
 public class HtmlReportGenerator {
-
-    /** Relative path from {@code <reportDir>/<plugin>/lints.html} to the master report. */
-    private static final String MASTER_REPORT_HREF = "../report.html";
 
     private final Logger logger;
     private final TemplateEngine templateEngine;
@@ -55,20 +52,18 @@ public class HtmlReportGenerator {
     /**
      * Generates an HTML report for a single plugin.
      *
-     * @param pluginName  The name of the plugin
-     * @param lints       The plugin linting result
-     * @param outputPath  The path where the HTML report should be saved
-     * @param projectPath The extracted JAR project directory used to locate source files
+     * @param pluginName The name of the plugin
+     * @param lints The plugin linting result
+     * @param outputPath The path where the HTML report should be saved
      */
     public void generatePluginReport(
             String pluginName,
             DsfLinter.PluginLinter lints,
-            Path outputPath,
-            Path projectPath) throws IOException {
+            Path outputPath) throws IOException {
 
         logger.debug("Generating HTML report for plugin: " + pluginName);
 
-        String html = formatPluginHtml(pluginName, lints, projectPath);
+        String html = formatPluginHtml(pluginName, lints);
         Files.writeString(outputPath, html);
 
         logger.debug("HTML report written to: " + outputPath);
@@ -78,19 +73,21 @@ public class HtmlReportGenerator {
      * Generates the master HTML report that aggregates all plugins.
      *
      * @param lints     Map of all plugin lints
+     * @param discovery       Resource discovery results
      * @param leftoverResults Leftover analysis results
      * @param outputPath      The path where the master HTML report should be saved
      * @param config          Linter configuration
      */
     public void generateMasterReport(
             Map<String, DsfLinter.PluginLinter> lints,
+            ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             Path outputPath,
             DsfLinter.Config config) throws IOException {
 
         logger.debug("Generating master HTML report...");
 
-        String html = formatMasterHtml(lints, leftoverResults, config);
+        String html = formatMasterHtml(lints, discovery, leftoverResults, config);
         Files.writeString(outputPath, html);
 
         logger.debug("Master HTML report written to: " + outputPath);
@@ -99,7 +96,7 @@ public class HtmlReportGenerator {
     /**
      * Formats the HTML content for a single plugin report.
      */
-    private String formatPluginHtml(String pluginName, DsfLinter.PluginLinter lints, Path projectPath) {
+    private String formatPluginHtml(String pluginName, DsfLinter.PluginLinter lints) {
         Context context = new Context();
 
         ApiVersion apiVersion = lints.apiVersion();
@@ -108,7 +105,7 @@ public class HtmlReportGenerator {
         addLogosToContext(context);
         addPluginMetadata(context, pluginName, lints, apiVersion);
         addLintsCounts(context, lints);
-        addLintingItems(context, lints, projectPath);
+        addLintingItems(context, lints);
 
         ApiVersionHolder.clear();
 
@@ -124,7 +121,6 @@ public class HtmlReportGenerator {
         context.setVariable("pluginName", pluginName);
         context.setVariable("pluginClass", lints.pluginClass());
         context.setVariable("apiVersion", apiVersion.toString());
-        context.setVariable("masterReportHref", MASTER_REPORT_HREF);
     }
 
     /**
@@ -145,12 +141,8 @@ public class HtmlReportGenerator {
 
     /**
      * Adds lints items to the Thymeleaf context, grouped by severity.
-     * Also resolves referenced file contents for the in-report file viewer.
-     * After building the content map, removes {@code sourceFile} from any item
-     * whose file could not be loaded — keeping the clickable hint only when
-     * content is actually available.
      */
-    private void addLintingItems(Context context, DsfLinter.PluginLinter lints, Path projectPath) {
+    private void addLintingItems(Context context, DsfLinter.PluginLinter lints) {
         List<AbstractLintItem> sortedItems = new ArrayList<>(lints.output().LintItems());
         sortedItems.sort(
                 Comparator.comparingInt((AbstractLintItem i) ->
@@ -159,22 +151,9 @@ public class HtmlReportGenerator {
         );
 
         Map<String, List<Map<String, Object>>> itemsBySeverity = groupItemsBySeverity(sortedItems);
-        Map<String, String> fileContents = buildFileContentMap(sortedItems, projectPath);
-
-        // Strip sourceFile from items whose file content could not be loaded,
-        // so no clickable indicator appears for items without a viewable source.
-        itemsBySeverity.values().forEach(items ->
-                items.forEach(itemMap -> {
-                    Object sf = itemMap.get("sourceFile");
-                    if (sf != null && !fileContents.containsKey(sf.toString())) {
-                        itemMap.remove("sourceFile");
-                    }
-                })
-        );
 
         context.setVariable("itemsBySeverity", itemsBySeverity);
         context.setVariable("hasItems", !sortedItems.isEmpty());
-        context.setVariable("fileContents", fileContents);
     }
 
     /**
@@ -200,8 +179,6 @@ public class HtmlReportGenerator {
 
     /**
      * Converts a lint item to a Map for template rendering.
-     * Adds a {@code highlightTarget} entry used by the in-report file viewer
-     * to scroll to and highlight the relevant element.
      */
     private Map<String, Object> convertItemToMap(AbstractLintItem item) {
         Map<String, Object> itemMap = new LinkedHashMap<>();
@@ -219,122 +196,7 @@ public class HtmlReportGenerator {
 
         itemMap.put("fullMessage", item.toString());
 
-        String highlightTarget = determineHighlightTarget(itemMap);
-        if (highlightTarget != null) {
-            itemMap.put("highlightTarget", highlightTarget);
-        }
-
-        // Pre-compute sourceFile so the template avoids unsupported OGNL Elvis (?:) syntax
-        Object resourceFile = itemMap.get("resourceFile");
-        Object bpmnFile = itemMap.get("bpmnFile");
-        Object fileName = itemMap.get("fileName");
-        String sourceFile = resourceFile != null ? resourceFile.toString()
-                : bpmnFile != null ? bpmnFile.toString()
-                : fileName != null ? fileName.toString()
-                : null;
-        if (sourceFile != null) {
-            itemMap.put("sourceFile", sourceFile);
-        }
-
         return itemMap;
-    }
-
-    /**
-     * Determines the best string to highlight in the file viewer for a given lint item.
-     * <ul>
-     *   <li>BPMN: searches for {@code id="<elementId>"} — matches the element definition
-     *       precisely, avoiding false hits on {@code sourceRef} / {@code targetRef} etc.</li>
-     *   <li>FHIR: uses the full canonical {@code fhirReference} URL (version suffix stripped)
-     *       which appears verbatim as an attribute value at the affected location.</li>
-     *   <li>Fallback: {@code resourceId} for cases where neither field is available.</li>
-     * </ul>
-     */
-    private String determineHighlightTarget(Map<String, Object> itemMap) {
-        // BPMN: search for the XML attribute declaration, not the bare ID string
-        Object elementId = itemMap.get("elementId");
-        if (elementId != null && !elementId.toString().isBlank()) {
-            return "id=\"" + elementId + "\"";
-        }
-
-        // FHIR: use the full canonical URL (strip |version suffix if present)
-        Object fhirReference = itemMap.get("fhirReference");
-        if (fhirReference != null && !fhirReference.toString().isBlank()) {
-            String ref = fhirReference.toString();
-            int pipeIdx = ref.indexOf('|');
-            if (pipeIdx > 0) ref = ref.substring(0, pipeIdx);
-            if (!ref.isBlank()) return ref;
-        }
-
-        // Fallback: resourceId
-        Object resourceId = itemMap.get("resourceId");
-        if (resourceId != null && !resourceId.toString().isBlank()) {
-            return resourceId.toString();
-        }
-        return null;
-    }
-
-    /**
-     * Reads the content of all files referenced by the given lint items.
-     * Searches for files by name recursively inside {@code projectPath}.
-     *
-     * @param items       the lint items whose file references should be resolved
-     * @param projectPath root directory of the extracted JAR
-     * @return map from file name to file content (raw text)
-     */
-    private Map<String, String> buildFileContentMap(List<AbstractLintItem> items, Path projectPath) {
-        Map<String, String> contentMap = new LinkedHashMap<>();
-        if (projectPath == null || !Files.exists(projectPath)) {
-            return contentMap;
-        }
-
-        Set<String> fileNames = new LinkedHashSet<>();
-        for (AbstractLintItem item : items) {
-            collectFileName(item, "getResourceFile", fileNames);
-            collectFileName(item, "getBpmnFile", fileNames);
-            collectFileName(item, "getFileName", fileNames);
-        }
-
-        for (String fileName : fileNames) {
-            if (fileName == null || fileName.isBlank()) continue;
-            try {
-                Optional<Path> found = findFileByName(projectPath, fileName);
-                if (found.isPresent()) {
-                    contentMap.put(fileName, Files.readString(found.get()));
-                } else {
-                    logger.debug("Referenced file not found in project directory: " + fileName);
-                }
-            } catch (IOException e) {
-                logger.debug("Could not read referenced file '" + fileName + "': " + e.getMessage());
-            }
-        }
-
-        return contentMap;
-    }
-
-    /**
-     * Invokes a getter on the item and, if it returns a non-blank String, adds it to the set.
-     */
-    private void collectFileName(AbstractLintItem item, String getterName, Set<String> fileNames) {
-        try {
-            Method method = item.getClass().getMethod(getterName);
-            Object value = method.invoke(item);
-            if (value instanceof String s && !s.isBlank()) {
-                fileNames.add(s);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    /**
-     * Recursively searches {@code baseDir} for a file whose name matches {@code fileName}.
-     */
-    private Optional<Path> findFileByName(Path baseDir, String fileName) throws IOException {
-        try (Stream<Path> walk = Files.walk(baseDir)) {
-            return walk
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().equals(fileName))
-                    .findFirst();
-        }
     }
 
     /**
@@ -342,6 +204,7 @@ public class HtmlReportGenerator {
      */
     private String formatMasterHtml(
             Map<String, DsfLinter.PluginLinter> lints,
+            ResourceDiscoveryService.DiscoveryResult discovery,
             LeftoverResourceDetector.AnalysisResult leftoverResults,
             DsfLinter.Config config) {
 

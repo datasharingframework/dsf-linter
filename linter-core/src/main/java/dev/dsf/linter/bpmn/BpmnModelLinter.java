@@ -46,8 +46,6 @@ import java.util.List;
  *   <li><strong>Process Count</strong>: Validates that each BPMN file contains exactly one process definition</li>
  *   <li><strong>History Time To Live</strong>: Warns if {@code camunda:historyTimeToLive} is not set</li>
  *   <li><strong>Process Executable</strong>: Validates that the process has {@code isExecutable="true"}</li>
- *   <li><strong>Message Start Event</strong>: Validates that the process has at least one message start event
- *       as a direct child (start events in subprocesses are not counted)</li>
  * </ul>
  *
  * <h3>Task Validation</h3>

@@ -40,7 +40,7 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  *       if class is not found</li>
  *   <li><strong>Interface Implementation</strong>: Validates that execution listener classes implement
  *       the correct interface based on the API version ({@code ExecutionListener} interface for both V1 and V2 API).
- *       Reports {@link LintingType#BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE} with
+ *       Reports {@link LintingType#BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE} with
  *       {@link LinterSeverity#ERROR} if interface is not implemented</li>
  * </ul>
  *
@@ -69,10 +69,10 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  * </p>
  * <ul>
  *   <li><strong>practitionerRole</strong>: Validates that the practitionerRole input parameter has a non-empty value.
- *       Reports {@link LintingType#BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY} with {@link LinterSeverity#ERROR}
+ *       Reports {@link LintingType#BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL} with {@link LinterSeverity#ERROR}
  *       if extends {@code DefaultUserTaskListener}, {@link LinterSeverity#WARN} otherwise</li>
  *   <li><strong>practitioners</strong>: Validates that the practitioners input parameter has a non-empty value.
- *       Reports {@link LintingType#BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY} with {@link LinterSeverity#ERROR}
+ *       Reports {@link LintingType#BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL} with {@link LinterSeverity#ERROR}
  *       if extends {@code DefaultUserTaskListener}, {@link LinterSeverity#WARN} otherwise</li>
  * </ul>
  *
@@ -164,7 +164,7 @@ public final class BpmnListenerLinter {
             if (doesNotImplementCorrectInterface(implClass, projectRoot, apiVersion, BpmnElementType.EXECUTION_LISTENER)) {
                 String expectedInterface = getExpectedInterfaceDescription(apiVersion, BpmnElementType.EXECUTION_LISTENER);
                 issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,
-                        LintingType.BPMN_EXECUTION_LISTENER_CLASS_NOT_IMPLEMENTING_REQUIRED_INTERFACE,
+                        LintingType.BPMN_EXECUTION_LISTENER_NOT_IMPLEMENTING_REQUIRED_INTERFACE,
                         elementId, bpmnFile, processId,
                         "Execution listener '" + implClass + "' does not implement " + expectedInterface + "."));
             } else {
@@ -336,8 +336,8 @@ public final class BpmnListenerLinter {
 
         if (value == null || value.trim().isEmpty()) {
             LintingType type = "practitionerRole".equals(paramName)
-                    ? LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONER_ROLE_INPUT_EMPTY
-                    : LintingType.BPMN_USER_TASK_LISTENER_PRACTITIONERS_INPUT_EMPTY;
+                    ? LintingType.BPMN_PRACTITIONER_ROLE_HAS_NO_VALUE_OR_NULL
+                    : LintingType.BPMN_PRACTITIONERS_HAS_NO_VALUE_OR_NULL;
             issues.add(BpmnElementLintItem.of(severity, type, elementId, bpmnFile, processId));
         } else {
             issues.add(BpmnElementLintItem.success(elementId, bpmnFile, processId,

@@ -177,7 +177,7 @@ public record BpmnGatewayAndFlowLinter(File projectRoot) {
         if (gateway.getOutgoing() != null && gateway.getOutgoing().size() > 1) {
             if (isEmpty(gateway.getName())) {
                 issues.add(BpmnElementLintItem.of(
-                        LinterSeverity.WARN,
+                        LinterSeverity.ERROR,
                         LintingType.BPMN_INCLUSIVE_GATEWAY_HAS_MULTIPLE_OUTGOING_FLOWS_BUT_NAME_IS_EMPTY,
                         elementId, bpmnFile, processId));
             } else {
