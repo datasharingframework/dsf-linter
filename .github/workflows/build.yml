@@ -130,6 +130,12 @@ jobs:
           distribution: 'zulu'
           java-version: 25
           cache: 'maven'
+      - name: Install quick-build artifacts to local repository
+        run: |
+          VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive org.codehaus.mojo:exec-maven-plugin:3.6.3:exec)
+          mvn install:install-file \
+            -Dfile="linter-core/target/linter-core-${VERSION}.jar" \
+            -DpomFile=linter-core/pom.xml
       - name: ${{ matrix.mvn.name }}
         run: ${{ matrix.mvn.cmd }}
 
