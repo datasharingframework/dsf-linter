@@ -5,6 +5,10 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
+import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.api.ApiVersionHolder;
+
+import dev.dsf.bpe.v2.spring.ActivityPrototypeBeanCreator;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
@@ -45,6 +49,7 @@ class SpringConfigurationLinterTest {
 
     @AfterEach
     void tearDown() throws IOException {
+        ApiVersionHolder.clear();
         if (tempProjectRoot != null) {
             deleteRecursively(tempProjectRoot.toFile());
         }
@@ -114,6 +119,85 @@ class SpringConfigurationLinterTest {
                 "Expected ERROR when a BPMN-referenced class has no matching @Bean");
         assertFalse(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.SUCCESS),
                 "No SUCCESS item expected when at least one reference is uncovered");
+    }
+
+    @Test
+    void v1Uncovered_reportsBeanMissing_withoutActivityPrototypeBeanCreator() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V1);
+        File bpmn = writeBpmn(tempProjectRoot, "com.example.MissingV1Delegate");
+        PluginAdapter adapter = stubAdapter(List.of(DummyConfig.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        AbstractLintItem error = items.stream()
+                .filter(i -> i.getSeverity() == LinterSeverity.ERROR)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LintingType.PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING, error.getType());
+        assertTrue(error.getDescription().contains("not provided as a @Bean"));
+        assertTrue(error.getDescription().contains("Add a @Bean method returning MissingV1Delegate"));
+        assertFalse(error.getDescription().contains("ActivityPrototypeBeanCreator"));
+    }
+
+    @Test
+    void v2Uncovered_withoutApbc_reportsActivityMissing_notV1BeanWording() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V2);
+        File bpmn = writeBpmn(tempProjectRoot, "com.example.MissingV2Activity");
+        PluginAdapter adapter = stubAdapter(List.of(DummyConfig.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        AbstractLintItem error = items.stream()
+                .filter(i -> i.getSeverity() == LinterSeverity.ERROR)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LintingType.PLUGIN_DEFINITION_ACTIVITY_PROTOTYPE_BEAN_MISSING, error.getType());
+        assertTrue(error.getDescription().contains("ActivityPrototypeBeanCreator"));
+        assertTrue(error.getDescription().contains("prototype-scoped @Bean"));
+        assertFalse(error.getDescription().contains("Add a @Bean method returning"));
+        assertFalse(error.getDescription().contains("Alternatively"));
+    }
+
+    @Test
+    void v2Uncovered_apbcOmitsClass_reportsActivityMissing() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V2);
+        File bpmn = writeBpmn(tempProjectRoot, ConfigWithApbc.OmittedActivity.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigWithApbc.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        AbstractLintItem error = items.stream()
+                .filter(i -> i.getSeverity() == LinterSeverity.ERROR)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LintingType.PLUGIN_DEFINITION_ACTIVITY_PROTOTYPE_BEAN_MISSING, error.getType());
+        assertTrue(error.getDescription().contains("not registered via ActivityPrototypeBeanCreator"));
+        assertFalse(error.getDescription().contains("Add a @Bean method returning"));
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_PROTOTYPE));
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING));
+    }
+
+    @Test
+    void v2Covered_viaApbc_reportsActivityPrototypeSuccess() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V2);
+        File bpmn = writeBpmn(tempProjectRoot, ConfigWithApbc.CoveredActivity.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigWithApbc.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.SUCCESS
+                        && i.getType() == LintingType.SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR
+                        && i.getDescription().contains("ActivityPrototypeBeanCreator")),
+                "Expected SUCCESS for ActivityPrototypeBeanCreator registration");
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_PROTOTYPE));
+        assertFalse(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.ERROR));
+        assertTrue(items.stream().anyMatch(i -> i.getType() == LintingType.SUCCESS
+                        && i.getDescription().contains("prototype activities")
+                        && !i.getDescription().contains("covered by a registered @Bean")));
     }
 
     @Test
@@ -323,6 +407,20 @@ class SpringConfigurationLinterTest {
         @Scope("prototype")
         public AnyBean bean() {
             return new AnyBean();
+        }
+    }
+
+    /** API V2 config: ActivityPrototypeBeanCreator lists CoveredActivity only. */
+    static final class ConfigWithApbc {
+        static final class CoveredActivity {
+        }
+
+        static final class OmittedActivity {
+        }
+
+        @Bean
+        public static ActivityPrototypeBeanCreator activityPrototypeBeanCreator() {
+            return new ActivityPrototypeBeanCreator(CoveredActivity.class);
         }
     }
 }

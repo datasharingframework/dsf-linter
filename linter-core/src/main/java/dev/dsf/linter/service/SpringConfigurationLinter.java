@@ -6,6 +6,8 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
+import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.api.ApiVersionHolder;
 
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -40,12 +42,17 @@ import java.util.Set;
  *
  * <h2>Background</h2>
  * <p>
- * In the DSF environment the Camunda engine does not instantiate Java delegate
- * or listener classes directly. Spring creates those instances via {@code @Bean}
- * methods on {@code @Configuration} classes that must be returned by
- * {@code ProcessPluginDefinition#getSpringConfigurations()}. A missing
- * {@code @Bean} for a BPMN-referenced class often appears only at deployment
- * time as a {@code BeanCreationException} or {@code ClassNotFoundException}.
+ * In the DSF environment the engine does not instantiate Java delegate
+ * or listener classes directly. Spring creates those instances.
+ * {@code ProcessPluginDefinition#getSpringConfigurations()} must return the
+ * {@code @Configuration} classes that provide them.
+ * <p>
+ * API V1 registers each BPMN class with its own {@code @Bean} factory method
+ * (typically {@code @Scope("prototype")}). API V2 may instead register activities
+ * via {@code dev.dsf.bpe.v2.spring.ActivityPrototypeBeanCreator}, which creates
+ * prototype beans from the {@code Class} literals passed to its constructor.
+ * A missing registration often appears only at deployment time as a
+ * {@code BeanCreationException} or {@code ClassNotFoundException}.
  * </p>
  * <p>
  * DSF best practice is <strong>prototype</strong> scope for such beans. Omitting
@@ -61,21 +68,28 @@ import java.util.Set;
  *   <li>Scan plugin BPMN files for {@code camunda:class} references (service
  *       and send tasks, throw events with message definitions, execution and
  *       task listeners).</li>
- *   <li>Build {@code @Bean} return types per configuration class; check each
- *       referenced class is covered (exact FQN or supertype assignability).</li>
- *   <li>For each <em>covered</em> class, find the covering {@code @Bean} method
- *       and inspect its {@code @Scope} and the implementation class for mutable
- *       instance fields.</li>
+ *   <li>Build {@code @Bean} return types per configuration class and, for API
+ *       V2, activity classes registered through
+ *       {@code ActivityPrototypeBeanCreator}; check each referenced class is
+ *       covered (exact FQN or supertype assignability).</li>
+ *   <li>For each <em>covered</em> class, treat {@code ActivityPrototypeBeanCreator}
+ *       registrations as prototype; otherwise find the covering {@code @Bean}
+ *       method and inspect its {@code @Scope} and the implementation class for
+ *       mutable instance fields.</li>
  * </ol>
  *
  * <h2>Emitted {@link LintingType} values</h2>
  * <h3>Bean registration</h3>
  * <ul>
- *   <li><b>ERROR</b> – {@link LintingType#PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING}:
- *       BPMN references a class that is not provided as a {@code @Bean} in any
+ *   <li><b>ERROR</b> – {@link LintingType#PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING}
+ *       (API V1): BPMN references a class that is not a {@code @Bean} in any
  *       registered configuration.</li>
+ *   <li><b>ERROR</b> – {@link LintingType#PLUGIN_DEFINITION_ACTIVITY_PROTOTYPE_BEAN_MISSING}
+ *       (API V2): BPMN references a class that is neither passed to
+ *       {@code ActivityPrototypeBeanCreator} nor declared as a prototype
+ *       {@code @Bean}.</li>
  *   <li><b>SUCCESS</b> – {@link LintingType#SUCCESS}: all references are
- *       covered by a registered {@code @Bean} and there are no registration
+ *       registered for the detected API version and there are no registration
  *       errors (a summary item is also emitted when the reference set is
  *       non-empty and fully covered; see {@link #lint}).</li>
  *   <li>When there are no BPMN delegate/listener references, a single success
@@ -83,9 +97,12 @@ import java.util.Set;
  * </ul>
  * <h3>Scope and mutable state (covered classes only)</h3>
  * <ul>
+ *   <li><b>SUCCESS</b> – {@link LintingType#SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR}
+ *       (API V2): the class is registered via {@code ActivityPrototypeBeanCreator}
+ *       (always prototype).</li>
  *   <li><b>SUCCESS</b> – {@link LintingType#SPRING_BEAN_SCOPE_PROTOTYPE}:
  *       the covering {@code @Bean} has {@code @Scope} with value
- *       {@code "prototype"} (recommended for Camunda hooks).</li>
+ *       {@code "prototype"}.</li>
  *   <li><b>ERROR</b> – {@link LintingType#SPRING_BEAN_SCOPE_MUTABLE_SINGLETON}:
  *       the bean is effectively singleton (no {@code @Scope} or explicit
  *       non-prototype scope) <em>and</em> the implementation class has mutable
@@ -110,6 +127,13 @@ public final class SpringConfigurationLinter {
     /** Fully qualified name of the Spring {@code @Scope} annotation. */
     private static final String SCOPE_ANNOTATION = "org.springframework.context.annotation.Scope";
 
+    /**
+     * Fully qualified name of the DSF API V2 helper that registers activity
+     * classes as prototype beans without one {@code @Bean} method per class.
+     */
+    private static final String ACTIVITY_PROTOTYPE_BEAN_CREATOR =
+            "dev.dsf.bpe.v2.spring.ActivityPrototypeBeanCreator";
+
     private SpringConfigurationLinter() {
     }
 
@@ -124,11 +148,12 @@ public final class SpringConfigurationLinter {
      * and does not run registration or scope checks.</p>
      *
      * <p>When there are references, emits one error per uncovered class, then for
-     * each covered class (if a covering {@code @Bean} method was resolved):
-     * prototype scope → one success item; otherwise if mutable fields → error,
-     * then either missing {@code @Scope} → warning or explicit non-prototype scope
-     * → warning. If every reference is covered by some {@code @Bean}, a summary
-     * success item for full registration coverage is appended.</p>
+     * each covered class: {@code ActivityPrototypeBeanCreator} registrations are
+     * treated as prototype; otherwise if a covering {@code @Bean} method was
+     * resolved, prototype scope → one success item; otherwise if mutable fields →
+     * error, then either missing {@code @Scope} → warning or explicit non-prototype
+     * scope → warning. If every reference is covered by a registered {@code @Bean}
+     * or {@code ActivityPrototypeBeanCreator}, a summary success item is appended.</p>
      *
      * @param adapter    the plugin adapter used to invoke
      *                     {@code getSpringConfigurations()} reflectively
@@ -186,6 +211,8 @@ public final class SpringConfigurationLinter {
         //         from the REGISTERED configurations only.
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         Map<String, Set<String>> registeredConfigBeans = new LinkedHashMap<>();
+        Set<String> apbcRegistered = new LinkedHashSet<>();
+        boolean apbcBeanPresent = false;
         for (Class<?> configClass : registered) {
             if (configClass == null) {
                 continue;
@@ -196,17 +223,23 @@ public final class SpringConfigurationLinter {
                 logger.debug("Registered @Configuration '" + configClass.getName()
                         + "' exposes " + beanTypes.size() + " @Bean type(s).");
             }
+            if (hasActivityPrototypeBeanCreatorBean(configClass)) {
+                apbcBeanPresent = true;
+            }
+            apbcRegistered.addAll(extractActivityPrototypeBeanCreatorClasses(configClass, logger));
         }
 
         // Step 4: For each BPMN-referenced class check whether any registered
         //         configuration provides a @Bean for it (exact type or supertype).
         List<String> uncoveredClasses = new ArrayList<>();
         for (String refClass : referencedBpmnClasses) {
-            boolean covered = false;
-            for (Set<String> beanTypes : registeredConfigBeans.values()) {
-                if (configProvidesClass(beanTypes, refClass, cl)) {
-                    covered = true;
-                    break;
+            boolean covered = apbcRegistered.contains(refClass);
+            if (!covered) {
+                for (Set<String> beanTypes : registeredConfigBeans.values()) {
+                    if (configProvidesClass(beanTypes, refClass, cl)) {
+                        covered = true;
+                        break;
+                    }
                 }
             }
             if (!covered) {
@@ -215,19 +248,15 @@ public final class SpringConfigurationLinter {
         }
 
         // Step 5: Emit one ERROR per uncovered BPMN-referenced class
+        ApiVersion apiVersion = ApiVersionHolder.getVersion();
         for (String uncoveredClass : uncoveredClasses) {
             items.add(new PluginLintItem(
                     LinterSeverity.ERROR,
-                    LintingType.PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING,
+                    missingRegistrationType(apiVersion),
                     locationFile,
                     uncoveredClass,
-                    "BPMN-referenced class '" + simpleName(uncoveredClass) + "' ("
-                            + uncoveredClass + ") is not provided as a @Bean "
-                            + "in any of the " + registeredConfigBeans.size()
-                            + " @Configuration class(es) registered via getSpringConfigurations() "
-                            + "of plugin '" + adapter.getName() + "'. "
-                            + "Add a @Bean method returning " + simpleName(uncoveredClass)
-                            + " to one of the registered @Configuration classes."
+                    missingRegistrationMessage(apiVersion, uncoveredClass, registeredConfigBeans.size(),
+                            adapter.getName(), apbcBeanPresent)
             ));
         }
 
@@ -243,6 +272,18 @@ public final class SpringConfigurationLinter {
         for (String refClass : referencedBpmnClasses) {
             if (uncoveredClasses.contains(refClass)) {
                 continue; // already reported as ERROR in step 5
+            }
+            if (apbcRegistered.contains(refClass)) {
+                items.add(new PluginLintItem(
+                        LinterSeverity.SUCCESS,
+                        LintingType.SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR,
+                        locationFile,
+                        refClass,
+                        "BPMN-referenced class '" + simpleName(refClass) + "' ("
+                                + refClass + ") is registered via ActivityPrototypeBeanCreator "
+                                + "and is therefore prototype-scoped."
+                ));
+                continue;
             }
             Optional<Method> coveringMethod = findCoveringMethod(configBeanMethods, refClass, cl);
             if (coveringMethod.isEmpty()) {
@@ -308,9 +349,7 @@ public final class SpringConfigurationLinter {
             items.add(PluginLintItem.success(
                     locationFile,
                     pluginLocation,
-                    "getSpringConfigurations() registers " + registered.size()
-                            + " @Configuration class(es); all " + referencedBpmnClasses.size()
-                            + " BPMN delegate/listener reference(s) are covered by a registered @Bean."
+                    coverageSummaryMessage(apiVersion, registered.size(), referencedBpmnClasses.size())
             ));
         }
 
@@ -423,6 +462,47 @@ public final class SpringConfigurationLinter {
         return beanReturnTypes;
     }
 
+    /**
+     * Collects activity class names registered via a static no-arg {@code @Bean}
+     * that returns DSF API V2 {@code ActivityPrototypeBeanCreator}. That helper
+     * registers the constructor {@code Class} arguments as prototype beans, so
+     * they are not visible as {@code @Bean} return types.
+     */
+    private static Set<String> extractActivityPrototypeBeanCreatorClasses(Class<?> configClass, Logger logger) {
+        Set<String> activities = new LinkedHashSet<>();
+        try {
+            for (Method m : configClass.getDeclaredMethods()) {
+                if (!hasAnnotationByName(m.getAnnotations())
+                        || !ACTIVITY_PROTOTYPE_BEAN_CREATOR.equals(m.getReturnType().getName())
+                        || !Modifier.isStatic(m.getModifiers())
+                        || m.getParameterCount() != 0) {
+                    continue;
+                }
+                m.setAccessible(true);
+                Object creator = m.invoke(null);
+                if (creator == null) {
+                    continue;
+                }
+                Field field = creator.getClass().getDeclaredField("activities");
+                field.setAccessible(true);
+                Object value = field.get(creator);
+                if (value instanceof Iterable<?> it) {
+                    for (Object item : it) {
+                        if (item instanceof Class<?> c) {
+                            activities.add(c.getName());
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            if (logger != null) {
+                logger.debug("Could not extract ActivityPrototypeBeanCreator classes from '"
+                        + configClass.getName() + "': " + t.getMessage());
+            }
+        }
+        return activities;
+    }
+
     private static boolean hasAnnotationByName(Annotation[] annotations) {
         if (annotations == null) return false;
         for (Annotation a : annotations) {
@@ -471,6 +551,68 @@ public final class SpringConfigurationLinter {
     private static String simpleName(String fqn) {
         int i = fqn.lastIndexOf('.');
         return (i >= 0) ? fqn.substring(i + 1) : fqn;
+    }
+
+    private static LintingType missingRegistrationType(ApiVersion apiVersion) {
+        return apiVersion == ApiVersion.V2
+                ? LintingType.PLUGIN_DEFINITION_ACTIVITY_PROTOTYPE_BEAN_MISSING
+                : LintingType.PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING;
+    }
+
+    private static String missingRegistrationMessage(ApiVersion apiVersion,
+                                                     String uncoveredClass,
+                                                     int configCount,
+                                                     String pluginName,
+                                                     boolean apbcBeanPresent) {
+        String name = simpleName(uncoveredClass);
+        if (apiVersion == ApiVersion.V2) {
+            if (apbcBeanPresent) {
+                return "BPMN-referenced class '" + name + "' (" + uncoveredClass
+                        + ") is not registered via ActivityPrototypeBeanCreator "
+                        + "and is not declared as a prototype @Bean in plugin '"
+                        + pluginName + "'. Pass " + name
+                        + ".class to ActivityPrototypeBeanCreator.";
+            }
+            return "BPMN-referenced class '" + name + "' (" + uncoveredClass
+                    + ") is not registered as a prototype activity in plugin '"
+                    + pluginName + "'. API V2 registers activities with "
+                    + "ActivityPrototypeBeanCreator (static @Bean) or as a "
+                    + "prototype-scoped @Bean. Neither was found for this class.";
+        }
+        return "BPMN-referenced class '" + name + "' (" + uncoveredClass
+                + ") is not provided as a @Bean in any of the " + configCount
+                + " @Configuration class(es) registered via getSpringConfigurations() "
+                + "of plugin '" + pluginName + "'. Add a @Bean method returning "
+                + name + " to one of the registered @Configuration classes.";
+    }
+
+    private static String coverageSummaryMessage(ApiVersion apiVersion,
+                                                 int configCount,
+                                                 int referencedCount) {
+        if (apiVersion == ApiVersion.V2) {
+            return "getSpringConfigurations() registers " + configCount
+                    + " @Configuration class(es); all " + referencedCount
+                    + " BPMN delegate/listener reference(s) are registered as "
+                    + "prototype activities.";
+        }
+        return "getSpringConfigurations() registers " + configCount
+                + " @Configuration class(es); all " + referencedCount
+                + " BPMN delegate/listener reference(s) are covered by a registered @Bean.";
+    }
+
+    private static boolean hasActivityPrototypeBeanCreatorBean(Class<?> configClass) {
+        try {
+            for (Method m : configClass.getDeclaredMethods()) {
+                if (hasAnnotationByName(m.getAnnotations())
+                        && ACTIVITY_PROTOTYPE_BEAN_CREATOR.equals(m.getReturnType().getName())
+                        && Modifier.isStatic(m.getModifiers())
+                        && m.getParameterCount() == 0) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     // ==================== @Bean METHOD MAP (for scope checks) ====================

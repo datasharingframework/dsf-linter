@@ -5,6 +5,8 @@ import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.AbstractLintItem;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery.PluginAdapter;
+import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.api.ApiVersionHolder;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,11 +45,13 @@ class SpringConfigurationLinterIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        ApiVersionHolder.clear();
         deleteRecursively(tempProjectRoot.toFile());
     }
 
     @Test
     void missingRegistration_producesError() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V1);
         // BPMN references SampleDelegate; Object.class has no @Bean for it → ERROR.
         File bpmn = writeBpmn(tempProjectRoot, SampleDelegate.class.getName());
 
@@ -64,6 +68,8 @@ class SpringConfigurationLinterIntegrationTest {
         assertEquals(LintingType.PLUGIN_DEFINITION_SPRING_CONFIGURATION_MISSING, errorItem.getType());
         assertTrue(errorItem.getDescription().contains(SampleDelegate.class.getSimpleName()),
                 "Error description should mention the uncovered BPMN-referenced class");
+        assertFalse(errorItem.getDescription().contains("ActivityPrototypeBeanCreator"),
+                "API V1 error must not mention ActivityPrototypeBeanCreator");
 
         assertFalse(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.SUCCESS),
                 "No SUCCESS item expected when at least one reference is uncovered");
