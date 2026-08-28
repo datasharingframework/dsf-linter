@@ -284,7 +284,11 @@ public enum LintingType {
     SPRING_BEAN_SCOPE_MUTABLE_SINGLETON(
             "BPMN-referenced singleton bean has mutable (non-static, non-final) instance fields."),
     SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR(
-            "BPMN-referenced activity is registered via ActivityPrototypeBeanCreator (prototype scope).");
+            "BPMN-referenced activity is registered via ActivityPrototypeBeanCreator (prototype scope)."),
+    SPRING_ACTIVITY_REGISTERED_TWICE(
+            "BPMN-referenced activity is registered both via ActivityPrototypeBeanCreator and as a @Bean."),
+    SPRING_ACTIVITY_REGISTERED_AS_BEAN(
+            "BPMN-referenced activity is declared as a @Bean but is not registered via ActivityPrototypeBeanCreator.");
 
     private final String defaultMessage;
 

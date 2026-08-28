@@ -88,6 +88,12 @@ import java.util.Set;
  *       (API V2): BPMN references a class that is neither passed to
  *       {@code ActivityPrototypeBeanCreator} nor declared as a prototype
  *       {@code @Bean}.</li>
+ *   <li><b>WARN</b> – {@link LintingType#SPRING_ACTIVITY_REGISTERED_TWICE}
+ *       (API V2): the class is registered both via
+ *       {@code ActivityPrototypeBeanCreator} and as a {@code @Bean}.</li>
+ *   <li><b>WARN</b> – {@link LintingType#SPRING_ACTIVITY_REGISTERED_AS_BEAN}
+ *       (API V2): the class is declared as a {@code @Bean} but is not passed to
+ *       {@code ActivityPrototypeBeanCreator}.</li>
  *   <li><b>SUCCESS</b> – {@link LintingType#SUCCESS}: all references are
  *       registered for the detected API version and there are no registration
  *       errors (a summary item is also emitted when the reference set is
@@ -98,7 +104,7 @@ import java.util.Set;
  * <h3>Scope and mutable state (covered classes only)</h3>
  * <ul>
  *   <li><b>SUCCESS</b> – {@link LintingType#SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR}
- *       (API V2): the class is registered via {@code ActivityPrototypeBeanCreator}
+ *       (API V2): the class is registered only via {@code ActivityPrototypeBeanCreator}
  *       (always prototype).</li>
  *   <li><b>SUCCESS</b> – {@link LintingType#SPRING_BEAN_SCOPE_PROTOTYPE}:
  *       the covering {@code @Bean} has {@code @Scope} with value
@@ -148,12 +154,15 @@ public final class SpringConfigurationLinter {
      * and does not run registration or scope checks.</p>
      *
      * <p>When there are references, emits one error per uncovered class, then for
-     * each covered class: {@code ActivityPrototypeBeanCreator} registrations are
-     * treated as prototype; otherwise if a covering {@code @Bean} method was
-     * resolved, prototype scope → one success item; otherwise if mutable fields →
-     * error, then either missing {@code @Scope} → warning or explicit non-prototype
-     * scope → warning. If every reference is covered by a registered {@code @Bean}
-     * or {@code ActivityPrototypeBeanCreator}, a summary success item is appended.</p>
+     * each covered class: API V2 classes registered both via
+     * {@code ActivityPrototypeBeanCreator} and as a {@code @Bean}, or only as a
+     * {@code @Bean}, emit a warning; API V2 classes registered only via
+     * {@code ActivityPrototypeBeanCreator} are treated as prototype. Otherwise if a
+     * covering {@code @Bean} method was resolved, prototype scope → one success
+     * item; otherwise if mutable fields → error, then either missing {@code @Scope}
+     * → warning or explicit non-prototype scope → warning. If every reference is
+     * covered by a registered {@code @Bean} or {@code ActivityPrototypeBeanCreator},
+     * a summary success item is appended.</p>
      *
      * @param adapter    the plugin adapter used to invoke
      *                     {@code getSpringConfigurations()} reflectively
@@ -260,8 +269,8 @@ public final class SpringConfigurationLinter {
             ));
         }
 
-        // Step 5.5: For each covered class check @Scope on the covering @Bean method
-        //           and report mutable-field hazards for effective-singleton beans.
+        // Step 5.5: For each covered class, API V2 warns on dual/@Bean-only
+        //           registration; otherwise check @Scope on the covering @Bean.
         Map<String, Map<String, Method>> configBeanMethods = new LinkedHashMap<>();
         for (Class<?> configClass : registered) {
             if (configClass != null) {
@@ -273,7 +282,38 @@ public final class SpringConfigurationLinter {
             if (uncoveredClasses.contains(refClass)) {
                 continue; // already reported as ERROR in step 5
             }
-            if (apbcRegistered.contains(refClass)) {
+            boolean inApbc = apbcRegistered.contains(refClass);
+            boolean inBean = providedByBean(registeredConfigBeans, refClass, cl);
+            if (apiVersion == ApiVersion.V2) {
+                if (inApbc && inBean) {
+                    items.add(new PluginLintItem(
+                            LinterSeverity.WARN,
+                            LintingType.SPRING_ACTIVITY_REGISTERED_TWICE,
+                            locationFile,
+                            refClass,
+                            "BPMN-referenced class '" + simpleName(refClass) + "' ("
+                                    + refClass + ") is registered both via "
+                                    + "ActivityPrototypeBeanCreator and as a @Bean. "
+                                    + "Remove one of the two registrations."
+                    ));
+                    continue;
+                }
+                if (!inApbc && inBean) {
+                    items.add(new PluginLintItem(
+                            LinterSeverity.WARN,
+                            LintingType.SPRING_ACTIVITY_REGISTERED_AS_BEAN,
+                            locationFile,
+                            refClass,
+                            "BPMN-referenced class '" + simpleName(refClass) + "' ("
+                                    + refClass + ") is declared as a @Bean but is not "
+                                    + "registered via ActivityPrototypeBeanCreator. "
+                                    + "Pass " + simpleName(refClass)
+                                    + ".class to ActivityPrototypeBeanCreator."
+                    ));
+                    continue;
+                }
+            }
+            if (inApbc) {
                 items.add(new PluginLintItem(
                         LinterSeverity.SUCCESS,
                         LintingType.SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR,
@@ -543,6 +583,17 @@ public final class SpringConfigurationLinter {
                 }
             } catch (ClassNotFoundException | LinkageError ignored) {
                 // ignore and continue
+            }
+        }
+        return false;
+    }
+
+    private static boolean providedByBean(Map<String, Set<String>> registeredConfigBeans,
+                                          String referencedClass,
+                                          ClassLoader cl) {
+        for (Set<String> beanTypes : registeredConfigBeans.values()) {
+            if (configProvidesClass(beanTypes, referencedClass, cl)) {
+                return true;
             }
         }
         return false;

@@ -201,6 +201,44 @@ class SpringConfigurationLinterTest {
     }
 
     @Test
+    void v2Covered_viaApbcAndBean_reportsRegisteredTwiceWarn() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V2);
+        File bpmn = writeBpmn(tempProjectRoot, ConfigWithApbcAndBean.DualActivity.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigWithApbcAndBean.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.WARN
+                        && i.getType() == LintingType.SPRING_ACTIVITY_REGISTERED_TWICE
+                        && i.getDescription().contains("both via")
+                        && i.getDescription().contains("ActivityPrototypeBeanCreator")),
+                "Expected WARN when activity is in APBC and declared as a @Bean");
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR));
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_PROTOTYPE));
+        assertFalse(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.ERROR));
+    }
+
+    @Test
+    void v2Covered_viaBeanOnly_reportsRegisteredAsBeanWarn() throws IOException {
+        ApiVersionHolder.setVersion(ApiVersion.V2);
+        File bpmn = writeBpmn(tempProjectRoot, ConfigPrototype.AnyBean.class.getName());
+        PluginAdapter adapter = stubAdapter(List.of(ConfigPrototype.class));
+
+        List<AbstractLintItem> items = SpringConfigurationLinter.lint(
+                adapter, List.of(bpmn), tempProjectRoot.toFile(), silentLogger());
+
+        assertTrue(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.WARN
+                        && i.getType() == LintingType.SPRING_ACTIVITY_REGISTERED_AS_BEAN
+                        && i.getDescription().contains("declared as a @Bean")
+                        && i.getDescription().contains("ActivityPrototypeBeanCreator")),
+                "Expected WARN when V2 activity is a @Bean but not in APBC");
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_BEAN_SCOPE_PROTOTYPE));
+        assertFalse(items.stream().anyMatch(i -> i.getType() == LintingType.SPRING_ACTIVITY_PROTOTYPE_BEAN_CREATOR));
+        assertFalse(items.stream().anyMatch(i -> i.getSeverity() == LinterSeverity.ERROR));
+    }
+
+    @Test
     void bpmnReference_coveredByRegisteredBean_yieldsSuccess() throws IOException {
         // ConfigWithBean declares a @Bean for the exact BPMN-referenced class → SUCCESS.
         File bpmn = writeBpmn(tempProjectRoot,
@@ -421,6 +459,23 @@ class SpringConfigurationLinterTest {
         @Bean
         public static ActivityPrototypeBeanCreator activityPrototypeBeanCreator() {
             return new ActivityPrototypeBeanCreator(CoveredActivity.class);
+        }
+    }
+
+    /** API V2 config: same activity in APBC and as a dedicated {@code @Bean}. */
+    static final class ConfigWithApbcAndBean {
+        static final class DualActivity {
+        }
+
+        @Bean
+        public static ActivityPrototypeBeanCreator activityPrototypeBeanCreator() {
+            return new ActivityPrototypeBeanCreator(DualActivity.class);
+        }
+
+        @Bean
+        @Scope("prototype")
+        public DualActivity dualActivity() {
+            return new DualActivity();
         }
     }
 }
