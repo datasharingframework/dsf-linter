@@ -57,6 +57,22 @@ public final class PluginDefinitionDiscovery {
          * @return the resource version (e.g., "1.5"), or null if the version pattern is invalid
          */
         String getResourceVersion();
+
+        /**
+         * Returns the list of Spring {@code @Configuration} classes that the plugin
+         * registers with the DSF Spring application context.
+         * <p>
+         * The Camunda engine in DSF does not instantiate BPMN delegate or listener
+         * classes directly; Spring manages them via {@code @Bean} methods defined
+         * in {@code @Configuration} classes. The classes returned from this method
+         * are the ones declared via the plugin's
+         * {@code ProcessPluginDefinition#getSpringConfigurations()} method.
+         * </p>
+         *
+         * @return the list of registered Spring configuration classes, or an empty
+         *         list if none were registered or the call failed.
+         */
+        List<Class<?>> getSpringConfigurations();
     }
 
     /**
@@ -117,6 +133,20 @@ public final class PluginDefinitionDiscovery {
                 throw new RuntimeException("getResourceVersion", e);
             }
         }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public List<Class<?>> getSpringConfigurations() {
+            try {
+                List<Class<?>> r = (List<Class<?>>)
+                        delegateClass.getMethod("getSpringConfigurations").invoke(delegate);
+                return r != null ? r : Collections.emptyList();
+            } catch (NoSuchMethodException e) {
+                return Collections.emptyList();
+            } catch (Exception e) {
+                throw new RuntimeException("getSpringConfigurations", e);
+            }
+        }
     }
 
     /**
@@ -175,6 +205,20 @@ public final class PluginDefinitionDiscovery {
                 return (String) delegateClass.getMethod("getResourceVersion").invoke(delegate);
             } catch (Exception e) {
                 throw new RuntimeException("getResourceVersion", e);
+            }
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public List<Class<?>> getSpringConfigurations() {
+            try {
+                List<Class<?>> r = (List<Class<?>>)
+                        delegateClass.getMethod("getSpringConfigurations").invoke(delegate);
+                return r != null ? r : Collections.emptyList();
+            } catch (NoSuchMethodException e) {
+                return Collections.emptyList();
+            } catch (Exception e) {
+                throw new RuntimeException("getSpringConfigurations", e);
             }
         }
     }
