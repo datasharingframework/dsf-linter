@@ -64,8 +64,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Empty project should fail linting with an IOException");
+            NoPluginAssertions.assertNoPluginReported(linter, "Empty project should fail linting with an IOException");
         }
 
         @Test
@@ -81,8 +80,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project without pom.xml should fail during ProcessPluginDefinition discovery");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project without pom.xml should fail during ProcessPluginDefinition discovery");
         }
 
         @Test
@@ -98,8 +96,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project without ProcessPluginDefinition should fail during discovery");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project without ProcessPluginDefinition should fail during discovery");
         }
     }
 
@@ -120,8 +117,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project without ProcessPluginDefinition should fail");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project without ProcessPluginDefinition should fail");
         }
 
         @Test
@@ -137,8 +133,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project without ProcessPluginDefinition should fail");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project without ProcessPluginDefinition should fail");
         }
 
         @Test
@@ -154,8 +149,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project without ProcessPluginDefinition should fail during discovery");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project without ProcessPluginDefinition should fail during discovery");
         }
     }
 
@@ -177,8 +171,7 @@ class TestDsfLinter
                     new NoOpLogger()
             );
             DsfLinter linter = new DsfLinter(config);
-            assertThrows(IOException.class, linter::lint,
-                    "Project with corrupted pom.xml should fail during Maven build");
+            NoPluginAssertions.assertNoPluginReported(linter, "Project with corrupted pom.xml should fail during Maven build");
         }
     }
 

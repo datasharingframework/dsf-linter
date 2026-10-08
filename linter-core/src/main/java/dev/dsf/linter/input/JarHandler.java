@@ -261,7 +261,7 @@ public class JarHandler {
      *
      * @param jarFile the JAR file to lint
      * @throws IOException if JAR cannot be read
-     * @throws IllegalStateException if required structure is missing
+     *   (missing structure is only logged as a warning; see {@code NoPluginFoundException} for the error report)
      */
     private void lintJarStructure(Path jarFile) throws IOException, IllegalStateException {
         logger.debug("Linting JAR structure: " + jarFile.getFileName());
@@ -291,19 +291,16 @@ public class JarHandler {
                 }
             }
 
+            // Structural problems are only warned about here: the discovery phase decides whether a plugin
+            // exists and reports "no plugin found" as an ERROR in the lint report (instead of aborting
+            // without any report).
             if (!hasClassFiles) {
-                throw new IllegalStateException(
-                        "Invalid JAR: No compiled classes found. " +
-                                "This does not appear to be a compiled DSF plugin."
-                );
+                logger.warn("JAR contains no compiled classes. This does not appear to be a compiled DSF plugin.");
             }
 
             if (!hasMetaInfServices || !hasPluginDefinition) {
-                throw new IllegalStateException(
-                        "Invalid JAR: Missing META-INF/services/ProcessPluginDefinition. " +
-                                "This does not appear to be a valid DSF plugin. " +
-                                "Ensure the JAR contains proper ServiceLoader registration."
-                );
+                logger.warn("JAR is missing META-INF/services/ProcessPluginDefinition. " +
+                        "Ensure the JAR contains proper ServiceLoader registration.");
             }
 
             logger.debug("JAR structure linting passed");
