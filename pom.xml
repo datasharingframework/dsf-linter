@@ -6,10 +6,10 @@
 
     <groupId>dev.dsf.linter</groupId>
     <artifactId>dsf-linter</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3</version>
     <packaging>pom</packaging>
 
-    <name>DSF Linter</name>
+    <name>DSF Linter POM</name>
     <description>Linting tool for DSF plugins that validates BPMN, FHIR, and plugin configuration from JAR artifacts, with HTML/JSON reports.</description>
     <url>https://dsf.dev/process-development/linter-tool/linter-tool.html</url>
 
@@ -174,9 +174,9 @@
                         <configuration>
                             <!-- Matches <server id="central"> in ~/.m2/settings.xml -->
                             <publishingServerId>central</publishingServerId>
+                            <deploymentName>DSF Linter</deploymentName>
                             <!-- Set to true to publish automatically; false = manual review in Central Portal -->
                             <autoPublish>false</autoPublish>
-                            <waitUntil>validated</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>

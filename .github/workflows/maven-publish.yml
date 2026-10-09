@@ -16,14 +16,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: 'zulu'
-          java-version: 21
+          java-version: 25
           cache: 'maven'
+
+        # Maven 3.10.0 leaves local metadata in the Central publishing bundle.
+      - name: Set up Maven 3.9.16
+        run: |
+          curl --fail --silent --show-error --location \
+            https://archive.apache.org/dist/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.tar.gz \
+            --output "${RUNNER_TEMP}/maven.tar.gz"
+          echo "831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6  ${RUNNER_TEMP}/maven.tar.gz" | shasum -a 512 --check
+          tar -xzf "${RUNNER_TEMP}/maven.tar.gz" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/apache-maven-3.9.16/bin" >> "${GITHUB_PATH}"
 
       - name: Import GPG key
         run: |
@@ -51,4 +61,4 @@ jobs:
       - name: Publish to Maven Central
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: mvn --batch-mode --fail-at-end -P release -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" clean deploy
+        run: mvn --batch-mode --fail-at-end -P publish-to-maven-central,generate-source-and-javadoc-jars -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" clean deploy

@@ -12,10 +12,10 @@ Download the latest `linter-cli-<version>.jar` from the [Releases page](https://
 
 ```bash
 # Run on local JAR file
-java -jar linter-cli-0.1.2.jar --path your-plugin.jar --html
+java -jar linter-cli-0.1.3.jar --path your-plugin.jar --html
 
 # Run on remote JAR file
-java -jar linter-cli-0.1.2.jar \
+java -jar linter-cli-0.1.3.jar \
   --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 
 # View report at: /tmp/dsf-linter-report-<name>/dsf-linter-report/index.html
@@ -32,7 +32,7 @@ cd dsf-linter
 mvn clean package
 
 # Then run the freshly built JAR
-java -jar linter-cli/target/linter-cli-0.1.2.jar --path your-plugin.jar --html
+java -jar linter-cli/target/linter-cli-0.1.3.jar --path your-plugin.jar --html
 ```
 
 ## Build
@@ -69,11 +69,11 @@ Expected structure in the JAR file:
 
 ```bash
 # Local JAR file
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path C:\path\to\plugin.jar --html
 
 # Remote JAR file
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path https://github.com/datasharingframework/dsf-process-ping-pong/releases/download/v2.0.0.1/dsf-process-ping-pong-2.0.0.1.jar --html
 ```
 
@@ -81,11 +81,11 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 
 ```bash
 # Multiple reports with custom path
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --json --report-path ./reports
 
 # Verbose output (colors enabled by default, use --no-color to disable)
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --verbose
 
 # Lint Maven project
@@ -93,7 +93,7 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 cd /path/to/project && mvn clean package
 
 # Step 2: Lint resulting JAR
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
@@ -101,16 +101,16 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 
 ```bash
 # GitHub Actions / GitLab CI
-FORCE_COLOR=1 java -jar linter-cli/target/linter-cli-0.1.2.jar \
+FORCE_COLOR=1 java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --json --verbose
 
 # Jenkins (fail on errors)
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html
 # Exit code: 0 = success, 1 = errors
 
 # Don't fail build (gradual adoption)
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --no-fail
 ```
 
@@ -180,7 +180,7 @@ Every rule must specify at least one field — a rule with no criteria is reject
 ```bash
 
 # Explicit exclusion file
-java -jar linter-cli-0.1.2.jar \
+java -jar linter-cli-0.1.3.jar \
   --path plugin.jar --html \
   --exclusions /path/to/my-exclusions.json
 
@@ -217,42 +217,58 @@ See `linter-core/src/main/java/dev/dsf/linter/output/LintingType.java` for the f
 
 ```
 dsf-linter/
+├── pom.xml                                   # Parent Maven POM
+├── dsf-linter-exclusions.json                # Example exclusion config (optional)
+├── .github/                                  # CI workflows & issue templates
 ├── linter-core/                              # Core linting logic
 │   ├── src/main/java/dev/dsf/linter/
-│   │   ├── analysis/                         # Resource analysis
-│   │   ├── bpmn/                             # BPMN parsing & validation
-│   │   ├── exclusion/                        # Exclusion rules & filtering
-│   │   ├── fhir/                             # FHIR parsing & validation
-│   │   ├── service/                          # Linting services (BPMN, FHIR, Plugin)
-│   │   ├── output/                           # Lint item definitions
-│   │   │   └── item/                         # Specific lint items
-│   │   ├── report/                           # Report generation
-│   │   ├── input/                            # Input handling & JAR processing
-│   │   ├── setup/                            # Project setup & building
-│   │   ├── plugin/                           # Plugin definition discovery
+│   │   ├── DsfLinter.java                    # Main orchestrator
+│   │   ├── analysis/                         # Leftover resource detection
+│   │   ├── bpmn/                             # BPMN model & element linters
 │   │   ├── classloading/                     # Dynamic class loading
-│   │   ├── logger/                           # Logging infrastructure
-│   │   ├── repo/                             # Repository management
 │   │   ├── constants/                        # Constants & configuration
 │   │   ├── exception/                        # Custom exceptions
-│   │   └── util/                             # Utilities
+│   │   ├── exclusion/                        # Exclusion rules & filtering
+│   │   ├── fhir/                             # FHIR resource linters
+│   │   ├── input/                            # Input handling & JAR processing
+│   │   ├── logger/                           # Logging infrastructure
+│   │   ├── output/                           # Lint item definitions
+│   │   │   └── item/                         # Specific lint items
+│   │   ├── plugin/                           # Plugin definition discovery
+│   │   ├── report/                           # HTML, JSON & console reporting
+│   │   ├── service/                          # Linting services & orchestration
+│   │   ├── setup/                            # Project setup & building
+│   │   └── util/                             # Shared utilities
 │   │       ├── api/                          # API version detection
+│   │       ├── bpmn/                         # BPMN helpers
+│   │       │   └── linters/                  # Event, message & timer linters
 │   │       ├── cache/                        # Caching utilities
-│   │       ├── converter/                    # Format converters
-│   │       ├── linting/                      # Linting utilities
+│   │       ├── converter/                    # Format converters (JSON/XML)
+│   │       ├── linting/                      # Linting helpers
 │   │       ├── loader/                       # Class/service loading
-│   │       ├── maven/                        # Maven utilities
-│   │       └── resource/                     # Resource management
+│   │       └── resource/                     # Resource discovery & resolution
 │   ├── src/main/resources/
-│   │   └── templates/                        # HTML report templates
+│   │   ├── templates/                        # HTML report templates
+│   │   └── logback*.xml                      # Logging configuration
 │   └── src/test/
-│       ├── java/                             # Unit tests
+│       ├── java/                             # Unit & integration tests
+│       │   ├── bpmn/
+│       │   ├── exclusion/
+│       │   ├── fhir/
+│       │   ├── service/
+│       │   └── util/
 │       └── resources/                        # Test fixtures
 │           ├── bpmn/
-│           ├── fhir/
-│           └── dsf-multi-plugin-test/
+│           ├── dsf-multi-plugin-test/
+│           └── fhir/examples/                # Sample FHIR resources
+│               ├── pingPongProcess/
+│               ├── dashBoardReport/
+│               └── feasibility/
 └── linter-cli/                               # CLI interface
     └── src/main/java/dev/dsf/linter/
+        ├── Main.java                         # Entry point & argument parsing
+        ├── LinterExecutor.java               # Runs the linting pipeline
+        └── ResultPrinter.java                # Console output formatting
 ```
 
 ## Development
@@ -285,7 +301,7 @@ vim linter-core/src/main/java/dev/dsf/linter/service/BpmnLintingService.java
 mvn clean package -DskipTests
 
 # 3. Test
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path test-plugin.jar --html --verbose
 
 # 4. Check report
@@ -300,7 +316,7 @@ mvn test
 ```bash
 # Start with debugger
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 \
-  -jar linter-cli/target/linter-cli-0.1.2.jar \
+  -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --verbose
 
 # Attach debugger to localhost:5005
@@ -374,12 +390,12 @@ The linter accepts only JAR files as input:
 
 ```bash
 # Wrong - Maven project directly
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path /path/to/project --html
 
 # Correct - Build first, then lint JAR
 cd /path/to/project && mvn clean package
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path /path/to/project/target/my-plugin-1.0.0.jar --html
 ```
 
@@ -388,11 +404,11 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 Verify the path:
 ```bash
 # Windows
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path "C:\Users\Username\project\target\plugin.jar" --html
 
 # Linux/Mac
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path /home/username/project/target/plugin.jar --html
 ```
 
@@ -403,7 +419,7 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 ls ~/.m2/settings.xml
 
 # Use verbose mode
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --verbose
 ```
 
@@ -411,11 +427,11 @@ java -jar linter-cli/target/linter-cli-0.1.2.jar \
 
 ```bash
 # --html flag must be set
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html  # ← Required
 
 # Use absolute path
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path plugin.jar --html --report-path $(pwd)/reports
 ```
 
@@ -427,7 +443,7 @@ Check the URL and network connection:
 curl -L -o test.jar https://example.com/plugin.jar
 
 # Then use the local file
-java -jar linter-cli/target/linter-cli-0.1.2.jar \
+java -jar linter-cli/target/linter-cli-0.1.3.jar \
   --path test.jar --html
 ```
 
