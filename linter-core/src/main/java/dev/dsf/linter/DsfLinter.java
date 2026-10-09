@@ -2,11 +2,15 @@ package dev.dsf.linter;
 
 import dev.dsf.linter.analysis.LeftoverResourceDetector;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
+import dev.dsf.linter.exception.NoPluginFoundException;
 import dev.dsf.linter.exception.ResourceLinterException;
 import dev.dsf.linter.exclusion.ExclusionConfig;
 import dev.dsf.linter.exclusion.ExclusionFilter;
 import dev.dsf.linter.logger.Console;
 import dev.dsf.linter.logger.Logger;
+import dev.dsf.linter.output.LinterSeverity;
+import dev.dsf.linter.output.LintingType;
+import dev.dsf.linter.output.item.PluginLintItem;
 import dev.dsf.linter.report.LintingReportGenerator;
 import dev.dsf.linter.service.*;
 import dev.dsf.linter.setup.ProjectSetupHandler;
@@ -233,14 +237,8 @@ public class DsfLinter {
                     ResourceDiscoveryService.DiscoveryResult discovery = discoveryService.discover(context);
 
                     if (discovery.plugins().isEmpty()) {
-                        logger.warn("No plugins found. Nothing to lint.");
-                        return new OverallLinterResult(
-                                Collections.emptyMap(),
-                                null,
-                                config.reportPath(),
-                                System.currentTimeMillis() - startTime,
-                                true
-                        );
+                        return reportNoPluginFound("No ProcessPluginDefinition implementation found. Nothing to lint.",
+                                startTime);
                     }
 
                     // Phase 3: linting (Plugins and Project-level)
@@ -287,6 +285,8 @@ public class DsfLinter {
                             success
                     );
 
+                } catch (NoPluginFoundException e) {
+                    return reportNoPluginFound(e.getMessage(), startTime);
                 } catch (ResourceLinterException | MissingServiceRegistrationException e) {
                     logger.error("FATAL: Linting failed: " + e.getMessage(), e);
                     throw new IOException("Linting failed", e);
@@ -303,6 +303,38 @@ public class DsfLinter {
             logger.error("FATAL: Linting failed with unexpected error: " + e.getMessage(), e);
             throw new IOException("Linting failed", e);
         }
+    }
+
+    /**
+     * Reports "no plugin found" as a regular ERROR lint item (own report directory with
+     * {@code lints.json}/{@code lints.html} plus master report), so that consumers of the reports
+     * can show the problem instead of finding an empty report directory.
+     * The result is only successful when {@code failOnErrors} is disabled.
+     */
+    private OverallLinterResult reportNoPluginFound(String message, long startTime) throws IOException {
+        logger.error("ERROR: " + message);
+
+        String projectName = config.projectPath().getFileName().toString();
+        String pluginName = projectName.startsWith("dsf-linter-") && projectName.length() > "dsf-linter-".length()
+                ? projectName.substring("dsf-linter-".length())
+                : projectName;
+
+        PluginLintItem item = new PluginLintItem(LinterSeverity.ERROR,
+                LintingType.PLUGIN_DEFINITION_NO_PLUGIN_FOUND, config.projectPath().toFile(),
+                "META-INF/services", message);
+        PluginLinter lint = new PluginLinter(pluginName, "none", ApiVersion.UNKNOWN,
+                new LintingOutput(List.of(item)), 0, config.reportPath().resolve(pluginName));
+        Map<String, PluginLinter> lints = new LinkedHashMap<>();
+        lints.put(pluginName, lint);
+
+        ResourceDiscoveryService.DiscoveryResult discovery = new ResourceDiscoveryService.DiscoveryResult(
+                Collections.emptyMap(), null, Collections.emptySet(), true);
+
+        reportGenerator.printPhaseHeader("Phase 4: Report Generation");
+        reportGenerator.generateReports(lints, discovery, null, config);
+
+        long executionTime = System.currentTimeMillis() - startTime;
+        return new OverallLinterResult(lints, null, config.reportPath(), executionTime, !config.failOnErrors());
     }
 
     /**

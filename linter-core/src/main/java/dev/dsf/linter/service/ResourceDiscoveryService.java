@@ -2,6 +2,7 @@ package dev.dsf.linter.service;
 
 import dev.dsf.linter.exception.ApiVersionUnknownException;
 import dev.dsf.linter.exception.MissingServiceRegistrationException;
+import dev.dsf.linter.exception.NoPluginFoundException;
 import dev.dsf.linter.logger.Logger;
 import dev.dsf.linter.plugin.EnhancedPluginDefinitionDiscovery;
 import dev.dsf.linter.plugin.PluginDefinitionDiscovery;
@@ -144,15 +145,18 @@ public class ResourceDiscoveryService {
         }
         
         if (pluginDiscovery.getAllPlugins().isEmpty()) {
-            throw new IllegalStateException("""
-                    No ProcessPluginDefinition implementations found
-                    Possible causes:
-                      - The project is not set up correctly as a DSF Process Plugin project
-                      - The JAR file does not contain META-INF/services/dev.dsf.bpe.v1.ProcessPluginDefinition (API v1)
-                        or META-INF/services/dev.dsf.bpe.v2.ProcessPluginDefinition (API v2)
-                      - Build the Maven project first: mvn clean package
-                      - Then lint the resulting JAR file from target/ directory
-                      If it still doesn't work, please report the issue on GitHub.""");
+            StringBuilder message = new StringBuilder("""
+                    No ProcessPluginDefinition implementation found \
+                    (expected: dev.dsf.bpe.v2.ProcessPluginDefinition listed in \
+                    META-INF/services/dev.dsf.bpe.v2.ProcessPluginDefinition; \
+                    API v1 uses dev.dsf.bpe.v1.ProcessPluginDefinition). \
+                    Build the plugin first (mvn clean package) and make sure the service file \
+                    lists a class implementing the interface.""");
+            for (dev.dsf.linter.plugin.PluginDiscoveryError error : pluginDiscovery.getFailedPlugins()) {
+                message.append(" Discovery error: ").append(error.pluginClassName())
+                        .append(" - ").append(error.errorMessage()).append('.');
+            }
+            throw new NoPluginFoundException(message.toString());
         }
 
         logger.info("Found " + pluginDiscovery.getAllPlugins().size() + " plugin(s)");

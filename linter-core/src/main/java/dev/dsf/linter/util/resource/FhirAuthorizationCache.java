@@ -306,7 +306,7 @@ public final class FhirAuthorizationCache
 
     /**
      * Seeds the CodeSystem cache from both the project directory (disk) and the project classpath
-     * (dependencies & plugin JAR). Keeps parsing logic centralized by materializing classpath resources
+     * (dependencies and plugin JAR). Keeps parsing logic centralized by materializing classpath resources
      * to temporary files.
      *
      * @param projectRoot the root of the project used to determine base traversal path and classpath setup
@@ -528,17 +528,6 @@ public final class FhirAuthorizationCache
     public static void registerValueSetSystem(String system) {
         if (system != null && !system.isBlank())
             SYSTEMS_IN_VALUE_SETS.add(system);
-    }
-
-    /**
-     * Returns {@code true} if the given CodeSystem URI is referenced by at least one
-     * known ValueSet's {@code compose.include.system}.
-     *
-     * @param system the CodeSystem URI to check
-     * @return {@code true} if the system is included in at least one known ValueSet
-     */
-    public static boolean isSystemInAnyValueSet(String system) {
-        return system != null && SYSTEMS_IN_VALUE_SETS.contains(system);
     }
 
     /**
