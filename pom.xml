@@ -174,9 +174,9 @@
                         <configuration>
                             <!-- Matches <server id="central"> in ~/.m2/settings.xml -->
                             <publishingServerId>central</publishingServerId>
+                            <deploymentName>DSF Linter</deploymentName>
                             <!-- Set to true to publish automatically; false = manual review in Central Portal -->
                             <autoPublish>false</autoPublish>
-                            <waitUntil>validated</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
