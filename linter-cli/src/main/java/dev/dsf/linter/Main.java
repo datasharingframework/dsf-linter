@@ -1,5 +1,7 @@
 package dev.dsf.linter;
 
+import dev.dsf.linter.exclusion.ExclusionConfig;
+import dev.dsf.linter.exclusion.ExclusionConfigLoader;
 import dev.dsf.linter.input.InputResolver;
 import dev.dsf.linter.logger.ConsoleLogger;
 import dev.dsf.linter.logger.Logger;
@@ -78,6 +80,13 @@ public class Main implements Callable<Integer> {
     @Option(names = "--no-color",
             description = "Disable colored console output. (Default: enabled)")
     private boolean disableColor = false;
+
+    @Option(names = "--exclusions",
+            description = "Path to a JSON file containing exclusion rules. "
+                    + "Excluded items are hidden from reports. "
+                    + "If omitted, the linter also looks for 'dsf-linter-exclusions.json' "
+                    + "in the project root automatically.")
+    private Path exclusionsFile = null;
 
 
     /**
@@ -177,6 +186,30 @@ public class Main implements Callable<Integer> {
             return 1;
         }
 
+        // Load exclusion config (explicit file wins over auto-discovery)
+        ExclusionConfig exclusionConfig = null;
+        try {
+            ExclusionConfigLoader exclusionLoader = new ExclusionConfigLoader();
+            if (exclusionsFile != null) {
+                exclusionConfig = exclusionLoader.load(exclusionsFile);
+                logger.info("Loaded exclusion rules from: " + exclusionsFile);
+            } else {
+                Optional<ExclusionConfig> auto = exclusionLoader.loadFromProjectRoot(projectPath);
+                if (auto.isPresent()) {
+                    exclusionConfig = auto.get();
+                    logger.info("Auto-discovered exclusion rules from: "
+                            + projectPath.resolve(ExclusionConfigLoader.DEFAULT_FILENAME));
+                }
+            }
+            if (exclusionConfig != null) {
+                logger.info("Exclusion rules loaded: " + exclusionConfig.getRules().size()
+                        + " rule(s), affectsExitStatus=" + exclusionConfig.isAffectsExitStatus());
+            }
+        } catch (IOException e) {
+            logger.error("ERROR: Failed to load exclusion config: " + e.getMessage(), e);
+            return 1;
+        }
+
         try {
             // Execute linting
             LinterExecutor executor = new LinterExecutor(
@@ -185,6 +218,7 @@ public class Main implements Callable<Integer> {
                     generateHtmlReport,
                     generateJsonReport,
                     !noFailOnErrors,
+                    exclusionConfig,
                     logger
             );
 

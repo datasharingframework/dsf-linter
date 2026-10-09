@@ -3,6 +3,8 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.*;
+import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.api.ApiVersionHolder;
 import dev.dsf.linter.util.resource.FhirResourceExtractor;
 import dev.dsf.linter.util.resource.FhirResourceLocator;
 import dev.dsf.linter.util.resource.FhirResourceParser;
@@ -47,11 +49,11 @@ import static dev.dsf.linter.util.linting.LintingUtils.isEmpty;
  *
  * <h3>Field Value Type Validation</h3>
  * <ul>
- *   <li><strong>String Literal Requirement</strong>: Validates that field values are provided as
+ *   <li><strong>String Literal Requirement (API v1)</strong>: Validates that field values are provided as
  *       string literals rather than expressions, ensuring static configuration that can be validated
  *       at linting time</li>
- *   <li><strong>Expression Detection</strong>: Issues errors when field values are provided as
- *       expressions, which cannot be statically validated</li>
+ *   <li><strong>Expression Detection</strong>: For API v1, issues errors when field values are provided as
+ *       expressions. For API v2, expressions are allowed and further static validation of that field is skipped</li>
  * </ul>
  *
  * <h3>Profile Field Validation</h3>
@@ -312,12 +314,20 @@ public class BpmnFieldInjectionLinter {
                         "Field injection '" + fieldName + "' provided as string literal"));
             }
 
-            // expression? -> immediate error + skip further processing of this field
+            // expression: error for API v1; allowed for API v2 (skip static field validation)
             if (fv != null && fv.type == FieldValueType.EXPRESSION) {
-                issues.add(new BpmnElementLintItem(
-                        LinterSeverity.ERROR, LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL,
-                        elementId, bpmnFile, processId,
-                        "Field injection '" + fieldName + "' is provided as expression, expected string literal")); //todo in api v2 is allowed
+                if (ApiVersionHolder.getVersion() == ApiVersion.V2) {
+                    issues.add(BpmnElementLintItem.success(
+                            elementId,
+                            bpmnFile,
+                            processId,
+                            "Field injection '" + fieldName + "' provided as expression (allowed for API v2)"));
+                } else {
+                    issues.add(new BpmnElementLintItem(
+                            LinterSeverity.ERROR, LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL,
+                            elementId, bpmnFile, processId,
+                            "Field injection '" + fieldName + "' is provided as expression, expected string literal"));
+                }
                 continue;
             }
 
@@ -328,7 +338,7 @@ public class BpmnFieldInjectionLinter {
                 case "profile" -> {
                     checkProfileField(elementId, bpmnFile, processId, issues, literal, projectRoot);
                     profileVal = literal;
-                    if (!isEmpty(literal) && locator.structureDefinitionExists(literal, projectRoot)) {
+                    if (!isEmpty(literal) && locator.structureDefinitionExists(literal)) {
                         structureFoundForProfile = true;
                         issues.add(BpmnElementLintItem.success(
                                 elementId,
@@ -350,7 +360,7 @@ public class BpmnFieldInjectionLinter {
                     }
                 }
                 case "instantiatesCanonical" -> {
-                    checkInstantiatesCanonicalField(elementId, literal, bpmnFile, processId, issues, projectRoot);
+                    checkInstantiatesCanonicalField(elementId, literal, bpmnFile, processId, issues);
                     instantiatesVal = literal;
                 }
                 default -> issues.add(new BpmnElementLintItem(
@@ -390,7 +400,7 @@ public class BpmnFieldInjectionLinter {
                                            String instantiatesVal,
                                            String messageNameVal) {
         var locator = FhirResourceLocator.create(projectRoot);
-        File structureFile = locator.findStructureDefinitionFile(profileVal, projectRoot);
+        File structureFile = locator.findStructureDefinitionFile(profileVal);
         if (structureFile == null) return; // Warn already added earlier.
 
         try {
@@ -495,7 +505,7 @@ public class BpmnFieldInjectionLinter {
                     "Profile field contains a version placeholder: '" + literalValue + "'"));
         }
 
-        if (!locator.structureDefinitionExists(literalValue, projectRoot)) {
+        if (!locator.structureDefinitionExists(literalValue)) {
             issues.add(new BpmnElementLintItem(LinterSeverity.WARN,
                     LintingType.BPMN_NO_STRUCTURE_DEFINITION_FOUND_FOR_MESSAGE,
                     elementId, bpmnFile, processId,
@@ -515,15 +525,13 @@ public class BpmnFieldInjectionLinter {
      * @param bpmnFile    the BPMN file under lint
      * @param processId   the identifier of the BPMN process containing the element
      * @param issues      the list of {@link BpmnElementLintItem} to which lint issues or success items will be added
-     * @param projectRoot the project root directory containing FHIR resources
      */
     public static void checkInstantiatesCanonicalField(
             String elementId,
             String literalValue,
             File bpmnFile,
             String processId,
-            List<BpmnElementLintItem> issues,
-            File projectRoot) {
+            List<BpmnElementLintItem> issues) {
 
         if (isEmpty(literalValue)) {
             issues.add(new BpmnElementLintItem(LinterSeverity.ERROR,

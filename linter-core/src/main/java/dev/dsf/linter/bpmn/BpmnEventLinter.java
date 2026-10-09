@@ -1,6 +1,7 @@
 package dev.dsf.linter.bpmn;
 
 import dev.dsf.linter.output.item.BpmnElementLintItem;
+import dev.dsf.linter.util.bpmn.BpmnModelUtils;
 import dev.dsf.linter.util.bpmn.linters.*;
 import org.camunda.bpm.model.bpmn.instance.*;
 
@@ -193,8 +194,7 @@ public record BpmnEventLinter(File projectRoot) {
             File bpmnFile,
             String processId) {
 
-        if (!startEvent.getEventDefinitions().isEmpty()
-                && startEvent.getEventDefinitions().iterator().next() instanceof MessageEventDefinition) {
+        if (BpmnModelUtils.isMessageStartEvent(startEvent)) {
             BpmnStartEventLinter.lintMessageStartEvent(startEvent, issues, bpmnFile, processId, projectRoot);
         } else {
             BpmnStartEventLinter.lintGenericStartEvent(startEvent, issues, bpmnFile, processId, projectRoot);

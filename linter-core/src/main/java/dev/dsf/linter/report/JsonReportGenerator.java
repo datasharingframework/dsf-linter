@@ -218,7 +218,7 @@ public class JsonReportGenerator {
         List<String> getterNames = Arrays.asList(
                 "getElementId", "getProcessId", "getDescription", "getBpmnFile",
                 "getFhirReference", "getIssueType", "getResourceId", "getResourceFile",
-                "getFileName", "getLocation", "getMessage"
+                "getFileName", "getLocation", "getMessage", "getFlowElementType"
         );
 
         for (String getterName : getterNames) {

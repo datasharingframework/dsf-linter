@@ -133,6 +133,20 @@ public class FhirResourceExtractor {
     }
 
     /**
+     * Checks whether the given ValueSet {@link Document} contains a {@code <url>} element
+     * whose {@code value} attribute exactly matches the provided canonical URL.
+     *
+     * @param doc the parsed XML {@link Document} representing a FHIR ValueSet
+     * @param url the canonical URL to search for (without version suffix)
+     * @return {@code true} if a matching {@code <url value="...">} element exists; {@code false} otherwise
+     * @throws XPathExpressionException if an XPath evaluation error occurs
+     */
+    public boolean valueSetContainsUrl(Document doc, String url) throws XPathExpressionException {
+        return evaluateXPathExists(doc,
+                "/*[local-name()='ValueSet']/*[local-name()='url' and @value='" + url + "']");
+    }
+
+    /**
      * Checks whether the given Questionnaire {@link Document} contains a {@code <url>} element
      * whose {@code value} attribute exactly matches the provided canonical URL.
      *

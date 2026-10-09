@@ -481,6 +481,126 @@
                 font-size: 1.3rem;
             }
         }
+
+        /* ── File Viewer Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 92%;
+            max-width: 1050px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.9rem 1.4rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            color: var(--primary-glow);
+            font-weight: 600;
+            font-size: 0.95rem;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .modal-close {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            transition: color 0.2s, border-color 0.2s;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        .modal-close:hover {
+            color: var(--error-color);
+            border-color: var(--error-color);
+        }
+
+        .modal-body {
+            overflow: auto;
+            flex: 1;
+            padding: 1.2rem 1.5rem;
+        }
+
+        .file-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.65;
+            color: var(--text-color);
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .file-content mark {
+            background: rgba(255, 215, 0, 0.35);
+            color: var(--text-color);
+            border-radius: 2px;
+            padding: 0 2px;
+            outline: 1px solid rgba(255, 215, 0, 0.6);
+        }
+
+        .lint-item[data-file] {
+            cursor: pointer;
+        }
+
+        .lint-item[data-file]:hover .detail-label::first-line,
+        .lint-item[data-file] .view-source-hint {
+            display: inline;
+        }
+
+        .view-source-hint {
+            float: right;
+            font-size: 0.75rem;
+            color: var(--primary-glow);
+            opacity: 0.7;
+            font-family: 'Exo 2', sans-serif;
+            font-style: italic;
+            margin-top: 0.1rem;
+        }
+
+        .lint-item[data-file]:hover .view-source-hint {
+            opacity: 1;
+        }
+
+        .dashboard-card--clickable {
+            cursor: pointer;
+        }
+
+        .dashboard-card--clickable:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary-glow);
+            box-shadow:
+                0 20px 40px rgba(0, 0, 0, 0.3),
+                0 0 40px rgba(99, 199, 166, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -505,19 +625,19 @@
 </div>
 
 <div class="dashboard">
-    <div class="dashboard-card">
+    <div class="dashboard-card dashboard-card--clickable" onclick="scrollToSection('success-section')">
         <div class="number" style="color: var(--success-color);" th:text="${successCount}">42</div>
         <div class="label">Success</div>
     </div>
-    <div class="dashboard-card">
+    <div class="dashboard-card dashboard-card--clickable" onclick="scrollToSection('error-section')">
         <div class="number" style="color: var(--error-color);" th:text="${errorCount}">3</div>
         <div class="label">Errors</div>
     </div>
-    <div class="dashboard-card">
+    <div class="dashboard-card dashboard-card--clickable" onclick="scrollToSection('warning-section')">
         <div class="number" style="color: var(--warning-color);" th:text="${warningCount}">7</div>
         <div class="label">Warnings</div>
     </div>
-    <div class="dashboard-card">
+    <div class="dashboard-card dashboard-card--clickable" onclick="scrollToSection('info-section')">
         <div class="number" style="color: var(--info-color);" th:text="${infoCount}">12</div>
         <div class="label">Info</div>
     </div>
@@ -534,8 +654,12 @@
 <div th:if="${itemsBySeverity['ERROR'].size() > 0}" class="lint-section error-section">
     <h2>Errors (<span th:text="${itemsBySeverity['ERROR'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['ERROR']}" class="lint-item error">
+        <div th:each="item : ${itemsBySeverity['ERROR']}"
+             class="lint-item error"
+             th:attr="data-file=${item.sourceFile}, data-target=${item.highlightTarget}"
+             onclick="openFileViewer(this)">
             <span class="severity-badge">ERROR</span>
+            <span th:if="${item.sourceFile != null}" class="view-source-hint">View in source ›</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
                     <div class="detail-label">Element ID</div>
@@ -589,8 +713,12 @@
 <div th:if="${itemsBySeverity['WARN'].size() > 0}" class="lint-section warning-section">
     <h2>Warnings (<span th:text="${itemsBySeverity['WARN'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['WARN']}" class="lint-item warning">
+        <div th:each="item : ${itemsBySeverity['WARN']}"
+             class="lint-item warning"
+             th:attr="data-file=${item.sourceFile}, data-target=${item.highlightTarget}"
+             onclick="openFileViewer(this)">
             <span class="severity-badge">Warning</span>
+            <span th:if="${item.sourceFile != null}" class="view-source-hint">View in source ›</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
                     <div class="detail-label">Element ID</div>
@@ -644,8 +772,12 @@
 <div th:if="${itemsBySeverity['INFO'].size() > 0}" class="lint-section info-section">
     <h2>Information (<span th:text="${itemsBySeverity['INFO'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['INFO']}" class="lint-item info">
+        <div th:each="item : ${itemsBySeverity['INFO']}"
+             class="lint-item info"
+             th:attr="data-file=${item.sourceFile}, data-target=${item.highlightTarget}"
+             onclick="openFileViewer(this)">
             <span class="severity-badge">Info</span>
+            <span th:if="${item.sourceFile != null}" class="view-source-hint">View in source ›</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
                     <div class="detail-label">Element ID</div>
@@ -699,8 +831,12 @@
 <div th:if="${itemsBySeverity['SUCCESS'].size() > 0}" class="lint-section success-section">
     <h2>Successful Checks (<span th:text="${itemsBySeverity['SUCCESS'].size()}">0</span>)</h2>
     <div class="items-container">
-        <div th:each="item : ${itemsBySeverity['SUCCESS']}" class="lint-item success">
+        <div th:each="item : ${itemsBySeverity['SUCCESS']}"
+             class="lint-item success"
+             th:attr="data-file=${item.sourceFile}, data-target=${item.highlightTarget}"
+             onclick="openFileViewer(this)">
             <span class="severity-badge">Success</span>
+            <span th:if="${item.sourceFile != null}" class="view-source-hint">View in source ›</span>
             <div class="details">
                 <div class="detail-row" th:if="${item.elementId != null}">
                     <div class="detail-label">Element ID</div>
@@ -755,15 +891,32 @@
     <div class="no-items">No lint items to display</div>
 </div>
 
+<!-- File Viewer Modal -->
+<div id="file-viewer-modal" class="modal-overlay" style="display:none" onclick="handleModalOverlayClick(event)">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span id="file-viewer-title" class="modal-title"></span>
+            <button class="modal-close" onclick="closeFileViewer()">✕ Close</button>
+        </div>
+        <div class="modal-body">
+            <pre id="file-viewer-content" class="file-content"></pre>
+        </div>
+    </div>
+</div>
+
 <div class="back-container">
-    <a href="../report.html" class="back-link">← Back to Master Report</a>
+    <a th:href="${masterReportHref}" class="back-link">← Back to Master Report</a>
 </div>
 
 <div class="footer">
     <p>Detailed linter report for individual plugin analysis</p>
 </div>
 
-<script>
+<script th:inline="javascript">
+    /* ── File contents map (filename → raw text), serialised by Thymeleaf ── */
+    const FILE_CONTENTS = /*[[${fileContents}]]*/ {};
+
+    /* ── Theme ── */
     function initTheme() {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -789,6 +942,20 @@
         }
     }
 
+    /* ── Dashboard card → scroll to section ── */
+    function scrollToSection(sectionClass) {
+        const section = document.querySelector('.' + sectionClass);
+        if (!section) return;
+        const content = section.querySelector('.items-container');
+        if (content && content.style.display !== 'block') {
+            content.style.display = 'block';
+            const h2 = section.querySelector('h2');
+            if (h2) h2.classList.add('open');
+        }
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* ── Collapsible sections ── */
     function initCollapsibleSections() {
         const headers = document.querySelectorAll('.lint-section > h2');
         headers.forEach(header => {
@@ -807,6 +974,62 @@
             });
         });
     }
+
+    /* ── File Viewer ── */
+    function openFileViewer(el) {
+        const fileName = el.dataset.file;
+        if (!fileName) return;
+        const content = FILE_CONTENTS[fileName];
+        if (!content) return;
+
+        const target = el.dataset.target || '';
+
+        const pre = document.getElementById('file-viewer-content');
+        const titleEl = document.getElementById('file-viewer-title');
+        if (titleEl) titleEl.textContent = fileName;
+
+        const escaped = content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        let highlighted = escaped;
+        if (target.trim()) {
+            highlighted = escaped.replace(
+                new RegExp(escapeRegex(target.trim()), 'g'),
+                '<mark>$&</mark>'
+            );
+        }
+        pre.innerHTML = highlighted;
+
+        const modal = document.getElementById('file-viewer-modal');
+        modal.style.display = 'flex';
+
+        setTimeout(() => {
+            const firstMark = pre.querySelector('mark');
+            if (firstMark) {
+                firstMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        }, 60);
+    }
+
+    function closeFileViewer() {
+        document.getElementById('file-viewer-modal').style.display = 'none';
+    }
+
+    function handleModalOverlayClick(event) {
+        if (event.target === document.getElementById('file-viewer-modal')) {
+            closeFileViewer();
+        }
+    }
+
+    function escapeRegex(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeFileViewer();
+    });
 
     initTheme();
     document.addEventListener('DOMContentLoaded', initCollapsibleSections);

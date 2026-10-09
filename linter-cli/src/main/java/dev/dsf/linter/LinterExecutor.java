@@ -1,5 +1,6 @@
 package dev.dsf.linter;
 
+import dev.dsf.linter.exclusion.ExclusionConfig;
 import dev.dsf.linter.logger.Logger;
 
 import java.nio.file.Path;
@@ -22,26 +23,29 @@ public class LinterExecutor {
     private final boolean generateHtmlReport;
     private final boolean generateJsonReport;
     private final boolean failOnErrors;
+    private final ExclusionConfig exclusionConfig;
     private final Logger logger;
 
     /**
      * Constructs a new LinterExecutor with the specified parameters.
      *
-     * @param projectPath the path to the project to lint
-     * @param reportPath the path where reports should be generated
+     * @param projectPath        the path to the project to lint
+     * @param reportPath         the path where reports should be generated
      * @param generateHtmlReport whether to generate an HTML report
      * @param generateJsonReport whether to generate a JSON report
-     * @param failOnErrors whether to fail (exit code 1) if errors are found
-     * @param logger the logger for output
+     * @param failOnErrors       whether to fail (exit code 1) if errors are found
+     * @param exclusionConfig    optional exclusion config; {@code null} disables exclusions
+     * @param logger             the logger for output
      */
     public LinterExecutor(Path projectPath, Path reportPath,
                           boolean generateHtmlReport, boolean generateJsonReport,
-                          boolean failOnErrors, Logger logger) {
+                          boolean failOnErrors, ExclusionConfig exclusionConfig, Logger logger) {
         this.projectPath = projectPath;
         this.reportPath = reportPath;
         this.generateHtmlReport = generateHtmlReport;
         this.generateJsonReport = generateJsonReport;
         this.failOnErrors = failOnErrors;
+        this.exclusionConfig = exclusionConfig;
         this.logger = logger;
     }
 
@@ -63,6 +67,7 @@ public class LinterExecutor {
                 generateHtmlReport,
                 generateJsonReport,
                 failOnErrors,
+                exclusionConfig,
                 logger
         );
 

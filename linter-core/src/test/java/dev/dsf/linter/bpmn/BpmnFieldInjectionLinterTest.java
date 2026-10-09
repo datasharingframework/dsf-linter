@@ -3,6 +3,8 @@ package dev.dsf.linter.bpmn;
 import dev.dsf.linter.output.LinterSeverity;
 import dev.dsf.linter.output.LintingType;
 import dev.dsf.linter.output.item.BpmnElementLintItem;
+import dev.dsf.linter.util.api.ApiVersion;
+import dev.dsf.linter.util.api.ApiVersionHolder;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.EndEvent;
@@ -12,6 +14,8 @@ import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaField;
 import org.camunda.bpm.model.bpmn.instance.camunda.CamundaString;
 import org.junit.jupiter.api.*;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
@@ -73,7 +77,7 @@ public class BpmnFieldInjectionLinterTest {
      * Cleanup method to delete the temporary directory after all tests.
      */
     @AfterAll
-    public static void cleanup() throws IOException {
+    public static void cleanup() {
         if (tempProjectRoot != null && Files.exists(tempProjectRoot)) {
             // Recursively delete temporary directory
             deleteDirectory(tempProjectRoot.toFile());
@@ -120,8 +124,55 @@ public class BpmnFieldInjectionLinterTest {
     }
 
     @Test
-    @DisplayName("Test camunda:field with expression => triggers NotStringLiteral issue")
-    public void testFieldWithExpressionTriggersError() {
+    @DisplayName("Test camunda:field with expression (API v1) => triggers NotStringLiteral issue")
+    public void testFieldWithExpressionTriggersErrorForApiV1() {
+        try (MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
+            mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V1);
+            assertFieldWithExpressionTriggersNotStringLiteralError();
+        }
+    }
+
+    @Test
+    @DisplayName("Test camunda:field with expression (API v2) => no NotStringLiteral issue")
+    public void testFieldWithExpressionAllowedForApiV2() {
+        try (MockedStatic<ApiVersionHolder> mockedApiHolder = Mockito.mockStatic(ApiVersionHolder.class)) {
+            mockedApiHolder.when(ApiVersionHolder::getVersion).thenReturn(ApiVersion.V2);
+
+            BpmnModelInstance model = Bpmn
+                    .createProcess("testProcessExpressionsV2")
+                    .startEvent()
+                    .serviceTask("serviceTaskWithExprV2")
+                    .endEvent()
+                    .done();
+
+            ServiceTask serviceTask = model.getModelElementById("serviceTaskWithExprV2");
+            ExtensionElements extensionElements = model.newInstance(ExtensionElements.class);
+            serviceTask.addChildElement(extensionElements);
+
+            CamundaField field = model.newInstance(CamundaField.class);
+            field.setCamundaName("profile");
+            field.setCamundaExpression("${someExpression}");
+            extensionElements.addChildElement(field);
+
+            List<BpmnElementLintItem> issues = new ArrayList<>();
+            BpmnFieldInjectionLinter.lintMessageSendFieldInjections(
+                    serviceTask, issues, bpmnFile, "testProcessExpressionsV2", projectRoot
+            );
+
+            assertTrue(
+                    nonSuccess(issues).stream()
+                            .noneMatch(i -> i.getType() == LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL),
+                    "Expression-based field injection must not trigger NOT_STRING_LITERAL for API v2");
+            assertTrue(
+                    issues.stream().anyMatch(i ->
+                            i.getSeverity() == LinterSeverity.SUCCESS
+                                    && i.getDescription() != null
+                                    && i.getDescription().contains("expression")),
+                    "Expected a success item acknowledging expression for API v2");
+        }
+    }
+
+    private void assertFieldWithExpressionTriggersNotStringLiteralError() {
         BpmnModelInstance model = Bpmn
                 .createProcess("testProcessExpressions")
                 .startEvent()
@@ -151,7 +202,7 @@ public class BpmnFieldInjectionLinterTest {
 
         // We expect exactly 1 issue => type BPMN_FIELD_INJECTION_NOT_STRING_LITERAL
         assertEquals(1, issues.size(), "Expected exactly one lint issue for an expression-based field");
-        assertEquals(LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL, issues.get(0).getType(),
+        assertEquals(LintingType.BPMN_FIELD_INJECTION_NOT_STRING_LITERAL, issues.getFirst().getType(),
                 "Expected the issue to be of type BPMN_FIELD_INJECTION_NOT_STRING_LITERAL");
     }
 
@@ -266,7 +317,7 @@ public class BpmnFieldInjectionLinterTest {
 
         assertEquals(1, issues.size(),
                 "Expected one issue due to empty messageName in nested MessageEventDefinition");
-        assertEquals(LintingType.BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY, issues.get(0).getType(),
+        assertEquals(LintingType.BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY, issues.getFirst().getType(),
                 "Expected the issue to be of type BPMN_FIELD_INJECTION_MESSAGE_VALUE_EMPTY");
     }
 }

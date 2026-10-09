@@ -138,8 +138,7 @@ public class JsonSupportTest {
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
-        assertThrows(IOException.class, linter::lint,
-                "Should fail linting for incomplete project structure (Maven build failure)");
+        NoPluginAssertions.assertNoPluginReported(linter, "Should fail linting for incomplete project structure (Maven build failure)");
     }
 
     @Test
@@ -154,8 +153,7 @@ public class JsonSupportTest {
                 new NoOpLogger()
         );
         DsfLinter linter = new DsfLinter(config);
-        assertThrows(IOException.class, linter::lint,
-                "Should fail during ProcessPluginDefinition discovery");
+        NoPluginAssertions.assertNoPluginReported(linter, "Should fail during ProcessPluginDefinition discovery");
     }
 
     private void createMinimalMavenProject() throws IOException {

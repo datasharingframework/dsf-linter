@@ -62,6 +62,7 @@ class TestBpmnModelLinter {
     void testServiceTaskNoNameNoImplementation() {
         BpmnModelInstance model = Bpmn.createExecutableProcess(dummyProcessId)
                 .startEvent("start")
+                .message("startMessage")
                 .serviceTask("serviceTaskNoNameNoClass") // no .name() => name is empty
                 .endEvent("end")
                 .done();
@@ -112,6 +113,7 @@ class TestBpmnModelLinter {
     void testErrorBoundaryEventNoErrorCode() {
         BpmnModelInstance model = Bpmn.createExecutableProcess(dummyProcessId)
                 .startEvent("start")
+                .message("startMessage")
                 .userTask("someTask")
                 .name("User Task For Boundary")
                 .boundaryEvent("errorBoundary")
@@ -145,6 +147,7 @@ class TestBpmnModelLinter {
     void testExclusiveGatewayMultipleFlowsNoNames() {
         BpmnModelInstance model = Bpmn.createExecutableProcess(dummyProcessId)
                 .startEvent("start")
+                .message("startMessage")
                 .exclusiveGateway("gateway")
                 .sequenceFlowId("flow1").condition("cond1", "#{someCondition == true}") // no .name()
                 .endEvent("end1")
@@ -183,10 +186,19 @@ class TestBpmnModelLinter {
         process.setExecutable(true);
         definitions.addChildElement(process);
 
-        // Add a StartEvent to the process
+        // Add a message StartEvent to the process
         StartEvent startEvent = model.newInstance(StartEvent.class);
         startEvent.setId("start");
         process.addChildElement(startEvent);
+
+        Message message = model.newInstance(Message.class);
+        message.setId("Message_start");
+        message.setName("startMessage");
+        definitions.addChildElement(message);
+
+        MessageEventDefinition messageDef = model.newInstance(MessageEventDefinition.class);
+        messageDef.setMessage(message);
+        startEvent.addChildElement(messageDef);
 
         // Create a multi-instance SubProcess (without asyncBefore)
         SubProcess subProcess = model.newInstance(SubProcess.class);
@@ -248,6 +260,7 @@ class TestBpmnModelLinter {
     void testUserTaskNoName() {
         BpmnModelInstance model = Bpmn.createExecutableProcess(dummyProcessId)
                 .startEvent("start")
+                .message("startMessage")
                 .userTask("userTaskNoName") // no .name()
                 .endEvent("end")
                 .done();
@@ -270,6 +283,7 @@ class TestBpmnModelLinter {
     void testSendTaskNoName() {
         BpmnModelInstance model = Bpmn.createExecutableProcess(dummyProcessId)
                 .startEvent("start")
+                .message("startMessage")
                 .sendTask("sendTaskNoName") // no .name()
                 .endEvent("end")
                 .done();

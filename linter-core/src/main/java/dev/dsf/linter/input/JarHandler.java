@@ -3,6 +3,7 @@ package dev.dsf.linter.input;
 import dev.dsf.linter.logger.Logger;
 
 import java.io.*;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.*;
@@ -146,9 +147,21 @@ public class JarHandler {
             // Cleanup on failure
             deleteDirectoryRecursively(extractDir);
             throw e;
+        } finally {
+            // For remote JARs the downloaded temp file is no longer needed after extraction
+            if (isRemote) {
+                try {
+                    Files.deleteIfExists(jarFile);
+                } catch (IOException _deleteEx) {
+                    logger.warn("Could not delete temporary download file: " + jarFile + ": " + _deleteEx.getMessage());
+                }
+            }
         }
 
-        return new JarProcessingResult(extractDir, jarName, true);
+        // Remote JARs are kept on disk so subsequent runs can be inspected and the
+        // directory is reused (overwritten) on the next invocation with the same URL.
+        // Local JAR extraction directories are temporary and cleaned up after linting.
+        return new JarProcessingResult(extractDir, jarName, !isRemote);
     }
 
     /**
@@ -200,7 +213,7 @@ public class JarHandler {
      * @throws IOException if download fails or connection times out
      */
     private Path downloadJar(String urlString) throws IOException {
-        URL url = new URL(urlString);
+        URL url = java.net.URI.create(urlString).toURL();
         String jarName = extractJarNameFromUrl(urlString);
 
         Path tempJar = Files.createTempFile("dsf-linter-jar-", "-" + jarName);
@@ -248,7 +261,7 @@ public class JarHandler {
      *
      * @param jarFile the JAR file to lint
      * @throws IOException if JAR cannot be read
-     * @throws IllegalStateException if required structure is missing
+     *   (missing structure is only logged as a warning; see {@code NoPluginFoundException} for the error report)
      */
     private void lintJarStructure(Path jarFile) throws IOException, IllegalStateException {
         logger.debug("Linting JAR structure: " + jarFile.getFileName());
@@ -278,19 +291,16 @@ public class JarHandler {
                 }
             }
 
+            // Structural problems are only warned about here: the discovery phase decides whether a plugin
+            // exists and reports "no plugin found" as an ERROR in the lint report (instead of aborting
+            // without any report).
             if (!hasClassFiles) {
-                throw new IllegalStateException(
-                        "Invalid JAR: No compiled classes found. " +
-                                "This does not appear to be a compiled DSF plugin."
-                );
+                logger.warn("JAR contains no compiled classes. This does not appear to be a compiled DSF plugin.");
             }
 
             if (!hasMetaInfServices || !hasPluginDefinition) {
-                throw new IllegalStateException(
-                        "Invalid JAR: Missing META-INF/services/ProcessPluginDefinition. " +
-                                "This does not appear to be a valid DSF plugin. " +
-                                "Ensure the JAR contains proper ServiceLoader registration."
-                );
+                logger.warn("JAR is missing META-INF/services/ProcessPluginDefinition. " +
+                        "Ensure the JAR contains proper ServiceLoader registration.");
             }
 
             logger.debug("JAR structure linting passed");

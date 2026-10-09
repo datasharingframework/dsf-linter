@@ -98,12 +98,24 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
     @Override
     public List<FhirElementLintItem> lint(Document doc, File resFile)
     {
-        final String ref = computeReference(doc, resFile);
+        final String ref = resolveReference(doc, resFile, CS_XP + "/*[local-name()='url']/@value");
         final List<FhirElementLintItem> issues = new ArrayList<>();
 
         checkMeta(doc, resFile, ref, issues);
         checkMandatoryElements(doc, resFile, ref, issues);
-        checkPlaceholders(doc, resFile, ref, issues);
+        checkVersionDatePlaceholders(
+                doc,
+                CS_XP + "/*[local-name()='version']/@value",
+                CS_XP + "/*[local-name()='date']/@value",
+                resFile,
+                ref,
+                LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
+                LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
+                "<version> must contain '#{version}'",
+                "<date> must contain '#{date}'",
+                "<version> placeholder OK",
+                "<date> placeholder OK",
+                issues);
         checkConcepts(doc, resFile, ref, issues);
 
         return issues;
@@ -180,29 +192,6 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
     }
 
     /*
-      3) Placeholder checks (#{version}, #{date})
-      */
-    /**
-     * lints that version and date fields contain their respective DSF placeholders.
-     */
-    private void checkPlaceholders(Document doc, File f, String ref, List<FhirElementLintItem> out)
-    {
-        String version = val(doc, CS_XP + "/*[local-name()='version']/@value");
-        if (version != null && !version.equals("#{version}"))
-            out.add(new FhirElementLintItem(LinterSeverity.ERROR, LintingType.CODE_SYSTEM_VERSION_NO_PLACEHOLDER,
-                    f, ref, "<version> must contain '#{version}'"));
-        else
-            out.add(ok(f, ref, "<version> placeholder OK"));
-
-        String date = val(doc, CS_XP + "/*[local-name()='date']/@value");
-        if (date != null && !date.equals("#{date}"))
-            out.add(new FhirElementLintItem(LinterSeverity.WARN, LintingType.CODE_SYSTEM_DATE_NO_PLACEHOLDER,
-                    f, ref, "<date> must contain '#{date}'"));
-        else
-            out.add(ok(f, ref, "<date> placeholder OK"));
-    }
-
-    /*
       4) Concept checks (code + display + uniqueness)
       */
     /**
@@ -245,19 +234,4 @@ public final class FhirCodeSystemLinter extends AbstractFhirInstanceLinter
             out.add(ok(f, ref, "all concept codes unique ("+seenCodes.size()+")"));
     }
 
-    /*
-      Helper: use url (or filename) as reference for result messages
-      */
-    /**
-     * Computes a reference string used in linter messages, preferring {@code url} over file name.
-     *
-     * @param doc  the parsed XML document
-     * @param file the file the resource was loaded from
-     * @return a user-friendly reference (canonical URL or filename)
-     */
-    private String computeReference(Document doc, File file)
-    {
-        String url = val(doc, CS_XP + "/*[local-name()='url']/@value");
-        return !blank(url) ? url : file.getName();
-    }
 }

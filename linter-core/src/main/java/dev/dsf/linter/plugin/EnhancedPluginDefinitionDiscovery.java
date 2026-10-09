@@ -115,8 +115,11 @@ public final class EnhancedPluginDefinitionDiscovery {
 
         PluginDefinitionDiscovery.DiscoveryContext context = new PluginDefinitionDiscovery.DiscoveryContext();
 
+        List<String> serviceLoaderErrors = new ArrayList<>();
         List<PluginDefinitionDiscovery.PluginAdapter> serviceLoaderPlugins =
-                new ArrayList<>(ServiceLoaderUtils.discoverPluginsViaServiceLoader(cl));
+                new ArrayList<>(ServiceLoaderUtils.discoverPluginsViaServiceLoader(cl, serviceLoaderErrors));
+        serviceLoaderErrors.forEach(message -> context.addFailure(new PluginDiscoveryError(
+                "ServiceLoader", message, PluginDiscoveryError.ErrorType.CLASS_LOADING_FAILED, "META-INF/services")));
 
         if (!serviceLoaderPlugins.isEmpty()) {
             logger.debug("[DEBUG] Found " + serviceLoaderPlugins.size() + " plugin(s) via ServiceLoader");
