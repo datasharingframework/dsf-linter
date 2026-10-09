@@ -15,6 +15,7 @@
     </parent>
 
     <artifactId>linter-core</artifactId>
+    <name>DSF Linter Core</name>
 
     <properties>
         <bytebuddy.version>1.18.9</bytebuddy.version>

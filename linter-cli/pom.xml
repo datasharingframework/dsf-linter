@@ -11,6 +11,7 @@
     </parent>
 
     <artifactId>linter-cli</artifactId>
+    <name>DSF Linter CLI</name>
 
     <properties>
         <!-- linter-cli is an executable fat-JAR, not a library – skip Central publication -->
