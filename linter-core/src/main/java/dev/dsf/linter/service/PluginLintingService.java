@@ -58,10 +58,10 @@ public class PluginLintingService {
         if (found) {
             items.add(createSuccessItem(projectName, apiVersion, pluginAdapter));
         } else {
-            items.add(createErrorItem(projectName, expectedServiceFile));
-            throw new MissingServiceRegistrationException(
-                    formatMissingRegistrationMessage(pluginAdapter, projectPath)
-            );
+            // Report as ERROR item (instead of throwing) so the lint report is still written and the
+            // problem is visible to report consumers.
+            items.add(createErrorItem(projectName, expectedServiceFile, pluginAdapter));
+            logger.error(formatMissingRegistrationMessage(pluginAdapter, projectPath));
         }
 
         return new LintingResult(items);
@@ -317,11 +317,15 @@ public class PluginLintingService {
         return PluginLintItem.success(new File(projectName), "META-INF/services", message.toString());
     }
 
-    private AbstractLintItem createErrorItem(String projectName, String expectedFile) {
+    private AbstractLintItem createErrorItem(String projectName, String expectedFile, PluginAdapter adapter) {
         String message = "ServiceLoader registration not found";
 
         if (expectedFile != null) {
             message += " (expected: " + expectedFile + ")";
+        }
+
+        if (adapter != null) {
+            message += " for " + adapter.sourceClass().getName();
         }
 
         return new PluginLintItem(

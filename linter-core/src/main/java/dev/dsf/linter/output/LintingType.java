@@ -261,6 +261,7 @@ public enum LintingType {
     PLUGIN_DEFINITION_NO_FHIR_RESOURCES_DEFINED("Plugin definition has no FHIR resources defined."),
     PLUGIN_DEFINITION_NO_PROCESS_MODEL_DEFINED("Plugin definition has no process model defined."),
     PLUGIN_DEFINITION_MISSING_SERVICE_LOADER_REGISTRATION("Plugin definition is missing ServiceLoader registration."),
+    PLUGIN_DEFINITION_NO_PLUGIN_FOUND("No ProcessPluginDefinition implementation found."),
     PLUGIN_DEFINITION_PROCESS_PLUGIN_RESOURCE_NOT_LOADED("Plugin definition process plugin resource not loaded."),
     PLUGIN_DEFINITION_UNPARSABLE_BPMN_RESOURCE("Plugin definition BPMN resource could not be parsed."),
     PLUGIN_DEFINITION_UNPARSABLE_FHIR_RESOURCE("Plugin definition FHIR resource could not be parsed."),
