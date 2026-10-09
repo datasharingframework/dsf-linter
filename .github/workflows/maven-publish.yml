@@ -51,4 +51,4 @@ jobs:
       - name: Publish to Maven Central
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: mvn --batch-mode --fail-at-end -P release -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" clean deploy
+        run: mvn --batch-mode --fail-at-end -P publish-to-maven-central -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" clean deploy
