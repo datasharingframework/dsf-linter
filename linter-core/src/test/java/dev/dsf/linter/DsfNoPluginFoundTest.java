@@ -38,6 +38,9 @@ public class DsfNoPluginFoundTest {
     }
 
     private Path createJar(String name, String... entries) throws IOException {
+        if (entries.length % 2 != 0) {
+            throw new IllegalArgumentException("entries must contain pairs of jarEntryName and content");
+        }
         Path jar = tempDir.resolve(name);
         try (OutputStream out = Files.newOutputStream(jar); JarOutputStream jos = new JarOutputStream(out)) {
             for (int i = 0; i < entries.length; i += 2) {
