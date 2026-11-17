@@ -11,7 +11,7 @@
     <parent>
         <groupId>dev.dsf.linter</groupId>
         <artifactId>dsf-linter</artifactId>
-        <version>0.1.3</version>
+        <version>0.1.4-SNAPSHOT</version>
     </parent>
 
     <artifactId>linter-core</artifactId>
