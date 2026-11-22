@@ -18,7 +18,7 @@
     <name>DSF Linter Core</name>
 
     <properties>
-        <bytebuddy.version>1.18.10</bytebuddy.version>
+        <bytebuddy.version>1.18.17</bytebuddy.version>
     </properties>
 
     <dependencies>
@@ -93,7 +93,7 @@
         <dependency>
             <groupId>org.thymeleaf</groupId>
             <artifactId>thymeleaf</artifactId>
-            <version>3.1.5.RELEASE</version>
+            <version>3.1.7.RELEASE</version>
         </dependency>
 
         <dependency>
@@ -134,7 +134,7 @@
         <dependency>
             <groupId>dev.dsf</groupId>
             <artifactId>dsf-bpe-process-api-v2</artifactId>
-            <version>2.1.0</version>
+            <version>2.1.2</version>
             <scope>runtime</scope>
         </dependency>
 
